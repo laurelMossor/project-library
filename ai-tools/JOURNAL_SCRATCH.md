@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Wed 12/17/25 15:54 PST
+Initialized Next.js project manually (App Router, TypeScript, Tailwind CSS). Created core config files: `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`. Set up base `src/app/` structure with layout, page, and global styles. Added `.gitignore` for node_modules and build artifacts. Project is now runnable with `npm run dev`.
+
 #### Entry: Wed 12/17/25 15:38 PST
 I initialized the project plan and a folder with tools for the AI Agent such as the project guidelines with best practices, and the journal for notes about sessions and what has been done. No git or code yet.
 
