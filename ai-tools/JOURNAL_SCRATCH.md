@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Wed 12/17/25 16:03 PST
+Added Prisma ORM with PostgreSQL. Created initial User model in `prisma/schema.prisma` covering auth fields (email, passwordHash, username) and profile fields (name, headline, bio, interests, location). Added `database/README.md` with local PostgreSQL setup instructions. Next: configure local PostgreSQL and run initial migration.
+
 #### Entry: Wed 12/17/25 15:54 PST
 Initialized Next.js project manually (App Router, TypeScript, Tailwind CSS). Created core config files: `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.mjs`. Set up base `src/app/` structure with layout, page, and global styles. Added `.gitignore` for node_modules and build artifacts. Project is now runnable with `npm run dev`.
 
