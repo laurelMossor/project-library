@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Wed 12/17/25 17:34 PST
+Completed Milestone B (User Profile). Created `/profile`, `/profile/edit`, and `/u/[username]` pages with API routes. Added `src/lib/user.ts` utility for reusable profile queries. Fixed session user.id not being passed through by adding NextAuth callback. Added SessionProvider to layout for client-side session access. Added profile link to home page and logged-in banner to login page.
+
 #### Entry: Wed 12/17/25 17:16 PST
 Completed Milestone A (Authentication). Fixed Prisma v7 compatibility by adding `@prisma/adapter-pg` driver adapter. Added protected route middleware using session cookie check (Edge runtime compatible). Created bare-bones `/profile` page for testing auth redirect. Fixed Tailwind v4 PostCSS config and module format issues.
 
