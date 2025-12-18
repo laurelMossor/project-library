@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Wed 12/17/25 17:16 PST
+Completed Milestone A (Authentication). Fixed Prisma v7 compatibility by adding `@prisma/adapter-pg` driver adapter. Added protected route middleware using session cookie check (Edge runtime compatible). Created bare-bones `/profile` page for testing auth redirect. Fixed Tailwind v4 PostCSS config and module format issues.
+
 #### Entry: Wed 12/17/25 16:54 PST
 Implemented authentication (Milestone A). Added NextAuth with credentials provider, bcrypt password hashing, signup API route, and login/signup pages. Created Prisma client singleton in `src/lib/`. Auth flow: signup creates user with hashed password, login validates credentials against database.
 

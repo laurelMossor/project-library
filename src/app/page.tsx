@@ -13,12 +13,10 @@ export default async function Home() {
 					<p className="text-lg text-gray-600">
 						Logged in as <span className="font-medium">{session.user?.email}</span>
 					</p>
-					<Link
-						href="/api/auth/signout"
-						className="mt-4 inline-block underline"
-					>
-						Log out
-					</Link>
+					<div className="mt-4 flex gap-4 justify-center">
+						<Link href="/profile" className="underline">Profile</Link>
+						<Link href="/api/auth/signout" className="underline">Log out</Link>
+					</div>
 				</div>
 			) : (
 				<div className="mt-6 flex gap-4">

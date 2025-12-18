@@ -1,10 +1,12 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
+	const { data: session } = useSession();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
@@ -29,40 +31,48 @@ export default function LoginPage() {
 
 	return (
 		<main className="flex min-h-screen items-center justify-center p-4">
-			<form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-				<h1 className="text-2xl font-bold">Log In</h1>
+			<div className="w-full max-w-sm space-y-4">
+				{session && (
+					<div className="bg-gray-100 p-3 rounded text-sm text-center">
+						Logged in as {session.user?.email}.{" "}
+						<Link href="/profile" className="underline">Go to profile</Link>
+					</div>
+				)}
 
-				{error && <p className="text-red-500">{error}</p>}
+				<form onSubmit={handleSubmit} className="space-y-4">
+					<h1 className="text-2xl font-bold">Log In</h1>
 
-				<input
-					type="email"
-					placeholder="Email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					className="w-full border p-2 rounded"
-					required
-				/>
-				<input
-					type="password"
-					placeholder="Password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					className="w-full border p-2 rounded"
-					required
-				/>
-				<button
-					type="submit"
-					className="w-full bg-black text-white p-2 rounded"
-				>
-					Log In
-				</button>
+					{error && <p className="text-red-500">{error}</p>}
 
-				<p className="text-sm text-center">
-					Don't have an account?{" "}
-					<a href="/signup" className="underline">Sign up</a>
-				</p>
-			</form>
+					<input
+						type="email"
+						placeholder="Email"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						className="w-full border p-2 rounded"
+						required
+					/>
+					<input
+						type="password"
+						placeholder="Password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						className="w-full border p-2 rounded"
+						required
+					/>
+					<button
+						type="submit"
+						className="w-full bg-black text-white p-2 rounded"
+					>
+						Log In
+					</button>
+
+					<p className="text-sm text-center">
+						Don't have an account?{" "}
+						<a href="/signup" className="underline">Sign up</a>
+					</p>
+				</form>
+			</div>
 		</main>
 	);
 }
-

@@ -36,5 +36,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 	pages: {
 		signIn: "/login",
 	},
+	callbacks: {
+		// Include user.id in the session so we can use it in server components
+		async session({ session, token }) {
+			if (token?.sub) {
+				session.user.id = token.sub;
+			}
+			return session;
+		},
+	},
 });
 

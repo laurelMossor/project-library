@@ -1,0 +1,40 @@
+import { prisma } from "./prisma";
+
+// Standard fields to select when fetching a user profile
+const profileFields = {
+	id: true,
+	username: true,
+	email: true,
+	name: true,
+	headline: true,
+	bio: true,
+	interests: true,
+	location: true,
+} as const;
+
+// Public fields (excludes sensitive data like email)
+const publicProfileFields = {
+	username: true,
+	name: true,
+	headline: true,
+	bio: true,
+	interests: true,
+	location: true,
+} as const;
+
+// Fetch a user by ID (for authenticated user's own profile)
+export async function getUserById(id: string) {
+	return prisma.user.findUnique({
+		where: { id },
+		select: profileFields,
+	});
+}
+
+// Fetch a user by username (for public profile pages)
+export async function getUserByUsername(username: string) {
+	return prisma.user.findUnique({
+		where: { username },
+		select: publicProfileFields,
+	});
+}
+

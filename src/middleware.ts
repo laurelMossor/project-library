@@ -12,9 +12,11 @@ export function middleware(req: NextRequest) {
 		pathname.startsWith(route)
 	);
 
-	// Check for session cookie (NextAuth stores session in this cookie)
+	// Check for session cookie (NextAuth v5 uses these cookie names)
 	const sessionCookie = req.cookies.get("authjs.session-token") ||
-		req.cookies.get("__Secure-authjs.session-token");
+		req.cookies.get("__Secure-authjs.session-token") ||
+		req.cookies.get("next-auth.session-token") ||
+		req.cookies.get("__Secure-next-auth.session-token");
 
 	// If protected and no session cookie, redirect to login
 	if (isProtected && !sessionCookie) {
