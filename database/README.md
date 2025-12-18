@@ -40,6 +40,16 @@ npx prisma migrate dev --name init
 
 ---
 
+## PostgreSQL Direct Commands
+
+```bash
+psql projectlibrary        # Connect to database via terminal
+createdb <name>            # Create a new database
+dropdb <name>              # Delete a database
+```
+
+---
+
 ## Switching to Hosted (later)
 
 Replace the `DATABASE_URL` in `.env` with your hosted provider's connection string:
