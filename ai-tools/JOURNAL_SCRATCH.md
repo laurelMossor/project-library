@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Wed 12/17/25 16:54 PST
+Implemented authentication (Milestone A). Added NextAuth with credentials provider, bcrypt password hashing, signup API route, and login/signup pages. Created Prisma client singleton in `src/lib/`. Auth flow: signup creates user with hashed password, login validates credentials against database.
+
 #### Entry: Wed 12/17/25 16:33 PST
 Connected local PostgreSQL to Prisma. Fixed Prisma v7 config issue (URL moved from `schema.prisma` to `prisma.config.ts`). Ran first migration successfully—`users` table now exists in local database. Updated `.env` with correct connection string format for local dev.
 
