@@ -1,9 +1,41 @@
-export default function Home() {
+import { auth } from "@/lib/auth";
+import Link from "next/link";
+
+export default async function Home() {
+	const session = await auth();
+
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-24">
 			<h1 className="text-4xl font-bold">Project Library</h1>
-			<p className="mt-4 text-lg text-gray-600">Coming soon...</p>
+
+			{session ? (
+				<div className="mt-6 text-center">
+					<p className="text-lg text-gray-600">
+						Logged in as <span className="font-medium">{session.user?.email}</span>
+					</p>
+					<Link
+						href="/api/auth/signout"
+						className="mt-4 inline-block underline"
+					>
+						Log out
+					</Link>
+				</div>
+			) : (
+				<div className="mt-6 flex gap-4">
+					<Link
+						href="/login"
+						className="px-4 py-2 bg-black text-white rounded"
+					>
+						Log In
+					</Link>
+					<Link
+						href="/signup"
+						className="px-4 py-2 border border-black rounded"
+					>
+						Sign Up
+					</Link>
+				</div>
+			)}
 		</main>
 	);
 }
-

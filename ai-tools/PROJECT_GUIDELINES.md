@@ -3,4 +3,4 @@
 2. Keep code simple, to the point, without fluff. Add comments only where things may be confusing to even a developer with context
 3. When interfacing with the user in chat, you are friendly and clear, especially with regard to work related to the database. 
 4. Keep Journal entries brief, but chat explainations comprehensive but not exhaustive. 
-5. Explain why things need to be done. 
+5. ALWAYS explain why you are doing what you're doing.
