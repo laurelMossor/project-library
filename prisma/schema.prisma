@@ -1,0 +1,28 @@
+// Prisma schema for Project Library
+// Defines the database models and their relationships
+
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profiles (Milestone A & B)
+model User {
+	id             String    @id @default(cuid())
+	email          String    @unique
+	passwordHash   String    // bcrypt hashed password
+	username       String    @unique
+	name           String?
+	headline       String?
+	bio            String?
+	interests      String[]  @default([]) // array of interest tags, optional
+	location       String?
+	createdAt      DateTime  @default(now())
+	updatedAt      DateTime  @updatedAt
+
+	@@map("users")
+}
