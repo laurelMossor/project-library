@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Thu 12/18/25 16:59 PST
+Completed pre-Milestone C refactoring and code review. Created `src/lib/errors.ts` with standardized error response helpers (unauthorized, notFound, badRequest, serverError). Created `src/lib/validations.ts` with reusable validation functions for email, username, password, and profile data. Extended `src/lib/user.ts` with `updateUserProfile()` function to extract profile update logic from API routes. Updated `/api/profile` and `/api/auth/signup` routes to use new utility functions for consistency. Documented that DELETE operation is intentionally omitted from MVP. Created comprehensive milestone review document (`ai-tools/MILESTONE_REVIEW.md`) confirming Milestone A and B completion. All refactors improve code maintainability, testability, and consistency. Ready to proceed with Milestone C (Projects).
+
 #### Entry: Wed 12/17/25 17:34 PST
 Completed Milestone B (User Profile). Created `/profile`, `/profile/edit`, and `/u/[username]` pages with API routes. Added `src/lib/user.ts` utility for reusable profile queries. Fixed session user.id not being passed through by adding NextAuth callback. Added SessionProvider to layout for client-side session access. Added profile link to home page and logged-in banner to login page.
 
