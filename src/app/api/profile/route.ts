@@ -1,54 +1,55 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserById } from "@/lib/user";
-import { prisma } from "@/lib/prisma";
+import { getUserById, updateUserProfile } from "@/lib/user";
+import { unauthorized, notFound, badRequest } from "@/lib/errors";
+import { validateProfileData } from "@/lib/validations";
 
 // GET /api/profile - Get current user's profile
 export async function GET() {
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		return unauthorized();
 	}
 
 	const user = await getUserById(session.user.id);
 
 	if (!user) {
-		return NextResponse.json({ error: "User not found" }, { status: 404 });
+		return notFound("User not found");
 	}
 
 	return NextResponse.json(user);
 }
 
 // PUT /api/profile - Update current user's profile
+// Note: DELETE operation is intentionally omitted - account deletion is not part of MVP
 export async function PUT(request: Request) {
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		return unauthorized();
 	}
 
-	const { name, headline, bio, interests, location } = await request.json();
+	const data = await request.json();
+	const { name, headline, bio, interests, location } = data;
 
-	const user = await prisma.user.update({
-		where: { id: session.user.id },
-		data: {
+	// Validate profile data
+	const validation = validateProfileData({ name, headline, bio, interests, location });
+	if (!validation.valid) {
+		return badRequest(validation.error || "Invalid profile data");
+	}
+
+	try {
+		const user = await updateUserProfile(session.user.id, {
 			name,
 			headline,
 			bio,
-			interests: interests || [],
+			interests,
 			location,
-		},
-		select: {
-			id: true,
-			username: true,
-			name: true,
-			headline: true,
-			bio: true,
-			interests: true,
-			location: true,
-		},
-	});
+		});
 
-	return NextResponse.json(user);
+		return NextResponse.json(user);
+	} catch (error) {
+		return badRequest("Failed to update profile");
+	}
 }

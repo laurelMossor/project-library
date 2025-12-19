@@ -38,3 +38,27 @@ export async function getUserByUsername(username: string) {
 	});
 }
 
+// Update a user's profile data
+export async function updateUserProfile(
+	userId: string,
+	data: {
+		name?: string;
+		headline?: string;
+		bio?: string;
+		interests?: string[];
+		location?: string;
+	}
+) {
+	return prisma.user.update({
+		where: { id: userId },
+		data: {
+			name: data.name,
+			headline: data.headline,
+			bio: data.bio,
+			interests: data.interests || [],
+			location: data.location,
+		},
+		select: profileFields,
+	});
+}
+
