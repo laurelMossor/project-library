@@ -1,0 +1,28 @@
+[
+	{
+		"title": "Vintage Quilt Pattern Collection",
+		"description": "A comprehensive collection of traditional and modern quilt patterns, complete with detailed instructions and fabric requirements. Includes patterns for beginner-friendly designs as well as advanced techniques like paper piecing and appliqué. Each pattern includes color suggestions and tips for achieving perfect points and seams.",
+		"tags": ["Quilting", "Patterns", "Traditional Crafts", "Sewing"],
+		"ownerId": 2
+	},
+	{
+		"title": "Botanical Embroidery Kit Series",
+		"description": "A series of embroidery kits featuring botanical designs inspired by local wildflowers. Each kit includes pre-printed fabric, embroidery floss in carefully selected color palettes, needles, and step-by-step instructions. Perfect for beginners and experienced stitchers alike. The designs can be framed or incorporated into larger textile projects.",
+		"tags": ["Embroidery", "Botanical Art", "Kits", "Hand Sewing"],
+		"ownerId": 3
+	},
+	{
+		"title": "Sustainable Yarn Dyeing Workshop",
+		"description": "An online workshop teaching natural dyeing techniques using kitchen scraps and garden plants. Learn to create beautiful, eco-friendly yarn colors using avocado pits, onion skins, and other natural materials. Includes recipes, safety guidelines, and tips for achieving consistent results. Perfect for knitters and fiber artists looking to create custom-colored yarns.",
+		"tags": ["Natural Dyeing", "Workshop", "Sustainable Crafts", "Yarn"],
+		"ownerId": 7
+	},
+	{
+		"title": "Upcycled Denim Tote Bag Pattern",
+		"description": "A detailed pattern and tutorial for creating sturdy tote bags from old denim jeans. Includes instructions for deconstructing jeans, cutting pattern pieces, and assembling a durable bag with reinforced handles. Perfect for beginners and a great way to repurpose worn-out clothing. The pattern includes variations for different bag sizes and handle styles.",
+		"tags": ["Upcycling", "Sewing", "Sustainable Fashion", "Pattern"],
+		"imageUrl": "/uploads/projects/1766126006776-ps68bra.jpeg",
+		"ownerId": 5
+	}
+]
+

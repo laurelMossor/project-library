@@ -1,0 +1,73 @@
+[
+	{
+		"email": "admin@admin.com",
+		"username": "admin",
+		"password": "admin",
+		"name": "LoonyLady",
+		"headline": "Admin",
+		"bio": "Admin",
+		"interests": ["Admin, Crating, Video Games"],
+		"location": "Berkeley, CA"
+	},
+	{
+		"email": "alice@alice.com",
+		"username": "alice",
+		"password": "alice",
+		"name": "Alice Weaver",
+		"headline": "Master Quilter & Textile Artist",
+		"bio": "Passionate about traditional quilting techniques and modern textile art. Love creating intricate patterns and teaching others the craft. Specialize in hand-stitched quilts and fabric collage.",
+		"interests": ["Quilting", "Textile Art", "Hand Sewing", "Fabric Design"],
+		"location": "Portland, OR"
+	},
+	{
+		"email": "bella@bella.com",
+		"username": "bella",
+		"password": "bella",
+		"name": "Bella Stitch",
+		"headline": "Embroidery Artist & Pattern Designer",
+		"bio": "Creating beautiful hand-embroidered pieces and designing original patterns. Focus on botanical motifs and vintage-inspired designs. Always experimenting with new stitches and techniques.",
+		"interests": ["Embroidery", "Pattern Design", "Botanical Art", "Vintage Crafts"],
+		"location": "Savannah, GA"
+	},
+	{
+		"email": "clara@clara.com",
+		"username": "clara",
+		"password": "clara",
+		"name": "Clara Knits",
+		"headline": "Knitting Instructor & Yarn Enthusiast",
+		"bio": "Teaching knitting to beginners and creating complex cable patterns. Passionate about sustainable yarns and helping others discover the joy of knitting. Love designing cozy sweaters and accessories.",
+		"interests": ["Knitting", "Cable Patterns", "Yarn Dyeing", "Sustainable Crafts"],
+		"location": "Burlington, VT"
+	},
+	{
+		"email": "diana@diana.com",
+		"username": "diana",
+		"password": "diana",
+		"name": "Diana Crafts",
+		"headline": "Mixed Media Artist & Upcycling Expert",
+		"bio": "Transforming found materials into beautiful art pieces. Specialize in upcycling fabric scraps, paper, and vintage finds into mixed media collages and home decor. Advocate for sustainable crafting practices.",
+		"interests": ["Upcycling", "Mixed Media", "Paper Crafts", "Sustainable Art"],
+		"location": "Asheville, NC"
+	},
+	{
+		"email": "ella@ella.com",
+		"username": "ella",
+		"password": "ella",
+		"name": "Ella Sews",
+		"headline": "Garment Maker & Tailoring Specialist",
+		"bio": "Creating custom clothing and teaching sewing techniques. Focus on sustainable fashion and well-fitted garments. Love working with natural fibers and helping others build their sewing skills.",
+		"interests": ["Garment Making", "Tailoring", "Sustainable Fashion", "Pattern Making"],
+		"location": "San Francisco, CA"
+	},
+	{
+		"email": "fiona@fiona.com",
+		"username": "fiona",
+		"password": "fiona",
+		"name": "Fiona Artisan",
+		"headline": "Fiber Artist & Natural Dye Expert",
+		"bio": "Working with natural dyes and hand-spun fibers to create unique textile pieces. Passionate about traditional dyeing techniques using plants and natural materials. Create one-of-a-kind scarves and wall hangings.",
+		"interests": ["Natural Dyeing", "Hand Spinning", "Fiber Arts", "Plant-Based Crafts"],
+		"location": "Boulder, CO"
+	}
+]
+
