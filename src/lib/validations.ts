@@ -83,3 +83,59 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 	return { valid: true };
 }
 
+// Project validation utilities
+export interface ProjectData {
+	title: string;
+	description: string;
+	tags?: string[];
+}
+
+export function validateProjectData(data: ProjectData): { valid: boolean; error?: string } {
+	// Validate title: required, 1-200 characters
+	if (!data.title || typeof data.title !== "string") {
+		return { valid: false, error: "Title is required" };
+	}
+	if (data.title.trim().length === 0) {
+		return { valid: false, error: "Title cannot be empty" };
+	}
+	if (data.title.length > 200) {
+		return { valid: false, error: "Title must be 200 characters or less" };
+	}
+
+	// Validate description: required, 1-5000 characters
+	if (!data.description || typeof data.description !== "string") {
+		return { valid: false, error: "Description is required" };
+	}
+	if (data.description.trim().length === 0) {
+		return { valid: false, error: "Description cannot be empty" };
+	}
+	if (data.description.length > 5000) {
+		return { valid: false, error: "Description must be 5000 characters or less" };
+	}
+
+	// Validate tags: optional array, each tag 1-50 chars, max 10 tags
+	if (data.tags !== undefined && data.tags !== null) {
+		if (!Array.isArray(data.tags)) {
+			return { valid: false, error: "Tags must be an array" };
+		}
+		if (data.tags.length > 10) {
+			return { valid: false, error: "Maximum 10 tags allowed" };
+		}
+		// Validate each tag is a non-empty string, 1-50 characters
+		for (const tag of data.tags) {
+			if (typeof tag !== "string") {
+				return { valid: false, error: "Each tag must be a string" };
+			}
+			const trimmedTag = tag.trim();
+			if (trimmedTag.length === 0) {
+				return { valid: false, error: "Tags cannot be empty" };
+			}
+			if (trimmedTag.length > 50) {
+				return { valid: false, error: "Each tag must be 50 characters or less" };
+			}
+		}
+	}
+
+	return { valid: true };
+}
+

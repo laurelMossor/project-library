@@ -23,5 +23,22 @@ model User {
 	createdAt      DateTime  @default(now())
 	updatedAt      DateTime  @updatedAt
 
+	projects       Project[] // projects owned by this user
+
 	@@map("users")
+}
+
+// Project model for user-created projects (Milestone C)
+model Project {
+	id             String    @id @default(cuid())
+	title          String    // required project title
+	description    String    // required project description
+	tags           String[]  @default([]) // array of project tags, optional
+	ownerId        String    // foreign key to User
+	createdAt      DateTime  @default(now())
+	updatedAt      DateTime  @updatedAt
+
+	owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+	@@map("projects")
 }
