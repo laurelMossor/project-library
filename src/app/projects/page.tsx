@@ -31,11 +31,13 @@ export default function ProjectsPage() {
 		}, 300); // Debounce search by 300ms
 
 		return () => clearTimeout(timeoutId);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [search]);
 
 	// Initial load
 	useEffect(() => {
 		fetchProjects();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	const fetchProjects = async () => {

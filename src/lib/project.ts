@@ -46,6 +46,7 @@ export async function getAllProjects(search?: string) {
 }
 
 // Create a new project for a user
+// Tags are optional - if not provided or empty, defaults to empty array
 export async function createProject(ownerId: string, data: ProjectData) {
 	return prisma.project.create({
 		data: {

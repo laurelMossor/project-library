@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 		const projects = await getAllProjects(search);
 		return NextResponse.json(projects);
 	} catch (error) {
+		console.error("Error fetching projects:", error);
 		return badRequest("Failed to fetch projects");
 	}
 }
@@ -30,14 +31,9 @@ export async function POST(request: Request) {
 	const data = await request.json();
 	const { title, description, tags } = data;
 
-	// Validate project data
-	const validation = validateProjectData({ title, description, tags });
-	if (!validation.valid) {
-		return badRequest(validation.error || "Invalid project data");
-	}
-
 	try {
-		// Process tags: split comma-separated string if needed, trim, and filter empty
+		// Process tags first: normalize to array, trim, and filter empty values
+		// Handles both comma-separated string and array inputs
 		let processedTags: string[] = [];
 		if (tags) {
 			if (typeof tags === "string") {
@@ -47,14 +43,25 @@ export async function POST(request: Request) {
 			}
 		}
 
+		// Validate project data with processed tags (or undefined if no tags)
+		const validation = validateProjectData({
+			title,
+			description,
+			tags: processedTags.length > 0 ? processedTags : undefined,
+		});
+		if (!validation.valid) {
+			return badRequest(validation.error || "Invalid project data");
+		}
+
 		const project = await createProject(session.user.id, {
 			title: title.trim(),
 			description: description.trim(),
-			tags: processedTags,
+			tags: processedTags.length > 0 ? processedTags : undefined,
 		});
 
 		return NextResponse.json(project, { status: 201 });
 	} catch (error) {
+		console.error("Error creating project:", error);
 		return badRequest("Failed to create project");
 	}
 }

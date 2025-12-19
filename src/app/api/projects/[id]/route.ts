@@ -19,6 +19,7 @@ export async function GET(
 
 		return NextResponse.json(project);
 	} catch (error) {
+		console.error("Error fetching project:", error);
 		return notFound("Project not found");
 	}
 }
