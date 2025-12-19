@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getAllProjects, createProject } from "@/lib/project";
-import { unauthorized, badRequest } from "@/lib/errors";
+import { getAllProjects, createProject } from "@/lib/utils/project";
+import { unauthorized, badRequest } from "@/lib/utils/errors";
 import { validateProjectData } from "@/lib/validations";
 
 // GET /api/projects - Get all projects with optional search

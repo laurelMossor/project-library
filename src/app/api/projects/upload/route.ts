@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { unauthorized, badRequest } from "@/lib/errors";
+import { unauthorized, badRequest } from "@/lib/utils/errors";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";

@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Thu 12/18/25 22:42 PST
+Implemented image upload feature for projects (Milestone E - image components). Added `imageUrl` field to Project model in Prisma schema, created migration. Built image upload API route (`/api/projects/upload`) with file validation (type, size limits). Updated project creation form to support image upload with preview. Enhanced project list and detail pages to display images using Next.js Image component. Fixed ESLint configuration issues by creating custom `eslint.config.mjs` with TypeScript, React, and React Hooks support (workaround for Next.js 16.0.10 `next lint` bug). Migrated from `middleware.ts` to `proxy.ts` per Next.js 16 deprecation. Fixed image display issues by switching from `fill` prop to explicit dimensions. Reorganized code structure (moved utilities to `src/lib/utils/`). Added uploads directory to `.gitignore`. Images now display correctly on project listings and detail pages.
+
 #### Entry: Thu 12/18/25 17:56 PST
 Completed Milestone C MVP (Projects). Created plan document (`ai-tools/MILESTONE_C_PLAN.md`). Added Project model to Prisma schema with User relation, ran migration. Created `src/lib/project.ts` with utility functions and extended validations for projects. API routes: GET/POST `/api/projects` (public listing with search, protected create) and GET `/api/projects/[id]`. Frontend: Created `/projects` (public listing), `/projects/new` (protected form), and `/projects/[id]` (public detail) pages. Updated navigation with Projects and New Project links. Standardized auth handling across client and server components.
 

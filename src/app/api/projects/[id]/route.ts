@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getProjectById } from "@/lib/project";
-import { notFound } from "@/lib/errors";
+import { getProjectById } from "@/lib/utils/project";
+import { notFound } from "@/lib/utils/errors";
 
 // GET /api/projects/[id] - Get a single project by ID
 // Public endpoint (no auth required)

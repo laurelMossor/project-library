@@ -1,4 +1,4 @@
-import { getProjectById } from "@/lib/project";
+import { getProjectById } from "@/lib/utils/project";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,13 +19,14 @@ export default async function ProjectDetailPage({ params }: Props) {
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-2xl">
 				{project.imageUrl && (
-					<div className="mb-6 relative w-full h-96 overflow-hidden rounded">
+					<div className="mb-6 w-full h-96 overflow-hidden rounded">
 						<Image
 							src={project.imageUrl}
 							alt={project.title}
-							fill
-							className="object-cover"
-							sizes="(max-width: 768px) 100vw, 800px"
+							width={800}
+							height={384}
+							className="w-full h-full object-cover"
+							unoptimized
 						/>
 					</div>
 				)}

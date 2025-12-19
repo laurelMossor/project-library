@@ -1,4 +1,4 @@
-import { getUserByUsername } from "@/lib/user";
+import { getUserByUsername } from "@/lib/utils/user";
 import { notFound } from "next/navigation";
 
 type Props = {

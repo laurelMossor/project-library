@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserById, updateUserProfile } from "@/lib/user";
-import { unauthorized, notFound, badRequest } from "@/lib/errors";
+import { getUserById, updateUserProfile } from "@/lib/utils/user";
+import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProfileData } from "@/lib/validations";
 
 // GET /api/profile - Get current user's profile

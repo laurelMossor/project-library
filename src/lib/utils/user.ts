@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 
 // Standard fields to select when fetching a user profile
-const profileFields = {
+const personalProfileFields = {
 	id: true,
 	username: true,
 	email: true,
@@ -26,7 +26,7 @@ const publicProfileFields = {
 export async function getUserById(id: string) {
 	return prisma.user.findUnique({
 		where: { id },
-		select: profileFields,
+		select: personalProfileFields,
 	});
 }
 
@@ -58,7 +58,7 @@ export async function updateUserProfile(
 			interests: data.interests || [],
 			location: data.location,
 		},
-		select: profileFields,
+		select: personalProfileFields,
 	});
 }
 

@@ -111,13 +111,14 @@ export default function ProjectsPage() {
 								className="border rounded p-4 hover:shadow-lg transition-shadow cursor-pointer"
 							>
 								{project.imageUrl && (
-									<div className="mb-3 relative w-full h-48 overflow-hidden rounded">
+									<div className="mb-3 w-full h-48 overflow-hidden rounded">
 										<Image
 											src={project.imageUrl}
 											alt={project.title}
-											fill
-											className="object-cover"
-											sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+											width={400}
+											height={192}
+											className="w-full h-full object-cover"
+											unoptimized
 										/>
 									</div>
 								)}

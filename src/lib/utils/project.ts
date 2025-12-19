@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { ProjectData } from "./types/project";
+import { ProjectData } from "../types/project";
 
 // Standard fields to select when fetching a project with owner info
 const projectWithOwnerFields = {
