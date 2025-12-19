@@ -85,7 +85,7 @@ The initial build should stay lean, with clear room for future expansion.
 * `/projects` UI list
 * `/projects/new`
 
-### Milestone D — Matching
+### Milestone D — Matching [ON HOLD]
 
 **Goals:**
 
@@ -101,3 +101,34 @@ The initial build should stay lean, with clear room for future expansion.
 
 * `/api/matches`
 * Matches
+
+
+
+### Milestone E — Enhanced Projects & Messaging
+
+**Goals:**
+
+* Add photo/image support to project postings
+* Enhance project-to-profile navigation
+* Enable direct messaging between users
+
+**Project Enhancements:**
+
+* Image upload for projects (single image for MVP)
+* Improved project cards with images
+* Enhanced navigation between projects and user profiles
+
+**Messaging:**
+
+* Send and receive private messages
+* Simple conversation view
+* Link to message from user profiles
+
+**Deliverables:**
+
+* Image upload in project creation
+* Updated project display with images
+* `/messages` page for viewing conversations
+* `/messages/[userId]` for individual conversation
+* `/api/messages` API routes
+* Message database model 
