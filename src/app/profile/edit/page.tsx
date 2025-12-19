@@ -18,11 +18,18 @@ export default function EditProfilePage() {
 	// Load current profile data
 	useEffect(() => {
 		fetch("/api/profile")
-			.then((res) => res.json())
+			.then((res) => {
+				// Handle auth errors - redirect to login if unauthorized
+				if (res.status === 401) {
+					router.push("/login?callbackUrl=/profile/edit");
+					return;
+				}
+				return res.json();
+			})
 			.then((data) => {
-				if (data.error) {
+				if (data && data.error) {
 					setError(data.error);
-				} else {
+				} else if (data) {
 					setName(data.name || "");
 					setHeadline(data.headline || "");
 					setBio(data.bio || "");
@@ -30,8 +37,12 @@ export default function EditProfilePage() {
 					setLocation(data.location || "");
 				}
 				setLoading(false);
+			})
+			.catch(() => {
+				setError("Failed to load profile");
+				setLoading(false);
 			});
-	}, []);
+	}, [router]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -52,6 +63,11 @@ export default function EditProfilePage() {
 
 		if (!res.ok) {
 			const data = await res.json();
+			// Handle auth errors - redirect to login if unauthorized
+			if (res.status === 401) {
+				router.push("/login?callbackUrl=/profile/edit");
+				return;
+			}
 			setError(data.error || "Failed to save");
 			setSaving(false);
 			return;

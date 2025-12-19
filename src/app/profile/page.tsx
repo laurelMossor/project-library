@@ -4,16 +4,18 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function ProfilePage() {
+	// Middleware protects this route, but we verify session here as a safety check
+	// If session is invalid, redirect to login (middleware handles cookie-based protection)
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		redirect("/login");
+		redirect("/login?callbackUrl=/profile");
 	}
 
 	const user = await getUserById(session.user.id);
 
 	if (!user) {
-		redirect("/login");
+		redirect("/login?callbackUrl=/profile");
 	}
 
 	return (
