@@ -1,5 +1,5 @@
 # Milestone D MVP Plan - Matching
-
+TBD: This is proposal only. It may not fit the MVP.
 ## Overview
 
 Implement the Matching feature to help users discover potential collaborators based on shared interests. This milestone builds on the authentication, profile, and projects systems from previous milestones. The matching algorithm uses simple overlap-based logic (no ML) to find users with similar interests.
