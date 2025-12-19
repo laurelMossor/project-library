@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Project {
 	id: string;
@@ -17,6 +18,7 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+	const router = useRouter();
 	const [projects, setProjects] = useState<Project[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -99,10 +101,10 @@ export default function ProjectsPage() {
 				{!loading && !error && projects.length > 0 && (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 						{projects.map((project) => (
-							<Link
+							<div
 								key={project.id}
-								href={`/projects/${project.id}`}
-								className="border rounded p-4 hover:shadow-lg transition-shadow"
+								onClick={() => router.push(`/projects/${project.id}`)}
+								className="border rounded p-4 hover:shadow-lg transition-shadow cursor-pointer"
 							>
 								<h2 className="text-xl font-semibold mb-2">{project.title}</h2>
 								<p className="text-gray-600 mb-3">{truncateDescription(project.description)}</p>
@@ -135,7 +137,7 @@ export default function ProjectsPage() {
 										{new Date(project.createdAt).toLocaleDateString()}
 									</p>
 								</div>
-							</Link>
+							</div>
 						))}
 					</div>
 				)}
