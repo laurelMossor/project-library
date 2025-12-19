@@ -29,11 +29,13 @@ model User {
 }
 
 // Project model for user-created projects (Milestone C)
+// Enhanced with image support (Milestone E)
 model Project {
 	id             String    @id @default(cuid())
 	title          String    // required project title
 	description    String    // required project description
 	tags           String[]  @default([]) // array of project tags, optional
+	imageUrl       String?   // optional image URL/path for project image
 	ownerId        String    // foreign key to User
 	createdAt      DateTime  @default(now())
 	updatedAt      DateTime  @updatedAt

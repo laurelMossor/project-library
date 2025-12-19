@@ -11,6 +11,37 @@ export default function NewProjectPage() {
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
 	const [tags, setTags] = useState("");
+	const [imageFile, setImageFile] = useState<File | null>(null);
+	const [imagePreview, setImagePreview] = useState<string | null>(null);
+	const [uploadingImage, setUploadingImage] = useState(false);
+
+	const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (file) {
+			// Validate file type
+			const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+			if (!allowedTypes.includes(file.type)) {
+				setError("Invalid file type. Only JPEG, PNG, and WebP images are allowed");
+				return;
+			}
+
+			// Validate file size (5MB max)
+			if (file.size > 5 * 1024 * 1024) {
+				setError("File size too large. Maximum size is 5MB");
+				return;
+			}
+
+			setImageFile(file);
+			setError("");
+
+			// Create preview
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				setImagePreview(reader.result as string);
+			};
+			reader.readAsDataURL(file);
+		}
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -31,6 +62,32 @@ export default function NewProjectPage() {
 		}
 
 		try {
+			// Upload image first if provided
+			let imageUrl: string | undefined = undefined;
+			if (imageFile) {
+				setUploadingImage(true);
+				const formData = new FormData();
+				formData.append("image", imageFile);
+
+				const uploadRes = await fetch("/api/projects/upload", {
+					method: "POST",
+					body: formData,
+				});
+
+				if (!uploadRes.ok) {
+					const uploadData = await uploadRes.json();
+					setError(uploadData.error || "Failed to upload image");
+					setSubmitting(false);
+					setUploadingImage(false);
+					return;
+				}
+
+				const uploadData = await uploadRes.json();
+				imageUrl = uploadData.imageUrl;
+				setUploadingImage(false);
+			}
+
+			// Create project with image URL
 			const res = await fetch("/api/projects", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -38,6 +95,7 @@ export default function NewProjectPage() {
 					title: title.trim(),
 					description: description.trim(),
 					tags: tags.trim() ? tags.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+					imageUrl,
 				}),
 			});
 
@@ -117,13 +175,38 @@ export default function NewProjectPage() {
 					</p>
 				</div>
 
+				<div>
+					<label htmlFor="image" className="block text-sm font-medium mb-1">
+						Project Image (optional)
+					</label>
+					<input
+						id="image"
+						type="file"
+						accept="image/jpeg,image/jpg,image/png,image/webp"
+						onChange={handleImageChange}
+						className="w-full border p-2 rounded"
+					/>
+					<p className="text-xs text-gray-500 mt-1">
+						JPEG, PNG, or WebP. Maximum 5MB.
+					</p>
+					{imagePreview && (
+						<div className="mt-2">
+							<img
+								src={imagePreview}
+								alt="Preview"
+								className="max-w-full h-auto max-h-64 rounded border"
+							/>
+						</div>
+					)}
+				</div>
+
 				<div className="flex gap-4">
 					<button
 						type="submit"
-						disabled={submitting}
+						disabled={submitting || uploadingImage}
 						className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
 					>
-						{submitting ? "Creating..." : "Create Project"}
+						{uploadingImage ? "Uploading image..." : submitting ? "Creating..." : "Create Project"}
 					</button>
 					<button
 						type="button"

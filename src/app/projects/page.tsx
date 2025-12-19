@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 interface Project {
@@ -9,6 +10,7 @@ interface Project {
 	title: string;
 	description: string;
 	tags: string[];
+	imageUrl: string | null;
 	createdAt: string;
 	owner: {
 		id: string;
@@ -108,6 +110,17 @@ export default function ProjectsPage() {
 								onClick={() => router.push(`/projects/${project.id}`)}
 								className="border rounded p-4 hover:shadow-lg transition-shadow cursor-pointer"
 							>
+								{project.imageUrl && (
+									<div className="mb-3 relative w-full h-48 overflow-hidden rounded">
+										<Image
+											src={project.imageUrl}
+											alt={project.title}
+											fill
+											className="object-cover"
+											sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+										/>
+									</div>
+								)}
 								<h2 className="text-xl font-semibold mb-2">{project.title}</h2>
 								<p className="text-gray-600 mb-3">{truncateDescription(project.description)}</p>
 

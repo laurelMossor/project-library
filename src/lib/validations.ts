@@ -1,3 +1,6 @@
+import { ProfileData } from "./types/profile";
+import { ProjectData } from "./types/project";
+
 // Validation utilities for user input
 // Provides reusable validation functions for email, username, password, and profile data
 
@@ -16,14 +19,6 @@ export function validatePassword(password: string): boolean {
 	if (!password || typeof password !== "string") return false;
 	// Minimum 8 characters
 	return password.length >= 8;
-}
-
-export interface ProfileData {
-	name?: string;
-	headline?: string;
-	bio?: string;
-	interests?: string[];
-	location?: string;
 }
 
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
@@ -84,11 +79,7 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 }
 
 // Project validation utilities
-export interface ProjectData {
-	title: string;
-	description: string;
-	tags?: string[];
-}
+
 
 export function validateProjectData(data: ProjectData): { valid: boolean; error?: string } {
 	// Validate title: required, 1-200 characters
@@ -133,6 +124,20 @@ export function validateProjectData(data: ProjectData): { valid: boolean; error?
 			if (trimmedTag.length > 50) {
 				return { valid: false, error: "Each tag must be 50 characters or less" };
 			}
+		}
+	}
+
+	// Validate imageUrl: optional string, must be valid URL or path format
+	if (data.imageUrl !== undefined && data.imageUrl !== null) {
+		if (typeof data.imageUrl !== "string") {
+			return { valid: false, error: "Image URL must be a string" };
+		}
+		if (data.imageUrl.trim().length === 0) {
+			return { valid: false, error: "Image URL cannot be empty" };
+		}
+		// Basic validation: should start with / or http:// or https://
+		if (!/^(\/|https?:\/\/)/.test(data.imageUrl)) {
+			return { valid: false, error: "Invalid image URL format" };
 		}
 	}
 

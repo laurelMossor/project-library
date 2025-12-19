@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { ProjectData } from "./validations";
+import { ProjectData } from "./types/project";
 
 // Standard fields to select when fetching a project with owner info
 const projectWithOwnerFields = {
@@ -7,6 +7,7 @@ const projectWithOwnerFields = {
 	title: true,
 	description: true,
 	tags: true,
+	imageUrl: true,
 	createdAt: true,
 	updatedAt: true,
 	owner: {
@@ -46,13 +47,14 @@ export async function getAllProjects(search?: string) {
 }
 
 // Create a new project for a user
-// Tags are optional - if not provided or empty, defaults to empty array
+// Tags and imageUrl are optional - if not provided or empty, defaults appropriately
 export async function createProject(ownerId: string, data: ProjectData) {
 	return prisma.project.create({
 		data: {
 			title: data.title,
 			description: data.description,
 			tags: data.tags || [],
+			imageUrl: data.imageUrl || null,
 			ownerId,
 		},
 		select: projectWithOwnerFields,

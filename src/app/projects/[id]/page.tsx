@@ -1,6 +1,7 @@
 import { getProjectById } from "@/lib/project";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -17,6 +18,17 @@ export default async function ProjectDetailPage({ params }: Props) {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-2xl">
+				{project.imageUrl && (
+					<div className="mb-6 relative w-full h-96 overflow-hidden rounded">
+						<Image
+							src={project.imageUrl}
+							alt={project.title}
+							fill
+							className="object-cover"
+							sizes="(max-width: 768px) 100vw, 800px"
+						/>
+					</div>
+				)}
 				<h1 className="text-3xl font-bold">{project.title}</h1>
 
 				<div className="mt-4 text-sm text-gray-500">

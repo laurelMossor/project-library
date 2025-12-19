@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 	}
 
 	const data = await request.json();
-	const { title, description, tags } = data;
+	const { title, description, tags, imageUrl } = data;
 
 	try {
 		// Process tags first: normalize to array, trim, and filter empty values
@@ -43,11 +43,12 @@ export async function POST(request: Request) {
 			}
 		}
 
-		// Validate project data with processed tags (or undefined if no tags)
+		// Validate project data with processed tags and imageUrl (or undefined if not provided)
 		const validation = validateProjectData({
 			title,
 			description,
 			tags: processedTags.length > 0 ? processedTags : undefined,
+			imageUrl: imageUrl || undefined,
 		});
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid project data");
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
 			title: title.trim(),
 			description: description.trim(),
 			tags: processedTags.length > 0 ? processedTags : undefined,
+			imageUrl: imageUrl || undefined,
 		});
 
 		return NextResponse.json(project, { status: 201 });
