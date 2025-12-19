@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Thu 12/18/25 17:56 PST
+Completed Milestone C MVP (Projects). Created plan document (`ai-tools/MILESTONE_C_PLAN.md`). Added Project model to Prisma schema with User relation, ran migration. Created `src/lib/project.ts` with utility functions and extended validations for projects. API routes: GET/POST `/api/projects` (public listing with search, protected create) and GET `/api/projects/[id]`. Frontend: Created `/projects` (public listing), `/projects/new` (protected form), and `/projects/[id]` (public detail) pages. Updated navigation with Projects and New Project links. Standardized auth handling across client and server components.
+
 #### Entry: Thu 12/18/25 16:59 PST
 Completed pre-Milestone C refactoring and code review. Created `src/lib/errors.ts` with standardized error response helpers (unauthorized, notFound, badRequest, serverError). Created `src/lib/validations.ts` with reusable validation functions for email, username, password, and profile data. Extended `src/lib/user.ts` with `updateUserProfile()` function to extract profile update logic from API routes. Updated `/api/profile` and `/api/auth/signup` routes to use new utility functions for consistency. Documented that DELETE operation is intentionally omitted from MVP. Created comprehensive milestone review document (`ai-tools/MILESTONE_REVIEW.md`) confirming Milestone A and B completion. All refactors improve code maintainability, testability, and consistency. Ready to proceed with Milestone C (Projects).
 
