@@ -5,6 +5,7 @@ import pg from "pg";
 import bcrypt from "bcryptjs";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { User } from "@/lib/types/user";
 
 // Use the same Prisma setup as your app
 const pool = new pg.Pool({
@@ -79,8 +80,8 @@ async function main() {
 	console.log(`   - ${createdUsers.length} users created`);
 	console.log(`   - ${projectsData.length} projects created`);
 	console.log("\n📝 Login credentials:");
-	usersData.forEach((user) => {
-		console.log(`   ${user.email} / ${user.password}`);
+	usersData.forEach((user: User) => {
+		console.log(`   ${user.email} / ${user.passwordHash}`);
 	});
 }
 

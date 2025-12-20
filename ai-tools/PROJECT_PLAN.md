@@ -11,6 +11,12 @@ A small, scalable web platform that allows users to:
 
 The initial build should stay lean, with clear room for future expansion.
 
+## Mission/Vision
+The Project Library is about connection and sharing: Teaching-- Learning-- Creating Community. This website facilitates sharing and building of expertise and craft. 
+
+## Guiding Principles
+Lifelong Learning, Creativity, Care, Respect, Transparency
+
 ## 1. Core Tech Stack (MVP)
 
 **Frontend + Backend:** Next.js (App Router, TypeScript)
