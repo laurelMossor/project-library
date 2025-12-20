@@ -9,6 +9,7 @@ export interface ProfileData {
 export interface User {
 	id: string;
 	email: string;
+	passwordHash: string;
 	username: string;
 	name?: string;
 	headline?: string;

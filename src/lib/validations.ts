@@ -1,4 +1,4 @@
-import { ProfileData } from "./types/profile";
+import { ProfileData } from "./types/user";
 import { ProjectData } from "./types/project";
 
 // Validation utilities for user input
