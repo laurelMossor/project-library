@@ -2,7 +2,7 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -11,6 +11,8 @@ export default function LoginPage() {
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const callbackUrl = searchParams.get("callbackUrl") || "/";
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -25,7 +27,9 @@ export default function LoginPage() {
 		if (result?.error) {
 			setError("Invalid email or password");
 		} else {
-			router.push("/");
+			// Force a full page reload to refresh all server components (layout, etc.)
+			// This ensures the layout updates to show authenticated state
+			window.location.href = callbackUrl;
 		}
 	};
 

@@ -48,6 +48,9 @@ createdb projectlibrary
 
 # Run migrations
 npx prisma migrate dev
+
+# Seed the database with sample data (optional)
+npx prisma db seed
 ```
 
 **Linux/WSL (Ubuntu/Debian):**
@@ -70,6 +73,9 @@ sudo -u postgres psql
 
 # Run migrations
 npx prisma migrate dev
+
+# Seed the database with sample data (optional)
+npx prisma db seed
 ```
 
 **Note:** On WSL/Ubuntu, if you get permission errors with `createdb`, use `sudo -u postgres createdb projectlibrary` instead.

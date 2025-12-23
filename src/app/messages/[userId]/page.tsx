@@ -64,6 +64,24 @@ export default function ConversationPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [userId]);
 
+	// Poll for new messages every 60 seconds when page is visible
+	// Note: Real-time messaging apps use WebSockets, but for MVP we use infrequent polling
+	// Users can also manually refresh using the Refresh button
+	useEffect(() => {
+		// Don't poll if sending a message
+		if (sending) return;
+
+		const intervalId = setInterval(() => {
+			// Only poll if page is visible (not in background tab)
+			if (document.visibilityState === "visible") {
+				fetchConversation(true); // Pass true to indicate it's a background refresh
+			}
+		}, 60000); // Poll every 60 seconds (less aggressive, more like email/message checking)
+
+		return () => clearInterval(intervalId);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [userId, sending]);
+
 	// Scroll to bottom when messages change
 	useEffect(() => {
 		scrollToBottom();
@@ -73,8 +91,11 @@ export default function ConversationPage() {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	};
 
-	const fetchConversation = async () => {
-		setLoading(true);
+	const fetchConversation = async (isBackgroundRefresh = false) => {
+		// Only show loading spinner on initial load, not background refreshes
+		if (!isBackgroundRefresh) {
+			setLoading(true);
+		}
 		setError("");
 
 		try {
@@ -87,7 +108,9 @@ export default function ConversationPage() {
 				}
 				if (res.status === 404) {
 					setError("User not found");
-					setLoading(false);
+					if (!isBackgroundRefresh) {
+						setLoading(false);
+					}
 					return;
 				}
 				throw new Error("Failed to fetch conversation");
@@ -96,26 +119,58 @@ export default function ConversationPage() {
 			const data = await res.json();
 
 			// Handle response format: either array of messages or object with messages and otherUser
+			let newMessages: Message[] = [];
+			let newOtherUser: OtherUser | null = null;
+
 			if (Array.isArray(data)) {
-				setMessages(data);
+				newMessages = data;
 				// Get other user info from first message if available
 				if (data.length > 0) {
 					// Determine other user from first message
 					// The userId param is the other user's ID, so we can get their info from sender or receiver
 					const otherUserData = data[0].senderId === userId ? data[0].sender : data[0].receiver;
-					setOtherUser(otherUserData);
+					newOtherUser = otherUserData;
 				}
 			} else if (data.messages && data.otherUser) {
 				// Response includes otherUser info (for empty conversations)
-				setMessages(data.messages);
-				setOtherUser(data.otherUser);
+				newMessages = data.messages;
+				newOtherUser = data.otherUser;
+			}
+
+			// Only update if we have new messages (for background refresh)
+			// This prevents unnecessary re-renders and scrolling
+			if (isBackgroundRefresh) {
+				// Use functional update to ensure we're working with latest state
+				setMessages(currentMessages => {
+					const currentMessageIds = new Set(currentMessages.map(m => m.id));
+					const hasNewMessages = newMessages.some(m => !currentMessageIds.has(m.id));
+					
+					// Only update if we have new messages or count changed
+					if (hasNewMessages || newMessages.length !== currentMessages.length) {
+						// Scroll to bottom only if there are new messages
+						if (hasNewMessages) {
+							setTimeout(() => scrollToBottom(), 100);
+						}
+						return newMessages;
+					}
+					// No changes, return current state to avoid re-render
+					return currentMessages;
+				});
 			} else {
-				setMessages([]);
+				// Initial load - always update
+				setMessages(newMessages);
+				if (newOtherUser) {
+					setOtherUser(newOtherUser);
+				}
 			}
 		} catch (err) {
-			setError("Failed to load conversation");
+			if (!isBackgroundRefresh) {
+				setError("Failed to load conversation");
+			}
 		} finally {
-			setLoading(false);
+			if (!isBackgroundRefresh) {
+				setLoading(false);
+			}
 		}
 	};
 
@@ -151,6 +206,10 @@ export default function ConversationPage() {
 			setMessages([...messages, newMessage]);
 			setContent("");
 
+			// Refresh conversation after sending to ensure we have latest state
+			// This also helps sync if messages were sent from another device/tab
+			fetchConversation(true);
+
 			// Update other user info if we don't have it yet
 			if (!otherUser) {
 				setOtherUser(newMessage.receiver);
@@ -173,15 +232,24 @@ export default function ConversationPage() {
 	return (
 		<main className="flex min-h-screen flex-col p-8">
 			<div className="max-w-4xl mx-auto w-full flex flex-col h-[calc(100vh-200px)]">
-				<div className="mb-4">
-					<Link href="/messages" className="text-sm underline text-gray-600 mb-2 inline-block">
-						← Back to Messages
-					</Link>
-					{otherUser && (
-						<h1 className="text-2xl font-bold">
-							Conversation with {otherUser.name || otherUser.username}
-						</h1>
-					)}
+				<div className="mb-4 flex items-center justify-between">
+					<div>
+						<Link href="/messages" className="text-sm underline text-gray-600 mb-2 inline-block">
+							← Back to Messages
+						</Link>
+						{otherUser && (
+							<h1 className="text-2xl font-bold">
+								Conversation with {otherUser.name || otherUser.username}
+							</h1>
+						)}
+					</div>
+					<button
+						onClick={() => fetchConversation(false)}
+						className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+						title="Refresh messages"
+					>
+						Refresh
+					</button>
 				</div>
 
 				{error && messages.length === 0 && (
