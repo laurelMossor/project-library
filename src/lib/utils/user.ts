@@ -12,8 +12,9 @@ const personalProfileFields = {
 	location: true,
 } as const;
 
-// Public fields (excludes sensitive data like email)
+// Public fields (excludes sensitive data like email, but includes ID for messaging)
 const publicProfileFields = {
+	id: true,
 	username: true,
 	name: true,
 	headline: true,

@@ -144,3 +144,19 @@ export function validateProjectData(data: ProjectData): { valid: boolean; error?
 	return { valid: true };
 }
 
+// Message validation utilities
+
+// Validate message content: required, non-empty, max 5000 characters
+export function validateMessageContent(content: string): { valid: boolean; error?: string } {
+	if (!content || typeof content !== "string") {
+		return { valid: false, error: "Message content is required" };
+	}
+	if (content.trim().length === 0) {
+		return { valid: false, error: "Message content cannot be empty" };
+	}
+	if (content.length > 5000) {
+		return { valid: false, error: "Message content must be 5000 characters or less" };
+	}
+	return { valid: true };
+}
+

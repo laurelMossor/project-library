@@ -24,6 +24,8 @@ model User {
 	updatedAt      DateTime  @updatedAt
 
 	projects       Project[] // projects owned by this user
+	sentMessages   Message[] @relation("SentMessages") // messages sent by this user
+	receivedMessages Message[] @relation("ReceivedMessages") // messages received by this user
 
 	@@map("users")
 }
@@ -43,4 +45,19 @@ model Project {
 	owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
 	@@map("projects")
+}
+
+// Message model for direct messaging between users (Milestone E)
+model Message {
+	id          String    @id @default(cuid())
+	content     String    // message text content
+	senderId    String    // foreign key to User (sender)
+	receiverId  String    // foreign key to User (receiver)
+	createdAt   DateTime  @default(now())
+	readAt      DateTime? // timestamp when message was read (optional, for future read receipts)
+
+	sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+	receiver    User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+	@@map("messages")
 }

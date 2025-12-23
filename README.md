@@ -38,8 +38,9 @@ openssl rand -base64 32
 
 ### 3. Set up database
 
+**macOS (with Homebrew):**
 ```bash
-# Start PostgreSQL (if not running)
+# Start PostgreSQL
 brew services start postgresql@15
 
 # Create database
@@ -48,6 +49,34 @@ createdb projectlibrary
 # Run migrations
 npx prisma migrate dev
 ```
+
+**Linux/WSL (Ubuntu/Debian):**
+```bash
+# Install PostgreSQL (if not already installed)
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+# Start PostgreSQL service
+sudo service postgresql start
+# Or with systemd:
+sudo systemctl start postgresql
+
+# Create database (as postgres user)
+sudo -u postgres createdb projectlibrary
+# Or switch to postgres user first:
+sudo -u postgres psql
+# Then in psql: CREATE DATABASE projectlibrary;
+# Exit with: \q
+
+# Run migrations
+npx prisma migrate dev
+```
+
+**Note:** On WSL/Ubuntu, if you get permission errors with `createdb`, use `sudo -u postgres createdb projectlibrary` instead.
+
+**Note:** 
+- On macOS/Linux/WSL, PostgreSQL might already be running. Check with `sudo service postgresql status` or `sudo systemctl status postgresql`
+- If you get permission errors, you may need to switch to the postgres user: `sudo -u postgres createdb projectlibrary`
 
 ### 4. Run the app
 
