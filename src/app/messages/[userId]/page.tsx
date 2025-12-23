@@ -302,7 +302,16 @@ export default function ConversationPage() {
 					<textarea
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
-						placeholder="Type a message..."
+						onKeyDown={(e) => {
+							// Submit on Enter (without Shift), allow Shift+Enter for new lines
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								if (content.trim() && !sending) {
+									handleSubmit(e as unknown as React.FormEvent);
+								}
+							}
+						}}
+						placeholder="Type a message... (Enter to send, Shift+Enter for new line)"
 						className="flex-1 border rounded p-2 resize-none"
 						rows={3}
 						maxLength={5000}
