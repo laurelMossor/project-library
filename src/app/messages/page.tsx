@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getConversations } from "@/lib/utils/message";
+import { truncateText } from "@/lib/utils/text";
 
 // Helper function to format timestamp as relative time or date
 function formatMessageTime(date: Date): string {
@@ -17,12 +18,6 @@ function formatMessageTime(date: Date): string {
 	if (diffHours < 24) return `${diffHours}h ago`;
 	if (diffDays < 7) return `${diffDays}d ago`;
 	return messageDate.toLocaleDateString();
-}
-
-// Helper function to truncate message content for preview
-function truncateMessage(content: string, maxLength: number = 100): string {
-	if (content.length <= maxLength) return content;
-	return content.substring(0, maxLength) + "...";
 }
 
 export default async function MessagesPage() {
@@ -65,10 +60,10 @@ export default async function MessagesPage() {
 										{conversation.lastMessage && (
 											<div className="mt-2">
 												<p className="text-gray-600 truncate">
-													{conversation.lastMessage.senderId === session.user.id ? (
-														<span>You: {truncateMessage(conversation.lastMessage.content)}</span>
+													{conversation.lastMessage.senderId === session?.user?.id ? (
+														<span>You: {truncateText(conversation.lastMessage.content)}</span>
 													) : (
-														<span>{truncateMessage(conversation.lastMessage.content)}</span>
+														<span>{truncateText(conversation.lastMessage.content)}</span>
 													)}
 												</p>
 												<p className="text-xs text-gray-400 mt-1">
