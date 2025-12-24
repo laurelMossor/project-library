@@ -1,59 +1,107 @@
-import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { truncateText } from "../utils/text";
 import { Project } from "../types/project";
+import { formatDateTime } from "../utils/datetime";
+import { getInitials, truncateText } from "../utils/text";
 import Link from "next/link";
 
-export const ProjectCard = ({ project }: { project: Project }) => {
-	const router = useRouter();
+const TitleHeaderLink = ({ project }: { project: Project }) => {
 	return (
-		<div
-			onClick={() => router.push(`/projects/${project.id}`)}
-			className="border rounded p-4 hover:shadow-lg transition-shadow cursor-pointer"
-		>
-		{project.imageUrl && (
-			<div className="mb-3 w-full h-48 overflow-hidden rounded">
-				<Image
-					src={project.imageUrl}
-					alt={project.title}
-					width={400}
-					height={192}
-					className="w-full h-full object-cover"
-					unoptimized
-				/>
-			</div>
-		)}
-		<h2 className="text-xl font-semibold mb-2">{project.title}</h2>
-		<p className="text-gray-600 mb-3">{truncateText(project.description)}</p>
+		<Link href={`/projects/${project.id}`}>
+			<h2 className="text-xl font-semibold mb-2 hover:underline">{project.title}</h2>
+		</Link>
+	);
+};
 
-		{project.tags && project.tags.length > 0 && (
-			<div className="mb-3 flex flex-wrap gap-2">
-				{project.tags.map((tag) => (
-					<span
-						key={tag}
-						className="px-2 py-1 bg-gray-100 rounded text-xs"
-					>
-						{tag}
-					</span>
-				))}
-			</div>
-		)}
+const WeirdLittleButton = () => {
+	return (
+		<button className="rounded-full">
+			<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+			</svg>
+		</button>
+	);
+};
 
-		<div className="text-sm text-gray-500">
-			<p>
-				By{" "}
-				<Link
-					href={`/u/${project.owner.username}`}
-					onClick={(e) => e.stopPropagation()}
-					className="underline hover:text-gray-700"
-				>
-					{project.owner.name || project.owner.username}
-				</Link>
-			</p>
-			<p className="mt-1">
-				{new Date(project.createdAt).toLocaleDateString()}
-			</p>
+const ProjectImage = ({ project }: { project: Project }) => {
+	return (project.imageUrl ? (
+		<div className="relative" style={{ maxWidth: '400px', maxHeight: '500px' }}>
+			<Image
+				src={project.imageUrl}
+				alt={project.title}
+				width={400}
+				height={192}
+				className="max-w-full max-h-full object-contain"
+				style={{ width: 'auto', height: 'auto' }}
+				unoptimized
+			/>
 		</div>
-	</div>
-	)
-}
+	) : (
+		<div className="w-full h-full flex items-center justify-center text-gray-400">
+			No image
+		</div>
+	))
+};
+
+const ProjectImageCarousel = ({ project }: { project: Project }) => {
+	return (	
+	<div className="mb-4 flex items-center gap-2">
+		{/* Left side frame (placeholder) */}
+		<div className="w-16 h-32 bg-gray-100 rounded border border-gray-200 flex-shrink-0"></div>
+
+		{/* Central image area with navigation arrows */}
+		<div className="flex-1 relative h-48 overflow-hidden flex items-center justify-center">
+			<WeirdLittleButton />
+			<ProjectImage project={project} />
+			<WeirdLittleButton />
+		</div>
+		
+		{/* Right side frame (placeholder) */}
+		<div className="w-16 h-32 bg-gray-100 rounded border border-gray-200 flex-shrink-0"></div>
+    </div>
+)};
+
+export const ProjectCard = ({ project }: { project: Project }) => {
+	const initials = getInitials(project.owner.name, project.owner.username);
+
+	return (
+		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
+			{/* Top section: Profile pic, title, description, date */}
+			<div className="mb-4">
+				<div className="flex items-start gap-3 mb-2">
+					{/* Circular profile pic placeholder */}
+					<div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+						<span className="text-gray-600 font-medium text-sm">{initials}</span>
+					</div>
+					
+					{/* Title and description */}
+					<div className="flex-1 min-w-0">
+						<TitleHeaderLink project={project} />
+						<p className="text-gray-600 text-sm mb-2 line-clamp-3">
+							{truncateText(project.description, 250)}
+						</p>
+						<p className="text-xs text-gray-500">
+							{formatDateTime(project.createdAt)}
+						</p>
+					</div>
+				</div>
+			</div>
+
+			{/* Middle section: Image carousel area */}
+			{project.imageUrl && <ProjectImageCarousel project={project} />}
+
+			{/* Bottom section: Tags as plain boxes */}
+			{project.tags && project.tags.length > 0 && (
+				<div className="flex flex-wrap gap-2 mt-auto">
+					{project.tags.map((tag) => (
+						<div
+							key={tag}
+							className="px-3 py-1 border border-gray-300 rounded text-xs"
+						>
+							{tag}
+						</div>
+					))}
+				</div>
+			)}
+		</div>
+	);
+};
