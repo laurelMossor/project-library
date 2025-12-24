@@ -76,6 +76,12 @@ export const ProjectCard = ({ project }: { project: Project }) => {
 					{/* Title and description */}
 					<div className="flex-1 min-w-0">
 						<TitleHeaderLink project={project} />
+						<Link 
+							href={`/u/${project.owner.username}`}
+							className="text-sm text-gray-600 hover:underline mb-2 block"
+						>
+							{project.owner.name || project.owner.username}
+						</Link>
 						<p className="text-gray-600 text-sm mb-2 line-clamp-3">
 							{truncateText(project.description, 250)}
 						</p>
