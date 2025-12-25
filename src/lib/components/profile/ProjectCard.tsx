@@ -3,6 +3,7 @@ import { Project } from "../../types/project";
 import { formatDateTime } from "../../utils/datetime";
 import { getInitials, truncateText } from "../../utils/text";
 import Link from "next/link";
+import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
 
 const TitleHeaderLink = ({ project }: { project: Project }) => {
 	return (
@@ -70,10 +71,11 @@ export const ProjectCard = ({ project }: { project: Project }) => {
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
 					{/* Circular profile pic placeholder */}
-					<div className="w-12 h-12 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0">
+					{/* <div className="w-12 h-12 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0">
 						<span className="text-gray-600 font-medium text-sm">{initials}</span>
 					</div>
-					
+					 */}
+					<ProfilePicPlaceholder initials={initials} />
 					{/* Title and description */}
 					<div className="flex-1 min-w-0">
 						<TitleHeaderLink project={project} />
