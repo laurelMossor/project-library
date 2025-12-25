@@ -224,7 +224,7 @@ export default function ConversationPage() {
 	if (loading) {
 		return (
 			<main className="flex min-h-screen items-center justify-center p-8">
-				<p className="text-gray-600">Loading conversation...</p>
+				<p>Loading conversation...</p>
 			</main>
 		);
 	}
@@ -234,7 +234,7 @@ export default function ConversationPage() {
 			<div className="max-w-4xl mx-auto w-full flex flex-col h-[calc(100vh-200px)]">
 				<div className="mb-4 flex items-center justify-between">
 					<div>
-						<Link href="/messages" className="text-sm underline text-gray-600 mb-2 inline-block">
+						<Link href="/messages" className="text-sm underline mb-2 inline-block">
 							← Back to Messages
 						</Link>
 						{otherUser && (

@@ -10,7 +10,7 @@ export default async function Home() {
 
 			{session ? (
 				<div className="space-y-4">
-					<p className="text-lg text-gray-600">
+					<p className="text-lg">
 						Logged in as <span className="font-medium">{session.user?.email}</span>
 					</p>
 					<div className="flex gap-4">
@@ -19,7 +19,7 @@ export default async function Home() {
 				</div>
 			) : (
 				<div className="space-y-4">
-					<p className="text-lg text-gray-600">
+					<p className="text-lg">
 						Get started by creating an account or logging in.
 					</p>
 				</div>

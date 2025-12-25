@@ -37,7 +37,7 @@ export default async function MessagesPage() {
 
 				{conversations.length === 0 ? (
 					<div className="text-center py-12">
-						<p className="text-gray-600">No messages yet. Start a conversation by visiting someone's profile!</p>
+						<p>No messages yet. Start a conversation by visiting someone's profile!</p>
 					</div>
 				) : (
 					<div className="space-y-2">
@@ -59,7 +59,7 @@ export default async function MessagesPage() {
 										</div>
 										{conversation.lastMessage && (
 											<div className="mt-2">
-												<p className="text-gray-600 truncate">
+												<p className="truncate">
 													{conversation.lastMessage.senderId === session?.user?.id ? (
 														<span>You: {truncateText(conversation.lastMessage.content)}</span>
 													) : (

@@ -67,7 +67,7 @@ export default function ProjectsPage() {
 
 				{loading && (
 					<div className="text-center py-12">
-						<p className="text-gray-600">Loading projects...</p>
+						<p>Loading projects...</p>
 					</div>
 				)}
 
@@ -79,7 +79,7 @@ export default function ProjectsPage() {
 
 				{!loading && !error && projects.length === 0 && (
 					<div className="text-center py-12">
-						<p className="text-gray-600">
+						<p>
 							{search ? "No projects found matching your search." : "No projects yet. Be the first to create one!"}
 						</p>
 					</div>

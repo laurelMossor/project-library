@@ -23,7 +23,7 @@ export default async function PublicProfilePage({ params }: Props) {
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-md">
 				<h1 className="text-3xl font-bold">{user.name || user.username}</h1>
-				{user.headline && <p className="text-lg text-gray-600 mt-1">{user.headline}</p>}
+				{user.headline && <p className="text-lg mt-1">{user.headline}</p>}
 				{user.location && <p className="text-sm text-gray-500 mt-1">{user.location}</p>}
 
 				{user.bio && (

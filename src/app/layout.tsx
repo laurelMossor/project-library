@@ -26,7 +26,7 @@ export default async function RootLayout({
 							<h1 className="text-2xl font-bold">Project Library</h1>
 							{session ? (
 								<div className="flex items-center gap-4">
-									<span className="text-sm text-gray-600">
+									<span className="text-sm">
 										{session.user?.email}
 									</span>
 									<Link

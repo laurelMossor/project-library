@@ -70,7 +70,7 @@ export const ProjectCard = ({ project }: { project: Project }) => {
 				<div className="flex items-start gap-3 mb-2">
 					{/* Circular profile pic placeholder */}
 					<div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-						<span className="text-gray-600 font-medium text-sm">{initials}</span>
+						<span className="font-medium text-sm">{initials}</span>
 					</div>
 					
 					{/* Title and description */}
@@ -78,11 +78,11 @@ export const ProjectCard = ({ project }: { project: Project }) => {
 						<TitleHeaderLink project={project} />
 						<Link 
 							href={`/u/${project.owner.username}`}
-							className="text-sm text-gray-600 hover:underline mb-2 block"
+							className="text-sm hover:underline mb-2 block"
 						>
 							{project.owner.name || project.owner.username}
 						</Link>
-						<p className="text-gray-600 text-sm mb-2 line-clamp-3">
+						<p className="text-sm mb-2 line-clamp-3">
 							{truncateText(project.description, 250)}
 						</p>
 						<p className="text-xs text-gray-500">
