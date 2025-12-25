@@ -15,7 +15,7 @@ const TitleHeaderLink = ({ project }: { project: Project }) => {
 const WeirdLittleButton = () => {
 	return (
 		<button className="rounded-full">
-			<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
 			</svg>
 		</button>
@@ -46,7 +46,7 @@ const ProjectImageCarousel = ({ project }: { project: Project }) => {
 	return (	
 	<div className="mb-4 flex items-center gap-2">
 		{/* Left side frame (placeholder) */}
-		<div className="w-16 h-32 bg-gray-100 rounded border border-gray-200 flex-shrink-0"></div>
+		<div className="w-16 h-32 soft-grey rounded border border-warm-grey flex-shrink-0"></div>
 
 		{/* Central image area with navigation arrows */}
 		<div className="flex-1 relative h-48 overflow-hidden flex items-center justify-center">
@@ -56,7 +56,7 @@ const ProjectImageCarousel = ({ project }: { project: Project }) => {
 		</div>
 		
 		{/* Right side frame (placeholder) */}
-		<div className="w-16 h-32 bg-gray-100 rounded border border-gray-200 flex-shrink-0"></div>
+		<div className="w-16 h-32 soft-grey rounded border border-warm-grey flex-shrink-0"></div>
     </div>
 )};
 
@@ -70,7 +70,7 @@ export const ProjectCard = ({ project }: { project: Project }) => {
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
 					{/* Circular profile pic placeholder */}
-					<div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+					<div className="w-12 h-12 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0">
 						<span className="text-gray-600 font-medium text-sm">{initials}</span>
 					</div>
 					

@@ -27,16 +27,16 @@
  * Example: <div className="bg-grey-white text-soft-black">
  */
 @theme {
-	--color-melon-green: #C4D6B0;
-	--color-whale-blue: #477998;
-	--color-rich-brown: #291F1E;
 	--color-alert-red: #F64740;
 	--color-novel-red: #A3333D;
-	--color-grey-white: #E6E8E6;
-	--color-soft-grey: #CED0CE;
+	--color-melon-green: #C4D6B0;
+	--color-whale-blue: #477998;
 	--color-mint: #9FB8AD;
 	--color-moss-green: #475841;
+	--color-grey-white: #E6E8E6;
+	--color-soft-grey: #CED0CE;
 	--color-warm-grey: #3F403F;
+	--color-rich-brown: #291F1E;
 }
 
 /*
@@ -51,14 +51,14 @@
  * Example: <div style={{ backgroundColor: 'var(--color-melon-green)' }}>
  */
 :root {
-	--color-melon-green: #C4D6B0;
-	--color-whale-blue: #477998;
-	--color-rich-brown: #291F1E;
 	--color-alert-red: #F64740;
 	--color-novel-red: #A3333D;
-	--color-grey-white: #E6E8E6;
-	--color-soft-grey: #CED0CE;
+	--color-melon-green: #C4D6B0;
+	--color-whale-blue: #477998;
 	--color-mint: #9FB8AD;
 	--color-moss-green: #475841;
+	--color-grey-white: #E6E8E6;
+	--color-soft-grey: #CED0CE;
 	--color-warm-grey: #3F403F;
+	--color-rich-brown: #291F1E;
 }

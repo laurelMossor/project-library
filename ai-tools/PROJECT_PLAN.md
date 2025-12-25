@@ -138,3 +138,13 @@ Lifelong Learning, Creativity, Care, Respect, Transparency
 * `/messages/[userId]` for individual conversation
 * `/api/messages` API routes
 * Message database model 
+
+### Milestone F - Events and Maps, Collections
+
+**Goals:**
+
+* New post type: Event
+* Includes location, implement maps 
+* Events aggregate on the "Collection" page along with Projects 
+* Alter Projects page to be "Collection(s)"
+* Profile page has it's own collections page which is only that users posts 
