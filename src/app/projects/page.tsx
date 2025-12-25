@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { truncateText } from "@/lib/utils/text";
 import { Project } from "@/lib/types/project";
 import { ProjectCard } from "@/lib/components/project/ProjectCard";
-import { fetchProjects } from "@/lib/utils/project";
+import { fetchProjects } from "@/lib/utils/project-client";
 
 export default function ProjectsPage() {
 	const [projects, setProjects] = useState<Project[]>([]);
