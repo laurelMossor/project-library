@@ -60,6 +60,7 @@ const ProjectImageCarousel = ({ project }: { project: Project }) => {
     </div>
 )};
 
+///////////////////////////////////////////////
 export const ProjectCard = ({ project }: { project: Project }) => {
 	const initials = getInitials(project.owner.name, project.owner.username);
 
