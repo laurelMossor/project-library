@@ -1,5 +1,4 @@
 import { Project } from "../../types/project";
-import { getInitials } from "../../utils/text";
 import Link from "next/link";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
 import { ProjectEntry } from "./ProjectEntry";
@@ -14,13 +13,11 @@ const TitleHeaderLink = ({ project }: { project: Project }) => {
 
 
 export const ProjectCard = ({ project }: { project: Project }) => {
-	const initials = getInitials(project.owner.name, project.owner.username);
-
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					<ProfilePicPlaceholder initials={initials} />
+					<ProfilePicPlaceholder project={project} />
 					<div className="flex-1 min-w-0">
 						<TitleHeaderLink project={project} />
 					</div>

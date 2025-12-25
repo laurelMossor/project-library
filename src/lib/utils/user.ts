@@ -13,7 +13,7 @@ const personalProfileFields = {
 } as const;
 
 // Public fields (excludes sensitive data like email, but includes ID for messaging)
-const publicProfileFields = {
+export const publicUserFields = {
 	id: true,
 	username: true,
 	name: true,
@@ -35,7 +35,7 @@ export async function getUserById(id: string) {
 export async function getUserByUsername(username: string) {
 	return prisma.user.findUnique({
 		where: { username },
-		select: publicProfileFields,
+		select: publicUserFields,
 	});
 }
 

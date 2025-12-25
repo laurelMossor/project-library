@@ -55,17 +55,17 @@ const ProjectImageCarousel = ({ project }: { project: Project }) => {
 export const ProjectEntry = ({ project, truncate }: { project: Project, truncate?: boolean }) => {
 	return (
 		<>
-			<p className="text-gray-600 text-sm mb-2 line-clamp-3">
+			<p className="text-warm-grey text-sm mb-2 line-clamp-3">
 				{truncate ? truncateText(project.description, 250) : project.description}
 			</p>
 			<div className="flex flex-row items-center gap-2">
 				<Link 
 					href={`/u/${project.owner.username}`}
-					className="text-sm text-gray-600 hover:underline"
+					className="text-sm text-rich-brown hover:underline"
 				>
 					{project.owner.name || project.owner.username}
 				</Link>
-				<p className="text-xs text-gray-500">
+				<p className="text-xs text-warm-grey">
 					{formatDateTime(project.createdAt)}
 				</p>
 			</div>

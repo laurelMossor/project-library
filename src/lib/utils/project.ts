@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { ProjectData, Project } from "../types/project";
+import { publicUserFields } from "./user";
 
 // Standard fields to select when fetching a project with owner info
 const projectWithOwnerFields = {
@@ -11,11 +12,7 @@ const projectWithOwnerFields = {
 	createdAt: true,
 	updatedAt: true,
 	owner: {
-		select: {
-			id: true,
-			username: true,
-			name: true,
-		},
+		select: publicUserFields,
 	},
 } as const;
 

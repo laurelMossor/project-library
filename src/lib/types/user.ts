@@ -19,3 +19,14 @@ export interface User {
 	createdAt: Date;
 	updatedAt: Date;
 }
+
+// Public user profile (excludes sensitive data like email and passwordHash)
+export interface PublicUser {
+	id: string;
+	username: string;
+	name: string | null;
+	headline: string | null;
+	bio: string | null;
+	interests: string[];
+	location: string | null;
+}

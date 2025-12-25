@@ -1,9 +1,4 @@
-// Owner information included with projects (subset of User)
-export interface ProjectOwner {
-	id: string;
-	username: string;
-	name: string | null;
-}
+import { PublicUser } from "./user";
 
 export interface Project {
 	id: string;
@@ -13,7 +8,7 @@ export interface Project {
 	imageUrl: string | null;
 	createdAt: Date;
 	updatedAt: Date;
-	owner: ProjectOwner;
+	owner: PublicUser;
 }
 
 export interface ProjectData {
