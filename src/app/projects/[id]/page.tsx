@@ -23,7 +23,7 @@ export default async function ProjectDetailPage({ params }: Props) {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-2xl">
-				<ProjectCard project={project} />
+				<ProjectCard project={project} truncate={false} />
 				<div className="mt-8 flex gap-4 items-center">
 					{session && !isOwner && (
 						<Link

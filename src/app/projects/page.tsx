@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { truncateText } from "@/lib/utils/text";
 import { Project } from "@/lib/types/project";
 import { ProjectCard } from "@/lib/components/project/ProjectCard";
 import { fetchProjects } from "@/lib/utils/project-client";
@@ -82,7 +81,7 @@ export default function ProjectsPage() {
 				{!loading && !error && projects.length > 0 && (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 						{projects.map((project) => (
-							<ProjectCard key={project.id} project={project} />
+							<ProjectCard key={project.id} project={project} truncate={true} />
 						))}
 					</div>
 				)}

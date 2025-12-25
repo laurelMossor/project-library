@@ -12,7 +12,7 @@ const TitleHeaderLink = ({ project }: { project: Project }) => {
 };
 
 
-export const ProjectCard = ({ project }: { project: Project }) => {
+export const ProjectCard = ({ project, truncate }: { project: Project, truncate?: boolean }) => {
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			<div className="mb-4">
@@ -23,7 +23,7 @@ export const ProjectCard = ({ project }: { project: Project }) => {
 					</div>
 				</div>
 			</div>
-			<ProjectEntry project={project} />
+			<ProjectEntry project={project} truncate={truncate} />
 
 			{project.tags && project.tags.length > 0 && (
 				<div className="flex flex-wrap gap-2 mt-auto">

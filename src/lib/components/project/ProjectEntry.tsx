@@ -55,7 +55,7 @@ const ProjectImageCarousel = ({ project }: { project: Project }) => {
 export const ProjectEntry = ({ project, truncate }: { project: Project, truncate?: boolean }) => {
 	return (
 		<>
-			<p className="text-warm-grey text-sm mb-2 line-clamp-3">
+			<p className="text-warm-grey text-sm mb-2">
 				{truncate ? truncateText(project.description, 250) : project.description}
 			</p>
 			<div className="flex flex-row items-center gap-2">
