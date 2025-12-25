@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { truncateText } from "@/lib/utils/text";
 import { Project } from "@/lib/types/project";
-import { ProjectCard } from "@/lib/components/profile/ProjectCard";
+import { ProjectCard } from "@/lib/components/project/ProjectCard";
+import { fetchProjects } from "@/lib/utils/project";
 
 export default function ProjectsPage() {
 	const [projects, setProjects] = useState<Project[]>([]);
@@ -16,7 +17,7 @@ export default function ProjectsPage() {
 	// Fetch projects when search changes (with debounce)
 	useEffect(() => {
 		const timeoutId = setTimeout(() => {
-			fetchProjects();
+			loadProjects();
 		}, 300); // Debounce search by 300ms
 
 		return () => clearTimeout(timeoutId);
@@ -25,23 +26,16 @@ export default function ProjectsPage() {
 
 	// Initial load
 	useEffect(() => {
-		fetchProjects();
+		loadProjects();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const fetchProjects = async () => {
+	const loadProjects = async () => {
 		setLoading(true);
 		setError("");
 
 		try {
-			const url = search ? `/api/projects?search=${encodeURIComponent(search)}` : "/api/projects";
-			const res = await fetch(url);
-
-			if (!res.ok) {
-				throw new Error("Failed to fetch projects");
-			}
-
-			const data = await res.json();
+			const data = await fetchProjects(search);
 			setProjects(data);
 		} catch (err) {
 			setError("Failed to load projects");

@@ -1,4 +1,9 @@
-
+// Owner information included with projects (subset of User)
+export interface ProjectOwner {
+	id: string;
+	username: string;
+	name: string | null;
+}
 
 export interface Project {
 	id: string;
@@ -6,12 +11,9 @@ export interface Project {
 	description: string;
 	tags: string[];
 	imageUrl: string | null;
-	createdAt: string;
-	owner: {
-		id: string;
-		username: string;
-		name: string | null;
-	};
+	createdAt: Date;
+	updatedAt: Date;
+	owner: ProjectOwner;
 }
 
 export interface ProjectData {

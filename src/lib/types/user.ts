@@ -11,9 +11,11 @@ export interface User {
 	email: string;
 	passwordHash: string;
 	username: string;
-	name?: string;
-	headline?: string;
-	bio?: string;
-	interests?: string[];
-	location?: string;
+	name: string | null;
+	headline: string | null;
+	bio: string | null;
+	interests: string[];
+	location: string | null;
+	createdAt: Date;
+	updatedAt: Date;
 }
