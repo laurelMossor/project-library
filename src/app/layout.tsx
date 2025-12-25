@@ -18,11 +18,11 @@ export default async function RootLayout({
 
 	return (
 		<html lang="en">
-			<body>
+			<body className="bg-grey-white text-rich-brown">
 				<Providers>
 					<div className="flex flex-col min-h-screen">
 						{/* Top bar - fixed height 100px, full width */}
-						<header className="h-[100px] w-full border-b border-black flex items-center justify-between px-6">
+						<header className="h-[100px] w-full border-b border-rich-brown flex items-center justify-between px-6">
 							<h1 className="text-2xl font-bold">Project Library</h1>
 							{session ? (
 								<div className="flex items-center gap-4">
@@ -51,7 +51,7 @@ export default async function RootLayout({
 						{/* Main content area with sidebar and main content */}
 						<div className="flex flex-1">
 							{/* Sidebar - fixed width 150px */}
-							<aside className="w-[150px] border-r border-black flex flex-col p-4">
+							<aside className="w-[150px] border-r border-rich-brown flex flex-col p-4">
 								<nav className="flex flex-col gap-4">
 									<Link href="/" className="underline">
 										Home

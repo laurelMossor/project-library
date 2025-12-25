@@ -1,4 +1,64 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/*
+ * FONT STYLING
+ * 
+ * The font you see comes from Tailwind v4's base layer (included via @import above).
+ * Tailwind v4 applies default typography styles including font-family.
+ * 
+ * To customize the font, add it to the @theme directive below:
+ *   @theme {
+ *     --font-family-sans: "Your Font", system-ui, sans-serif;
+ *   }
+ * 
+ * Or override it with custom CSS after the @theme block.
+ */
+
+/*
+ * @theme directive (Tailwind v4) - PRIMARY METHOD
+ * 
+ * This is the Tailwind v4 way to define custom colors. Colors defined here
+ * automatically generate Tailwind utility classes like:
+ *   - bg-melon-green, bg-whale-blue, etc.
+ *   - text-soft-black, text-alert-red, etc.
+ *   - border-moss-green, border-warm-grey, etc.
+ * 
+ * USE THIS for: Tailwind classes in your JSX/TSX components
+ * Example: <div className="bg-grey-white text-soft-black">
+ */
+@theme {
+	--color-melon-green: #C4D6B0;
+	--color-whale-blue: #477998;
+	--color-rich-brown: #291F1E;
+	--color-alert-red: #F64740;
+	--color-novel-red: #A3333D;
+	--color-grey-white: #E6E8E6;
+	--color-soft-grey: #CED0CE;
+	--color-mint: #9FB8AD;
+	--color-moss-green: #475841;
+	--color-warm-grey: #3F403F;
+}
+
+/*
+ * :root CSS Variables - FOR DIRECT CSS USAGE
+ * 
+ * These CSS variables are available for use in:
+ *   - Regular CSS files (not Tailwind classes)
+ *   - Inline styles: style={{ color: 'var(--color-whale-blue)' }}
+ *   - CSS modules or styled-components
+ * 
+ * USE THIS for: Direct CSS, inline styles, or when Tailwind classes aren't suitable
+ * Example: <div style={{ backgroundColor: 'var(--color-melon-green)' }}>
+ */
+:root {
+	--color-melon-green: #C4D6B0;
+	--color-whale-blue: #477998;
+	--color-rich-brown: #291F1E;
+	--color-alert-red: #F64740;
+	--color-novel-red: #A3333D;
+	--color-grey-white: #E6E8E6;
+	--color-soft-grey: #CED0CE;
+	--color-mint: #9FB8AD;
+	--color-moss-green: #475841;
+	--color-warm-grey: #3F403F;
+}
