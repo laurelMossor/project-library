@@ -8,9 +8,17 @@ import { CollectionPage } from "./CollectionPage";
 
 type UserCollectionSectionProps = {
 	items: CollectionItem[];
+	title?: string;
+	emptyMessage?: string;
+	showCreateLinks?: boolean;
 };
 
-export function UserCollectionSection({ items }: UserCollectionSectionProps) {
+export function UserCollectionSection({ 
+	items, 
+	title = "Your Collection",
+	emptyMessage = "You haven't created any projects or events yet.",
+	showCreateLinks = true
+}: UserCollectionSectionProps) {
 	const [search, setSearch] = useState("");
 
 	// Filter items by search (client-side filtering for user's own collection)
@@ -44,12 +52,14 @@ export function UserCollectionSection({ items }: UserCollectionSectionProps) {
 	if (items.length === 0) {
 		return (
 			<div className="mt-8 pt-8 border-t">
-				<h2 className="text-xl font-semibold mb-4">Your Collection</h2>
-				<p className="text-gray-500">You haven't created any projects or events yet.</p>
-				<div className="mt-4 flex gap-4">
-					<Link href="/projects/new" className="underline">Create Project</Link>
-					<Link href="/events/new" className="underline">Create Event</Link>
-				</div>
+				<h2 className="text-xl font-semibold mb-4">{title}</h2>
+				<p className="text-gray-500">{emptyMessage}</p>
+				{showCreateLinks && (
+					<div className="mt-4 flex gap-4">
+						<Link href="/projects/new" className="underline">Create Project</Link>
+						<Link href="/events/new" className="underline">Create Event</Link>
+					</div>
+				)}
 			</div>
 		);
 	}
@@ -69,7 +79,7 @@ export function UserCollectionSection({ items }: UserCollectionSectionProps) {
 				view={view}
 				onViewChange={setView}
 				hasLocationData={hasLocationData}
-				title="Your Collection"
+				title={title}
 			/>
 		</div>
 	);
