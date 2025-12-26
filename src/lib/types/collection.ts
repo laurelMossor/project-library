@@ -1,6 +1,14 @@
+import { BaseCollectionItem } from "./collection-base";
 import { ProjectItem } from "./project";
 import { EventItem } from "./event";
 
+// Re-export BaseCollectionItem for convenience
+export type { BaseCollectionItem } from "./collection-base";
+
+/**
+ * Union type for all collection items
+ * New collection types should extend BaseCollectionItem and be added here
+ */
 export type CollectionItem = ProjectItem | EventItem;
 
 export type CollectionItemType = "project" | "event";

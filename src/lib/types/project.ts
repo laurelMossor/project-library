@@ -1,19 +1,14 @@
-import { PublicUser } from "./user";
+import { BaseCollectionItem } from "./collection-base";
 
 /**
  * Project type - matches Prisma schema
+ * Extends BaseCollectionItem with project-specific fields
  * The 'type' field is stored in the database as a discriminator for collection handling
  */
-export interface ProjectItem {
+export interface ProjectItem extends BaseCollectionItem {
 	type: "project";
-	id: string;
-	title: string;
-	description: string;
-	tags: string[];
 	imageUrl: string | null;
-	createdAt: Date;
 	updatedAt: Date;
-	owner: PublicUser;
 }
 
 export interface ProjectData {

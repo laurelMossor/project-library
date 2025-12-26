@@ -1,23 +1,18 @@
-import { PublicUser } from "./user";
+import { BaseCollectionItem } from "./collection-base";
 
 /**
  * Event type - matches Prisma schema
+ * Extends BaseCollectionItem with event-specific fields
  * The 'type' field is stored in the database as a discriminator for collection handling
  */
-export interface EventItem {
+export interface EventItem extends BaseCollectionItem {
 	type: "event";
-	id: string;
-	title: string;
-	description: string;
 	dateTime: Date;
 	location: string;
 	latitude: number | null;
 	longitude: number | null;
-	tags: string[];
 	imageUrls: string[];
-	createdAt: Date;
 	updatedAt: Date;
-	owner: PublicUser;
 }
 
 export interface EventCreateInput {
