@@ -33,7 +33,7 @@ export default async function ProjectDetailPage({ params }: Props) {
 							Message Owner
 						</Link>
 					)}
-					<Link href="/projects" className="underline">Back to projects</Link>
+					<Link href="/collections" className="underline">Back to collections</Link>
 					<Link href="/" className="underline">Home</Link>
 				</div>
 			</div>

@@ -56,8 +56,8 @@ export default async function RootLayout({
 									<Link href="/" className="underline">
 										Home
 									</Link>
-									<Link href="/projects" className="underline">
-										Projects
+									<Link href="/collections" className="underline">
+										Collections
 									</Link>
 									{session && (
 										<>

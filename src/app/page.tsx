@@ -13,8 +13,10 @@ export default async function Home() {
 					<p className="text-lg">
 						Logged in as <span className="font-medium">{session.user?.email}</span>
 					</p>
-					<div className="flex gap-4">
+					<div className="flex flex-wrap gap-4">
+						<Link href="/collections" className="underline">View Collections</Link>
 						<Link href="/projects/new" className="underline">New Project</Link>
+						<Link href="/events/new" className="underline">Create Event</Link>
 					</div>
 				</div>
 			) : (
@@ -22,6 +24,7 @@ export default async function Home() {
 					<p className="text-lg">
 						Get started by creating an account or logging in.
 					</p>
+					<Link href="/collections" className="inline-block underline">Browse Collections</Link>
 				</div>
 			)}
 		</div>

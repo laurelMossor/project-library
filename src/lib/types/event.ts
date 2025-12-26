@@ -1,6 +1,11 @@
 import { PublicUser } from "./user";
 
+/**
+ * Event type - matches Prisma schema
+ * The 'type' field is stored in the database as a discriminator for collection handling
+ */
 export interface Event {
+	type: "event";
 	id: string;
 	title: string;
 	description: string;

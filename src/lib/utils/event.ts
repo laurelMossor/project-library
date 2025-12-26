@@ -5,6 +5,7 @@ import { publicUserFields } from "./user";
 
 const eventWithOwnerFields = {
 	id: true,
+	type: true,
 	title: true,
 	description: true,
 	dateTime: true,

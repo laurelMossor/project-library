@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Thu 12/25/2025 17:47 PST
+Completed Milestone F code review and implemented type discriminator pattern. Added `type` field to Prisma schema (Project/Event models) with defaults, making database the source of truth. Refactored type guards to use discriminator field. Created shared collection utilities (`src/lib/utils/collection.ts`) eliminating ~60 lines of duplicated filtering/sorting logic between collections pages. Updated migrations to include `type` field properly. All utility functions now return data directly from Prisma without manual type mapping.
+
 #### Entry: Thu 12/25/2025 14:46 PST
 Normalized project data fetching and aligned type system with Prisma schema. Refactored project utilities to remove transformation layer - types now match Prisma directly (Date fields instead of string, no manual conversion). Created `PublicUser` type matching `publicUserFields` selection and updated `Project` interface to use `PublicUser` for owner instead of limited `ProjectOwner`. Updated `getInitials()` to accept `PublicUser` object. Renamed `publicProfileFields` to `publicUserFields` throughout codebase for consistency. Refactored component structure: moved project entry content to `ProjectEntry` component, updated `ProfilePicPlaceholder` to accept full project and made circle clickable link to user profile. Added client-side fetch utilities (`fetchProjects`, `fetchProjectById`) in `project.ts` for consistent API usage. All server-side functions now return Prisma results directly without transformation, ensuring type safety and eliminating unnecessary data conversion overhead.
 

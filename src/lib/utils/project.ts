@@ -5,6 +5,7 @@ import { publicUserFields } from "./user";
 // Standard fields to select when fetching a project with owner info
 const projectWithOwnerFields = {
 	id: true,
+	type: true,
 	title: true,
 	description: true,
 	tags: true,
@@ -40,6 +41,15 @@ export async function getAllProjects(search?: string): Promise<Project[]> {
 		where,
 		select: projectWithOwnerFields,
 		orderBy: { createdAt: "desc" }, // Most recent first
+	});
+}
+
+// Fetch all projects by a specific user
+export async function getProjectsByUser(userId: string): Promise<Project[]> {
+	return prisma.project.findMany({
+		where: { ownerId: userId },
+		select: projectWithOwnerFields,
+		orderBy: { createdAt: "desc" },
 	});
 }
 

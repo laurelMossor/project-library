@@ -35,6 +35,7 @@ model User {
 // Enhanced with image support (Milestone E)
 model Project {
 	id             String    @id @default(cuid())
+	type           String    @default("project") // discriminator field for collection types
 	title          String    // required project title
 	description    String    // required project description
 	tags           String[]  @default([]) // array of project tags, optional
@@ -51,6 +52,7 @@ model Project {
 // Event model for Milestone F (new post type with location data)
 model Event {
 	id          String    @id @default(cuid())
+	type        String    @default("event") // discriminator field for collection types
 	title       String    // required event title
 	description String    // required event description
 	dateTime    DateTime  // when the event occurs

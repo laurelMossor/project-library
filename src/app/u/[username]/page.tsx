@@ -45,7 +45,13 @@ export default async function PublicProfilePage({ params }: Props) {
 					</div>
 				)}
 
-				<div className="mt-8 flex gap-4">
+				<div className="mt-8 flex flex-wrap gap-4">
+					<Link
+						href={`/u/${username}/collections`}
+						className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+					>
+						View Collections
+					</Link>
 					{session && !isOwnProfile && (
 						<Link
 							href={`/messages/${user.id}`}
