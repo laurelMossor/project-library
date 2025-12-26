@@ -4,7 +4,7 @@ import { PublicUser } from "./user";
  * Project type - matches Prisma schema
  * The 'type' field is stored in the database as a discriminator for collection handling
  */
-export interface Project {
+export interface ProjectItem {
 	type: "project";
 	id: string;
 	title: string;

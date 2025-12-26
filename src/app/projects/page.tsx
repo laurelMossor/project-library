@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Project } from "@/lib/types/project";
+import { ProjectItem } from "@/lib/types/project";
 import { ProjectCard } from "@/lib/components/project/ProjectCard";
 import { fetchProjects } from "@/lib/utils/project-client";
 
 export default function ProjectsPage() {
-	const [projects, setProjects] = useState<Project[]>([]);
+	const [projects, setProjects] = useState<ProjectItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState("");

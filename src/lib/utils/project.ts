@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { ProjectData, Project } from "../types/project";
+import { ProjectData, ProjectItem } from "../types/project";
 import { publicUserFields } from "./user";
 
 // Standard fields to select when fetching a project with owner info
@@ -18,7 +18,7 @@ const projectWithOwnerFields = {
 } as const;
 
 // Fetch a project by ID with owner information
-export async function getProjectById(id: string): Promise<Project | null> {
+export async function getProjectById(id: string): Promise<ProjectItem | null> {
 	return prisma.project.findUnique({
 		where: { id },
 		select: projectWithOwnerFields,
@@ -27,7 +27,7 @@ export async function getProjectById(id: string): Promise<Project | null> {
 
 // Fetch all projects with optional basic text search
 // Search matches title or description (case-insensitive partial match)
-export async function getAllProjects(search?: string): Promise<Project[]> {
+export async function getAllProjects(search?: string): Promise<ProjectItem[]> {
 	const where = search
 		? {
 				OR: [
@@ -45,7 +45,7 @@ export async function getAllProjects(search?: string): Promise<Project[]> {
 }
 
 // Fetch all projects by a specific user
-export async function getProjectsByUser(userId: string): Promise<Project[]> {
+export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> {
 	return prisma.project.findMany({
 		where: { ownerId: userId },
 		select: projectWithOwnerFields,
@@ -55,7 +55,7 @@ export async function getProjectsByUser(userId: string): Promise<Project[]> {
 
 // Create a new project for a user
 // Tags and imageUrl are optional - if not provided or empty, defaults appropriately
-export async function createProject(ownerId: string, data: ProjectData): Promise<Project> {
+export async function createProject(ownerId: string, data: ProjectData): Promise<ProjectItem> {
 	return prisma.project.create({
 		data: {
 			title: data.title,

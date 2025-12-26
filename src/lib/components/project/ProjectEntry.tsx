@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Project } from "../../types/project";
+import { ProjectItem } from "../../types/project";
 import { formatDateTime } from "../../utils/datetime";
 import { truncateText } from "../../utils/text";
 import Link from "next/link";
@@ -14,7 +14,7 @@ const WeirdLittleButton = () => {
 	);
 };
 
-const ProjectImage = ({ project }: { project: Project }) => {
+const ProjectImage = ({ project }: { project: ProjectItem }) => {
 	return (project.imageUrl ? (
 		<div className="relative" style={{ maxWidth: '400px', maxHeight: '500px' }}>
 			<Image
@@ -34,7 +34,7 @@ const ProjectImage = ({ project }: { project: Project }) => {
 	))
 };
 
-const ProjectImageCarousel = ({ project }: { project: Project }) => {
+const ProjectImageCarousel = ({ project }: { project: ProjectItem }) => {
 	return (	
 	<div className="mb-4 flex items-center gap-2">
 		{/* Left side frame (placeholder) */}
@@ -52,7 +52,7 @@ const ProjectImageCarousel = ({ project }: { project: Project }) => {
     </div>
 )};
 
-export const ProjectEntry = ({ project, truncate }: { project: Project, truncate?: boolean }) => {
+export const ProjectEntry = ({ project, truncate = true }: { project: ProjectItem, truncate?: boolean }) => {
 	return (
 		<>
 			<p className="text-warm-grey text-sm mb-2">

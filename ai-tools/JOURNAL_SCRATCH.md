@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Thu 12/25/2025 21:54 PST
+Refactored collections rendering architecture. Created `FilteredCollection` component to handle view state (map/list/grid) and render appropriate card types directly (ProjectCard/EventCard), making `CollectionCard` obsolete. Extracted `CollectionItemCard` helper to DRY up card rendering logic. Added events to seed data (two events from admin and alice users). Renamed type interfaces: `Event` → `EventItem` and `Project` → `ProjectItem` to avoid conflicts with DOM Event type, updated all references across codebase.
+
 #### Entry: Thu 12/25/2025 17:47 PST
 Completed Milestone F code review and implemented type discriminator pattern. Added `type` field to Prisma schema (Project/Event models) with defaults, making database the source of truth. Refactored type guards to use discriminator field. Created shared collection utilities (`src/lib/utils/collection.ts`) eliminating ~60 lines of duplicated filtering/sorting logic between collections pages. Updated migrations to include `type` field properly. All utility functions now return data directly from Prisma without manual type mapping.
 

@@ -1,12 +1,12 @@
-import { Project } from "@/lib/types/project";
-import { Event } from "@/lib/types/event";
+import { ProjectItem } from "@/lib/types/project";
+import { EventItem } from "@/lib/types/event";
 
 export interface Tag {
 	title: string;
     // childOf?: string;
 }
 
-const CollectionTypeBadge = ({ item }: { item: Project | Event }) => {
+const CollectionTypeBadge = ({ item }: { item: ProjectItem | EventItem }) => {
     return (
         <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700 uppercase">
@@ -24,7 +24,7 @@ export const Tag = ({ tag }: { tag: string }) => {
 	);
 };
 
-export const Tags = ({ item }: { item: Project | Event }) => {
+export const Tags = ({ item }: { item: ProjectItem | EventItem }) => {
 	const itemHasTags = item.tags && item.tags.length > 0;
 
 	return (

@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 import { CollectionItem } from "@/lib/types/collection";
-import { Project } from "@/lib/types/project";
-import { Event } from "@/lib/types/event";
+import { ProjectItem } from "@/lib/types/project";
+import { EventItem } from "@/lib/types/event";
 import { filterCollectionItems, sortCollectionItemsByDate, getCollectionItemKey } from "@/lib/utils/collection";
 
 type FilterType = "all" | "projects" | "events";
@@ -16,8 +16,8 @@ export default function UserCollectionsPage() {
 	const params = useParams();
 	const username = params?.username as string;
 
-	const [projects, setProjects] = useState<Project[]>([]);
-	const [events, setEvents] = useState<Event[]>([]);
+	const [projects, setProjects] = useState<ProjectItem[]>([]);
+	const [events, setEvents] = useState<EventItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [filter, setFilter] = useState<FilterType>("all");

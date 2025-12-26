@@ -1,21 +1,21 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 import { CollectionItem } from "@/lib/types/collection";
 import { fetchProjects } from "@/lib/utils/project-client";
 import { fetchEvents } from "@/lib/utils/event-client";
-import { Project } from "@/lib/types/project";
-import { Event } from "@/lib/types/event";
-import { filterCollectionItems, sortCollectionItemsByDate, getCollectionItemKey } from "@/lib/utils/collection";
+import { ProjectItem } from "@/lib/types/project";
+import { EventItem } from "@/lib/types/event";
+import { filterCollectionItems, sortCollectionItemsByDate } from "@/lib/utils/collection";
+import { FilteredCollection } from "@/lib/components/collection/FilteredCollection";
 
 type FilterType = "all" | "projects" | "events";
 type SortType = "newest" | "oldest" | "relevance";
 type ViewType = "grid" | "list" | "map";
 
 export default function CollectionsPage() {
-	const [projects, setProjects] = useState<Project[]>([]);
-	const [events, setEvents] = useState<Event[]>([]);
+	const [projects, setProjects] = useState<ProjectItem[]>([]);
+	const [events, setEvents] = useState<EventItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState("");
@@ -195,32 +195,7 @@ export default function CollectionsPage() {
 
 				{/* Content display */}
 				{!loading && !error && filteredItems.length > 0 && (
-					<>
-						{view === "map" ? (
-							<div className="text-center py-12">
-								<p className="text-gray-600 mb-4">Map view coming soon</p>
-								<p className="text-sm text-gray-500">
-									{filteredItems.length} {filteredItems.length === 1 ? "item" : "items"} found
-								</p>
-							</div>
-						) : view === "list" ? (
-							<div className="space-y-4">
-								{filteredItems.map((item) => (
-									<CollectionCard key={getCollectionItemKey(item)} item={item} />
-								))}
-							</div>
-						) : (
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-								{filteredItems.map((item) => (
-									<CollectionCard
-										key={getCollectionItemKey(item)}
-										item={item}
-										truncate={true}
-									/>
-								))}
-							</div>
-						)}
-					</>
+					<FilteredCollection items={filteredItems} view={view} />
 				)}
 			</div>
 		</main>

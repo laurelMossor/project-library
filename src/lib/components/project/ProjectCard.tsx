@@ -1,10 +1,10 @@
-import { Project } from "../../types/project";
+import { ProjectItem } from "../../types/project";
 import Link from "next/link";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
 import { ProjectEntry } from "./ProjectEntry";
-import { Tag } from "../tag";
+import { Tag, Tags } from "../tag";
 
-const TitleHeaderLink = ({ project }: { project: Project }) => {
+const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
 		<Link href={`/projects/${project.id}`}>
 			<h2 className="text-xl font-semibold mb-2 hover:underline">{project.title}</h2>
@@ -13,7 +13,7 @@ const TitleHeaderLink = ({ project }: { project: Project }) => {
 };
 
 
-export const ProjectCard = ({ project, truncate }: { project: Project, truncate?: boolean }) => {
+export const ProjectCard = ({ project, truncate }: { project: ProjectItem, truncate?: boolean }) => {
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			<div className="mb-4">
@@ -26,13 +26,7 @@ export const ProjectCard = ({ project, truncate }: { project: Project, truncate?
 			</div>
 			<ProjectEntry project={project} truncate={truncate} />
 
-			{project.tags && project.tags.length > 0 && (
-				<div className="flex flex-wrap gap-2 mt-auto">
-					{project.tags.map((tag) => (
-						<Tag key={tag} tag={tag} />
-					))}
-				</div>
-			)}
+			<Tags item={project} />
 		</div>
 	);
 };

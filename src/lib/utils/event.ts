@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { Event, EventCreateInput, EventUpdateInput } from "@/lib/types/event";
+import { EventItem, EventCreateInput, EventUpdateInput } from "@/lib/types/event";
 import type { Prisma } from "@prisma/client";
 import { publicUserFields } from "./user";
 
@@ -21,7 +21,7 @@ const eventWithOwnerFields = {
 	},
 } as const;
 
-export async function getEventById(id: string): Promise<Event | null> {
+export async function getEventById(id: string): Promise<EventItem | null> {
 	return prisma.event.findUnique({
 		where: { id },
 		select: eventWithOwnerFields,
@@ -34,7 +34,7 @@ export interface GetAllEventsOptions {
 	offset?: number;
 }
 
-export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event[]> {
+export async function getAllEvents(options?: GetAllEventsOptions): Promise<EventItem[]> {
 	const search = options?.search;
 	const where = search
 		? {
@@ -55,7 +55,7 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 	});
 }
 
-export async function getEventsByUser(userId: string): Promise<Event[]> {
+export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	return prisma.event.findMany({
 		where: { ownerId: userId },
 		select: eventWithOwnerFields,
@@ -63,7 +63,7 @@ export async function getEventsByUser(userId: string): Promise<Event[]> {
 	});
 }
 
-export async function createEvent(ownerId: string, data: EventCreateInput): Promise<Event> {
+export async function createEvent(ownerId: string, data: EventCreateInput): Promise<EventItem> {
 	return prisma.event.create({
 		data: {
 			title: data.title,
@@ -80,7 +80,7 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 	});
 }
 
-export async function updateEvent(id: string, data: EventUpdateInput): Promise<Event> {
+export async function updateEvent(id: string, data: EventUpdateInput): Promise<EventItem> {
 	const updateData: Prisma.EventUpdateInput = {};
 
 	if (data.title !== undefined) {
@@ -122,7 +122,7 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 	});
 }
 
-export async function deleteEvent(id: string): Promise<Event> {
+export async function deleteEvent(id: string): Promise<EventItem> {
 	return prisma.event.delete({
 		where: { id },
 		select: eventWithOwnerFields,

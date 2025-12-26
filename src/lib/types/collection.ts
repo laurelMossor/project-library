@@ -1,21 +1,21 @@
-import { Project } from "./project";
-import { Event } from "./event";
+import { ProjectItem } from "./project";
+import { EventItem } from "./event";
 
-export type CollectionItem = Project | Event;
+export type CollectionItem = ProjectItem | EventItem;
 
 export type CollectionItemType = "project" | "event";
 
 /**
- * Type guard for Project - uses discriminator field for type safety
+ * Type guard for ProjectItem - uses discriminator field for type safety
  */
-export function isProject(item: CollectionItem): item is Project {
+export function isProject(item: CollectionItem): item is ProjectItem {
 	return item.type === "project";
 }
 
 /**
- * Type guard for Event - uses discriminator field for type safety
+ * Type guard for EventItem - uses discriminator field for type safety
  */
-export function isEvent(item: CollectionItem): item is Event {
+export function isEvent(item: CollectionItem): item is EventItem {
 	return item.type === "event";
 }
 

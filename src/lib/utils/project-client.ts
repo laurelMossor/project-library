@@ -1,4 +1,4 @@
-import { Project } from "../types/project";
+import { ProjectItem } from "../types/project";
 
 // CLIENT-SIDE FETCH UTILITIES
 // These functions fetch from the API routes and can be used in client components
@@ -8,7 +8,7 @@ import { Project } from "../types/project";
  * Fetch all projects with optional search query
  * Client-side utility that calls the /api/projects endpoint
  */
-export async function fetchProjects(search?: string): Promise<Project[]> {
+export async function fetchProjects(search?: string): Promise<ProjectItem[]> {
 	const url = search 
 		? `/api/projects?search=${encodeURIComponent(search)}` 
 		: "/api/projects";
@@ -26,7 +26,7 @@ export async function fetchProjects(search?: string): Promise<Project[]> {
  * Fetch a single project by ID
  * Client-side utility that calls the /api/projects/[id] endpoint
  */
-export async function fetchProjectById(id: string): Promise<Project | null> {
+export async function fetchProjectById(id: string): Promise<ProjectItem | null> {
 	const res = await fetch(`/api/projects/${id}`);
 
 	if (!res.ok) {
