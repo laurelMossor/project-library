@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CollectionItem, isEvent, getCollectionItemType } from "@/lib/types/collection";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
-import { Tag } from "../tag";
+import { Tag, Tags } from "../tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { getCollectionItemUrl } from "@/lib/utils/collection";
@@ -23,11 +23,6 @@ export function CollectionCard({ item, truncate = false }: CollectionCardProps) 
 				<div className="flex items-start gap-3 mb-2">
 					<ProfilePicPlaceholder owner={item.owner} />
 					<div className="flex-1 min-w-0">
-						<div className="flex items-center gap-2 mb-1">
-							<span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700 uppercase">
-								{itemType}
-							</span>
-						</div>
 						<Link href={detailUrl}>
 							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title}</h2>
 						</Link>
@@ -61,14 +56,8 @@ export function CollectionCard({ item, truncate = false }: CollectionCardProps) 
 				</p>
 			</div>
 
-			{/* Tags */}
-			{item.tags && item.tags.length > 0 && (
-				<div className="flex flex-wrap gap-2 mt-auto">
-					{item.tags.map((tag) => (
-						<Tag key={tag} tag={tag} />
-					))}
-				</div>
-			)}
+			<Tags item={item} />
+
 		</div>
 	);
 }

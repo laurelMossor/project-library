@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EventMap } from "@/lib/components/map/EventMap";
-import { Tag } from "@/lib/components/tag";
+import { Tags } from "@/lib/components/tag";
 import { formatDateTime } from "@/lib/utils/datetime";
 
 type Props = {
@@ -83,15 +83,7 @@ export default async function EventDetailPage({ params }: Props) {
 					</div>
 					<div className="rounded border border-gray-200 p-4">
 						<p className="text-sm font-semibold text-gray-500">Tags</p>
-						{event.tags.length === 0 ? (
-							<p className="text-xs text-gray-500">No tags added yet.</p>
-						) : (
-							<div className="flex flex-wrap gap-2">
-								{event.tags.map((tag) => (
-									<Tag key={tag} tag={tag} />
-								))}
-							</div>
-						)}
+						<Tags item={event} />
 					</div>
 				</div>
 
