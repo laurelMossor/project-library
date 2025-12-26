@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { CollectionCard } from "@/lib/components/collection/CollectionCard";
+import { CollectionItemCard } from "@/lib/components/collection/CollectionCard";
 import { CollectionItem } from "@/lib/types/collection";
 import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
@@ -155,7 +155,7 @@ export default function UserCollectionsPage() {
 				{!loading && !error && filteredItems.length > 0 && (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 						{filteredItems.map((item) => (
-							<CollectionCard
+							<CollectionItemCard
 								key={getCollectionItemKey(item)}
 								item={item}
 								truncate={true}

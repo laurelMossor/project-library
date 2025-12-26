@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Thu 12/25/2025 22:31 PST
+Extracted filtering and sorting logic into reusable components. Created `useFilter` hook to encapsulate filter/sort/view state management. Built `FilterBoard` component for UI controls (search, filter tabs, sort dropdown, view toggles). Reorganized `CollectionPage` as presentational component accepting all state/handlers as props. Refactored `collections/page.tsx` to client component handling data fetching and state, passing props to `CollectionPage`. Added personal collection section to profile page (`/profile`) displaying user's projects and events with full filtering/sorting capabilities. Made `CollectionPage` reusable with optional `title` prop for context-specific headers. Architecture now cleanly separates data fetching (client/server), state management (hooks), and presentation (components).
+
 #### Entry: Thu 12/25/2025 21:54 PST
 Refactored collections rendering architecture. Created `FilteredCollection` component to handle view state (map/list/grid) and render appropriate card types directly (ProjectCard/EventCard), making `CollectionCard` obsolete. Extracted `CollectionItemCard` helper to DRY up card rendering logic. Added events to seed data (two events from admin and alice users). Renamed type interfaces: `Event` → `EventItem` and `Project` → `ProjectItem` to avoid conflicts with DOM Event type, updated all references across codebase.
 

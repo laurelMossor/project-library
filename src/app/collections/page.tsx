@@ -6,12 +6,8 @@ import { fetchProjects } from "@/lib/utils/project-client";
 import { fetchEvents } from "@/lib/utils/event-client";
 import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
-import { filterCollectionItems, sortCollectionItemsByDate } from "@/lib/utils/collection";
-import { FilteredCollection } from "@/lib/components/collection/FilteredCollection";
-
-type FilterType = "all" | "projects" | "events";
-type SortType = "newest" | "oldest" | "relevance";
-type ViewType = "grid" | "list" | "map";
+import { useFilter } from "@/lib/hooks/useFilter";
+import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 
 export default function CollectionsPage() {
 	const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -19,9 +15,18 @@ export default function CollectionsPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState("");
-	const [filter, setFilter] = useState<FilterType>("all");
-	const [sort, setSort] = useState<SortType>("newest");
-	const [view, setView] = useState<ViewType>("grid");
+
+	// Combine all items for filtering
+	const allItems: CollectionItem[] = useMemo(() => [...projects, ...events], [projects, events]);
+
+	// Use filter hook for filtering, sorting, and view state
+	const { filteredItems, filter, setFilter, sort, setSort, view, setView } = useFilter(allItems);
+
+	// Check if any events have location data for map view
+	const hasLocationData = useMemo(
+		() => events.some((e) => e.latitude !== null && e.longitude !== null),
+		[events]
+	);
 
 	// Debounced search
 	useEffect(() => {
@@ -57,147 +62,22 @@ export default function CollectionsPage() {
 		}
 	};
 
-	// Combine and filter collections
-	const filteredItems = useMemo(() => {
-		const allItems: CollectionItem[] = [...projects, ...events];
-		const filtered = filterCollectionItems(allItems, filter);
-		
-		// Sort items (relevance is handled by API search, so no sorting needed)
-		if (sort === "newest" || sort === "oldest") {
-			return sortCollectionItemsByDate(filtered, sort);
-		}
-		
-		return filtered;
-	}, [projects, events, filter, sort]);
-
-	const hasLocationData = events.some((e) => e.latitude !== null && e.longitude !== null);
-
 	return (
 		<main className="flex min-h-screen flex-col p-8">
-			<div className="max-w-6xl mx-auto w-full">
-				{/* Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl font-bold mb-4">Collections</h1>
-
-					{/* Search bar */}
-					<div className="mb-4">
-						<input
-							type="text"
-							placeholder="Search projects and events..."
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							className="w-full max-w-md border p-2 rounded"
-						/>
-					</div>
-
-					{/* Filter tabs */}
-					<div className="flex flex-wrap items-center gap-4 mb-4">
-						<div className="flex gap-2 border-b">
-							<button
-								onClick={() => setFilter("all")}
-								className={`px-4 py-2 font-medium transition ${
-									filter === "all"
-										? "border-b-2 border-black text-black"
-										: "text-gray-600 hover:text-black"
-								}`}
-							>
-								All
-							</button>
-							<button
-								onClick={() => setFilter("projects")}
-								className={`px-4 py-2 font-medium transition ${
-									filter === "projects"
-										? "border-b-2 border-black text-black"
-										: "text-gray-600 hover:text-black"
-								}`}
-							>
-								Projects
-							</button>
-							<button
-								onClick={() => setFilter("events")}
-								className={`px-4 py-2 font-medium transition ${
-									filter === "events"
-										? "border-b-2 border-black text-black"
-										: "text-gray-600 hover:text-black"
-								}`}
-							>
-								Events
-							</button>
-						</div>
-
-						{/* Sort dropdown */}
-						<select
-							value={sort}
-							onChange={(e) => setSort(e.target.value as SortType)}
-							className="border p-2 rounded text-sm"
-						>
-							<option value="newest">Newest First</option>
-							<option value="oldest">Oldest First</option>
-							<option value="relevance">Relevance</option>
-						</select>
-
-						{/* View toggle */}
-						<div className="flex gap-2 ml-auto">
-							<button
-								onClick={() => setView("grid")}
-								className={`px-3 py-1 text-sm border rounded transition ${
-									view === "grid" ? "bg-black text-white" : "bg-white"
-								}`}
-							>
-								Grid
-							</button>
-							<button
-								onClick={() => setView("list")}
-								className={`px-3 py-1 text-sm border rounded transition ${
-									view === "list" ? "bg-black text-white" : "bg-white"
-								}`}
-							>
-								List
-							</button>
-							{hasLocationData && (
-								<button
-									onClick={() => setView("map")}
-									className={`px-3 py-1 text-sm border rounded transition ${
-										view === "map" ? "bg-black text-white" : "bg-white"
-									}`}
-								>
-									Map
-								</button>
-							)}
-						</div>
-					</div>
-				</div>
-
-				{/* Loading state */}
-				{loading && (
-					<div className="text-center py-12">
-						<p>Loading collections...</p>
-					</div>
-				)}
-
-				{/* Error state */}
-				{error && (
-					<div className="text-center py-12">
-						<p className="text-red-500">{error}</p>
-					</div>
-				)}
-
-				{/* Empty state */}
-				{!loading && !error && filteredItems.length === 0 && (
-					<div className="text-center py-12">
-						<p>
-							{search
-								? `No ${filter === "all" ? "items" : filter} found matching your search.`
-								: `No ${filter === "all" ? "collections" : filter} yet. Be the first to create one!`}
-						</p>
-					</div>
-				)}
-
-				{/* Content display */}
-				{!loading && !error && filteredItems.length > 0 && (
-					<FilteredCollection items={filteredItems} view={view} />
-				)}
-			</div>
+			<CollectionPage
+				filteredItems={filteredItems}
+				loading={loading}
+				error={error}
+				search={search}
+				onSearchChange={setSearch}
+				filter={filter}
+				onFilterChange={setFilter}
+				sort={sort}
+				onSortChange={setSort}
+				view={view}
+				onViewChange={setView}
+				hasLocationData={hasLocationData}
+			/>
 		</main>
 	);
 }
