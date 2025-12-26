@@ -24,6 +24,7 @@ model User {
 	updatedAt      DateTime  @updatedAt
 
 	projects       Project[] // projects owned by this user
+	events         Event[]   // events created by this user
 	sentMessages   Message[] @relation("SentMessages") // messages sent by this user
 	receivedMessages Message[] @relation("ReceivedMessages") // messages received by this user
 
@@ -45,6 +46,26 @@ model Project {
 	owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
 	@@map("projects")
+}
+
+// Event model for Milestone F (new post type with location data)
+model Event {
+	id          String    @id @default(cuid())
+	title       String    // required event title
+	description String    // required event description
+	dateTime    DateTime  // when the event occurs
+	location    String    // address or location name
+	latitude    Float?    // optional coordinates for map display
+	longitude   Float?    // optional coordinates for map display
+	tags        String[]  @default([]) // event tags/categories
+	imageUrls   String[]  @default([]) // optional images for the event
+	ownerId     String
+	createdAt   DateTime  @default(now())
+	updatedAt   DateTime  @updatedAt
+
+	owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+	@@map("events")
 }
 
 // Message model for direct messaging between users (Milestone E)

@@ -105,8 +105,12 @@ Lifelong Learning, Creativity, Care, Respect, Transparency
 
 **Deliverables:**
 
-* `/api/matches`
-* Matches
+* `/api/matches` API endpoint for match calculations
+* `/matches` page displaying potential matches
+* `/matches/[userId]` detailed match view
+* Match algorithm utility functions
+* Database queries for efficient matching
+* UI components for match cards and filtering
 
 
 
@@ -143,8 +147,37 @@ Lifelong Learning, Creativity, Care, Respect, Transparency
 
 **Goals:**
 
-* New post type: Event
-* Includes location, implement maps 
-* Events aggregate on the "Collection" page along with Projects 
-* Alter Projects page to be "Collection(s)"
-* Profile page has it's own collections page which is only that users posts 
+* New post type: Event with location data
+* Implement interactive maps for event locations
+* Events and Projects aggregate on unified "Collection" page
+* Transform Projects page into "Collection(s)" as the new home page
+* Add user-specific collections page showing only their own posts
+
+**Event Data:**
+
+* Title
+* Description
+* Date and time
+* Location (address, coordinates)
+* Tags/categories
+* Created date
+* Owner link
+* Optional: Maximum attendees, RSVP functionality
+
+**Collections Page Features:**
+
+* Unified view of Projects and Events
+* Filter by type (Projects/Events/All)
+* Search functionality across both content types
+* Sort by date, relevance, or popularity
+* Map view toggle for location-based browsing
+
+**Deliverables:**
+
+* `/api/events` CRUD API routes
+* `/events/new` event creation form
+* `/events/[id]` event detail pages
+* Map integration (Google Maps or OpenStreetMap)
+* Updated `/collections` page (formerly projects)
+* `/u/[username]/collections` user-specific collections
+* Event database model with location fields 

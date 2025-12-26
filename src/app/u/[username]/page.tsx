@@ -2,6 +2,7 @@ import { getUserByUsername } from "@/lib/utils/user";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Tag } from "@/lib/components/tag";
 
 type Props = {
 	params: Promise<{ username: string }>;
@@ -38,12 +39,7 @@ export default async function PublicProfilePage({ params }: Props) {
 						<h2 className="text-sm font-medium text-gray-500">Interests</h2>
 						<div className="mt-2 flex flex-wrap gap-2">
 							{user.interests.map((interest) => (
-								<span
-									key={interest}
-									className="px-2 py-1 bg-gray-100 rounded text-sm"
-								>
-									{interest}
-								</span>
+								<Tag key={interest} tag={interest} />
 							))}
 						</div>
 					</div>

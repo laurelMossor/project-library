@@ -1,5 +1,6 @@
 import { ProfileData } from "./types/user";
 import { ProjectData } from "./types/project";
+import type { EventCreateInput, EventUpdateInput } from "./types/event";
 
 // Validation utilities for user input
 // Provides reusable validation functions for email, username, password, and profile data
@@ -138,6 +139,151 @@ export function validateProjectData(data: ProjectData): { valid: boolean; error?
 		// Basic validation: should start with / or http:// or https://
 		if (!/^(\/|https?:\/\/)/.test(data.imageUrl)) {
 			return { valid: false, error: "Invalid image URL format" };
+		}
+	}
+
+	return { valid: true };
+}
+
+function isValidFutureDate(value: Date | undefined | null): boolean {
+	if (!value) return false;
+	if (!(value instanceof Date) || Number.isNaN(value.getTime())) return false;
+	return value.getTime() > Date.now();
+}
+
+export function validateEventData(data: EventCreateInput): { valid: boolean; error?: string } {
+	if (!data.title || typeof data.title !== "string") {
+		return { valid: false, error: "Event title is required" };
+	}
+	if (data.title.trim().length === 0) {
+		return { valid: false, error: "Event title cannot be empty" };
+	}
+	if (data.title.length > 150) {
+		return { valid: false, error: "Event title must be 150 characters or less" };
+	}
+
+	if (!data.description || typeof data.description !== "string") {
+		return { valid: false, error: "Event description is required" };
+	}
+	if (data.description.trim().length === 0) {
+		return { valid: false, error: "Event description cannot be empty" };
+	}
+	if (data.description.length > 5000) {
+		return { valid: false, error: "Event description must be 5000 characters or less" };
+	}
+
+	if (!isValidFutureDate(data.dateTime)) {
+		return { valid: false, error: "Event date must be in the future" };
+	}
+
+	if (!data.location || typeof data.location !== "string") {
+		return { valid: false, error: "Event location is required" };
+	}
+	if (data.location.trim().length === 0) {
+		return { valid: false, error: "Event location cannot be empty" };
+	}
+	if (data.location.length > 255) {
+		return { valid: false, error: "Event location must be 255 characters or less" };
+	}
+
+	if (data.tags) {
+		if (!Array.isArray(data.tags)) {
+			return { valid: false, error: "Event tags must be an array" };
+		}
+		if (data.tags.length > 10) {
+			return { valid: false, error: "Maximum 10 tags allowed" };
+		}
+		for (const tag of data.tags) {
+			if (typeof tag !== "string") {
+				return { valid: false, error: "Each tag must be a string" };
+			}
+			const trimmedTag = tag.trim();
+			if (trimmedTag.length === 0) {
+				return { valid: false, error: "Event tags cannot be empty" };
+			}
+			if (trimmedTag.length > 50) {
+				return { valid: false, error: "Each event tag must be 50 characters or less" };
+			}
+		}
+	}
+
+	if (data.latitude !== undefined && data.latitude !== null) {
+		if (typeof data.latitude !== "number" || Number.isNaN(data.latitude)) {
+			return { valid: false, error: "Latitude must be a number" };
+		}
+	}
+
+	if (data.longitude !== undefined && data.longitude !== null) {
+		if (typeof data.longitude !== "number" || Number.isNaN(data.longitude)) {
+			return { valid: false, error: "Longitude must be a number" };
+		}
+	}
+
+	return { valid: true };
+}
+
+export function validateEventUpdateData(data: EventUpdateInput): { valid: boolean; error?: string } {
+	if (data.title !== undefined) {
+		if (typeof data.title !== "string" || data.title.length === 0) {
+			return { valid: false, error: "Event title must be a non-empty string" };
+		}
+		if (data.title.length > 150) {
+			return { valid: false, error: "Event title must be 150 characters or less" };
+		}
+	}
+
+	if (data.description !== undefined) {
+		if (typeof data.description !== "string" || data.description.trim().length === 0) {
+			return { valid: false, error: "Event description must be a non-empty string" };
+		}
+		if (data.description.length > 5000) {
+			return { valid: false, error: "Event description must be 5000 characters or less" };
+		}
+	}
+
+	if (data.dateTime !== undefined && !isValidFutureDate(data.dateTime)) {
+		return { valid: false, error: "Event date must be in the future" };
+	}
+
+	if (data.location !== undefined) {
+		if (typeof data.location !== "string" || data.location.trim().length === 0) {
+			return { valid: false, error: "Event location must be a non-empty string" };
+		}
+		if (data.location.length > 255) {
+			return { valid: false, error: "Event location must be 255 characters or less" };
+		}
+	}
+
+	if (data.tags !== undefined) {
+		if (!Array.isArray(data.tags)) {
+			return { valid: false, error: "Event tags must be an array" };
+		}
+		if (data.tags.length > 10) {
+			return { valid: false, error: "Maximum 10 tags allowed" };
+		}
+		for (const tag of data.tags) {
+			if (typeof tag !== "string") {
+				return { valid: false, error: "Each tag must be a string" };
+			}
+			const trimmedTag = tag.trim();
+			if (trimmedTag.length === 0) {
+				return { valid: false, error: "Event tags cannot be empty" };
+			}
+			if (trimmedTag.length > 50) {
+				return { valid: false, error: "Each event tag must be 50 characters or less" };
+			}
+		}
+	}
+
+	if (data.latitude !== undefined) {
+		if (data.latitude !== null && (typeof data.latitude !== "number" || Number.isNaN(data.latitude))) {
+			return { valid: false, error: "Latitude must be a number or null" };
+		}
+	}
+
+	if (data.longitude !== undefined) {
+		if (data.longitude !== null && (typeof data.longitude !== "number" || Number.isNaN(data.longitude))) {
+			return { valid: false, error: "Longitude must be a number or null" };
 		}
 	}
 
