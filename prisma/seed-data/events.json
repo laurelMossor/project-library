@@ -1,0 +1,25 @@
+[
+	{
+		"title": "Community Craft Fair 2025",
+		"description": "Join us for our annual community craft fair featuring local artisans, workshops, and live demonstrations. Vendors will showcase handmade quilts, embroidery, knitting, and more. Free admission, food trucks on site. Perfect for craft enthusiasts and families!",
+		"dateTime": "2025-06-15T10:00:00Z",
+		"location": "Berkeley Community Center, 1234 University Ave, Berkeley, CA 94704",
+		"latitude": 37.8715,
+		"longitude": -122.2730,
+		"tags": ["Craft Fair", "Community Event", "Artisan Market", "Workshops"],
+		"imageUrls": [],
+		"ownerId": 1
+	},
+	{
+		"title": "Quilting Circle Meetup",
+		"description": "Monthly quilting circle for all skill levels. Bring your current project or start something new. We'll share techniques, patterns, and enjoy each other's company. Light refreshments provided. Beginners welcome!",
+		"dateTime": "2025-07-20T14:00:00Z",
+		"location": "Portland Public Library, 801 SW 10th Ave, Portland, OR 97205",
+		"latitude": 45.5152,
+		"longitude": -122.6784,
+		"tags": ["Quilting", "Meetup", "Workshop", "Community"],
+		"imageUrls": [],
+		"ownerId": 2
+	}
+]
+
