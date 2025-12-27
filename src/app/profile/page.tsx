@@ -15,7 +15,8 @@ export default async function ProfilePage() {
 		redirect("/login?callbackUrl=/profile");
 	}
 
-	const user = await getUserById(session.user.id);
+	const userId = session.user.id;
+	const user = await getUserById(userId);
 
 	if (!user) {
 		redirect("/login?callbackUrl=/profile");
@@ -23,8 +24,8 @@ export default async function ProfilePage() {
 
 	// Fetch user's projects and events
 	const [projects, events] = await Promise.all([
-		getProjectsByUser(session.user.id),
-		getEventsByUser(session.user.id),
+		getProjectsByUser(userId),
+		getEventsByUser(userId),
 	]);
 
 	// Combine into collection items

@@ -39,7 +39,7 @@ export default function LoginPage() {
 				{session && (
 					<div className="bg-gray-100 p-3 rounded text-sm text-center">
 						Logged in as {session.user?.email}.{" "}
-						<Link href="/profile" className="underline">Go to profile</Link>
+						<a href="/profile" className="underline">Go to profile</a>
 					</div>
 				)}
 
