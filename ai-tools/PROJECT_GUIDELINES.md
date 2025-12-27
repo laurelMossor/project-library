@@ -5,3 +5,4 @@
 4. Keep Journal entries brief, but chat explainations comprehensive but not exhaustive. 
 5. ALWAYS explain why you are doing what you're doing.
 6. Prefer using the colors from src/app/global.css when possible
+7. The DB Schema should be the source of truth for TS types and interfaces. 
