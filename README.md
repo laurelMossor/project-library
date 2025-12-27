@@ -98,6 +98,62 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000)
 
+## Deployment
+
+### Vercel Deployment
+
+1. **Push your code to GitHub**
+
+2. **Import project to Vercel**
+   - Go to [vercel.com](https://vercel.com) and sign in
+   - Click "Add New Project"
+   - Import your GitHub repository
+
+3. **Set up environment variables in Vercel**
+   - `DATABASE_URL` - Your production database connection string (from Supabase, Neon, etc.)
+   - `AUTH_SECRET` - Generate with `openssl rand -base64 32` or use Vercel's generated secret
+
+4. **Database setup**
+   - Choose a PostgreSQL provider (Supabase, Neon, Vercel Postgres, etc.)
+   - Run migrations: Vercel will run `prisma generate` automatically
+   - For migrations, you can run them manually or use a migration service:
+     ```bash
+     npx prisma migrate deploy
+     ```
+   - Seed database (optional):
+     ```bash
+     npx prisma db seed
+     ```
+
+5. **Deploy**
+   - Vercel will automatically build and deploy your Next.js app
+   - The build command is: `npm run build`
+   - Start command is: `npm start`
+
+### Environment Variables for Production
+
+Copy `.env.example` to `.env` and fill in values:
+
+- `DATABASE_URL` - Production PostgreSQL connection string
+- `AUTH_SECRET` - Secure random string for session encryption (32+ characters recommended)
+
+### Database Providers (Recommended for Vercel)
+
+- **Supabase** - Free tier available, easy setup
+- **Neon** - Serverless PostgreSQL, free tier available
+- **Vercel Postgres** - Integrated with Vercel, pay-as-you-go
+
+### Build Verification
+
+Test your production build locally:
+
+```bash
+npm run build
+npm start
+```
+
+Visit [http://localhost:3000](http://localhost:3000) to verify the build works.
+
 ## Project Structure
 
 ```

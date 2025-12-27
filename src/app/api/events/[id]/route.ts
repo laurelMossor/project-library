@@ -119,7 +119,7 @@ export async function PUT(
 		}
 		const tags = data.tags
 			.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
-			.filter((tag) => tag.length > 0);
+			.filter((tag: string) => tag.length > 0);
 		updatePayload.tags = tags;
 	}
 
@@ -129,7 +129,7 @@ export async function PUT(
 		}
 		const urls = data.imageUrls
 			.map((url: unknown) => (typeof url === "string" ? url.trim() : String(url).trim()))
-			.filter((url) => url.length > 0);
+			.filter((url: string) => url.length > 0);
 		updatePayload.imageUrls = urls;
 	}
 

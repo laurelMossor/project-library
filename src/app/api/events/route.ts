@@ -76,13 +76,13 @@ export async function POST(request: Request) {
 			Array.isArray(data.tags) && data.tags.length > 0
 				? data.tags
 						.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
-						.filter((tag) => tag.length > 0)
+						.filter((tag: string) => tag.length > 0)
 				: undefined;
 		const imageUrls =
 			Array.isArray(data.imageUrls) && data.imageUrls.length > 0
 				? data.imageUrls
 						.map((url: unknown) => (typeof url === "string" ? url.trim() : String(url).trim()))
-						.filter((url) => url.length > 0)
+						.filter((url: string) => url.length > 0)
 				: undefined;
 
 		const event = await createEvent(session.user.id, {

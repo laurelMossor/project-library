@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
 import { ProjectEntry } from "./ProjectEntry";
 import { Tag, Tags } from "../tag";
+import { ProjectEntriesList } from "./ProjectEntriesList";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
@@ -13,7 +14,7 @@ const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 };
 
 
-export const ProjectCard = ({ project, truncate }: { project: ProjectItem, truncate?: boolean }) => {
+export const ProjectCard = ({ project, truncate, showEntries }: { project: ProjectItem, truncate?: boolean, showEntries?: boolean }) => {
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			<div className="mb-4">
@@ -27,6 +28,9 @@ export const ProjectCard = ({ project, truncate }: { project: ProjectItem, trunc
 			<ProjectEntry project={project} truncate={truncate} />
 
 			<Tags item={project} />
+
+			{/* Project entry updates - shown only on detail page */}
+			{showEntries && <ProjectEntriesList projectId={project.id} />}
 		</div>
 	);
 };

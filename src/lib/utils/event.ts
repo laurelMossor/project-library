@@ -22,10 +22,12 @@ const eventWithOwnerFields = {
 } as const;
 
 export async function getEventById(id: string): Promise<EventItem | null> {
-	return prisma.event.findUnique({
+	const event = await prisma.event.findUnique({
 		where: { id },
 		select: eventWithOwnerFields,
 	});
+	if (!event) return null;
+	return event as EventItem;
 }
 
 export interface GetAllEventsOptions {
@@ -46,25 +48,27 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 		  }
 		: {};
 
-	return prisma.event.findMany({
+	const events = await prisma.event.findMany({
 		where,
 		select: eventWithOwnerFields,
 		orderBy: { createdAt: "desc" },
 		...(options?.offset !== undefined ? { skip: options.offset } : {}),
 		...(options?.limit !== undefined ? { take: options.limit } : {}),
 	});
+	return events as EventItem[];
 }
 
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
-	return prisma.event.findMany({
+	const events = await prisma.event.findMany({
 		where: { ownerId: userId },
 		select: eventWithOwnerFields,
 		orderBy: { createdAt: "desc" },
 	});
+	return events as EventItem[];
 }
 
 export async function createEvent(ownerId: string, data: EventCreateInput): Promise<EventItem> {
-	return prisma.event.create({
+	const event = await prisma.event.create({
 		data: {
 			title: data.title,
 			description: data.description,
@@ -78,6 +82,7 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 		},
 		select: eventWithOwnerFields,
 	});
+	return event as EventItem;
 }
 
 export async function updateEvent(id: string, data: EventUpdateInput): Promise<EventItem> {
@@ -115,17 +120,19 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 		updateData.imageUrls = data.imageUrls;
 	}
 
-	return prisma.event.update({
+	const event = await prisma.event.update({
 		where: { id },
 		data: updateData,
 		select: eventWithOwnerFields,
 	});
+	return event as EventItem;
 }
 
 export async function deleteEvent(id: string): Promise<EventItem> {
-	return prisma.event.delete({
+	const event = await prisma.event.delete({
 		where: { id },
 		select: eventWithOwnerFields,
 	});
+	return event as EventItem;
 }
 
