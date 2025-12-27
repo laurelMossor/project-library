@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Note: In Next.js 16, middleware.ts is deprecated in favor of proxy.ts
+// This file replaces the old middleware.ts pattern
+
 // Routes that require authentication
 const protectedRoutes = ["/profile", "/projects/new"];
 
-export function proxy(req: NextRequest) {
+export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
 
 	// Check if the current path is a protected route
@@ -13,10 +16,15 @@ export function proxy(req: NextRequest) {
 	);
 
 	// Check for session cookie (NextAuth v5 uses these cookie names)
+	// Also check for any cookie that might be a session cookie
 	const sessionCookie = req.cookies.get("authjs.session-token") ||
 		req.cookies.get("__Secure-authjs.session-token") ||
 		req.cookies.get("next-auth.session-token") ||
-		req.cookies.get("__Secure-next-auth.session-token");
+		req.cookies.get("__Secure-next-auth.session-token") ||
+		// Check for any cookie containing "session" or "auth" in the name
+		Array.from(req.cookies.getAll()).some(cookie => 
+			cookie.name.includes("session") || cookie.name.includes("auth")
+		);
 
 	// If protected and no session cookie, redirect to login
 	if (isProtected && !sessionCookie) {

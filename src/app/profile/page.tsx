@@ -7,8 +7,7 @@ import { getEventsByUser } from "@/lib/utils/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
 
 export default async function ProfilePage() {
-	// Proxy protects this route, but we verify session here as a safety check
-	// If session is invalid, redirect to login (proxy handles cookie-based protection)
+	// Middleware protects this route, but we verify session here as a safety check
 	const session = await auth();
 
 	if (!session?.user?.id) {

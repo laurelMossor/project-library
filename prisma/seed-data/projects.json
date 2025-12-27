@@ -3,26 +3,93 @@
 		"title": "Vintage Quilt Pattern Collection",
 		"description": "A comprehensive collection of traditional and modern quilt patterns, complete with detailed instructions and fabric requirements. Includes patterns for beginner-friendly designs as well as advanced techniques like paper piecing and appliqué. Each pattern includes color suggestions and tips for achieving perfect points and seams.",
 		"tags": ["Quilting", "Patterns", "Traditional Crafts", "Sewing"],
-		"ownerId": 2
+		"ownerId": 2,
+		"createdAt": "2025-12-03T10:00:00Z"
+	},
+	{
+		"title": "Botanical Quilt Wall Hanging",
+		"description": "Working on a large wall hanging featuring botanical motifs using appliqué techniques. Combining traditional quilting methods with modern design to create a piece that celebrates nature and craftsmanship.",
+		"tags": ["Quilting", "Appliqué", "Botanical Art", "Wall Hanging"],
+		"ownerId": 2,
+		"createdAt": "2025-12-18T14:30:00Z",
+		"hasEntries": true
 	},
 	{
 		"title": "Botanical Embroidery Kit Series",
 		"description": "A series of embroidery kits featuring botanical designs inspired by local wildflowers. Each kit includes pre-printed fabric, embroidery floss in carefully selected color palettes, needles, and step-by-step instructions. Perfect for beginners and experienced stitchers alike. The designs can be framed or incorporated into larger textile projects.",
 		"tags": ["Embroidery", "Botanical Art", "Kits", "Hand Sewing"],
-		"ownerId": 3
+		"ownerId": 3,
+		"createdAt": "2025-12-05T09:15:00Z"
 	},
 	{
-		"title": "Sustainable Yarn Dyeing Workshop",
-		"description": "An online workshop teaching natural dyeing techniques using kitchen scraps and garden plants. Learn to create beautiful, eco-friendly yarn colors using avocado pits, onion skins, and other natural materials. Includes recipes, safety guidelines, and tips for achieving consistent results. Perfect for knitters and fiber artists looking to create custom-colored yarns.",
-		"tags": ["Natural Dyeing", "Workshop", "Sustainable Crafts", "Yarn"],
-		"ownerId": 7
+		"title": "Vintage Pattern Recreation Project",
+		"description": "Recreating vintage embroidery patterns from the 1920s-1940s, adapting them for modern use while preserving their historical charm. Documenting techniques and creating tutorials for others interested in vintage needlework.",
+		"tags": ["Embroidery", "Vintage Crafts", "Pattern Design", "Historical Recreation"],
+		"ownerId": 3,
+		"createdAt": "2025-12-22T16:45:00Z"
 	},
 	{
-		"title": "Upcycled Denim Tote Bag Pattern",
-		"description": "A detailed pattern and tutorial for creating sturdy tote bags from old denim jeans. Includes instructions for deconstructing jeans, cutting pattern pieces, and assembling a durable bag with reinforced handles. Perfect for beginners and a great way to repurpose worn-out clothing. The pattern includes variations for different bag sizes and handle styles.",
-		"tags": ["Upcycling", "Sewing", "Sustainable Fashion", "Pattern"],
-		"imageUrl": "/uploads/projects/1766126006776-ps68bra.jpeg",
-		"ownerId": 5
+		"title": "Cable Knit Sweater Pattern",
+		"description": "Designing a cozy cable knit sweater pattern suitable for intermediate knitters. Features intricate cable patterns on the front and sleeves, with clear instructions and charts. Using sustainable wool yarn in natural colors.",
+		"tags": ["Knitting", "Cable Patterns", "Sweater Design", "Sustainable Crafts"],
+		"ownerId": 4,
+		"createdAt": "2025-12-08T11:20:00Z"
+	},
+	{
+		"title": "Hand-Dyed Yarn Collection",
+		"description": "Creating a collection of hand-dyed yarns using natural dyes from kitchen scraps and garden plants. Each batch is unique, featuring subtle color variations. Perfect for knitting projects that need a special touch.",
+		"tags": ["Yarn Dyeing", "Natural Dyeing", "Sustainable Crafts", "Knitting"],
+		"ownerId": 4,
+		"createdAt": "2025-12-20T13:00:00Z",
+		"hasEntries": true
+	},
+	{
+		"title": "Open Source React Component Library",
+		"description": "Building a reusable React component library with TypeScript, focusing on accessibility and developer experience. Components include forms, navigation, data display, and more. All components are fully documented and tested.",
+		"tags": ["React", "TypeScript", "Open Source", "Component Library"],
+		"ownerId": 5,
+		"createdAt": "2025-12-02T08:30:00Z"
+	},
+	{
+		"title": "Full Stack Web Application Tutorial",
+		"description": "Creating a comprehensive tutorial series on building a full stack web application from scratch. Covers frontend with React, backend with Node.js, database design, authentication, and deployment. Includes code examples and best practices.",
+		"tags": ["React", "Node.js", "Tutorial", "Full Stack"],
+		"ownerId": 5,
+		"createdAt": "2025-12-15T10:00:00Z"
+	},
+	{
+		"title": "Infrastructure as Code Templates",
+		"description": "Developing reusable Infrastructure as Code templates for AWS deployments using Terraform. Templates cover common architectures like web applications, APIs, and data pipelines. Includes documentation and examples.",
+		"tags": ["AWS", "Terraform", "Infrastructure as Code", "DevOps"],
+		"ownerId": 6,
+		"createdAt": "2025-12-12T09:45:00Z"
+	},
+	{
+		"title": "Custom Dining Table",
+		"description": "Building a custom dining table using traditional joinery techniques. Using locally sourced walnut wood with a natural finish. The table features mortise and tenon joints for durability and a timeless aesthetic.",
+		"tags": ["Furniture Making", "Joinery", "Hand Tools", "Custom Furniture"],
+		"ownerId": 8,
+		"createdAt": "2025-12-06T14:00:00Z"
+	},
+	{
+		"title": "Woodworking Workshop Series",
+		"description": "Teaching a series of workshops on fundamental woodworking skills. Covering topics like hand tool selection, sharpening, joinery basics, and finishing techniques. Suitable for beginners who want to learn traditional methods.",
+		"tags": ["Woodworking", "Workshop", "Hand Tools", "Teaching"],
+		"ownerId": 8,
+		"createdAt": "2025-12-19T10:30:00Z"
+	},
+	{
+		"title": "Natural Edge Bowl Collection",
+		"description": "Creating a collection of turned bowls preserving the natural edge of the wood. Each bowl showcases the unique character of the wood grain and bark edge. Using green wood turning techniques for best results.",
+		"tags": ["Wood Turning", "Lathe Work", "Green Wood", "Bowl Making"],
+		"ownerId": 10,
+		"createdAt": "2025-12-10T11:15:00Z"
+	},
+	{
+		"title": "Dovetail Joint Practice Set",
+		"description": "Practicing and perfecting dovetail joinery through a series of small projects. Creating practice boxes, drawers, and small containers to refine technique. Documenting the learning process and sharing tips.",
+		"tags": ["Fine Woodworking", "Dovetails", "Hand Tools", "Joinery"],
+		"ownerId": 10,
+		"createdAt": "2025-12-25T15:00:00Z"
 	}
 ]
-

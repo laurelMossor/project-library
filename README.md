@@ -47,10 +47,16 @@ brew services start postgresql@15
 createdb projectlibrary
 
 # Run migrations
-npx prisma migrate dev
+npm run db:migrate --name [NEW_COMMIT]
+
+# Generate the Prisma Client
+npm run db:generate
 
 # Seed the database with sample data (optional)
-npx prisma db seed
+npm run db:seed
+
+
+
 ```
 
 **Linux/WSL (Ubuntu/Debian):**
