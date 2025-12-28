@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Sat 12/27/2025 19:56 PST
+Reorganized codebase to prevent client/server boundary issues. Moved all server-only files (prisma, project, event, user, message, project-entry) to `src/lib/utils/server/` folder with warning comments. Updated all imports across codebase to use new server paths. Fixed build error where client components were importing server code (ProjectEntriesList was importing from server file). Added proper type validation to server functions - `getProjectEntries()` and `createProjectEntry()` now explicitly return `ProjectEntryItem` types with proper field selection. Extracted navigation icons into reusable components (`src/lib/components/icons.tsx`). Created `LoginLogoutIcon` component to handle authentication UI. Added "New Entry" button to project detail page (visible only to project owners) with new entry creation page at `/projects/[id]/entries/new`. Created `CLIENT_SERVER_BOUNDARIES.md` guide documenting best practices for avoiding client/server import issues.
+
 #### Entry: Sat 12/27/2025 18:33 PST
 Fixed first production bug: email case sensitivity causing login failures. Prisma/PostgreSQL email lookups are case-sensitive, causing `Diana.example@example.com` to fail against seed data with lowercase `diana.example@example.com`. Normalized emails to lowercase in `authorize()` function (`src/lib/auth.ts`) and signup route before database operations. Added logout button to NavigationBar.
 

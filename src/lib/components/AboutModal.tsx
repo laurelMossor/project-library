@@ -3,6 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 
+const WELCOME_MESSAGE = `The Project Library is about process, not polish. This is a shared space for making, learning, and helping each other along the way. 
+
+It's a place to share what you're working on, see what others are learning, and connect through shared interests. 
+
+You can browse by topic or location, follow what's unfolding, and choose how you explore: no hidden algorithms. If you're working on something, or thinking about starting, you're in the right place.`;
+
 export function AboutModal() {
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -54,8 +60,8 @@ export function AboutModal() {
 						<div className="space-y-4">
 							<div>
 								<h3 className="font-semibold mb-2">Mission</h3>
-								<p className="text-sm text-warm-grey">
-									Project Library is about connection and sharing: Teaching—Learning—Creating Community. This website facilitates sharing and building of expertise and craft.
+								<p className="text-sm text-warm-grey whitespace-pre-line">
+									{WELCOME_MESSAGE}
 								</p>
 							</div>
 
