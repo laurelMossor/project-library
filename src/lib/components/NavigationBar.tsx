@@ -22,9 +22,9 @@ export function NavigationBar({ userHomeLink }: NavigationBarProps) {
 				<Image
 					src="/assets/img/Project_Library_Animated_Logo.gif"
 					alt="Project Library"
-					width={200}
-					height={100}
-					className="h-[60px] w-auto"
+					width={240}
+					height={120}
+					className="h-[80px] w-auto"
 					unoptimized
 				/>
 			</Link>
