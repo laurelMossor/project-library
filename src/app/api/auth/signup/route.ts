@@ -12,8 +12,11 @@ export async function POST(request: Request) {
 		return badRequest("Email, password, and username are required");
 	}
 
+	// Normalize email to lowercase for case-insensitive storage and lookup
+	const normalizedEmail = email.toLowerCase().trim();
+
 	// Validate email format
-	if (!validateEmail(email)) {
+	if (!validateEmail(normalizedEmail)) {
 		return badRequest("Invalid email format");
 	}
 
@@ -27,19 +30,19 @@ export async function POST(request: Request) {
 		return badRequest("Password must be at least 8 characters long");
 	}
 
-	// Check if user already exists
+	// Check if user already exists (use normalized email)
 	const existingUser = await prisma.user.findFirst({
-		where: { OR: [{ email }, { username }] },
+		where: { OR: [{ email: normalizedEmail }, { username }] },
 	});
 
 	if (existingUser) {
 		return badRequest("User with this email or username already exists");
 	}
 
-	// Hash password and create user
+	// Hash password and create user (store normalized email)
 	const passwordHash = await bcrypt.hash(password, 10);
 	const user = await prisma.user.create({
-		data: { email, passwordHash, username },
+		data: { email: normalizedEmail, passwordHash, username },
 	});
 
 	return NextResponse.json({ id: user.id, email: user.email }, { status: 201 });

@@ -20,7 +20,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
 					if (!email || !password) return null;
 
-					const user = await prisma.user.findUnique({ where: { email } });
+					// Normalize email to lowercase for case-insensitive login
+					const normalizedEmail = email.toLowerCase().trim();
+
+					const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 					if (!user) return null;
 
 					const passwordMatch = await bcrypt.compare(password, user.passwordHash);
