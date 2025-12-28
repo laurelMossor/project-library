@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { AboutModal } from "./AboutModal";
 import { CollectionsIcon, UserHomeIcon } from "./icons";
@@ -16,9 +17,16 @@ export function NavigationBar({ userHomeLink }: NavigationBarProps) {
 
 	return (
 		<header className="h-[100px] w-full border-b border-rich-brown flex items-center justify-between px-6">
-			{/* Left: Title */}
-			<Link href="/collections" className="text-2xl font-bold hover:opacity-80 transition-opacity">
-				Project Library
+			{/* Left: Logo */}
+			<Link href="/collections" className="hover:opacity-80 transition-opacity flex items-center">
+				<Image
+					src="/assets/img/Project_Library_Animated_Logo.gif"
+					alt="Project Library"
+					width={200}
+					height={100}
+					className="h-[60px] w-auto"
+					unoptimized
+				/>
 			</Link>
 
 			{/* Right: Navigation icons */}
