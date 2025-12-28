@@ -76,65 +76,6 @@ To populate your database with fake users and projects for testing, you can crea
 
 Create a file `prisma/seed.ts`:
 
-```typescript
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
-import bcrypt from "bcryptjs";
-
-// Use the same Prisma setup as your app
-const pool = new pg.Pool({
-	connectionString: process.env.DATABASE_URL,
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
-
-async function main() {
-	// Create fake users
-	const users = [];
-	for (let i = 1; i <= 5; i++) {
-		const passwordHash = await bcrypt.hash("password123", 10);
-		const user = await prisma.user.create({
-			data: {
-				email: `user${i}@example.com`,
-				username: `user${i}`,
-				passwordHash,
-				name: `Test User ${i}`,
-				headline: `Developer ${i}`,
-				bio: `This is a test bio for user ${i}`,
-				interests: ["React", "TypeScript", "Next.js"],
-				location: "San Francisco, CA",
-			},
-		});
-		users.push(user);
-	}
-
-	// Create fake projects for each user
-	for (const user of users) {
-		await prisma.project.create({
-			data: {
-				title: `${user.name}'s Awesome Project`,
-				description: `This is a detailed description of ${user.name}'s project. It showcases their skills and interests.`,
-				tags: ["web", "react", "typescript"],
-				ownerId: user.id,
-			},
-		});
-	}
-
-	console.log("✅ Seeded database with fake data!");
-}
-
-main()
-	.catch((e) => {
-		console.error(e);
-		process.exit(1);
-	})
-	.finally(async () => {
-		await prisma.$disconnect();
-	});
-```
-
 ### Step 2: Add Seed Script to package.json
 
 Add this to your `package.json` scripts section:

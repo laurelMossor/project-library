@@ -1,17 +1,17 @@
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
+import { prisma } from "@/lib/utils/prisma";
+// import { PrismaPg } from "@prisma/adapter-pg";
+// import pg from "pg";
 import bcrypt from "bcryptjs";
 import { readFileSync } from "fs";
 import { join } from "path";
 
 // Use the same Prisma setup as your app
-const pool = new pg.Pool({
-	connectionString: process.env.DATABASE_URL,
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+// const pool = new pg.Pool({
+// 	connectionString: process.env.DATABASE_URL,
+// });
+// const adapter = new PrismaPg(pool);
+// const prisma = new PrismaClient({ adapter });
 
 // Load seed data from JSON files
 const usersData = JSON.parse(
