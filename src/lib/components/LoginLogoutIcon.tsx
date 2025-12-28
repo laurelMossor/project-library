@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogoutIcon, LoginIcon } from "./icons";
+import { LogoutIcon, LoginIcon } from "./icons/icons";
 
 interface LoginLogoutIconProps {
 	isLoggedIn: boolean;

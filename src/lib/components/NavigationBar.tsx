@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { AboutModal } from "./AboutModal";
-import { CollectionsIcon, UserHomeIcon } from "./icons";
+import { CollectionsIcon, UserHomeIcon } from "./icons/icons";
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 
 interface NavigationBarProps {
