@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Sat 12/27/2025 18:33 PST
+Fixed first production bug: email case sensitivity causing login failures. Prisma/PostgreSQL email lookups are case-sensitive, causing `Diana.example@example.com` to fail against seed data with lowercase `diana.example@example.com`. Normalized emails to lowercase in `authorize()` function (`src/lib/auth.ts`) and signup route before database operations. Added logout button to NavigationBar.
+
 #### Entry: Sat 12/27/2025 16:53 PST
 Resolved Vercel/Supabase deployment issues. Fixed Prisma build error by removing duplicate `generator client` block in `schema.prisma` (had two conflicting generator definitions). Fixed NextAuth session 500 errors by adding `secret` configuration to NextAuth config (`AUTH_SECRET` or `NEXTAUTH_SECRET` env var required for production). Added comprehensive error handling to auth flow: wrapped `authorize` function and `session` callback in try-catch blocks to prevent unhandled errors from causing 500 responses. Added `jwt` callback to properly store user ID in token for session retrieval. Improved Prisma client initialization in `src/lib/utils/prisma.ts` with better error messages and connection pool settings for serverless environments. Deployment now requires `AUTH_SECRET` environment variable to be set in Vercel dashboard. MVP is COMPLETE!
 
