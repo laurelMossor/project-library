@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
-import { getUserById } from "@/lib/utils/user";
+import { getUserById } from "@/lib/utils/server/user";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getProjectsByUser } from "@/lib/utils/project";
-import { getEventsByUser } from "@/lib/utils/event";
+import { getProjectsByUser } from "@/lib/utils/server/project";
+import { getEventsByUser } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
 
 export default async function ProfilePage() {

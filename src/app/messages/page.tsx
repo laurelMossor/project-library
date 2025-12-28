@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getConversations } from "@/lib/utils/message";
+import { getConversations } from "@/lib/utils/server/message";
 import { truncateText } from "@/lib/utils/text";
 
 // Helper function to format timestamp as relative time or date

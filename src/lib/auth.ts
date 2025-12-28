@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { prisma } from "./utils/prisma";
+import { prisma } from "./utils/server/prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUserByUsername } from "@/lib/utils/user";
-import { getProjectsByUser } from "@/lib/utils/project";
+import { getUserByUsername } from "@/lib/utils/server/user";
+import { getProjectsByUser } from "@/lib/utils/server/project";
 import { notFound } from "@/lib/utils/errors";
 
 export async function GET(

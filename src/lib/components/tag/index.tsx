@@ -1,5 +1,6 @@
 import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
+import { itemHasCollectionType } from "@/lib/utils/collection";
 
 export interface Tag {
 	title: string;
@@ -29,7 +30,7 @@ export const Tags = ({ item }: { item: ProjectItem | EventItem }) => {
 
 	return (
 		<div className="flex flex-wrap gap-2 mt-auto">
-			<CollectionTypeBadge item={item} />
+			{itemHasCollectionType(item) && <CollectionTypeBadge item={item} />}
 			{itemHasTags && item.tags.map((tag) => (
 				<Tag key={tag} tag={tag} />
 			))}

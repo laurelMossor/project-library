@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getMessages } from "@/lib/utils/message";
+import { getMessages } from "@/lib/utils/server/message";
 import { unauthorized, badRequest, notFound } from "@/lib/utils/errors";
-import { prisma } from "@/lib/utils/prisma";
+import { prisma } from "@/lib/utils/server/prisma";
 
 // GET /api/messages/[userId] - Get all messages between current user and specified user
 // Protected endpoint (requires authentication)

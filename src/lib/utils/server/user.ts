@@ -1,3 +1,6 @@
+// ⚠️ SERVER-ONLY: This file uses prisma (database client)
+// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
+
 import { prisma } from "./prisma";
 
 // Standard fields to select when fetching a user profile

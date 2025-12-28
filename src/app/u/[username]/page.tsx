@@ -1,10 +1,10 @@
-import { getUserByUsername } from "@/lib/utils/user";
+import { getUserByUsername } from "@/lib/utils/server/user";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Tag } from "@/lib/components/tag";
-import { getProjectsByUser } from "@/lib/utils/project";
-import { getEventsByUser } from "@/lib/utils/event";
+import { getProjectsByUser } from "@/lib/utils/server/project";
+import { getEventsByUser } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
 
 type Props = {
@@ -35,47 +35,60 @@ export default async function PublicProfilePage({ params }: Props) {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-6xl">
-				<div className="max-w-md mx-auto">
-				<h1 className="text-3xl font-bold">{user.name || user.username}</h1>
-				{user.headline && <p className="text-lg mt-1">{user.headline}</p>}
-				{user.location && <p className="text-sm text-gray-500 mt-1">{user.location}</p>}
+				{/* Profile Header Section - Side by Side Layout */}
+				<div className="flex flex-col md:flex-row gap-8 mb-8">
+					{/* Left: Profile Fields */}
+					<div className="flex-1">
+						<h1 className="text-3xl font-bold">{user.name || user.username}</h1>
+						{user.headline && <p className="text-lg mt-1">{user.headline}</p>}
+						{user.location && <p className="text-sm text-gray-500 mt-1">{user.location}</p>}
 
-				{user.bio && (
-					<div className="mt-6">
-						<h2 className="text-sm font-medium text-gray-500">About</h2>
-						<p className="mt-1">{user.bio}</p>
-					</div>
-				)}
-
-				{user.interests && user.interests.length > 0 && (
-					<div className="mt-6">
-						<h2 className="text-sm font-medium text-gray-500">Interests</h2>
-						<div className="mt-2 flex flex-wrap gap-2">
-							{user.interests.map((interest) => (
-								<Tag key={interest} tag={interest} />
-							))}
-						</div>
-					</div>
-				)}
-
-					<div className="mt-8 flex flex-wrap gap-4">
-						<Link
-							href={`/u/${username}/collections`}
-							className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-						>
-							View Collections
-						</Link>
-						{session && !isOwnProfile && (
-							<Link
-								href={`/messages/${user.id}`}
-								className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-							>
-								Send Message
-							</Link>
+						{user.bio && (
+							<div className="mt-6">
+								<h2 className="text-sm font-medium text-gray-500">About</h2>
+								<p className="mt-1">{user.bio}</p>
+							</div>
 						)}
-						<Link href="/" className="inline-block underline">
-							Back to home
-						</Link>
+
+						{user.interests && user.interests.length > 0 && (
+							<div className="mt-6">
+								<h2 className="text-sm font-medium text-gray-500">Interests</h2>
+								<div className="mt-2 flex flex-wrap gap-2">
+									{user.interests.map((interest) => (
+										<Tag key={interest} tag={interest} />
+									))}
+								</div>
+							</div>
+						)}
+					</div>
+
+					{/* Right: Action Buttons */}
+					<div className="flex flex-col gap-3">
+						{isOwnProfile ? (
+							<>
+								<Link
+									href="/projects/new"
+									className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors text-center"
+								>
+									New Project
+								</Link>
+								<Link
+									href="/events/new"
+									className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors text-center"
+								>
+									New Event
+								</Link>
+							</>
+						) : (
+							session && (
+								<Link
+									href={`/messages/${user.id}`}
+									className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors text-center"
+								>
+									Send Message
+								</Link>
+							)
+						)}
 					</div>
 				</div>
 

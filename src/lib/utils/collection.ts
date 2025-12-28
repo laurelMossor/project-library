@@ -1,4 +1,6 @@
-import { CollectionItem, isEvent, getCollectionItemType, getCollectionItemDate } from "../types/collection";
+import { CollectionItem, isEvent, isProject, getCollectionItemType, getCollectionItemDate } from "../types/collection";
+
+export const itemHasCollectionType = (item: CollectionItem) => isProject(item) || isEvent(item);
 
 /**
  * Get the detail page URL for a collection item

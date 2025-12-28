@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUserByUsername } from "@/lib/utils/user";
-import { getEventsByUser } from "@/lib/utils/event";
+import { getUserByUsername } from "@/lib/utils/server/user";
+import { getEventsByUser } from "@/lib/utils/server/event";
 import { notFound } from "@/lib/utils/errors";
 
 export async function GET(

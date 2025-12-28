@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
-import { getUserById } from "@/lib/utils/user";
+import { getUserById } from "@/lib/utils/server/user";
 import { NavigationBar } from "@/lib/components/NavigationBar";
 
 export const metadata: Metadata = {

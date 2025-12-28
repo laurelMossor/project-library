@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getConversations, sendMessage } from "@/lib/utils/message";
+import { getConversations, sendMessage } from "@/lib/utils/server/message";
 import { unauthorized, badRequest, notFound } from "@/lib/utils/errors";
 import { validateMessageContent } from "@/lib/validations";
-import { prisma } from "@/lib/utils/prisma";
+import { prisma } from "@/lib/utils/server/prisma";
 
 // GET /api/messages - Get all conversations for the current user
 // Protected endpoint (requires authentication)

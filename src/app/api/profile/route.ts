@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserById, updateUserProfile } from "@/lib/utils/user";
+import { getUserById, updateUserProfile } from "@/lib/utils/server/user";
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProfileData } from "@/lib/validations";
 

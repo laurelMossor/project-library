@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProjectEntryItem } from "@/lib/utils/project-entry";
+import type { ProjectEntryItem } from "@/lib/types/project-entry";
 import { fetchProjectEntries } from "@/lib/utils/project-entry-client";
 import { ProjectEntryUpdate } from "./ProjectEntryUpdate";
 

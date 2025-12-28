@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getProjectById } from "@/lib/utils/project";
-import { getProjectEntries, createProjectEntry } from "@/lib/utils/project-entry";
+import { getProjectById } from "@/lib/utils/server/project";
+import { getProjectEntries, createProjectEntry } from "@/lib/utils/server/project-entry";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { prisma } from "@/lib/utils/prisma";
+import { prisma } from "@/lib/utils/server/prisma";
 
 // GET /api/projects/[id]/entries - Get all entries for a project
 // Public endpoint (anyone can view project entries)

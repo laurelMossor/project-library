@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProjectById } from "@/lib/utils/project";
+import { getProjectById } from "@/lib/utils/server/project";
 import { notFound } from "@/lib/utils/errors";
 
 // GET /api/projects/[id] - Get a single project by ID

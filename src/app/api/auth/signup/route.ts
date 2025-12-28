@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/utils/prisma";
+import { prisma } from "@/lib/utils/server/prisma";
 import { badRequest } from "@/lib/utils/errors";
 import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
 

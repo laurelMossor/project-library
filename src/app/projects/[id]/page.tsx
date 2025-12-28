@@ -1,4 +1,4 @@
-import { getProjectById } from "@/lib/utils/project";
+import { getProjectById } from "@/lib/utils/server/project";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";

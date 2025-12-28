@@ -1,4 +1,4 @@
-import { getEventById } from "@/lib/utils/event";
+import { getEventById } from "@/lib/utils/server/event";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { deleteEvent, getEventById, updateEvent } from "@/lib/utils/event";
+import { deleteEvent, getEventById, updateEvent } from "@/lib/utils/server/event";
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateEventUpdateData } from "@/lib/validations";
 import type { EventUpdateInput } from "@/lib/types/event";

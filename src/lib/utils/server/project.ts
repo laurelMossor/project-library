@@ -1,7 +1,9 @@
-import { prisma } from "./prisma";
-import { ProjectData, ProjectItem } from "../types/project";
-import { publicUserFields } from "./user";
+// ⚠️ SERVER-ONLY: This file uses prisma (database client)
+// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
+import { prisma } from "./prisma";
+import { ProjectData, ProjectItem } from "../../types/project";
+import { publicUserFields } from "./user";
 // Standard fields to select when fetching a project with owner info
 const projectWithOwnerFields = {
 	id: true,

@@ -1,5 +1,8 @@
+// ⚠️ SERVER-ONLY: This file uses prisma (database client)
+// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
+
 import { prisma } from "./prisma";
-import { Conversation, MessageWithUsers } from "../types/message";
+import { Conversation, MessageWithUsers } from "../../types/message";
 
 // Get all conversations for a user (list of other users they've messaged or been messaged by)
 // Returns conversation summaries with other user info and last message preview

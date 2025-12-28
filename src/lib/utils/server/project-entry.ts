@@ -1,16 +1,11 @@
-import { prisma } from "./prisma";
+// ⚠️ SERVER-ONLY: This file uses prisma (database client)
+// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
-export interface ProjectEntryItem {
-	id: string;
-	projectId: string;
-	title: string | null;
-	content: string;
-	createdAt: Date;
-	updatedAt: Date;
-}
+import { prisma } from "./prisma";
+import type { ProjectEntryItem } from "../../types/project-entry";
 
 // Fetch all entries for a project, sorted by createdAt (newest first)
-export async function getProjectEntries(projectId: string): Promise<ProjectEntryItem[]> {
+export async function getProjectEntries(projectId: string) {
 	return prisma.projectEntry.findMany({
 		where: { projectId },
 		orderBy: { createdAt: "desc" },
@@ -21,7 +16,7 @@ export async function getProjectEntries(projectId: string): Promise<ProjectEntry
 export async function createProjectEntry(
 	projectId: string,
 	data: { title?: string; content: string }
-): Promise<ProjectEntryItem> {
+) {
 	// Validate content is not empty
 	if (!data.content || data.content.trim().length === 0) {
 		throw new Error("Content is required and cannot be empty");

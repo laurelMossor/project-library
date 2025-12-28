@@ -1,3 +1,6 @@
+// ⚠️ SERVER-ONLY: This file imports Node.js modules (pg, Prisma)
+// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
+
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
