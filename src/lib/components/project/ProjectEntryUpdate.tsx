@@ -1,4 +1,4 @@
-import type { ProjectEntryItem } from "@/lib/types/project-entry";
+import type { ProjectEntryItem } from "@/lib/types/project";
 import { formatDateTime } from "@/lib/utils/datetime";
 
 interface ProjectEntryUpdateProps {

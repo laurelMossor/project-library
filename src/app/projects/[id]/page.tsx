@@ -24,7 +24,15 @@ export default async function ProjectDetailPage({ params }: Props) {
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-2xl">
 				<ProjectCard project={project} truncate={false} showEntries={true} />
-				<div className="mt-8 flex gap-4 items-center">
+				<div className="mt-8 flex gap-4 items-center flex-wrap">
+					{isOwner && (
+						<Link
+							href={`/projects/${id}/entries/new`}
+							className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+						>
+							New Entry
+						</Link>
+					)}
 					{session && !isOwner && (
 						<Link
 							href={`/messages/${project.owner.id}`}

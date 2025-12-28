@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { prisma } from "@/lib/utils/prisma";
+import { prisma } from "@/lib/utils/server/prisma";
 // import { PrismaPg } from "@prisma/adapter-pg";
 // import pg from "pg";
 import bcrypt from "bcryptjs";

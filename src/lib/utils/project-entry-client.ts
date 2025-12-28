@@ -1,4 +1,4 @@
-import { ProjectEntryItem } from "./project-entry";
+import type { ProjectEntryItem } from "@/lib/types/project";
 
 // CLIENT-SIDE FETCH UTILITIES
 // These functions fetch from the API routes and can be used in client components

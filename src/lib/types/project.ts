@@ -17,3 +17,12 @@ export interface ProjectData {
 	tags?: string[];
 	imageUrl?: string; // optional image URL/path
 }
+
+export interface ProjectEntryItem {
+	id: string;
+	projectId: string;
+	title: string | null;
+	content: string;
+	createdAt: Date;
+	updatedAt: Date;
+}
