@@ -13,7 +13,7 @@ A platform for sharing and discovering projects, matching with collaborators bas
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - PostgreSQL 15+
 
 ### 1. Install dependencies
