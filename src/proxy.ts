@@ -10,16 +10,6 @@ const protectedRoutes = ["/profile", "/projects/new"];
 export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
 
-	// Skip proxy for favicon/icon files
-	if (
-		pathname.startsWith("/favicon") ||
-		pathname.startsWith("/icon") ||
-		pathname.startsWith("/apple-icon") ||
-		pathname === "/manifest.json"
-	) {
-		return NextResponse.next();
-	}
-
 	// Check if the current path is a protected route
 	const isProtected = protectedRoutes.some((route) =>
 		pathname.startsWith(route)
