@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { AboutModal } from "./AboutModal";
-import { CollectionsIcon, UserHomeIcon } from "./icons/icons";
+import { AboutModal } from "../AboutModal";
+import { CollectionsIcon, UserHomeIcon } from "../icons/icons";
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 
 interface NavigationIconsProps {
@@ -43,5 +43,6 @@ export function NavigationIcons({ userHomeLink }: NavigationIconsProps) {
 		</nav>
 	);
 }
+
 
 

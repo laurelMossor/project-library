@@ -1,4 +1,4 @@
-import { AnimatedProjectLibraryLogo } from "./NavigationLogo";
+import { AnimatedProjectLibraryLogo } from "./AnimatedProjectLibraryLogo";
 import { NavigationIcons } from "./NavigationIcons";
 
 interface NavigationBarProps {

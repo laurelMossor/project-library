@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
 import { getUserById } from "@/lib/utils/server/user";
-import { NavigationBar } from "@/lib/components/NavigationBar";
+import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
 
 export const metadata: Metadata = {
 	title: "Project Library",
