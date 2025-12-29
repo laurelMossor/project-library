@@ -1,7 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export function AnimatedProjectLibraryLogo(height: number = 120, width: number = 240, className: string = "h-[80px] w-auto") {
+interface AnimatedProjectLibraryLogoProps {
+	height?: number;
+	width?: number;
+	className?: string;
+}
+
+export function AnimatedProjectLibraryLogo({ height = 120, width = 240, className = "h-[80px] w-auto" }: AnimatedProjectLibraryLogoProps) {
 	return (
 		<Link href="/collections" className="hover:opacity-80 transition-opacity flex items-center">
 			<Image
