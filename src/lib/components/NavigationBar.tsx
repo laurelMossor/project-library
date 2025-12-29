@@ -25,6 +25,7 @@ export function NavigationBar({ userHomeLink }: NavigationBarProps) {
 					width={240}
 					height={120}
 					className="h-[80px] w-auto"
+					loading="eager"
 					unoptimized
 				/>
 			</Link>

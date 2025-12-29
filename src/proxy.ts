@@ -10,6 +10,16 @@ const protectedRoutes = ["/profile", "/projects/new"];
 export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
 
+	// Skip proxy for favicon/icon files
+	if (
+		pathname.startsWith("/favicon") ||
+		pathname.startsWith("/icon") ||
+		pathname.startsWith("/apple-icon") ||
+		pathname === "/manifest.json"
+	) {
+		return NextResponse.next();
+	}
+
 	// Check if the current path is a protected route
 	const isProtected = protectedRoutes.some((route) =>
 		pathname.startsWith(route)
@@ -38,6 +48,18 @@ export default function proxy(req: NextRequest) {
 
 // Run proxy on all routes except static files and api
 export const config = {
-	matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+	matcher: [
+		/*
+		 * Match all request paths except for the ones starting with:
+		 * - api (API routes)
+		 * - _next/static (static files)
+		 * - _next/image (image optimization files)
+		 * - favicon.ico, favicon.png (favicon files)
+		 * - icon.png, icon.ico (icon files)
+		 * - apple-icon.png (Apple touch icons)
+		 * - manifest.json (web manifest)
+		 */
+		"/((?!api|_next/static|_next/image|favicon|icon|apple-icon|manifest).*)",
+	],
 };
 

@@ -8,6 +8,12 @@ import { NavigationBar } from "@/lib/components/NavigationBar";
 export const metadata: Metadata = {
 	title: "Project Library",
 	description: "A platform for sharing and discovering projects",
+	icons: {
+		icon: [
+			{ url: "/favicon.png", type: "image/png" },
+			{ url: "/icon.png", type: "image/png" },
+		],
+	},
 };
 
 export default async function RootLayout({
