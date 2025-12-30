@@ -1,5 +1,12 @@
 // ⚠️ SERVER-ONLY: Storage utilities for Supabase
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
+//
+// Configuration:
+// - Bucket name: "uploads" (must exist in Supabase Storage and be set to PUBLIC)
+// - Supabase URL: NEXT_PUBLIC_SUPABASE_URL (e.g., https://xxxxx.supabase.co)
+// - Service Role Key: SUPABASE_SERVICE_ROLE_KEY (for server-side uploads, bypasses RLS)
+//
+// Debug mode: Set DEBUG_UPLOADS=true to see detailed upload information
 
 import { supabase } from "./supabase";
 
@@ -33,12 +40,14 @@ export async function uploadImage(
 		// Allow passing an empty folder to upload directly to the bucket root.
 		const filepath = folder ? `${folder}/${filename}` : filename;
 
-		// Helpful when debugging 404s from Storage: shows the exact REST URL being called.
-		// (Upload uses POST `${SUPABASE_URL}/storage/v1/object/<bucket>/<path>` under the hood.)
+		// Helpful when debugging: shows the exact REST URLs being used.
+		// Upload uses POST `${SUPABASE_URL}/storage/v1/object/<bucket>/<path>` (no /public/ in upload endpoint)
+		// Public access uses GET `${SUPABASE_URL}/storage/v1/object/public/<bucket>/<path>`
 		if (debug || process.env.NODE_ENV !== "production") {
 			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 			if (supabaseUrl) {
-				console.log("[storage] upload target:", `${supabaseUrl}/storage/v1/object/${BUCKET_NAME}/${filepath}`);
+				console.log("[storage] Upload endpoint:", `${supabaseUrl}/storage/v1/object/${BUCKET_NAME}/${filepath}`);
+				console.log("[storage] Public URL will be:", `${supabaseUrl}/storage/v1/object/public/${BUCKET_NAME}/${filepath}`);
 			} else {
 				console.log("[storage] upload target bucket/path:", { bucket: BUCKET_NAME, filepath });
 			}
@@ -57,7 +66,18 @@ export async function uploadImage(
 			});
 
 		if (error) {
-			console.error("Error uploading to Supabase:", error);
+			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+			console.error("[storage] Upload failed:", {
+				error: error.message,
+				code: error.statusCode || error.error || "unknown",
+				bucket: BUCKET_NAME,
+				filepath,
+				supabaseUrl: supabaseUrl || "NOT SET",
+				// Common issues:
+				// - Bucket doesn't exist: check Supabase dashboard
+				// - Bucket not public: set bucket to public in Supabase Storage settings
+				// - Service role key invalid: check SUPABASE_SERVICE_ROLE_KEY env var
+			});
 			return { imageUrl: null, path: filepath, error: error.message };
 		}
 
@@ -74,10 +94,14 @@ export async function uploadImage(
 		// 	return { imageUrl: signedData.signedUrl, error: null };
 		// }
 
-		// Get public URL (bucket must be PUBLIC in Supabase)
+		// Get public URL (bucket must be PUBLIC in Supabase Storage settings)
 		const {
 			data: { publicUrl },
 		} = supabase.storage.from(BUCKET_NAME).getPublicUrl(filepath);
+
+		if (debug || process.env.NODE_ENV !== "production") {
+			console.log("[storage] Upload successful. Public URL:", publicUrl);
+		}
 
 		return { imageUrl: publicUrl, path: filepath, error: null };
 	} catch (error) {

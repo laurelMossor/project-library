@@ -5,6 +5,13 @@ import { uploadImage } from "@/lib/utils/server/storage";
 
 // POST /api/projects/upload - Upload an image for a project
 // Protected endpoint (requires authentication)
+//
+// Configuration:
+// - Bucket: "uploads" (must be PUBLIC in Supabase Storage settings)
+// - Uploads to bucket root (no folder prefix)
+// - Returns public URL for the uploaded image
+//
+// Debug: Set DEBUG_UPLOADS=true to see detailed upload information
 export async function POST(request: Request) {
 	const session = await auth();
 	const debug = process.env.DEBUG_UPLOADS === "true";
@@ -41,8 +48,9 @@ export async function POST(request: Request) {
 			if (debug) {
 				const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 				const bucket = "uploads";
+				// Public bucket URLs use /storage/v1/object/public/ prefix
 				const target =
-					supabaseUrl && result.path ? `${supabaseUrl}/storage/v1/object/${bucket}/${result.path}` : null;
+					supabaseUrl && result.path ? `${supabaseUrl}/storage/v1/object/public/${bucket}/${result.path}` : null;
 
 				return NextResponse.json(
 					{
@@ -64,8 +72,9 @@ export async function POST(request: Request) {
 		if (debug) {
 			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 			const bucket = "uploads";
+			// Public bucket URLs use /storage/v1/object/public/ prefix
 			const target =
-				supabaseUrl && result.path ? `${supabaseUrl}/storage/v1/object/${bucket}/${result.path}` : null;
+				supabaseUrl && result.path ? `${supabaseUrl}/storage/v1/object/public/${bucket}/${result.path}` : null;
 
 			return NextResponse.json(
 				{

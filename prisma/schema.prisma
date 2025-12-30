@@ -71,7 +71,7 @@ model Event {
 	@@map("events")
 }
 
-// Message model for direct messaging between users (Milestone E)
+// Message model for direct messaging between users
 model Message {
 	id          String    @id @default(cuid())
 	content     String    // message text content
@@ -86,16 +86,29 @@ model Message {
 	@@map("messages")
 }
 
-// ProjectEntry model for project updates/entries (Milestone H)
-model ProjectEntry {
+// Entry model extends Collection type
+model Entry {
 	id          String    @id @default(cuid())
-	projectId   String    // foreign key to Project
+	resourceType 
+	resourceId  String   // foreign key to Resource
 	title       String?   // optional entry title (e.g., "Update #1", "Progress Update")
 	content     String    // entry text content
 	createdAt   DateTime  @default(now())
 	updatedAt   DateTime  @updatedAt
-
 	project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-	@@map("project_entries")
+	@@map("entries")
+}
+
+model Collection {
+	id
+	resourceType
+
+}
+
+model Image {
+	id
+	imageUrl
+
+
 }
