@@ -1,0 +1,24 @@
+// ⚠️ SERVER-ONLY: Supabase client for server-side operations
+// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
+
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+	throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set. Please check your environment variables.");
+}
+
+if (!supabaseServiceKey) {
+	throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set. Please check your environment variables.");
+}
+
+// Use service role key for server-side operations (bypasses RLS)
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+	auth: {
+		autoRefreshToken: false,
+		persistSession: false,
+	},
+});
+

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { unauthorized, badRequest } from "@/lib/utils/errors";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { uploadImage } from "@/lib/utils/server/storage";
 
 // POST /api/projects/upload - Upload an image for a project
 // Protected endpoint (requires authentication)
@@ -34,28 +32,14 @@ export async function POST(request: Request) {
 			return badRequest("File size too large. Maximum size is 5MB");
 		}
 
-		// Generate unique filename: timestamp-random.{ext}
-		const timestamp = Date.now();
-		const random = Math.random().toString(36).substring(2, 9);
-		const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-		const filename = `${timestamp}-${random}.${extension}`;
+		// Upload to Supabase storage
+		const result = await uploadImage(file, "projects");
 
-		// Create uploads directory if it doesn't exist
-		const uploadsDir = join(process.cwd(), "public", "uploads", "projects");
-		if (!existsSync(uploadsDir)) {
-			await mkdir(uploadsDir, { recursive: true });
+		if (result.error) {
+			return badRequest(result.error);
 		}
 
-		// Convert file to buffer and save
-		const bytes = await file.arrayBuffer();
-		const buffer = Buffer.from(bytes);
-		const filepath = join(uploadsDir, filename);
-		await writeFile(filepath, buffer);
-
-		// Return the public URL path
-		const imageUrl = `/uploads/projects/${filename}`;
-
-		return NextResponse.json({ imageUrl }, { status: 200 });
+		return NextResponse.json({ imageUrl: result.imageUrl }, { status: 200 });
 	} catch (error) {
 		console.error("Error uploading image:", error);
 		return badRequest("Failed to upload image");

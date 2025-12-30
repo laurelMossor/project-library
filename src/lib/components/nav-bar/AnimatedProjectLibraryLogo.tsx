@@ -11,7 +11,7 @@ export function AnimatedProjectLibraryLogo({ height = 120, width = 240, classNam
 	return (
 		<Link href="/collections" className="hover:opacity-80 transition-opacity flex items-center">
 			<Image
-				src="/assets/img/Project_Library_Animated_Logo.gif"
+				src="/static/images/Project_Library_Animated_Logo.gif"
 				alt="Project Library"
 				width={width}
 				height={height}
