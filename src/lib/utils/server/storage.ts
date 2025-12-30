@@ -3,7 +3,7 @@
 
 import { supabase } from "./supabase";
 
-const BUCKET_NAME = "project-images";
+const BUCKET_NAME = "private";
 
 /**
  * Upload an image file to Supabase storage
@@ -13,7 +13,7 @@ const BUCKET_NAME = "project-images";
  */
 export async function uploadImage(
 	file: File,
-	folder: string = "projects"
+	folder: string = "user-uploads"
 ): Promise<{ imageUrl: string; error: null } | { imageUrl: null; error: string }> {
 	try {
 		// Generate unique filename: timestamp-random.{ext}
@@ -91,4 +91,3 @@ export async function deleteImage(
 		};
 	}
 }
-
