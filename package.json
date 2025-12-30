@@ -33,6 +33,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.0.10",
+    "mermaid": "^11.12.2",
     "next": "^16.0.10",
     "next-auth": "^5.0.0-beta.30",
     "pg": "^8.16.3",
