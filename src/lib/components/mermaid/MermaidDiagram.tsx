@@ -1,13 +1,99 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 interface MermaidDiagramProps {
 	chart: string;
 	className?: string;
+	/** Initial zoom level when the diagram first renders. */
+	initialScale?: number;
+	/** Zoom level to snap to when clicking a node to center it. */
+	clickZoomScale?: number;
 }
 
+export const MERMAID_ZOOM_DEFAULTS = {
+	/** Minimum allowed zoom (scale). */
+	minScale: 0.5,
+	/** Maximum allowed zoom (scale). */
+	maxScale: 5,
+	/** Increment/decrement for +/- buttons. */
+	buttonStep: 0.4,
+	/** Initial zoom level when the diagram first renders. */
+	initialScale: 2.5,
+	/** Zoom level to snap to when clicking a node to center it. */
+	// Note: clamped by maxScale.
+	clickZoomScale: 3.8
+} as const;
+
+/**
+ * Styling overrides for Mermaid's rendered SVG nodes.
+ * Tweak these values to change node text + box appearance without touching logic.
+ */
+export const MERMAID_NODE_STYLE_DEFAULTS = {
+	/** Node label font family */
+	fontFamily:
+		'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"',
+	/** Node label font size (px) */
+	fontSizePx: 20,
+	/** Line-height used for htmlLabels (unitless). Keeping this stable helps Mermaid measure nodes correctly. */
+	lineHeight: 1.2,
+	/**
+	 * Padding used inside htmlLabels (px). Increasing this makes nodes feel "bigger"
+	 * without relying on post-render DOM hacks.
+	 */
+	labelPaddingPx: { x: 14, y: 10 },
+	/**
+	 * Max label width (px) for htmlLabels before wrapping.
+	 * Increase if you want wider nodes; decrease if you prefer more wrapping.
+	 */
+	maxLabelWidthPx: 360,
+	/** Node label text color */
+	textColor: "#0f172a",
+	/** Node rectangle fill */
+	fillColor: "var(--color-melon-green)",
+	/** Node rectangle stroke */
+	strokeColor: "var(--color-soft-grey)",
+	/** Node rectangle stroke width */
+	strokeWidthPx: 1,
+	/** Node rectangle corner radius (rx/ry attributes) */
+	cornerRadiusPx: 10
+} as const;
+
 const makeRenderId = () => `mermaid-${Math.random().toString(16).slice(2)}`;
+
+/**
+ * Prefer Mermaid theme variables for sizing/styling so geometry is calculated correctly
+ * (especially when using `htmlLabels`, which rely on HTML measurement).
+ */
+const resolveCssColor = (value: string): string => {
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return trimmed;
+	}
+
+	// Mermaid's themeVariables do not support CSS `var(...)` at runtime.
+	// Resolve to a concrete computed value (e.g. rgb(...) or #...).
+	const varMatch = /^var\(\s*(--[^)\s,]+)\s*(?:,[^)]+)?\)$/.exec(trimmed);
+	if (!varMatch) {
+		return trimmed;
+	}
+
+	const varName = varMatch[1];
+	const computed = getComputedStyle(document.documentElement)
+		.getPropertyValue(varName)
+		.trim();
+
+	return computed || trimmed;
+};
+
+const getResolvedMermaidThemeVariables = () => ({
+	fontFamily: MERMAID_NODE_STYLE_DEFAULTS.fontFamily,
+	fontSize: `${MERMAID_NODE_STYLE_DEFAULTS.fontSizePx}px`,
+	primaryColor: resolveCssColor(MERMAID_NODE_STYLE_DEFAULTS.fillColor),
+	primaryBorderColor: resolveCssColor(MERMAID_NODE_STYLE_DEFAULTS.strokeColor),
+	primaryTextColor: MERMAID_NODE_STYLE_DEFAULTS.textColor,
+	lineColor: resolveCssColor(MERMAID_NODE_STYLE_DEFAULTS.strokeColor)
+});
 
 const getMermaid = async () => {
 	const mermaidModule = await import("mermaid");
@@ -49,6 +135,75 @@ function preparePanZoomGroup(svg: SVGSVGElement): SVGGElement {
 	return group;
 }
 
+function applyMermaidNodeStyling(
+	svg: SVGSVGElement,
+	resolvedColors?: { fillColor: string; strokeColor: string }
+) {
+	const existingStyle = svg.querySelector("style[data-mermaid-node-style]");
+	if (existingStyle) {
+		existingStyle.remove();
+	}
+
+	const fillColor = resolvedColors?.fillColor ?? MERMAID_NODE_STYLE_DEFAULTS.fillColor;
+	const strokeColor =
+		resolvedColors?.strokeColor ?? MERMAID_NODE_STYLE_DEFAULTS.strokeColor;
+
+	const styleEl = document.createElementNS("http://www.w3.org/2000/svg", "style");
+	styleEl.setAttribute("data-mermaid-node-style", "true");
+	// Make overrides hard to defeat (Mermaid themes sometimes inject their own <style> later,
+	// and may set inline styles). We do both:
+	// - a <style> tag with !important
+	// - direct presentation attributes + inline style on the elements we care about
+	styleEl.textContent = `
+		svg .node text, svg .cluster text {
+			font-family: ${MERMAID_NODE_STYLE_DEFAULTS.fontFamily} !important;
+			font-size: ${MERMAID_NODE_STYLE_DEFAULTS.fontSizePx}px !important;
+			fill: ${MERMAID_NODE_STYLE_DEFAULTS.textColor} !important;
+		}
+
+		svg .node rect, svg .cluster rect {
+			fill: ${fillColor} !important;
+			stroke: ${strokeColor} !important;
+			stroke-width: ${MERMAID_NODE_STYLE_DEFAULTS.strokeWidthPx}px !important;
+		}
+	`;
+
+	// Append at the end so it wins the CSS cascade.
+	svg.appendChild(styleEl);
+
+	const setImportantStyle = (
+		el: { style: CSSStyleDeclaration },
+		property: string,
+		value: string
+	) => {
+		el.style.setProperty(property, value, "important");
+	};
+
+	// rx/ry + fill/stroke set as attributes to override presentation defaults.
+	svg.querySelectorAll<SVGRectElement>("g.node rect, g.cluster rect").forEach((rect) => {
+		rect.setAttribute("rx", String(MERMAID_NODE_STYLE_DEFAULTS.cornerRadiusPx));
+		rect.setAttribute("ry", String(MERMAID_NODE_STYLE_DEFAULTS.cornerRadiusPx));
+		rect.setAttribute("fill", fillColor);
+		rect.setAttribute("stroke", strokeColor);
+		rect.setAttribute("stroke-width", String(MERMAID_NODE_STYLE_DEFAULTS.strokeWidthPx));
+	});
+
+	svg.querySelectorAll<SVGTextElement>("g.node text, g.cluster text").forEach((text) => {
+		text.setAttribute("fill", MERMAID_NODE_STYLE_DEFAULTS.textColor);
+		setImportantStyle(text, "font-family", MERMAID_NODE_STYLE_DEFAULTS.fontFamily);
+		setImportantStyle(
+			text,
+			"font-size",
+			`${MERMAID_NODE_STYLE_DEFAULTS.fontSizePx}px`
+		);
+	});
+
+	// NOTE: We intentionally do NOT restyle htmlLabels (<foreignObject>) here.
+	// Changing font metrics post-render causes Mermaid node boxes to be measured too small,
+	// leading to clipped/overflowing text. We apply htmlLabel styles pre-render via scoped CSS
+	// and Mermaid theme variables instead.
+}
+
 function clientPointToSvgPoint(
 	svg: SVGSVGElement,
 	clientX: number,
@@ -66,12 +221,16 @@ function clientPointToSvgPoint(
 
 export default function MermaidDiagram({
 	chart,
-	className
+	className,
+	initialScale = MERMAID_ZOOM_DEFAULTS.initialScale,
+	clickZoomScale = MERMAID_ZOOM_DEFAULTS.clickZoomScale
 }: MermaidDiagramProps) {
+	const scopeId = useId();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const renderIdRef = useRef<string>(makeRenderId());
 	const [error, setError] = useState<string | null>(null);
 	const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+	const [renderNonce, setRenderNonce] = useState(0);
 	const svgRef = useRef<SVGSVGElement | null>(null);
 	const panZoomGroupRef = useRef<SVGGElement | null>(null);
 	const isDraggingRef = useRef(false);
@@ -87,18 +246,59 @@ export default function MermaidDiagram({
 		.filter(Boolean)
 		.join(" ");
 
-	const zoomSteps = useMemo(
-		() => ({
-			min: 0.5,
-			max: 2.8,
-			step: 0.2,
-			medium: 1.6
-		}),
-		[]
-	);
+	const zoomConfig = MERMAID_ZOOM_DEFAULTS;
+
+	// Inject scoped CSS so Mermaid measures html labels with wrapping/max-width already applied.
+	useEffect(() => {
+		const styleId = `mermaid-style-${scopeId}`;
+		if (document.getElementById(styleId)) {
+			return;
+		}
+
+		const styleEl = document.createElement("style");
+		styleEl.id = styleId;
+		styleEl.textContent = `
+			/* Ensure htmlLabel foreignObjects don't clip their HTML contents. */
+			[data-mermaid-scope="${scopeId}"] foreignObject {
+				overflow: visible;
+			}
+
+			[data-mermaid-scope="${scopeId}"] .nodeLabel,
+			[data-mermaid-scope="${scopeId}"] .label,
+			[data-mermaid-scope="${scopeId}"] foreignObject .nodeLabel,
+			[data-mermaid-scope="${scopeId}"] foreignObject .label {
+				font-family: ${MERMAID_NODE_STYLE_DEFAULTS.fontFamily};
+				font-size: ${MERMAID_NODE_STYLE_DEFAULTS.fontSizePx}px;
+				line-height: ${MERMAID_NODE_STYLE_DEFAULTS.lineHeight};
+				color: ${MERMAID_NODE_STYLE_DEFAULTS.textColor};
+				display: inline-block;
+				/* Let the label size itself; Mermaid will measure this during render when we pass a container. */
+				width: fit-content;
+				max-width: ${MERMAID_NODE_STYLE_DEFAULTS.maxLabelWidthPx}px;
+				white-space: normal;
+				word-break: break-word;
+				overflow-wrap: anywhere;
+				overflow: visible;
+				text-align: center;
+				box-sizing: border-box;
+				padding: ${MERMAID_NODE_STYLE_DEFAULTS.labelPaddingPx.y}px ${MERMAID_NODE_STYLE_DEFAULTS.labelPaddingPx.x}px;
+			}
+		`;
+
+		document.head.appendChild(styleEl);
+
+		return () => {
+			styleEl.remove();
+		};
+	}, [scopeId]);
 
 	useEffect(() => {
 		if (!chart) {
+			return;
+		}
+
+		const localContainer = containerRef.current;
+		if (!localContainer) {
 			return;
 		}
 
@@ -109,9 +309,17 @@ export default function MermaidDiagram({
 				return;
 			}
 
+			const resolvedThemeVariables = getResolvedMermaidThemeVariables();
+
 			mermaid.initialize({
 				startOnLoad: false,
-				securityLevel: "loose"
+				securityLevel: "loose",
+				theme: "base",
+				themeVariables: resolvedThemeVariables,
+				flowchart: {
+					htmlLabels: true,
+					useMaxWidth: true
+				}
 			});
 
 			try {
@@ -128,7 +336,7 @@ export default function MermaidDiagram({
 			}
 
 			mermaid
-				.render(renderIdRef.current, chart)
+				.render(renderIdRef.current, chart, localContainer)
 				.then((result) => {
 					if (cancelled || !containerRef.current) {
 						return;
@@ -140,6 +348,13 @@ export default function MermaidDiagram({
 						containerRef.current.querySelector<SVGSVGElement>("svg") ?? null;
 					svgRef.current = svgEl;
 					panZoomGroupRef.current = svgEl ? preparePanZoomGroup(svgEl) : null;
+					if (svgEl) {
+						applyMermaidNodeStyling(svgEl, {
+							fillColor: resolvedThemeVariables.primaryColor,
+							strokeColor: resolvedThemeVariables.primaryBorderColor
+						});
+					}
+					setRenderNonce((n) => n + 1);
 					setError(null);
 				})
 				.catch((renderError) => {
@@ -161,6 +376,7 @@ export default function MermaidDiagram({
 	}, [chart]);
 
 	useEffect(() => {
+		// Reset pan/zoom between charts; we then apply the initial zoom once the SVG is available.
 		setTransform({ scale: 1, x: 0, y: 0 });
 	}, [chart]);
 
@@ -170,10 +386,12 @@ export default function MermaidDiagram({
 			return;
 		}
 
+		// Use a single matrix so we have an unambiguous coordinate system:
+		// screen = scale * content + translate
+		// where translate is NOT scaled (prevents "jumping" when re-centering).
 		group.setAttribute(
 			"transform",
-			// Important: SVG transforms are applied in order. We want: (scale content) then (translate in screen/svg units).
-			`scale(${transform.scale}) translate(${transform.x} ${transform.y})`
+			`matrix(${transform.scale} 0 0 ${transform.scale} ${transform.x} ${transform.y})`
 		);
 	}, [transform, chart]);
 
@@ -199,7 +417,7 @@ export default function MermaidDiagram({
 		}
 
 		setTransform((current) => {
-			const clampedScale = clamp(nextScale, zoomSteps.min, zoomSteps.max);
+			const clampedScale = clamp(nextScale, zoomConfig.minScale, zoomConfig.maxScale);
 			// center = scale * content + translate  => content = (center - translate) / scale
 			const centerContentX = (center.x - current.x) / current.scale;
 			const centerContentY = (center.y - current.y) / current.scale;
@@ -212,9 +430,19 @@ export default function MermaidDiagram({
 		});
 	};
 
-	const handleZoomIn = () => zoomToScaleKeepingCenter(transform.scale + zoomSteps.step);
+	// Apply initial zoom after we have an SVG in the DOM.
+	useEffect(() => {
+		if (!svgRef.current) {
+			return;
+		}
+		zoomToScaleKeepingCenter(initialScale);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [renderNonce, initialScale]);
+
+	const handleZoomIn = () =>
+		zoomToScaleKeepingCenter(transform.scale + zoomConfig.buttonStep);
 	const handleZoomOut = () =>
-		zoomToScaleKeepingCenter(transform.scale - zoomSteps.step);
+		zoomToScaleKeepingCenter(transform.scale - zoomConfig.buttonStep);
 	const handleReset = () => setTransform({ scale: 1, x: 0, y: 0 });
 
 	const findNodeElement = (target: Element | null): SVGGraphicsElement | null => {
@@ -269,16 +497,16 @@ export default function MermaidDiagram({
 			return;
 		}
 
-		const medium = zoomSteps.medium;
+		const fixedZoom = clamp(clickZoomScale, zoomConfig.minScale, zoomConfig.maxScale);
 
 		// nodeCenter is in *current* svg/screen coordinates. Convert it back to content coordinates first.
 		const nodeContentX = (nodeCenter.x - transform.x) / transform.scale;
 		const nodeContentY = (nodeCenter.y - transform.y) / transform.scale;
 
 		setTransform({
-			scale: medium,
-			x: center.x - nodeContentX * medium,
-			y: center.y - nodeContentY * medium
+			scale: fixedZoom,
+			x: center.x - nodeContentX * fixedZoom,
+			y: center.y - nodeContentY * fixedZoom
 		});
 	};
 
@@ -357,7 +585,7 @@ export default function MermaidDiagram({
 	};
 
 	return (
-		<div className={wrapperClassName}>
+		<div className={wrapperClassName} data-mermaid-scope={scopeId}>
 			<div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
 				<div className="pointer-events-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 p-1 shadow-sm backdrop-blur">
 					<button
