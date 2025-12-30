@@ -1,0 +1,62 @@
+[
+	{
+		"projectIndex": 1,
+		"filename": "vintage-pattern-example.png",
+		"altText": "Vintage quilt pattern collection showing traditional designs",
+		"uploadedByIndex": 1
+	},
+	{
+		"projectIndex": 2,
+		"filename": "vintage-pattern-example-2.png",
+		"altText": "Botanical quilt wall hanging with appliqué techniques",
+		"uploadedByIndex": 1
+	},
+	{
+		"projectIndex": 3,
+		"filename": "vintage-pattern-example.png",
+		"altText": "Botanical embroidery kit with materials laid out",
+		"uploadedByIndex": 2
+	},
+	{
+		"projectIndex": 4,
+		"filename": "vintage-pattern-example-2.png",
+		"altText": "Vintage embroidery pattern from 1920s",
+		"uploadedByIndex": 2
+	},
+	{
+		"projectIndex": 7,
+		"filename": "tech-talk-example.png",
+		"altText": "React component library documentation and examples",
+		"uploadedByIndex": 4
+	},
+	{
+		"projectIndex": 8,
+		"filename": "tech-talk-example.png",
+		"altText": "Full stack web application tutorial code examples",
+		"uploadedByIndex": 4
+	},
+	{
+		"projectIndex": 10,
+		"filename": "large-wood-shop-example.png",
+		"altText": "Custom walnut dining table with traditional joinery",
+		"uploadedByIndex": 7
+	},
+	{
+		"projectIndex": 11,
+		"filename": "large-wood-shop-example.png",
+		"altText": "Woodworking workshop in progress",
+		"uploadedByIndex": 7
+	},
+	{
+		"projectIndex": 12,
+		"filename": "live-edge-bowl-example.png",
+		"altText": "Natural edge turned bowl showing wood grain",
+		"uploadedByIndex": 9
+	},
+	{
+		"projectIndex": 13,
+		"filename": "construction-exmple.png",
+		"altText": "Practice dovetail joints showing technique refinement",
+		"uploadedByIndex": 9
+	}
+]

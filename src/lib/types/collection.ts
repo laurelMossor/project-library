@@ -6,6 +6,17 @@ import { EventItem } from "./event";
 export type { BaseCollectionItem } from "./collection-base";
 
 /**
+ * Collection type constants - all valid collection types
+ */
+export const COLLECTION_TYPES = {
+	PROJECT: "project",
+	EVENT: "event",
+	POST: "post",
+} as const;
+
+export type CollectionType = typeof COLLECTION_TYPES[keyof typeof COLLECTION_TYPES];
+
+/**
  * Union type for all collection items
  * New collection types should extend BaseCollectionItem and be added here
  */
@@ -46,4 +57,3 @@ export function getCollectionItemDate(item: CollectionItem): Date {
 	// Fallback (shouldn't happen, but TypeScript needs it)
 	return new Date();
 }
-

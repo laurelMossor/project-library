@@ -1,4 +1,5 @@
 import { BaseCollectionItem } from "./collection-base";
+import { ImageItem } from "./image";
 
 /**
  * Event type - matches Prisma schema
@@ -11,8 +12,10 @@ export interface EventItem extends BaseCollectionItem {
 	location: string;
 	latitude: number | null;
 	longitude: number | null;
-	imageUrls: string[];
+	images: ImageItem[]; // Images associated with this event
 	updatedAt: Date;
+	// Deprecated: imageUrls kept for backward compatibility during migration
+	imageUrls?: string[];
 }
 
 export interface EventCreateInput {
@@ -23,7 +26,7 @@ export interface EventCreateInput {
 	latitude?: number | null;
 	longitude?: number | null;
 	tags?: string[];
-	imageUrls?: string[];
+	// Note: Images should be uploaded separately and linked to the event after creation
 }
 
 export interface EventUpdateInput {
@@ -34,6 +37,6 @@ export interface EventUpdateInput {
 	latitude?: number | null;
 	longitude?: number | null;
 	tags?: string[];
-	imageUrls?: string[];
+	// Note: Images should be managed separately via image API endpoints
 }
 
