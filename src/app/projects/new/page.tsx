@@ -75,8 +75,18 @@ export default function NewProjectPage() {
 				});
 
 				if (!uploadRes.ok) {
-					const uploadData = await uploadRes.json();
-					setError(uploadData.error || "Failed to upload image");
+					let message = `Failed to upload image (HTTP ${uploadRes.status})`;
+					try {
+						const uploadData = await uploadRes.json();
+						message = uploadData?.error || message;
+						console.error("[projects/new] upload failed:", uploadRes.status, uploadData);
+					} catch {
+						const text = await uploadRes.text().catch(() => "");
+						console.error("[projects/new] upload failed (non-JSON):", uploadRes.status, text);
+						if (text) message = text;
+					}
+
+					setError(message);
 					setSubmitting(false);
 					setUploadingImage(false);
 					return;

@@ -3,7 +3,13 @@
 
 import { supabase } from "./supabase";
 
-const BUCKET_NAME = "private";
+const BUCKET_NAME = "uploads";
+// const USE_SIGNED_URLS = false;
+// const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour; unused while USE_SIGNED_URLS is false
+
+export type UploadImageResult =
+	| { imageUrl: string; path: string; error: null }
+	| { imageUrl: null; path: string | null; error: string };
 
 /**
  * Upload an image file to Supabase storage
@@ -14,14 +20,29 @@ const BUCKET_NAME = "private";
 export async function uploadImage(
 	file: File,
 	folder: string = "user-uploads"
-): Promise<{ imageUrl: string; error: null } | { imageUrl: null; error: string }> {
+): Promise<UploadImageResult> {
 	try {
+		const debug = process.env.DEBUG_UPLOADS === "true";
+
 		// Generate unique filename: timestamp-random.{ext}
 		const timestamp = Date.now();
 		const random = Math.random().toString(36).substring(2, 9);
 		const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
 		const filename = `${timestamp}-${random}.${extension}`;
-		const filepath = `${folder}/${filename}`;
+		// Supabase Storage "folders" are just key prefixes.
+		// Allow passing an empty folder to upload directly to the bucket root.
+		const filepath = folder ? `${folder}/${filename}` : filename;
+
+		// Helpful when debugging 404s from Storage: shows the exact REST URL being called.
+		// (Upload uses POST `${SUPABASE_URL}/storage/v1/object/<bucket>/<path>` under the hood.)
+		if (debug || process.env.NODE_ENV !== "production") {
+			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+			if (supabaseUrl) {
+				console.log("[storage] upload target:", `${supabaseUrl}/storage/v1/object/${BUCKET_NAME}/${filepath}`);
+			} else {
+				console.log("[storage] upload target bucket/path:", { bucket: BUCKET_NAME, filepath });
+			}
+		}
 
 		// Convert file to buffer
 		const bytes = await file.arrayBuffer();
@@ -37,19 +58,33 @@ export async function uploadImage(
 
 		if (error) {
 			console.error("Error uploading to Supabase:", error);
-			return { imageUrl: null, error: error.message };
+			return { imageUrl: null, path: filepath, error: error.message };
 		}
 
-		// Get public URL
+		// if (USE_SIGNED_URLS) {
+		// 	const { data: signedData, error: signedError } = await supabase.storage
+		// 		.from(BUCKET_NAME)
+		// 		.createSignedUrl(filepath, SIGNED_URL_TTL_SECONDS);
+
+		// 	if (signedError || !signedData?.signedUrl) {
+		// 		console.error("Error creating signed URL:", signedError);
+		// 		return { imageUrl: null, error: signedError?.message || "Failed to create signed URL" };
+		// 	}
+
+		// 	return { imageUrl: signedData.signedUrl, error: null };
+		// }
+
+		// Get public URL (bucket must be PUBLIC in Supabase)
 		const {
 			data: { publicUrl },
 		} = supabase.storage.from(BUCKET_NAME).getPublicUrl(filepath);
 
-		return { imageUrl: publicUrl, error: null };
+		return { imageUrl: publicUrl, path: filepath, error: null };
 	} catch (error) {
 		console.error("Error uploading image:", error);
 		return {
 			imageUrl: null,
+			path: null,
 			error: error instanceof Error ? error.message : "Failed to upload image",
 		};
 	}
