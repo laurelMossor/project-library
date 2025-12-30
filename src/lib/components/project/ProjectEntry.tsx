@@ -15,11 +15,12 @@ const WeirdLittleButton = () => {
 };
 
 const ProjectImage = ({ project }: { project: ProjectItem }) => {
-	return (project.imageUrl ? (
+	const firstImage = project.images && project.images.length > 0 ? project.images[0] : null;
+	return (firstImage ? (
 		<div className="relative" style={{ maxWidth: '400px', maxHeight: '500px' }}>
 			<Image
-				src={project.imageUrl}
-				alt={project.title}
+				src={firstImage.url}
+				alt={firstImage.altText || project.title}
 				width={400}
 				height={192}
 				className="max-w-full max-h-full object-contain"
@@ -71,7 +72,7 @@ export const ProjectEntry = ({ project, truncate = true }: { project: ProjectIte
 			</div>
 
 			{/* Middle section: Image carousel area */}
-			{project.imageUrl && <ProjectImageCarousel project={project} />}
+			{project.images && project.images.length > 0 && <ProjectImageCarousel project={project} />}
 		</>
 	);
 };

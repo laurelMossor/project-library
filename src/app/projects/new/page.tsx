@@ -62,42 +62,7 @@ export default function NewProjectPage() {
 		}
 
 		try {
-			// Upload image first if provided
-			let imageUrl: string | undefined = undefined;
-			if (imageFile) {
-				setUploadingImage(true);
-				const formData = new FormData();
-				formData.append("image", imageFile);
-
-				const uploadRes = await fetch("/api/projects/upload", {
-					method: "POST",
-					body: formData,
-				});
-
-				if (!uploadRes.ok) {
-					let message = `Failed to upload image (HTTP ${uploadRes.status})`;
-					try {
-						const uploadData = await uploadRes.json();
-						message = uploadData?.error || message;
-						console.error("[projects/new] upload failed:", uploadRes.status, uploadData);
-					} catch {
-						const text = await uploadRes.text().catch(() => "");
-						console.error("[projects/new] upload failed (non-JSON):", uploadRes.status, text);
-						if (text) message = text;
-					}
-
-					setError(message);
-					setSubmitting(false);
-					setUploadingImage(false);
-					return;
-				}
-
-				const uploadData = await uploadRes.json();
-				imageUrl = uploadData.imageUrl;
-				setUploadingImage(false);
-			}
-
-			// Create project with image URL
+			// Create project first
 			const res = await fetch("/api/projects", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -105,7 +70,6 @@ export default function NewProjectPage() {
 					title: title.trim(),
 					description: description.trim(),
 					tags: tags.trim() ? tags.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-					imageUrl,
 				}),
 			});
 
@@ -122,6 +86,32 @@ export default function NewProjectPage() {
 			}
 
 			const project = await res.json();
+
+			// Upload and link image if provided (after project creation)
+			if (imageFile && project.id) {
+				setUploadingImage(true);
+				const formData = new FormData();
+				formData.append("image", imageFile);
+				formData.append("projectId", project.id);
+
+				try {
+					const uploadRes = await fetch("/api/projects/upload", {
+						method: "POST",
+						body: formData,
+					});
+
+					if (!uploadRes.ok) {
+						console.warn("Failed to upload image, but project was created");
+						// Don't fail the whole operation if image upload fails
+					}
+				} catch (uploadError) {
+					console.warn("Error uploading image:", uploadError);
+					// Don't fail the whole operation if image upload fails
+				} finally {
+					setUploadingImage(false);
+				}
+			}
+
 			router.push(`/projects/${project.id}`);
 		} catch (err) {
 			setError("Failed to create project");

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 		latitude: parsedLatitude ?? undefined,
 		longitude: parsedLongitude ?? undefined,
 		tags: Array.isArray(data?.tags) ? data.tags : undefined,
-			imageUrls: Array.isArray(data?.imageUrls) ? data.imageUrls : undefined,
+		// Note: Images should be uploaded separately and linked to the event after creation
 	});
 
 	if (!validation.valid) {
@@ -78,12 +78,6 @@ export async function POST(request: Request) {
 						.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
 						.filter((tag: string) => tag.length > 0)
 				: undefined;
-		const imageUrls =
-			Array.isArray(data.imageUrls) && data.imageUrls.length > 0
-				? data.imageUrls
-						.map((url: unknown) => (typeof url === "string" ? url.trim() : String(url).trim()))
-						.filter((url: string) => url.length > 0)
-				: undefined;
 
 		const event = await createEvent(session.user.id, {
 			title: trimmedTitle,
@@ -93,7 +87,6 @@ export async function POST(request: Request) {
 			latitude: parsedLatitude ?? null,
 			longitude: parsedLongitude ?? null,
 			tags,
-			imageUrls,
 		});
 
 		return NextResponse.json(event, { status: 201 });

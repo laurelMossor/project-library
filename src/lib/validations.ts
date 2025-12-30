@@ -128,19 +128,7 @@ export function validateProjectData(data: ProjectData): { valid: boolean; error?
 		}
 	}
 
-	// Validate imageUrl: optional string, must be valid URL or path format
-	if (data.imageUrl !== undefined && data.imageUrl !== null) {
-		if (typeof data.imageUrl !== "string") {
-			return { valid: false, error: "Image URL must be a string" };
-		}
-		if (data.imageUrl.trim().length === 0) {
-			return { valid: false, error: "Image URL cannot be empty" };
-		}
-		// Basic validation: should start with / or http:// or https://
-		if (!/^(\/|https?:\/\/)/.test(data.imageUrl)) {
-			return { valid: false, error: "Invalid image URL format" };
-		}
-	}
+	// Note: Images should be uploaded separately and linked to the project after creation
 
 	return { valid: true };
 }

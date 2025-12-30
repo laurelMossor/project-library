@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { unauthorized, badRequest } from "@/lib/utils/errors";
 import { uploadImage } from "@/lib/utils/server/storage";
+import { prisma } from "@/lib/utils/server/prisma";
 
 // POST /api/projects/upload - Upload an image for a project
 // Protected endpoint (requires authentication)
@@ -23,9 +24,17 @@ export async function POST(request: Request) {
 	try {
 		const formData = await request.formData();
 		const file = formData.get("image") as File | null;
+		const projectId = formData.get("projectId") as string | null;
+		const eventId = formData.get("eventId") as string | null;
+		const altText = formData.get("altText") as string | null;
 
 		if (!file) {
 			return badRequest("No image file provided");
+		}
+
+		// Validate that only one collection type is specified
+		if (projectId && eventId) {
+			return badRequest("Cannot specify both projectId and eventId");
 		}
 
 		// Validate file type (images only)
@@ -69,6 +78,47 @@ export async function POST(request: Request) {
 			return badRequest(result.error);
 		}
 
+		// Create Image record in database if projectId or eventId is provided
+		let imageRecord = null;
+		if (projectId || eventId) {
+			// Verify the project/event exists and user owns it
+			if (projectId) {
+				const project = await prisma.project.findUnique({
+					where: { id: projectId },
+					select: { ownerId: true },
+				});
+				if (!project) {
+					return badRequest("Project not found");
+				}
+				if (project.ownerId !== session.user.id) {
+					return unauthorized("You can only add images to your own projects");
+				}
+			}
+			if (eventId) {
+				const event = await prisma.event.findUnique({
+					where: { id: eventId },
+					select: { ownerId: true },
+				});
+				if (!event) {
+					return badRequest("Event not found");
+				}
+				if (event.ownerId !== session.user.id) {
+					return unauthorized("You can only add images to your own events");
+				}
+			}
+
+			imageRecord = await prisma.image.create({
+				data: {
+					url: result.imageUrl,
+					path: result.path,
+					altText: altText?.trim() || null,
+					projectId: projectId || null,
+					eventId: eventId || null,
+					uploadedById: session.user.id,
+				},
+			});
+		}
+
 		if (debug) {
 			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 			const bucket = "uploads";
@@ -79,19 +129,25 @@ export async function POST(request: Request) {
 			return NextResponse.json(
 				{
 					imageUrl: result.imageUrl,
+					imageId: imageRecord?.id || null,
 					debug: {
 						bucket,
 						path: result.path,
 						target,
 						supabaseUrlPresent: Boolean(supabaseUrl),
 						file: { type: file.type, size: file.size, name: file.name },
+						linkedToProject: Boolean(projectId),
+						linkedToEvent: Boolean(eventId),
 					},
 				},
 				{ status: 200 }
 			);
 		}
 
-		return NextResponse.json({ imageUrl: result.imageUrl }, { status: 200 });
+		return NextResponse.json({ 
+			imageUrl: result.imageUrl,
+			imageId: imageRecord?.id || null,
+		}, { status: 200 });
 	} catch (error) {
 		console.error("Error uploading image:", error);
 		if (debug && error instanceof Error) {

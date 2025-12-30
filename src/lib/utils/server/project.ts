@@ -3,21 +3,7 @@
 
 import { prisma } from "./prisma";
 import { ProjectData, ProjectItem } from "../../types/project";
-import { publicUserFields } from "./user";
-// Standard fields to select when fetching a project with owner info
-const projectWithOwnerFields = {
-	id: true,
-	type: true,
-	title: true,
-	description: true,
-	tags: true,
-	imageUrl: true,
-	createdAt: true,
-	updatedAt: true,
-	owner: {
-		select: publicUserFields,
-	},
-} as const;
+import { projectWithOwnerFields } from "./fields";
 
 // Fetch a project by ID with owner information
 export async function getProjectById(id: string): Promise<ProjectItem | null> {
@@ -60,14 +46,14 @@ export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> 
 }
 
 // Create a new project for a user
-// Tags and imageUrl are optional - if not provided or empty, defaults appropriately
+// Tags are optional - if not provided or empty, defaults appropriately
+// Images should be uploaded separately and linked to the project
 export async function createProject(ownerId: string, data: ProjectData): Promise<ProjectItem> {
 	const project = await prisma.project.create({
 		data: {
 			title: data.title,
 			description: data.description,
 			tags: data.tags || [],
-			imageUrl: data.imageUrl || null,
 			ownerId,
 		},
 		select: projectWithOwnerFields,

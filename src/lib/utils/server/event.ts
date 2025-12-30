@@ -4,25 +4,7 @@
 import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
-import { publicUserFields } from "./user";
-
-const eventWithOwnerFields = {
-	id: true,
-	type: true,
-	title: true,
-	description: true,
-	dateTime: true,
-	location: true,
-	latitude: true,
-	longitude: true,
-	tags: true,
-	imageUrls: true,
-	createdAt: true,
-	updatedAt: true,
-	owner: {
-		select: publicUserFields,
-	},
-} as const;
+import { eventWithOwnerFields } from "./fields";
 
 export async function getEventById(id: string): Promise<EventItem | null> {
 	const event = await prisma.event.findUnique({
@@ -80,7 +62,6 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 			latitude: data.latitude ?? null,
 			longitude: data.longitude ?? null,
 			tags: data.tags || [],
-			imageUrls: data.imageUrls || [],
 			ownerId,
 		},
 		select: eventWithOwnerFields,
@@ -119,9 +100,7 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 		updateData.tags = data.tags;
 	}
 
-	if (data.imageUrls !== undefined) {
-		updateData.imageUrls = data.imageUrls;
-	}
+	// Note: Images should be managed separately via image API endpoints
 
 	const event = await prisma.event.update({
 		where: { id },

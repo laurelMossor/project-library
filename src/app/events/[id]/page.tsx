@@ -61,11 +61,11 @@ export default async function EventDetailPage({ params }: Props) {
 					<p className="text-base leading-relaxed text-gray-700">{event.description}</p>
 				</div>
 
-				{event.imageUrls && event.imageUrls.length > 0 && (
+				{event.images && event.images.length > 0 && (
 					<div className="overflow-hidden rounded border border-gray-200">
 						<img
-							src={event.imageUrls[0]}
-							alt={`Image for ${event.title}`}
+							src={event.images[0].url}
+							alt={event.images[0].altText || `Image for ${event.title}`}
 							className="h-64 w-full object-cover"
 						/>
 					</div>

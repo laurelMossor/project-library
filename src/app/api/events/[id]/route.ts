@@ -123,15 +123,7 @@ export async function PUT(
 		updatePayload.tags = tags;
 	}
 
-	if (data.imageUrls !== undefined) {
-		if (!Array.isArray(data.imageUrls)) {
-			return badRequest("Image URLs must be an array");
-		}
-		const urls = data.imageUrls
-			.map((url: unknown) => (typeof url === "string" ? url.trim() : String(url).trim()))
-			.filter((url: string) => url.length > 0);
-		updatePayload.imageUrls = urls;
-	}
+	// Note: Images should be managed separately via image API endpoints
 
 	if (Object.keys(updatePayload).length === 0) {
 		return badRequest("No changes provided");

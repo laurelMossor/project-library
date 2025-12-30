@@ -69,7 +69,7 @@ export async function uploadImage(
 			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 			console.error("[storage] Upload failed:", {
 				error: error.message,
-				code: error.statusCode || error.error || "unknown",
+				code: (error as any).statusCode || (error as any).error || "unknown",
 				bucket: BUCKET_NAME,
 				filepath,
 				supabaseUrl: supabaseUrl || "NOT SET",
