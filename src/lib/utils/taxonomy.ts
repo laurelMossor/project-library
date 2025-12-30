@@ -5,7 +5,7 @@ const TAXONOMY_CSV_PATH = path.join(
 	process.cwd(),
 	"prisma",
 	"seed-data",
-	"Topics Table V1.1.csv"
+	"Topics Table V1.2.csv"
 );
 
 export interface TaxonomyTopicRow {
@@ -20,6 +20,17 @@ export interface TaxonomyTreeNode {
 	parent?: string;
 	children: TaxonomyTreeNode[];
 	synonyms: string[];
+}
+
+function normalizeTopicKey(name: string): string {
+	return name
+		.trim()
+		.replace(/\s+/g, " ")
+		.toLowerCase();
+}
+
+function normalizeTopicLabel(name: string): string {
+	return name.trim().replace(/\s+/g, " ");
 }
 
 function parseCsvLine(line: string): string[] {
@@ -89,7 +100,7 @@ export function parseTaxonomyCsv(csvContent: string): TaxonomyTopicRow[] {
 		return [];
 	}
 
-	const [_header, ...rows] = lines;
+	const [, ...rows] = lines;
 
 	return rows.map((row) => {
 		const [topic, ancestors, descendants, synonyms] = parseCsvLine(row);
@@ -109,41 +120,107 @@ export async function loadTaxonomyTopics(): Promise<TaxonomyTopicRow[]> {
 }
 
 export function buildTaxonomyTree(rows: TaxonomyTopicRow[]): TaxonomyTreeNode[] {
-	const nodeMap = new Map<string, TaxonomyTreeNode>();
+	type InternalNode = TaxonomyTreeNode & {
+		_key: string;
+		_explicitParentKey?: string;
+		_inferredParentKeys: Set<string>;
+		_childrenKeys: Set<string>;
+	};
 
-	const getOrCreateNode = (name: string): TaxonomyTreeNode => {
-		const existing = nodeMap.get(name);
+	const nodeMap = new Map<string, InternalNode>();
+
+	const getOrCreateNode = (rawName: string): InternalNode => {
+		const name = normalizeTopicLabel(rawName);
+		const key = normalizeTopicKey(name);
+		const existing = nodeMap.get(key);
 		if (existing) {
 			return existing;
 		}
 
-		const newNode: TaxonomyTreeNode = {
+		const newNode: InternalNode = {
+			_key: key,
 			name,
 			children: [],
-			synonyms: []
+			synonyms: [],
+			_inferredParentKeys: new Set<string>(),
+			_childrenKeys: new Set<string>()
 		};
 
-		nodeMap.set(name, newNode);
+		nodeMap.set(key, newNode);
 		return newNode;
 	};
 
+	// 1) Collect nodes + synonyms + parent candidates.
 	for (const row of rows) {
 		const node = getOrCreateNode(row.topic);
 		node.synonyms = Array.from(new Set([...node.synonyms, ...row.synonyms]));
 
 		if (row.parent) {
 			const parentNode = getOrCreateNode(row.parent);
-			if (!parentNode.children.includes(node)) {
-				parentNode.children.push(node);
+			// Explicit parent is the strongest signal; keep the first one we see to stay deterministic.
+			node._explicitParentKey ??= parentNode._key;
+		}
+
+		// Descendants are child relationships. Many CSV rows won't exist for descendants, so we
+		// treat this as a valid way to build the tree.
+		for (const descendant of row.descendants) {
+			const child = getOrCreateNode(descendant);
+			if (child._key === node._key) {
+				continue;
 			}
-			if (!node.parent) {
-				node.parent = row.parent;
-			}
+			child._inferredParentKeys.add(node._key);
+		}
+	}
+
+	// 2) Choose a single parent per node:
+	// - explicit parent wins
+	// - otherwise, if exactly 1 inferred parent exists, use it
+	// - otherwise choose a deterministic inferred parent (alphabetical) to keep a tree
+	for (const node of nodeMap.values()) {
+		const chosenParentKey =
+			node._explicitParentKey ??
+			(node._inferredParentKeys.size === 1
+				? Array.from(node._inferredParentKeys)[0]
+				: node._inferredParentKeys.size > 1
+					? Array.from(node._inferredParentKeys).sort()[0]
+					: undefined);
+
+		if (!chosenParentKey) {
+			continue;
+		}
+
+		// Prevent trivial self-cycles.
+		if (chosenParentKey === node._key) {
+			continue;
+		}
+
+		const parent = nodeMap.get(chosenParentKey);
+		if (!parent) {
+			continue;
+		}
+
+		node.parent = parent.name;
+	}
+
+	// 3) Build children arrays from chosen parents, deduping by canonical key.
+	for (const node of nodeMap.values()) {
+		if (!node.parent) {
+			continue;
+		}
+
+		const parentKey = normalizeTopicKey(node.parent);
+		const parent = nodeMap.get(parentKey);
+		if (!parent) {
+			continue;
+		}
+
+		if (!parent._childrenKeys.has(node._key)) {
+			parent._childrenKeys.add(node._key);
+			parent.children.push(node);
 		}
 	}
 
 	const roots: TaxonomyTreeNode[] = [];
-
 	for (const node of nodeMap.values()) {
 		if (!node.parent) {
 			roots.push(node);
