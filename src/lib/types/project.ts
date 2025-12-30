@@ -22,22 +22,3 @@ export interface ProjectData {
 	// and linked to the project after creation
 }
 
-import { EntryItem } from "./entry";
-
-/**
- * Helper to convert EntryItem to ProjectEntryItem (for backward compatibility)
- */
-export function entryToProjectEntry(entry: EntryItem): EntryItem {
-	if (entry.collectionType !== "project") {
-		throw new Error("Entry is not a project entry");
-	}
-	return {
-		id: entry.id,
-		collectionType: "project",
-		collectionId: entry.collectionId,
-		title: entry.title,
-		content: entry.content,
-		createdAt: entry.createdAt,
-		updatedAt: entry.updatedAt,
-	};
-}

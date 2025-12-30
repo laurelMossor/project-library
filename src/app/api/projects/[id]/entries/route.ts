@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getProjectById } from "@/lib/utils/server/project";
-import { getProjectEntries, createProjectEntry } from "@/lib/utils/server/project-entry";
+import { getAllEntries, createEntry } from "@/lib/utils/server/entry";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { prisma } from "@/lib/utils/server/prisma";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 // GET /api/projects/[id]/entries - Get all entries for a project
 // Public endpoint (anyone can view project entries)
@@ -20,20 +21,14 @@ export async function GET(
 			return notFound("Project not found");
 		}
 
-		const entries = await getProjectEntries(id);
+		const entries = await getAllEntries(id, COLLECTION_TYPES.PROJECT);
 		return NextResponse.json(entries);
 	} catch (error) {
-		console.error("Error fetching project entries:", error);
-		return serverError("Failed to fetch project entries");
+		console.error("Error fetching entries:", error);
+		return serverError("Failed to fetch entries");
 	}
 }
-
-// POST /api/projects/[id]/entries - Create a new entry for a project
-// Protected endpoint (requires authentication, only project owner can create entries)
-export async function POST(
-	request: Request,
-	{ params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	const session = await auth();
 
 	if (!session?.user?.id) {
@@ -73,18 +68,18 @@ export async function POST(
 			return badRequest("Title must be a string");
 		}
 
-		const entry = await createProjectEntry(id, {
+		const entry = await createEntry(id, "project", {
 			title: title?.trim() || undefined,
 			content: content.trim(),
 		});
 
 		return NextResponse.json(entry, { status: 201 });
 	} catch (error) {
-		console.error("Error creating project entry:", error);
-		if (error instanceof Error && error.message === "Project not found") {
+		console.error("Error creating entry:", error);
+		if (error instanceof Error && error.message === "Collection not found") {
 			return notFound(error.message);
 		}
-		return serverError("Failed to create project entry");
+		return serverError("Failed to create entry");
 	}
 }
 

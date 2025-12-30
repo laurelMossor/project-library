@@ -79,8 +79,9 @@ export async function POST(request: Request) {
 		}
 
 		// Create Image record in database if projectId or eventId is provided
+		// Only create if upload was successful (result.imageUrl is not null)
 		let imageRecord = null;
-		if (projectId || eventId) {
+		if ((projectId || eventId) && result.imageUrl && result.path) {
 			// Verify the project/event exists and user owns it
 			if (projectId) {
 				const project = await prisma.project.findUnique({
@@ -109,8 +110,8 @@ export async function POST(request: Request) {
 
 			imageRecord = await prisma.image.create({
 				data: {
-					url: result.imageUrl,
-					path: result.path,
+					url: result.imageUrl, // TypeScript now knows this is string (not null)
+					path: result.path, // TypeScript now knows this is string (not null)
 					altText: altText?.trim() || null,
 					projectId: projectId || null,
 					eventId: eventId || null,
