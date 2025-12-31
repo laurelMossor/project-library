@@ -1,50 +1,50 @@
 [
 	{
-		"title": "Community Craft Fair 2025",
+		"title": "Community Craft Fair 2026",
 		"description": "Join us for our annual community craft fair featuring local artisans, workshops, and live demonstrations. Vendors will showcase handmade quilts, embroidery, knitting, and more. Free admission, food trucks on site. Perfect for craft enthusiasts and families!",
-		"dateTime": "2025-06-15T10:00:00Z",
+		"dateTime": "2026-06-15T10:00:00Z",
 		"location": "Berkeley Community Center, 1234 University Ave, Berkeley, CA 94704",
 		"latitude": 37.8715,
 		"longitude": -122.2730,
 		"tags": ["Craft Fair", "Community Event", "Artisan Market", "Workshops"],
 		"imageUrls": [],
 		"ownerId": 1,
-		"createdAt": "2025-12-04T10:00:00Z"
+		"createdAt": "2026-12-04T10:00:00Z"
 	},
 	{
 		"title": "Quilting Circle Meetup",
 		"description": "Monthly quilting circle for all skill levels. Bring your current project or start something new. We'll share techniques, patterns, and enjoy each other's company. Light refreshments provided. Beginners welcome!",
-		"dateTime": "2025-07-20T14:00:00Z",
+		"dateTime": "2026-07-20T14:00:00Z",
 		"location": "Portland Public Library, 801 SW 10th Ave, Portland, OR 97205",
 		"latitude": 45.5152,
 		"longitude": -122.6784,
 		"tags": ["Quilting", "Meetup", "Workshop", "Community"],
 		"imageUrls": [],
 		"ownerId": 2,
-		"createdAt": "2025-12-11T14:00:00Z"
+		"createdAt": "2026-12-11T14:00:00Z"
 	},
 	{
 		"title": "Tech Meetup: React Best Practices",
 		"description": "Monthly tech meetup focusing on React development. This session covers best practices for state management, component design, and performance optimization. Bring your questions and project ideas for discussion!",
-		"dateTime": "2025-08-10T18:00:00Z",
+		"dateTime": "2026-08-10T18:00:00Z",
 		"location": "Berkeley Tech Hub, 5678 Telegraph Ave, Berkeley, CA 94705",
 		"latitude": 37.8651,
 		"longitude": -122.2571,
 		"tags": ["React", "JavaScript", "Tech Meetup", "Web Development"],
 		"imageUrls": [],
 		"ownerId": 5,
-		"createdAt": "2025-12-16T09:30:00Z"
+		"createdAt": "2026-12-16T09:30:00Z"
 	},
 	{
 		"title": "Woodworking Tools Swap & Sale",
 		"description": "Community event for woodworkers to buy, sell, and trade hand tools and equipment. Great opportunity to find quality used tools and connect with local woodworkers. Refreshments provided. All skill levels welcome!",
-		"dateTime": "2025-09-05T10:00:00Z",
+		"dateTime": "2026-09-05T10:00:00Z",
 		"location": "Portland Woodworkers Guild, 3456 SE Division St, Portland, OR 97202",
 		"latitude": 45.5050,
 		"longitude": -122.6290,
 		"tags": ["Woodworking", "Tools", "Community Event", "Swap Meet"],
 		"imageUrls": [],
 		"ownerId": 5,
-		"createdAt": "2025-12-23T13:45:00Z"
+		"createdAt": "2026-12-23T13:45:00Z"
 	}
 ]
