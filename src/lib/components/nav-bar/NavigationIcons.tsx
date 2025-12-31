@@ -7,7 +7,6 @@ import { AboutModal } from "../AboutModal";
 import { AboutIcon, CollectionsIcon, UserHomeIcon } from "../icons/icons";
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 import { Tooltip } from "../tooltip/Tooltip";
-import { getPathDisplayName } from "@/lib/utils/text";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
 
 interface NavigationIconsProps {

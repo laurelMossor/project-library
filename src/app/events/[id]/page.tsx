@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { Tags } from "@/lib/components/tag";
 import { formatDateTime } from "@/lib/utils/datetime";
+import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -50,9 +51,17 @@ export default async function EventDetailPage({ params }: Props) {
 							</Link>
 						)}
 						{isOwner && (
-							<span className="rounded-full border border-emerald-400/70 px-3 py-1 text-xs font-semibold text-emerald-700">
-								You own this event
-							</span>
+							<>
+								<span className="rounded-full border border-emerald-400/70 px-3 py-1 text-xs font-semibold text-emerald-700">
+									You own this event
+								</span>
+								<Link
+									href={`/events/${id}/edit`}
+									className="rounded border border-black px-4 py-2 text-sm font-medium text-black transition hover:bg-black hover:text-white"
+								>
+									Edit Event
+								</Link>
+							</>
 						)}
 					</div>
 				</div>
@@ -91,7 +100,8 @@ export default async function EventDetailPage({ params }: Props) {
 					<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title} />
 				)}
 
-				<div className="flex flex-wrap gap-3">
+				<div className="flex flex-wrap gap-3 items-center">
+					{isOwner && <DeleteEventButton eventId={id} eventTitle={event.title} />}
 					<Link
 						href="/collections"
 						className="text-sm font-medium text-black underline underline-offset-2"

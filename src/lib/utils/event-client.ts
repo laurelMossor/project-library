@@ -38,3 +38,51 @@ export async function fetchEventById(id: string): Promise<EventItem | null> {
 	return res.json();
 }
 
+/**
+ * Update an event by ID
+ * Client-side utility that calls the PUT /api/events/[id] endpoint
+ */
+export async function updateEvent(
+	id: string,
+	data: {
+		title?: string;
+		description?: string;
+		dateTime?: Date;
+		location?: string;
+		latitude?: number | null;
+		longitude?: number | null;
+		tags?: string[];
+	}
+): Promise<EventItem> {
+	const res = await fetch(`/api/events/${id}`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			...data,
+			dateTime: data.dateTime?.toISOString(),
+		}),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to update event");
+	}
+
+	return res.json();
+}
+
+/**
+ * Delete an event by ID
+ * Client-side utility that calls the DELETE /api/events/[id] endpoint
+ */
+export async function deleteEvent(id: string): Promise<void> {
+	const res = await fetch(`/api/events/${id}`, {
+		method: "DELETE",
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to delete event");
+	}
+}
+
