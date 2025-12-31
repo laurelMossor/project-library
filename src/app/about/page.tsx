@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 
 export default function AboutPage() {
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-center p-8">
-			<div className="w-full max-w-3xl">
+		<CenteredLayout maxWidth="3xl">
 				<h1 className="text-3xl font-bold mb-6">Community Guidelines</h1>
 				
 				<div className="space-y-6 text-rich-brown">
@@ -97,8 +97,7 @@ export default function AboutPage() {
 						<Link href="/" className="text-sm underline">Back to Home</Link>
 					</div>
 				</div>
-			</div>
-		</main>
+		</CenteredLayout>
 	);
 }
 

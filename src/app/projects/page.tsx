@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ProjectItem } from "@/lib/types/project";
 import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 import { fetchProjects } from "@/lib/utils/project-client";
+import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 export default function ProjectsPage() {
 	const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -45,7 +46,7 @@ export default function ProjectsPage() {
 
 
 	return (
-		<main className="flex min-h-screen flex-col p-8">
+		<PageLayout>
 			<div className="max-w-6xl mx-auto w-full">
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold mb-4">Projects</h1>
@@ -86,7 +87,7 @@ export default function ProjectsPage() {
 					</div>
 				)}
 			</div>
-		</main>
+		</PageLayout>
 	);
 }
 

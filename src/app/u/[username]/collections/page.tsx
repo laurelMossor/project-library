@@ -8,6 +8,7 @@ import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
+import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 export default function UserCollectionsPage() {
 	const params = useParams();
@@ -101,7 +102,7 @@ export default function UserCollectionsPage() {
 	);
 
 	return (
-		<main className="flex min-h-screen flex-col p-8">
+		<PageLayout>
 			<div className="max-w-6xl mx-auto w-full">
 				<div className="mb-4">
 					<Link href={`/u/${username}`} className="text-sm text-gray-600 hover:underline mb-2 inline-block">
@@ -127,7 +128,7 @@ export default function UserCollectionsPage() {
 					title={`${username}'s Collections`}
 				/>
 			</div>
-		</main>
+		</PageLayout>
 	);
 }
 

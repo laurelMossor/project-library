@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Button } from "@/lib/components/ui/Button";
+import { FormLayout } from "@/lib/components/layout/FormLayout";
+import { FormField } from "@/lib/components/forms/FormField";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormTextarea } from "@/lib/components/forms/FormTextarea";
+import { FormError } from "@/lib/components/forms/FormError";
+import { FormActions } from "@/lib/components/forms/FormActions";
 
 export default function NewProjectEntryPage() {
 	const params = useParams();
@@ -45,60 +50,41 @@ export default function NewProjectEntryPage() {
 	};
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-8">
-			<div className="w-full max-w-2xl">
-				<h1 className="text-2xl font-bold mb-6">New Project Entry</h1>
+		<FormLayout>
+			<h1 className="text-2xl font-bold mb-6">New Project Entry</h1>
 
-				<form onSubmit={handleSubmit} className="space-y-4">
-					{error && <p className="text-red-500">{error}</p>}
+			<form onSubmit={handleSubmit} className="space-y-4">
+				<FormError error={error} />
 
-					<div>
-						<label htmlFor="title" className="block text-sm font-medium mb-1">
-							Title (optional)
-						</label>
-						<input
-							id="title"
-							type="text"
-							value={title}
-							onChange={(e) => setTitle(e.target.value)}
-							className="w-full border p-2 rounded"
-							placeholder="e.g., Update #1, Progress Update"
-						/>
-					</div>
+				<FormField label="Title" htmlFor="title">
+					<FormInput
+						id="title"
+						type="text"
+						value={title}
+						onChange={(e) => setTitle(e.target.value)}
+						placeholder="e.g., Update #1, Progress Update"
+					/>
+				</FormField>
 
-					<div>
-						<label htmlFor="content" className="block text-sm font-medium mb-1">
-							Content <span className="text-red-500">*</span>
-						</label>
-						<textarea
-							id="content"
-							value={content}
-							onChange={(e) => setContent(e.target.value)}
-							className="w-full border p-2 rounded min-h-[200px]"
-							placeholder="Write your project update..."
-							required
-						/>
-					</div>
+				<FormField label="Content" htmlFor="content" required>
+					<FormTextarea
+						id="content"
+						value={content}
+						onChange={(e) => setContent(e.target.value)}
+						className="min-h-[200px]"
+						placeholder="Write your project update..."
+						required
+					/>
+				</FormField>
 
-					<div className="flex gap-4">
-						<Button
-							type="submit"
-							disabled={submitting}
-							loading={submitting}
-						>
-							Create Entry
-						</Button>
-						<Button
-							type="button"
-							onClick={() => router.back()}
-							variant="secondary"
-						>
-							Cancel
-						</Button>
-					</div>
-				</form>
-			</div>
-		</main>
+				<FormActions
+					submitLabel="Create Entry"
+					onCancel={() => router.back()}
+					loading={submitting}
+					disabled={submitting}
+				/>
+			</form>
+		</FormLayout>
 	);
 }
 

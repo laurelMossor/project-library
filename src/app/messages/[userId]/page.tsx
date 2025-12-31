@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/lib/components/ui/Button";
+import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 interface Message {
 	id: string;
@@ -231,7 +232,7 @@ export default function ConversationPage() {
 	}
 
 	return (
-		<main className="flex min-h-screen flex-col p-8">
+		<PageLayout>
 			<div className="max-w-4xl mx-auto w-full flex flex-col h-[calc(100vh-200px)]">
 				<div className="mb-4 flex items-center justify-between">
 					<div>
@@ -332,7 +333,7 @@ export default function ConversationPage() {
 					<p className="text-red-500 text-sm mt-2">{error}</p>
 				)}
 			</div>
-		</main>
+		</PageLayout>
 	);
 }
 

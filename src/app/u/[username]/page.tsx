@@ -16,6 +16,7 @@ import { getProjectsByUser } from "@/lib/utils/server/project";
 import { getEventsByUser } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
 import { ProfileHeader } from "@/lib/components/user/ProfileHeader";
+import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 
 type Props = {
 	params: Promise<{ username: string }>;
@@ -43,18 +44,16 @@ export default async function PublicProfilePage({ params }: Props) {
 	const collectionItems = [...projects, ...events];
 
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-center p-8">
-			<div className="w-full max-w-6xl">
-				<ProfileHeader user={user} isOwnProfile={isOwnProfile} session={session} />
+		<CenteredLayout maxWidth="6xl">
+			<ProfileHeader user={user} isOwnProfile={isOwnProfile} session={session} />
 
-				{/* User's Collection Section */}
-				<UserCollectionSection 
-					items={collectionItems} 
-					title={`${username}'s Collection`}
-					emptyMessage={`${username} hasn't created any projects or events yet.`}
-					showCreateLinks={false}
-				/>
-			</div>
-		</main>
+			{/* User's Collection Section */}
+			<UserCollectionSection 
+				items={collectionItems} 
+				title={`${username}'s Collection`}
+				emptyMessage={`${username} hasn't created any projects or events yet.`}
+				showCreateLinks={false}
+			/>
+		</CenteredLayout>
 	);
 }

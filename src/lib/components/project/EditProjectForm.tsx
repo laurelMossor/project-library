@@ -10,6 +10,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
+import { useImageUpload } from "@/lib/hooks/useImageUpload";
 
 const MAX_TAGS = 10;
 
@@ -34,40 +35,18 @@ export function EditProjectForm({ project }: Props) {
 	const [title, setTitle] = useState(project?.title || "");
 	const [description, setDescription] = useState(project?.description || "");
 	const [tags, setTags] = useState(project?.tags.join(", ") || "");
-	const [imageFile, setImageFile] = useState<File | null>(null);
-	const [imagePreview, setImagePreview] = useState<string | null>(null);
 	const [uploadingImage, setUploadingImage] = useState(false);
 
 	// Get existing image URL for edit mode
 	const existingImageUrl = project?.images?.[0]?.url || project?.imageUrl;
 
-	const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (file) {
-			// Validate file type
-			const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-			if (!allowedTypes.includes(file.type)) {
-				setError("Invalid file type. Only JPEG, PNG, and WebP images are allowed");
-				return;
-			}
-
-			// Validate file size (5MB max)
-			if (file.size > 5 * 1024 * 1024) {
-				setError("File size too large. Maximum size is 5MB");
-				return;
-			}
-
-			setImageFile(file);
-			setError("");
-
-			// Create preview
-			const reader = new FileReader();
-			reader.onloadend = () => {
-				setImagePreview(reader.result as string);
-			};
-			reader.readAsDataURL(file);
-		}
-	};
+	// Use image upload hook
+	const {
+		imageFile,
+		imagePreview,
+		error: imageError,
+		handleImageChange,
+	} = useImageUpload(existingImageUrl);
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -85,6 +64,13 @@ export function EditProjectForm({ project }: Props) {
 
 		if (!trimmedDescription) {
 			setError("Description is required");
+			setSubmitting(false);
+			return;
+		}
+
+		// Check for image validation errors
+		if (imageError) {
+			setError(imageError);
 			setSubmitting(false);
 			return;
 		}
@@ -184,7 +170,7 @@ export function EditProjectForm({ project }: Props) {
 			<form onSubmit={handleSubmit} className="space-y-4">
 				<h1 className="text-2xl font-bold">{isEditMode ? "Edit Project" : "Create New Project"}</h1>
 
-				<FormError error={error} />
+				<FormError error={error || imageError} />
 
 				<FormField label="Title" htmlFor="title" required>
 					<FormInput

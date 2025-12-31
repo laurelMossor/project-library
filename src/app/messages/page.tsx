@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getConversations } from "@/lib/utils/server/message";
 import { truncateText } from "@/lib/utils/text";
+import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 // Helper function to format timestamp as relative time or date
 function formatMessageTime(date: Date): string {
@@ -31,7 +32,7 @@ export default async function MessagesPage() {
 	const conversations = await getConversations(session.user.id);
 
 	return (
-		<main className="flex min-h-screen flex-col p-8">
+		<PageLayout>
 			<div className="max-w-4xl mx-auto w-full">
 				<h1 className="text-3xl font-bold mb-6">Messages</h1>
 
@@ -78,7 +79,7 @@ export default async function MessagesPage() {
 					</div>
 				)}
 			</div>
-		</main>
+		</PageLayout>
 	);
 }
 

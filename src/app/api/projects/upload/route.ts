@@ -3,14 +3,17 @@ import { auth } from "@/lib/auth";
 import { unauthorized, badRequest } from "@/lib/utils/errors";
 import { uploadImage } from "@/lib/utils/server/storage";
 import { prisma } from "@/lib/utils/server/prisma";
+import { ImageItem } from "@/lib/types/image";
+import { imageFields } from "@/lib/utils/server/fields";
 
-// POST /api/projects/upload - Upload an image for a project
+// POST /api/projects/upload - Upload an image for a project or event
 // Protected endpoint (requires authentication)
 //
 // Configuration:
 // - Bucket: "uploads" (must be PUBLIC in Supabase Storage settings)
 // - Uploads to bucket root (no folder prefix)
-// - Returns public URL for the uploaded image
+// - Creates Image record linked to project or event
+// - Returns ImageItem with all image metadata
 //
 // Debug: Set DEBUG_UPLOADS=true to see detailed upload information
 export async function POST(request: Request) {
@@ -32,6 +35,11 @@ export async function POST(request: Request) {
 			return badRequest("No image file provided");
 		}
 
+		// Require either projectId or eventId (image must be linked to a collection item)
+		if (!projectId && !eventId) {
+			return badRequest("Either projectId or eventId must be provided");
+		}
+
 		// Validate that only one collection type is specified
 		if (projectId && eventId) {
 			return badRequest("Cannot specify both projectId and eventId");
@@ -49,8 +57,34 @@ export async function POST(request: Request) {
 			return badRequest("File size too large. Maximum size is 5MB");
 		}
 
-		// Upload to Supabase storage.
-		// Upload directly to the `uploads` bucket root (no `projects/` prefix).
+		// Verify the project/event exists and user owns it before uploading
+		if (projectId) {
+			const project = await prisma.project.findUnique({
+				where: { id: projectId },
+				select: { ownerId: true },
+			});
+			if (!project) {
+				return badRequest("Project not found");
+			}
+			if (project.ownerId !== session.user.id) {
+				return unauthorized("You can only add images to your own projects");
+			}
+		}
+		if (eventId) {
+			const event = await prisma.event.findUnique({
+				where: { id: eventId },
+				select: { ownerId: true },
+			});
+			if (!event) {
+				return badRequest("Event not found");
+			}
+			if (event.ownerId !== session.user.id) {
+				return unauthorized("You can only add images to your own events");
+			}
+		}
+
+		// Upload to Supabase storage
+		// Upload directly to the `uploads` bucket root (no folder prefix)
 		const result = await uploadImage(file, "");
 
 		if (result.error) {
@@ -78,47 +112,24 @@ export async function POST(request: Request) {
 			return badRequest(result.error);
 		}
 
-		// Create Image record in database if projectId or eventId is provided
-		// Only create if upload was successful (result.imageUrl is not null)
-		let imageRecord = null;
-		if ((projectId || eventId) && result.imageUrl && result.path) {
-			// Verify the project/event exists and user owns it
-			if (projectId) {
-				const project = await prisma.project.findUnique({
-					where: { id: projectId },
-					select: { ownerId: true },
-				});
-				if (!project) {
-					return badRequest("Project not found");
-				}
-				if (project.ownerId !== session.user.id) {
-					return unauthorized("You can only add images to your own projects");
-				}
-			}
-			if (eventId) {
-				const event = await prisma.event.findUnique({
-					where: { id: eventId },
-					select: { ownerId: true },
-				});
-				if (!event) {
-					return badRequest("Event not found");
-				}
-				if (event.ownerId !== session.user.id) {
-					return unauthorized("You can only add images to your own events");
-				}
-			}
-
-			imageRecord = await prisma.image.create({
-				data: {
-					url: result.imageUrl, // TypeScript now knows this is string (not null)
-					path: result.path, // TypeScript now knows this is string (not null)
-					altText: altText?.trim() || null,
-					projectId: projectId || null,
-					eventId: eventId || null,
-					uploadedById: session.user.id,
-				},
-			});
+		// Create Image record in database
+		// At this point we know result.imageUrl and result.path are not null (upload succeeded)
+		if (!result.imageUrl || !result.path) {
+			return badRequest("Upload succeeded but did not return image URL or path");
 		}
+
+		const createdImage = await prisma.image.create({
+			data: {
+				url: result.imageUrl,
+				path: result.path,
+				altText: altText?.trim() || null,
+				projectId: projectId || null,
+				eventId: eventId || null,
+				uploadedById: session.user.id,
+			},
+			select: imageFields,
+		});
+		const imageRecord = createdImage as ImageItem;
 
 		if (debug) {
 			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -129,8 +140,7 @@ export async function POST(request: Request) {
 
 			return NextResponse.json(
 				{
-					imageUrl: result.imageUrl,
-					imageId: imageRecord?.id || null,
+					...imageRecord,
 					debug: {
 						bucket,
 						path: result.path,
@@ -145,10 +155,8 @@ export async function POST(request: Request) {
 			);
 		}
 
-		return NextResponse.json({ 
-			imageUrl: result.imageUrl,
-			imageId: imageRecord?.id || null,
-		}, { status: 200 });
+		// Return ImageItem with all metadata
+		return NextResponse.json(imageRecord, { status: 200 });
 	} catch (error) {
 		console.error("Error uploading image:", error);
 		if (debug && error instanceof Error) {
