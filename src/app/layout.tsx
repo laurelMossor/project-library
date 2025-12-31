@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+// import "bootstrap/dist/css/bootstrap.min.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
 import { getUserById } from "@/lib/utils/server/user";

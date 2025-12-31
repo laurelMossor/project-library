@@ -4,6 +4,7 @@ import { EventItem } from "@/lib/types/event";
 import { Tags } from "../tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
+import ImageCarousel from "../images/ImageCarousel";
 
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
 	const detailUrl = `/events/${event.id}`;
@@ -45,6 +46,13 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 					Event
 				</p>
 			</div>
+
+			{/* Images */}
+			{event.images && event.images.length > 0 && (
+				<div className="mb-4">
+					<ImageCarousel images={event.images} />
+				</div>
+			)}
 
 			<Tags item={event} />
 		</div>

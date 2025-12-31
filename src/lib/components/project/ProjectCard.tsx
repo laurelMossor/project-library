@@ -1,10 +1,10 @@
 import { ProjectItem } from "../../types/project";
 import Link from "next/link";
-import Image from "next/image";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
 import { Tag, Tags } from "../tag";
 import { truncateText } from "../../utils/text";
 import { formatDateTime } from "../../utils/datetime";
+import ImageCarousel from "../images/ImageCarousel";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
@@ -12,23 +12,6 @@ const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 			<h2 className="text-xl font-semibold mb-2 hover:underline">{project.title}</h2>
 		</Link>
 	);
-};
-
-const ProjectImage = ({ project }: { project: ProjectItem }) => {
-	const firstImage = project.images && project.images.length > 0 ? project.images[0] : null;
-	return firstImage ? (
-		<div className="relative mb-4" style={{ maxWidth: '400px', maxHeight: '500px' }}>
-			<Image
-				src={firstImage.url}
-				alt={firstImage.altText || project.title}
-				width={400}
-				height={192}
-				className="max-w-full max-h-full object-contain"
-				style={{ width: 'auto', height: 'auto' }}
-				unoptimized
-			/>
-		</div>
-	) : null;
 };
 
 export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem, truncate?: boolean }) => {
@@ -59,7 +42,11 @@ export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem
 				</p>
 			</div>
 
-			<ProjectImage project={project} />
+			{project.images && project.images.length > 0 && (
+				<div className="mb-4">
+					<ImageCarousel images={project.images} />
+				</div>
+			)}
 
 			<Tags item={project} />
 		</div>
