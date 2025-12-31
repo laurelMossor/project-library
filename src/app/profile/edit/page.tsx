@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/lib/components/ui/Button";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -140,13 +141,9 @@ export default function EditProfilePage() {
 					/>
 				</div>
 
-				<button
-					type="submit"
-					disabled={saving}
-					className="w-full bg-black text-white p-2 rounded disabled:opacity-50"
-				>
-					{saving ? "Saving..." : "Save Profile"}
-				</button>
+				<Button type="submit" disabled={saving} loading={saving} fullWidth>
+					Save Profile
+				</Button>
 
 				<a href="/profile" className="block text-center underline">Cancel</a>
 			</form>

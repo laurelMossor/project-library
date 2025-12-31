@@ -4,6 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/lib/components/ui/Button";
 
 export default function LoginPage() {
 	const { data: session } = useSession();
@@ -64,12 +65,9 @@ export default function LoginPage() {
 						className="w-full border p-2 rounded"
 						required
 					/>
-					<button
-						type="submit"
-						className="w-full bg-black text-white p-2 rounded"
-					>
+					<Button type="submit" fullWidth>
 						Log In
-					</button>
+					</Button>
 
 					<p className="text-sm text-center">
 						Don't have an account?{" "}

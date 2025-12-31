@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProjectItem } from "@/lib/types/project";
 import { updateProject } from "@/lib/utils/project-client";
+import { Button } from "@/lib/components/ui/Button";
 
 const MAX_TAGS = 10;
 
@@ -255,22 +256,14 @@ export function EditProjectForm({ project }: Props) {
 				</div>
 
 				<div className="flex gap-4">
-					<button
+					<Button
 						type="submit"
 						disabled={submitting || uploadingImage}
-						className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+						loading={submitting || uploadingImage}
 					>
-						{uploadingImage
-							? "Uploading image..."
-							: submitting
-								? isEditMode
-									? "Updating..."
-									: "Creating..."
-								: isEditMode
-									? "Update Project"
-									: "Create Project"}
-					</button>
-					<button
+						{isEditMode ? "Update Project" : "Create Project"}
+					</Button>
+					<Button
 						type="button"
 						onClick={() => {
 							if (isEditMode && project) {
@@ -279,10 +272,10 @@ export function EditProjectForm({ project }: Props) {
 								router.back();
 							}
 						}}
-						className="px-4 py-2 border border-black rounded"
+						variant="secondary"
 					>
 						Cancel
-					</button>
+					</Button>
 				</div>
 			</form>
 		</main>

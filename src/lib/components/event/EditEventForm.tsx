@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
 import { EventItem } from "@/lib/types/event";
 import { updateEvent } from "@/lib/utils/event-client";
+import { Button } from "@/lib/components/ui/Button";
 
 const MAX_TAGS = 10;
 
@@ -301,20 +302,14 @@ export function EditEventForm({ event }: Props) {
 				</div>
 
 				<div className="flex flex-wrap gap-3">
-					<button
+					<Button
 						type="submit"
 						disabled={submitting}
-						className="rounded bg-black px-4 py-2 text-white transition hover:bg-gray-900 disabled:opacity-50"
+						loading={submitting}
 					>
-						{submitting
-							? isEditMode
-								? "Updating event…"
-								: "Creating event…"
-							: isEditMode
-								? "Update event"
-								: "Create event"}
-					</button>
-					<button
+						{isEditMode ? "Update event" : "Create event"}
+					</Button>
+					<Button
 						type="button"
 						onClick={() => {
 							if (isEditMode && event) {
@@ -323,10 +318,10 @@ export function EditEventForm({ event }: Props) {
 								router.back();
 							}
 						}}
-						className="rounded border border-gray-400 px-4 py-2 text-gray-700 transition hover:border-black hover:text-black"
+						variant="secondary"
 					>
 						Cancel
-					</button>
+					</Button>
 				</div>
 			</form>
 		</main>

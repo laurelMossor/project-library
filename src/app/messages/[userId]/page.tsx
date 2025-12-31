@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/lib/components/ui/Button";
 
 interface Message {
 	id: string;
@@ -243,13 +244,14 @@ export default function ConversationPage() {
 							</h1>
 						)}
 					</div>
-					<button
+					<Button
 						onClick={() => fetchConversation(false)}
-						className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+						variant="secondary"
+						size="sm"
 						title="Refresh messages"
 					>
 						Refresh
-					</button>
+					</Button>
 				</div>
 
 				{error && messages.length === 0 && (
@@ -317,13 +319,13 @@ export default function ConversationPage() {
 						maxLength={5000}
 						disabled={sending}
 					/>
-					<button
+					<Button
 						type="submit"
 						disabled={!content.trim() || sending}
-						className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+						loading={sending}
 					>
-						{sending ? "Sending..." : "Send"}
-					</button>
+						Send
+					</Button>
 				</form>
 
 				{error && messages.length > 0 && (

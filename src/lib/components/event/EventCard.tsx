@@ -1,3 +1,11 @@
+/**
+ * @deprecated This component has been replaced by CollectionCard.
+ * Use CollectionCard from @/lib/components/collection/CollectionCard instead.
+ * 
+ * Migration: Replace <EventCard event={event} /> with <CollectionCard item={event} />
+ * 
+ * This component will be removed in a future version.
+ */
 import Link from "next/link";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
 import { EventItem } from "@/lib/types/event";
@@ -7,6 +15,7 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { EntriesList } from "../entry/EntriesList";
 
+/** @deprecated Use CollectionCard instead */
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
 	const detailUrl = `/events/${event.id}`;
 

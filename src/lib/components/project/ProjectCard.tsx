@@ -1,3 +1,11 @@
+/**
+ * @deprecated This component has been replaced by CollectionCard.
+ * Use CollectionCard from @/lib/components/collection/CollectionCard instead.
+ * 
+ * Migration: Replace <ProjectCard project={project} /> with <CollectionCard item={project} />
+ * 
+ * This component will be removed in a future version.
+ */
 import { ProjectItem } from "../../types/project";
 import Link from "next/link";
 import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
@@ -15,6 +23,7 @@ const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	);
 };
 
+/** @deprecated Use CollectionCard instead */
 export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem, truncate?: boolean }) => {
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">

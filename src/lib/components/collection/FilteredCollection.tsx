@@ -1,6 +1,6 @@
 import { CollectionItem } from "@/lib/types/collection";
 import { getCollectionItemKey } from "@/lib/utils/collection";
-import { CollectionItemCard } from "@/lib/components/collection/CollectionCard";
+import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 
 type FilteredCollectionProps = {
 	items: CollectionItem[];
@@ -31,7 +31,7 @@ export function FilteredCollection({ items, view }: FilteredCollectionProps) {
 	return (
 		<div className={containerClass}>
 			{items.map((item) => (
-				<CollectionItemCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
+				<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
 			))}
 		</div>
 	);

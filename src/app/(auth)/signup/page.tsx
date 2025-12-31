@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/lib/components/ui/Button";
 
 export default function SignupPage() {
 	const [email, setEmail] = useState("");
@@ -61,12 +62,9 @@ export default function SignupPage() {
 					className="w-full border p-2 rounded"
 					required
 				/>
-				<button
-					type="submit"
-					className="w-full bg-black text-white p-2 rounded"
-				>
+				<Button type="submit" fullWidth>
 					Sign Up
-				</button>
+				</Button>
 
 				<p className="text-sm text-center">
 					Already have an account?{" "}

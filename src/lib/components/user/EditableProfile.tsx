@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PublicUser } from "@/lib/types/user";
+import { Button } from "@/lib/components/ui/Button";
 
 type EditableProfileProps = {
 	user: PublicUser;
@@ -126,20 +127,20 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 				</div>
 
 				<div className="flex gap-2">
-					<button
+					<Button
 						onClick={handleSave}
 						disabled={saving}
-						className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+						loading={saving}
 					>
-						{saving ? "Saving..." : "Save"}
-					</button>
-					<button
+						Save
+					</Button>
+					<Button
 						onClick={handleCancel}
 						disabled={saving}
-						className="px-4 py-2 border rounded disabled:opacity-50"
+						variant="secondary"
 					>
 						Cancel
-					</button>
+					</Button>
 				</div>
 			</div>
 		);

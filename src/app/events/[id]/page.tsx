@@ -7,6 +7,7 @@ import { Tags } from "@/lib/components/tag";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 import { EntriesList } from "@/lib/components/entry/EntriesList";
+import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -44,24 +45,18 @@ export default async function EventDetailPage({ params }: Props) {
 					</div>
 					<div className="flex flex-wrap gap-3">
 						{session && !isOwner && (
-							<Link
-								href={`/messages/${event.owner.id}`}
-								className="rounded border border-black px-4 py-2 text-sm font-medium text-black transition hover:bg-black hover:text-white"
-							>
+							<ButtonLink href={`/messages/${event.owner.id}`} size="sm">
 								Message owner
-							</Link>
+							</ButtonLink>
 						)}
 						{isOwner && (
 							<>
 								<span className="rounded-full border border-emerald-400/70 px-3 py-1 text-xs font-semibold text-emerald-700">
 									You own this event
 								</span>
-								<Link
-									href={`/events/${id}/edit`}
-									className="rounded border border-black px-4 py-2 text-sm font-medium text-black transition hover:bg-black hover:text-white"
-								>
+								<ButtonLink href={`/events/${id}/edit`} size="sm" variant="secondary">
 									Edit Event
-								</Link>
+								</ButtonLink>
 							</>
 						)}
 					</div>

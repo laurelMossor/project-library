@@ -2,9 +2,9 @@ import { getProjectById } from "@/lib/utils/server/project";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ProjectCard } from "@/lib/components/project/ProjectCard";
+import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 import { DeleteProjectButton } from "@/lib/components/project/DeleteProjectButton";
-import { EntriesList } from "@/lib/components/entry/EntriesList";
+import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -25,32 +25,22 @@ export default async function ProjectDetailPage({ params }: Props) {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-2xl">
-				<ProjectCard project={project} truncate={false} />
-				<EntriesList collectionId={id} collectionType="project" />
+				<CollectionCard item={project} truncate={false} />
 				<div className="mt-8 flex gap-4 items-center flex-wrap">
 					{isOwner && (
 						<>
-							<Link
-								href={`/projects/${id}/entries/new`}
-								className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-							>
+							<ButtonLink href={`/projects/${id}/entries/new`}>
 								New Entry
-							</Link>
-							<Link
-								href={`/projects/${id}/edit`}
-								className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-							>
+							</ButtonLink>
+							<ButtonLink href={`/projects/${id}/edit`}>
 								Edit Project
-							</Link>
+							</ButtonLink>
 						</>
 					)}
 					{session && !isOwner && (
-						<Link
-							href={`/messages/${project.owner.id}`}
-							className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-						>
+						<ButtonLink href={`/messages/${project.owner.id}`}>
 							Message Owner
-						</Link>
+						</ButtonLink>
 					)}
 					{isOwner && <DeleteProjectButton projectId={id} projectTitle={project.title} />}
 					<Link href="/collections" className="underline">Back to collections</Link>

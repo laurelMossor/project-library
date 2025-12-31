@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { Button } from "@/lib/components/ui/Button";
 
 export default function NewProjectEntryPage() {
 	const params = useParams();
@@ -80,20 +81,20 @@ export default function NewProjectEntryPage() {
 					</div>
 
 					<div className="flex gap-4">
-						<button
+						<Button
 							type="submit"
 							disabled={submitting}
-							className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
+							loading={submitting}
 						>
-							{submitting ? "Creating..." : "Create Entry"}
-						</button>
-						<button
+							Create Entry
+						</Button>
+						<Button
 							type="button"
 							onClick={() => router.back()}
-							className="px-4 py-2 border rounded hover:bg-gray-100 transition-colors"
+							variant="secondary"
 						>
 							Cancel
-						</button>
+						</Button>
 					</div>
 				</form>
 			</div>
