@@ -18,6 +18,9 @@ export function ProfileHeader({ user, isOwnProfile, session }: ProfileHeaderProp
 			<div className="flex flex-col gap-3">
 				{isOwnProfile ? (
 					<>
+						<ButtonLink href="/profile" fullWidth>
+							Edit Profile
+						</ButtonLink>
 						<ButtonLink href="/projects/new" fullWidth>
 							New Project
 						</ButtonLink>

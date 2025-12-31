@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProjectItem } from "@/lib/types/project";
 import { updateProject } from "@/lib/utils/project-client";
-import { Button } from "@/lib/components/ui/Button";
+import { FormLayout } from "@/lib/components/layout/FormLayout";
+import { FormField } from "@/lib/components/forms/FormField";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormTextarea } from "@/lib/components/forms/FormTextarea";
+import { FormError } from "@/lib/components/forms/FormError";
+import { FormActions } from "@/lib/components/forms/FormActions";
 
 const MAX_TAGS = 10;
 
@@ -175,65 +180,47 @@ export function EditProjectForm({ project }: Props) {
 	};
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-4">
-			<form onSubmit={handleSubmit} className="w-full max-w-2xl space-y-4">
+		<FormLayout>
+			<form onSubmit={handleSubmit} className="space-y-4">
 				<h1 className="text-2xl font-bold">{isEditMode ? "Edit Project" : "Create New Project"}</h1>
 
-				{error && <p className="text-red-500">{error}</p>}
+				<FormError error={error} />
 
-				<div>
-					<label htmlFor="title" className="block text-sm font-medium mb-1">
-						Title <span className="text-red-500">*</span>
-					</label>
-					<input
+				<FormField label="Title" htmlFor="title" required>
+					<FormInput
 						id="title"
 						type="text"
 						placeholder="Project title"
 						value={title}
 						onChange={(e) => setTitle(e.target.value)}
-						className="w-full border p-2 rounded"
 						required
 						maxLength={200}
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="description" className="block text-sm font-medium mb-1">
-						Description <span className="text-red-500">*</span>
-					</label>
-					<textarea
+				<FormField label="Description" htmlFor="description" required>
+					<FormTextarea
 						id="description"
 						placeholder="Describe your project..."
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
-						className="w-full border p-2 rounded"
 						rows={8}
 						required
 						maxLength={5000}
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="tags" className="block text-sm font-medium mb-1">
-						Tags (optional)
-					</label>
-					<input
+				<FormField label="Tags" htmlFor="tags" helpText={`Separate tags with commas. Maximum ${MAX_TAGS} tags.`}>
+					<FormInput
 						id="tags"
 						type="text"
 						placeholder="tag1, tag2, tag3"
 						value={tags}
 						onChange={(e) => setTags(e.target.value)}
-						className="w-full border p-2 rounded"
 					/>
-					<p className="text-xs text-gray-500 mt-1">
-						Separate tags with commas. Maximum {MAX_TAGS} tags.
-					</p>
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="image" className="block text-sm font-medium mb-1">
-						Project Image (optional)
-					</label>
+				<FormField label="Project Image" htmlFor="image" helpText="JPEG, PNG, or WebP. Maximum 5MB.">
 					<input
 						id="image"
 						type="file"
@@ -241,9 +228,6 @@ export function EditProjectForm({ project }: Props) {
 						onChange={handleImageChange}
 						className="w-full border p-2 rounded"
 					/>
-					<p className="text-xs text-gray-500 mt-1">
-						JPEG, PNG, or WebP. Maximum 5MB.
-					</p>
 					{(imagePreview || existingImageUrl) && (
 						<div className="mt-2">
 							<img
@@ -253,32 +237,22 @@ export function EditProjectForm({ project }: Props) {
 							/>
 						</div>
 					)}
-				</div>
+				</FormField>
 
-				<div className="flex gap-4">
-					<Button
-						type="submit"
-						disabled={submitting || uploadingImage}
-						loading={submitting || uploadingImage}
-					>
-						{isEditMode ? "Update Project" : "Create Project"}
-					</Button>
-					<Button
-						type="button"
-						onClick={() => {
-							if (isEditMode && project) {
-								router.push(`/projects/${project.id}`);
-							} else {
-								router.back();
-							}
-						}}
-						variant="secondary"
-					>
-						Cancel
-					</Button>
-				</div>
+				<FormActions
+					submitLabel={isEditMode ? "Update Project" : "Create Project"}
+					onCancel={() => {
+						if (isEditMode && project) {
+							router.push(`/projects/${project.id}`);
+						} else {
+							router.back();
+						}
+					}}
+					loading={submitting || uploadingImage}
+					disabled={submitting || uploadingImage}
+				/>
 			</form>
-		</main>
+		</FormLayout>
 	);
 }
 

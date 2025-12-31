@@ -8,6 +8,7 @@ import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
+import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 export default function CollectionsPage() {
 	const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -74,7 +75,7 @@ export default function CollectionsPage() {
 	};
 
 	return (
-		<main className="flex min-h-screen flex-col p-8">
+		<PageLayout>
 			<CollectionPage
 				filteredItems={filteredItems}
 				loading={loading}
@@ -92,7 +93,7 @@ export default function CollectionsPage() {
 				onTagsChange={setSelectedTags}
 				availableTags={availableTags}
 			/>
-		</main>
+		</PageLayout>
 	);
 }
 

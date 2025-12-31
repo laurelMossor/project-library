@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/lib/components/ui/Button";
+import { FormLayout } from "@/lib/components/layout/FormLayout";
+import { FormField } from "@/lib/components/forms/FormField";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormTextarea } from "@/lib/components/forms/FormTextarea";
+import { FormError } from "@/lib/components/forms/FormError";
+import { FormActions } from "@/lib/components/forms/FormActions";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -78,76 +83,72 @@ export default function EditProfilePage() {
 	};
 
 	if (loading) {
-		return <main className="flex min-h-screen items-center justify-center">Loading...</main>;
+		return <FormLayout><div>Loading...</div></FormLayout>;
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-4">
-			<form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
+		<FormLayout maxWidth="md">
+			<form onSubmit={handleSubmit} className="space-y-4">
 				<h1 className="text-2xl font-bold">Edit Profile</h1>
 
-				{error && <p className="text-red-500">{error}</p>}
+				<FormError error={error} />
 
-				<div>
-					<label className="block text-sm font-medium mb-1">Name</label>
-					<input
+				<FormField label="Name" htmlFor="name">
+					<FormInput
+						id="name"
 						type="text"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="w-full border p-2 rounded"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label className="block text-sm font-medium mb-1">Headline</label>
-					<input
+				<FormField label="Headline" htmlFor="headline">
+					<FormInput
+						id="headline"
 						type="text"
 						value={headline}
 						onChange={(e) => setHeadline(e.target.value)}
 						placeholder="e.g. Full-stack developer"
-						className="w-full border p-2 rounded"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label className="block text-sm font-medium mb-1">Bio</label>
-					<textarea
+				<FormField label="Bio" htmlFor="bio">
+					<FormTextarea
+						id="bio"
 						value={bio}
 						onChange={(e) => setBio(e.target.value)}
 						rows={4}
-						className="w-full border p-2 rounded"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label className="block text-sm font-medium mb-1">Interests (comma-separated)</label>
-					<input
+				<FormField label="Interests (comma-separated)" htmlFor="interests" helpText="Separate interests with commas">
+					<FormInput
+						id="interests"
 						type="text"
 						value={interests}
 						onChange={(e) => setInterests(e.target.value)}
 						placeholder="e.g. React, TypeScript, Design"
-						className="w-full border p-2 rounded"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label className="block text-sm font-medium mb-1">Location</label>
-					<input
+				<FormField label="Location" htmlFor="location">
+					<FormInput
+						id="location"
 						type="text"
 						value={location}
 						onChange={(e) => setLocation(e.target.value)}
 						placeholder="e.g. San Francisco, CA"
-						className="w-full border p-2 rounded"
 					/>
-				</div>
+				</FormField>
 
-				<Button type="submit" disabled={saving} loading={saving} fullWidth>
-					Save Profile
-				</Button>
-
-				<a href="/profile" className="block text-center underline">Cancel</a>
+				<FormActions
+					submitLabel="Save Profile"
+					onCancel={() => router.push("/profile")}
+					loading={saving}
+					disabled={saving}
+				/>
 			</form>
-		</main>
+		</FormLayout>
 	);
 }
 

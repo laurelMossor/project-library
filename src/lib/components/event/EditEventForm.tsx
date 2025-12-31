@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
 import { EventItem } from "@/lib/types/event";
 import { updateEvent } from "@/lib/utils/event-client";
+import { FormLayout } from "@/lib/components/layout/FormLayout";
+import { FormField } from "@/lib/components/forms/FormField";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormTextarea } from "@/lib/components/forms/FormTextarea";
+import { FormError } from "@/lib/components/forms/FormError";
+import { FormActions } from "@/lib/components/forms/FormActions";
 import { Button } from "@/lib/components/ui/Button";
 
 const MAX_TAGS = 10;
@@ -184,20 +190,14 @@ export function EditEventForm({ event }: Props) {
 	};
 
 	return (
-		<main className="flex min-h-screen items-start justify-center p-4">
-			<form
-				onSubmit={handleSubmit}
-				className="w-full max-w-2xl space-y-4 rounded border border-gray-200 bg-white p-6 shadow-sm"
-			>
-				<h1 className="text-2xl font-semibold">{isEditMode ? "Edit Event" : "Create Event"}</h1>
+		<FormLayout>
+			<form onSubmit={handleSubmit} className="space-y-4">
+				<h1 className="text-2xl font-bold">{isEditMode ? "Edit Event" : "Create Event"}</h1>
 
-				{error && <p className="text-sm font-medium text-red-600">{error}</p>}
+				<FormError error={error} />
 
-				<div>
-					<label htmlFor="title" className="block text-sm font-medium mb-1">
-						Title <span className="text-red-500">*</span>
-					</label>
-					<input
+				<FormField label="Title" htmlFor="title" required>
+					<FormInput
 						id="title"
 						type="text"
 						value={title}
@@ -205,15 +205,11 @@ export function EditEventForm({ event }: Props) {
 						placeholder="Event title"
 						required
 						maxLength={150}
-						className="w-full rounded border border-gray-300 px-3 py-2 text-base focus:border-black focus:outline-none"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="description" className="block text-sm font-medium mb-1">
-						Description <span className="text-red-500">*</span>
-					</label>
-					<textarea
+				<FormField label="Description" htmlFor="description" required>
+					<FormTextarea
 						id="description"
 						value={description}
 						onChange={(event) => setDescription(event.target.value)}
@@ -221,31 +217,23 @@ export function EditEventForm({ event }: Props) {
 						required
 						rows={6}
 						maxLength={5000}
-						className="w-full rounded border border-gray-300 px-3 py-2 text-base focus:border-black focus:outline-none"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="datetime" className="block text-sm font-medium mb-1">
-						Date &amp; Time <span className="text-red-500">*</span>
-					</label>
-					<input
+				<FormField label="Date & Time" htmlFor="datetime" required>
+					<FormInput
 						id="datetime"
 						type="datetime-local"
 						value={dateTime}
 						onChange={(event) => setDateTime(event.target.value)}
 						min={minDateTime}
 						required
-						className="w-full rounded border border-gray-300 px-3 py-2 text-base focus:border-black focus:outline-none"
 					/>
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="location" className="block text-sm font-medium mb-1">
-						Location <span className="text-red-500">*</span>
-					</label>
+				<FormField label="Location" htmlFor="location" required helpText="Enter an address and click 'Find on Map' to locate it, or use the map below to set coordinates.">
 					<div className="flex gap-2">
-						<input
+						<FormInput
 							id="location"
 							type="text"
 							value={location}
@@ -253,78 +241,53 @@ export function EditEventForm({ event }: Props) {
 							placeholder="123 Main St, City, Country"
 							required
 							maxLength={255}
-							className="flex-1 rounded border border-gray-300 px-3 py-2 text-base focus:border-black focus:outline-none"
+							className="flex-1"
+							error={geocodeError}
 						/>
-						<button
+						<Button
 							type="button"
 							onClick={handleGeocodeAddress}
 							disabled={geocoding || !location.trim()}
-							className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-black hover:text-black disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+							variant="secondary"
+							size="sm"
 						>
 							{geocoding ? "Searching..." : "Find on Map"}
-						</button>
+						</Button>
 					</div>
-					{geocodeError && <p className="mt-1 text-xs text-red-600">{geocodeError}</p>}
-					<p className="mt-1 text-xs text-gray-500">
-						Enter an address and click "Find on Map" to locate it, or use the map below to set coordinates.
-					</p>
-				</div>
+				</FormField>
 
-				<div>
-					<label className="block text-sm font-medium mb-1">Set Location on Map</label>
+				<FormField label="Set Location on Map" helpText={latitude !== null && longitude !== null ? `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}` : undefined}>
 					<InteractiveMap
 						latitude={latitude}
 						longitude={longitude}
 						onLocationChange={handleLocationChange}
 					/>
-					{latitude !== null && longitude !== null && (
-						<p className="mt-2 text-xs text-gray-500">
-							Coordinates: {latitude.toFixed(6)}, {longitude.toFixed(6)}
-						</p>
-					)}
-				</div>
+				</FormField>
 
-				<div>
-					<label htmlFor="tags" className="block text-sm font-medium mb-1">
-						Tags (optional)
-					</label>
-					<input
+				<FormField label="Tags" htmlFor="tags" helpText={`Separate tags with commas. You can add up to ${MAX_TAGS} tags.`}>
+					<FormInput
 						id="tags"
 						type="text"
 						value={tags}
 						onChange={(event) => setTags(event.target.value)}
 						placeholder="Tag1, Tag2, Tag3"
-						className="w-full rounded border border-gray-300 px-3 py-2 text-base focus:border-black focus:outline-none"
 					/>
-					<p className="text-xs text-gray-500">
-						Separate tags with commas. You can add up to {MAX_TAGS} tags.
-					</p>
-				</div>
+				</FormField>
 
-				<div className="flex flex-wrap gap-3">
-					<Button
-						type="submit"
-						disabled={submitting}
-						loading={submitting}
-					>
-						{isEditMode ? "Update event" : "Create event"}
-					</Button>
-					<Button
-						type="button"
-						onClick={() => {
-							if (isEditMode && event) {
-								router.push(`/events/${event.id}`);
-							} else {
-								router.back();
-							}
-						}}
-						variant="secondary"
-					>
-						Cancel
-					</Button>
-				</div>
+				<FormActions
+					submitLabel={isEditMode ? "Update event" : "Create event"}
+					onCancel={() => {
+						if (isEditMode && event) {
+							router.push(`/events/${event.id}`);
+						} else {
+							router.back();
+						}
+					}}
+					loading={submitting}
+					disabled={submitting}
+				/>
 			</form>
-		</main>
+		</FormLayout>
 	);
 }
 

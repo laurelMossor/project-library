@@ -15,6 +15,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { EditableProfile } from "@/lib/components/user/EditableProfile";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
+import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 
 export default async function ProfilePage() {
 	// Middleware protects this route, but we verify session here as a safety check
@@ -32,8 +33,7 @@ export default async function ProfilePage() {
 	}
 
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-center p-8">
-			<div className="w-full max-w-2xl">
+		<CenteredLayout maxWidth="2xl">
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold mb-2">Profile Settings</h1>
 					<p className="text-gray-600">Manage your profile information and account settings</p>
@@ -66,7 +66,6 @@ export default async function ProfilePage() {
 					<Link href="/" className="text-sm underline text-gray-600">Home</Link>
 					<Link href="/collections" className="text-sm underline text-gray-600">Collections</Link>
 				</div>
-			</div>
-		</main>
+		</CenteredLayout>
 	);
 }
