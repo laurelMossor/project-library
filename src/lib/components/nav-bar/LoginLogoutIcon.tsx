@@ -6,11 +6,12 @@ import { LogoutIcon, LoginIcon } from "@/lib/components/icons/icons";
 
 interface LoginLogoutIconProps {
 	isLoggedIn: boolean;
+	className?: string;
 }
 
 const iconButtonStyles = "p-2 hover:bg-soft-grey rounded transition-colors";
 
-export function LoginLogoutIcon({ isLoggedIn }: LoginLogoutIconProps) {
+export function LoginLogoutIcon({ isLoggedIn, className }: LoginLogoutIconProps) {
 	const router = useRouter();
 
 	const handleLogout = async () => {
@@ -28,7 +29,7 @@ export function LoginLogoutIcon({ isLoggedIn }: LoginLogoutIconProps) {
 			aria-label="Log Out"
 			title="Log Out"
 		>
-			<LogoutIcon />
+			<LogoutIcon className={className} />
 		</button>
 	) : (
 		<button
@@ -37,7 +38,7 @@ export function LoginLogoutIcon({ isLoggedIn }: LoginLogoutIconProps) {
 			aria-label="Log In"
 			title="Log In"
 		>
-			<LoginIcon />
+			<LoginIcon className={className} />
 		</button>
 	);
 }

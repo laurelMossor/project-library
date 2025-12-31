@@ -1,10 +1,10 @@
+export const ICON_STYLING = "w-6 h-6"
+
 interface IconProps {
 	className?: string;
 }
 
-const ICON_STYLING = "w-6 h-6"
-
-export function CollectionsIcon({ className = ICON_STYLING }: IconProps) {
+export function CollectionsIcon({ className  }: IconProps) {
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -17,7 +17,7 @@ export function CollectionsIcon({ className = ICON_STYLING }: IconProps) {
 	);
 }
 
-export function UserHomeIcon({ className = ICON_STYLING }: IconProps) {
+export function UserHomeIcon({ className  }: IconProps) {
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -30,7 +30,7 @@ export function UserHomeIcon({ className = ICON_STYLING }: IconProps) {
 	);
 }
 
-export function LogoutIcon({ className = ICON_STYLING }: IconProps) {
+export function LogoutIcon({ className  }: IconProps) {
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -43,7 +43,7 @@ export function LogoutIcon({ className = ICON_STYLING }: IconProps) {
 	);
 }
 
-export function LoginIcon({ className = ICON_STYLING }: IconProps) {
+export function LoginIcon({ className  }: IconProps) {
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -56,7 +56,7 @@ export function LoginIcon({ className = ICON_STYLING }: IconProps) {
 	);
 }
 
-export function NewEntryIcon({ className = ICON_STYLING }: IconProps) {
+export function NewEntryIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} fill="currentColor">
             <path d="M64 64C28.7 64 0 92.7 0 128L0 384c0 35.3 28.7 64 64 64l384 0c35.3 0 64-28.7 64-64l0-256c0-35.3-28.7-64-64-64L64 64zm96 256a32 32 0 1 1 -64 0 32 32 0 1 1 64 0zm-32-96a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm120-56l144 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-144 0c-13.3 0-24-10.7-24-24s10.7-24 24-24zm0 128l144 0c13.3 0 24 10.7 24 24s-10.7 24-24 24l-144 0c-13.3 0-24-10.7-24-24s10.7-24 24-24z"/>
@@ -64,7 +64,7 @@ export function NewEntryIcon({ className = ICON_STYLING }: IconProps) {
     );
 }
 
-export function HamburgerIcon({ className = ICON_STYLING }: IconProps) {
+export function HamburgerIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className={className} fill="currentColor">
             <path d="M0 96C0 78.3 14.3 64 32 64l384 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L32 128C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32l384 0c17.7 0 32 14.3 32 32s-14.3 32-32 32L32 288c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32L32 448c-17.7 0-32-14.3-32-32s14.3-32 32-32l384 0c17.7 0 32 14.3 32 32z"/>
@@ -72,7 +72,7 @@ export function HamburgerIcon({ className = ICON_STYLING }: IconProps) {
     );
 }
 
-export function CalendarIcon({ className = ICON_STYLING }: IconProps) {
+export function CalendarIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className={className} fill="currentColor">
             <path d="M120 0c13.3 0 24 10.7 24 24l0 40 160 0 0-40c0-13.3 10.7-24 24-24s24 10.7 24 24l0 40 32 0c35.3 0 64 28.7 64 64l0 288c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64L0 128C0 92.7 28.7 64 64 64l32 0 0-40c0-13.3 10.7-24 24-24zM384 432c8.8 0 16-7.2 16-16l0-64-88 0 0 80 72 0zm16-128l0-80-88 0 0 80 88 0zm-136 0l0-80-80 0 0 80 80 0zm-128 0l0-80-88 0 0 80 88 0zM48 352l0 64c0 8.8 7.2 16 16 16l72 0 0-80-88 0zm136 0l0 80 80 0 0-80-80 0zM120 112l-56 0c-8.8 0-16 7.2-16 16l0 48 352 0 0-48c0-8.8-7.2-16-16-16l-264 0z"/>
@@ -80,7 +80,7 @@ export function CalendarIcon({ className = ICON_STYLING }: IconProps) {
     );
 }
 
-export function MessageIcon({ className = ICON_STYLING }: IconProps) {
+export function MessageIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} fill="currentColor">
             <path d="M203.7 512.9s0 0 0 0l-37.8 26.7c-7.3 5.2-16.9 5.8-24.9 1.7S128 529 128 520l0-72-32 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l320 0c53 0 96 43 96 96l0 224c0 53-43 96-96 96l-120.4 0-91.9 64.9zm64.3-104.1c8.1-5.7 17.8-8.8 27.7-8.8L416 400c26.5 0 48-21.5 48-48l0-224c0-26.5-21.5-48-48-48L96 80c-26.5 0-48 21.5-48 48l0 224c0 26.5 21.5 48 48 48l56 0c10.4 0 19.3 6.6 22.6 15.9 .9 2.5 1.4 5.2 1.4 8.1l0 49.7c32.7-23.1 63.3-44.7 91.9-64.9z"/>
@@ -88,7 +88,7 @@ export function MessageIcon({ className = ICON_STYLING }: IconProps) {
     );
 }
 
-export function AtSignIcon({ className = ICON_STYLING }: IconProps) {
+export function AtSignIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} fill="currentColor">
             <path d="M256 64C150 64 64 150 64 256s86 192 192 192c17.7 0 32 14.3 32 32s-14.3 32-32 32C114.6 512 0 397.4 0 256S114.6 0 256 0 512 114.6 512 256l0 32c0 53-43 96-96 96-29.3 0-55.6-13.2-73.2-33.9-22.8 21-53.3 33.9-86.8 33.9-70.7 0-128-57.3-128-128s57.3-128 128-128c27.9 0 53.7 8.9 74.7 24.1 5.7-5 13.1-8.1 21.3-8.1 17.7 0 32 14.3 32 32l0 112c0 17.7 14.3 32 32 32s32-14.3 32-32l0-32c0-106-86-192-192-192zm64 192a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z"/>
@@ -96,7 +96,7 @@ export function AtSignIcon({ className = ICON_STYLING }: IconProps) {
     );
 }
 
-export function ArrowRightIcon({ className = ICON_STYLING }: IconProps) {
+export function ArrowRightIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512" className={className} fill="currentColor">
 			<path d="M247.1 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L179.2 256 41.9 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/>
@@ -104,10 +104,23 @@ export function ArrowRightIcon({ className = ICON_STYLING }: IconProps) {
     );
 }
 
-export function ArrowLeftIcon({ className = ICON_STYLING }: IconProps) {
+export function ArrowLeftIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 512" className={className} fill="currentColor">
 			<path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L77.3 256 214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/>
 		</svg>
     );
+}
+
+export function AboutIcon({ className  }: IconProps) {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 512 512"
+			className={className}
+			fill="currentColor"
+		>
+			<path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM169.8 165.3c7.9-22.3 29.1-37.3 52.8-37.3h58.3c34.9 0 63.1 28.3 63.1 63.1c0 22.6-12.1 43.5-31.7 54.8L280 264.4c-.2 13-10.9 23.6-24 23.6c-13.3 0-24-10.7-24-24V250.5c0-8.6 4.6-16.5 12.1-20.8l44.3-25.4c4.7-2.7 7.6-7.7 7.6-13.1c0-8.4-6.8-15.1-15.1-15.1H222.6c-3.4 0-6.4 2.1-7.5 5.3l-.4 1.2c-4.4 12.5-18.2 19-30.6 14.6s-19-18.2-14.6-30.6l.4-1.2zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z" />
+		</svg>
+	);
 }
