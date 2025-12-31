@@ -7,16 +7,6 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { supabase } from "@/lib/utils/server/supabase";
 
-// Note: This seed file uses the new schema with Entry and Image models.
-// Run `npx prisma migrate dev` and `npx prisma generate` before running this seed.
-
-// Use the same Prisma setup as your app
-// const pool = new pg.Pool({
-// 	connectionString: process.env.DATABASE_URL,
-// });
-// const adapter = new PrismaPg(pool);
-// const prisma = new PrismaClient({ adapter });
-
 // Load seed data from JSON files
 const usersData = JSON.parse(
 	readFileSync(join(process.cwd(), "prisma", "seed-data", "users.json"), "utf-8")
@@ -86,7 +76,7 @@ async function main() {
 				createdAt: projectData.createdAt ? new Date(projectData.createdAt) : undefined,
 			},
 		});
-		createdProjects.push(project);
+		createdProjects.push({ project, owner, projectData });
 		console.log(`✅ Created project: "${project.title}" by ${owner.username}`);
 
 		// Track projects that should have entries
@@ -125,6 +115,7 @@ async function main() {
 
 	// Create events from JSON data
 	console.log("\nCreating events...");
+	const createdEvents = [];
 	for (const eventData of eventsData) {
 		// Find the owner by index (ownerId in JSON is 1-based, array is 0-based)
 		const ownerIndex = eventData.ownerId - 1;
@@ -148,6 +139,7 @@ async function main() {
 				createdAt: eventData.createdAt ? new Date(eventData.createdAt) : undefined,
 			},
 		});
+		createdEvents.push({ event, owner, eventData });
 		console.log(`✅ Created event: "${event.title}" by ${owner.username}`);
 	}
 
@@ -157,43 +149,42 @@ async function main() {
 	const BUCKET_NAME = "uploads";
 	const EXAMPLES_FOLDER = "examples";
 
+	// Create a map of filename -> imageData for quick lookup
+	const imageDataMap = new Map<string, typeof imagesData[0]>();
 	for (const imageData of imagesData) {
-		// Find the project by index (projectIndex in JSON is 1-based, array is 0-based)
-		const projectIndex = imageData.projectIndex - 1;
-		const project = createdProjects[projectIndex];
-		
-		if (!project) {
-			console.warn(`⚠️  Skipping image "${imageData.filename}" - project index "${imageData.projectIndex}" not found`);
-			continue;
-		}
+		imageDataMap.set(imageData.filename, imageData);
+	}
 
-		// Find the uploader by index (uploadedByIndex in JSON is 1-based, array is 0-based)
-		const uploaderIndex = imageData.uploadedByIndex - 1;
-		const uploader = createdUsers[uploaderIndex];
+	// Track which files have been uploaded to avoid duplicate uploads
+	const uploadedFiles = new Set<string>();
+
+	// Helper function to upload file and get URL
+	async function uploadImageFile(filename: string): Promise<string | null> {
+		const storagePath = `${EXAMPLES_FOLDER}/${filename}`;
 		
-		if (!uploader) {
-			console.warn(`⚠️  Skipping image "${imageData.filename}" - uploader index "${imageData.uploadedByIndex}" not found`);
-			continue;
+		// If already uploaded, just return the URL
+		if (uploadedFiles.has(filename)) {
+			const { data: { publicUrl } } = supabase.storage
+				.from(BUCKET_NAME)
+				.getPublicUrl(storagePath);
+			return publicUrl;
 		}
 
 		// Read the local image file
-		const localImagePath = join(process.cwd(), "public", "static", "examples", imageData.filename);
+		const localImagePath = join(process.cwd(), "public", "static", "examples", filename);
 		if (!existsSync(localImagePath)) {
-			console.warn(`⚠️  Skipping image "${imageData.filename}" - file not found at ${localImagePath}`);
-			continue;
+			console.warn(`⚠️  Skipping image "${filename}" - file not found at ${localImagePath}`);
+			return null;
 		}
 
 		const imageBuffer = readFileSync(localImagePath);
-		const fileExtension = imageData.filename.split(".").pop()?.toLowerCase() || "png";
+		const fileExtension = filename.split(".").pop()?.toLowerCase() || "png";
 		
 		// Determine content type based on extension
 		const contentType = fileExtension === "png" ? "image/png" : 
 		                   fileExtension === "jpg" || fileExtension === "jpeg" ? "image/jpeg" :
 		                   fileExtension === "webp" ? "image/webp" : "image/png";
 
-		// Upload to Supabase storage in examples folder
-		const storagePath = `${EXAMPLES_FOLDER}/${imageData.filename}`;
-		
 		try {
 			const { data: uploadData, error: uploadError } = await supabase.storage
 				.from(BUCKET_NAME)
@@ -203,30 +194,108 @@ async function main() {
 				});
 
 			if (uploadError) {
-				console.error(`❌ Failed to upload "${imageData.filename}":`, uploadError.message);
-				continue;
+				console.error(`❌ Failed to upload "${filename}":`, uploadError.message);
+				return null;
 			}
 
+			uploadedFiles.add(filename);
+			
 			// Get the public URL
 			const { data: { publicUrl } } = supabase.storage
 				.from(BUCKET_NAME)
 				.getPublicUrl(storagePath);
+			return publicUrl;
+		} catch (error) {
+			console.error(`❌ Error uploading image "${filename}":`, error instanceof Error ? error.message : String(error));
+			return null;
+		}
+	}
+
+	// Process images for each project
+	for (const { project, owner, projectData } of createdProjects) {
+		// Skip if project doesn't have imageFilenames
+		if (!projectData.imageFilenames || !Array.isArray(projectData.imageFilenames)) {
+			continue;
+		}
+
+		// The project owner is the uploader
+		const uploader = owner;
+
+		for (const filename of projectData.imageFilenames) {
+			const imageData = imageDataMap.get(filename);
+			
+			if (!imageData) {
+				console.warn(`⚠️  Skipping image "${filename}" - image data not found in images.json`);
+				continue;
+			}
+
+			const publicUrl = await uploadImageFile(filename);
+			if (!publicUrl) {
+				continue;
+			}
 
 			// Create image record in database
-			const image = await prisma.image.create({
-				data: {
-					url: publicUrl,
-					path: storagePath,
-					altText: imageData.altText || null,
-					projectId: project.id,
-					uploadedById: uploader.id,
-				},
-			});
+			try {
+				const storagePath = `${EXAMPLES_FOLDER}/${filename}`;
+				const image = await prisma.image.create({
+					data: {
+						url: publicUrl,
+						path: storagePath,
+						altText: imageData.altText || null,
+						projectId: project.id,
+						uploadedById: uploader.id,
+					},
+				});
+				
+				imagesCreated++;
+				console.log(`✅ Created image for project: "${project.title}" (${filename})`);
+			} catch (error) {
+				console.error(`❌ Error creating image record for "${filename}":`, error instanceof Error ? error.message : String(error));
+			}
+		}
+	}
+
+	// Process images for each event
+	for (const { event, owner, eventData } of createdEvents) {
+		// Skip if event doesn't have imageFilenames
+		if (!eventData.imageFilenames || !Array.isArray(eventData.imageFilenames)) {
+			continue;
+		}
+
+		// The event owner is the uploader
+		const uploader = owner;
+
+		for (const filename of eventData.imageFilenames) {
+			const imageData = imageDataMap.get(filename);
 			
-			imagesCreated++;
-			console.log(`✅ Uploaded and created image for project: "${project.title}" (${imageData.filename})`);
-		} catch (error) {
-			console.error(`❌ Error processing image "${imageData.filename}":`, error instanceof Error ? error.message : String(error));
+			if (!imageData) {
+				console.warn(`⚠️  Skipping image "${filename}" - image data not found in images.json`);
+				continue;
+			}
+
+			const publicUrl = await uploadImageFile(filename);
+			if (!publicUrl) {
+				continue;
+			}
+
+			// Create image record in database
+			try {
+				const storagePath = `${EXAMPLES_FOLDER}/${filename}`;
+				const image = await prisma.image.create({
+					data: {
+						url: publicUrl,
+						path: storagePath,
+						altText: imageData.altText || null,
+						eventId: event.id,
+						uploadedById: uploader.id,
+					},
+				});
+				
+				imagesCreated++;
+				console.log(`✅ Created image for event: "${event.title}" (${filename})`);
+			} catch (error) {
+				console.error(`❌ Error creating image record for "${filename}":`, error instanceof Error ? error.message : String(error));
+			}
 		}
 	}
 

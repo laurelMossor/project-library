@@ -39,14 +39,13 @@ model Project {
 	type           String    @default("project") // discriminator field for collection types
 	title          String    // required project title
 	description    String    // required project description
-	tags           String[]  @default([]) // array of project tags, optional
+	tags           String[]  // array of project tags, optional
 	ownerId        String    // foreign key to User
 	createdAt      DateTime  @default(now())
 	updatedAt      DateTime  @updatedAt
+	images 		   Image[]	 // array of images, optional
 
 	owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-	// Note: entries relation removed - query by collectionType="project" and collectionId=id instead
-	images         Image[]   // images associated with this project
 
 	@@map("projects")
 }

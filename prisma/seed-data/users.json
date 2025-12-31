@@ -1,21 +1,11 @@
 [
 	{
-		"email": "admin@admin.com",
-		"username": "admin",
-		"password": "admin",
-		"name": "LoonyLady",
-		"headline": "Admin",
-		"bio": "Admin",
-		"interests": ["Admin", "Crafting", "Video Games"],
-		"location": "Berkeley, CA"
-	},
-	{
 		"email": "alice.example@example.com",
 		"username": "alice",
 		"password": "alice",
 		"name": "Alice Example",
-		"headline": "Master Quilter & Textile Artist",
-		"bio": "Passionate about traditional quilting techniques and modern textile art. Love creating intricate patterns and teaching others the craft. Specialize in hand-stitched quilts and fabric collage.",
+		"headline": "Quilter & Textile Artist",
+		"bio": "I'm an example person who cares about traditional quilting techniques and modern textile art. I might love creating intricate patterns and teaching others the craft. Specializing in hand-stitched quilts and fabric collage.",
 		"interests": ["Quilting", "Textile Art", "Hand Sewing", "Fabric Design"],
 		"location": "Portland, OR"
 	},
@@ -24,39 +14,19 @@
 		"username": "bella",
 		"password": "bella",
 		"name": "Bella Example",
-		"headline": "Embroidery Artist & Pattern Designer",
-		"bio": "Creating beautiful hand-embroidered pieces and designing original patterns. Focus on botanical motifs and vintage-inspired designs. Always experimenting with new stitches and techniques.",
-		"interests": ["Embroidery", "Pattern Design", "Botanical Art", "Vintage Crafts"],
+		"headline": "Regular Lady who does embroidery and pattern design",
+		"bio": "I'm an example person who cares about embroidery and pattern design. I might love creating beautiful hand-embroidered pieces and designing original patterns. Focusing on botanical motifs and vintage-inspired designs. Always experimenting with new stitches and techniques.",
+		"interests": ["Embroidery", "Pattern Design", "Animals", "Vintage Crafts", "Juggling"],
 		"location": "Portland, OR"
 	},
 	{
-		"email": "clara.example@example.com",
-		"username": "clara",
-		"password": "clara",
-		"name": "Clara Example",
-		"headline": "Knitting Instructor & Yarn Enthusiast",
-		"bio": "Teaching knitting to beginners and creating complex cable patterns. Passionate about sustainable yarns and helping others discover the joy of knitting. Love designing cozy sweaters and accessories.",
-		"interests": ["Knitting", "Cable Patterns", "Yarn Dyeing", "Sustainable Crafts"],
-		"location": "Berkeley, CA"
-	},
-	{
-		"email": "diana.example@example.com",
-		"username": "diana",
-		"password": "diana",
-		"name": "Diana Example",
-		"headline": "Full Stack Developer & Open Source Contributor",
-		"bio": "Building web applications with React, Node.js, and TypeScript. Passionate about clean code, testing, and contributing to open source projects. Love teaching programming concepts to beginners.",
-		"interests": ["React", "TypeScript", "Node.js", "Open Source"],
-		"location": "Berkeley, CA"
-	},
-	{
-		"email": "ella.example@example.com",
-		"username": "ella",
-		"password": "ella",
-		"name": "Ella Example",
-		"headline": "DevOps Engineer & Cloud Architect",
-		"bio": "Designing scalable cloud infrastructure and automating deployments. Expertise in AWS, Docker, and CI/CD pipelines. Always learning new technologies and sharing knowledge with the community.",
-		"interests": ["AWS", "Docker", "Kubernetes", "CI/CD"],
+		"email": "sam.example@example.com",
+		"username": "Sam",
+		"password": "Sam",
+		"name": "Sam Example",
+		"headline": "Vegetable enthusiast and Full Stack Developer",
+		"bio": "I might have a dog named Falafel and enjoy my garden and building web applications with React, Node.js, and TypeScript. Passionate about clean code, testing, and contributing to open source projects. I volunteer with beginningers from time to time.",
+		"interests": ["React", "TypeScript", "Node.js", "Programming", "Vegetables", "Gardening", "Dogs"],
 		"location": "Berkeley, CA"
 	},
 	{
@@ -64,9 +34,9 @@
 		"username": "fiona",
 		"password": "fiona",
 		"name": "Fiona Example",
-		"headline": "UI/UX Designer & Frontend Developer",
-		"bio": "Creating beautiful and intuitive user interfaces. Focus on accessibility, responsive design, and user-centered design principles. Love bringing designs to life with modern CSS and JavaScript.",
-		"interests": ["UI/UX Design", "CSS", "JavaScript", "Accessibility"],
+		"headline": "Reddit mod",
+		"bio": "I'm a Reddit mod who loves to help people and make the internet a more rule-abiding and predictable place.",
+		"interests": ["CSS", "JavaScript", "Accessibility"],
 		"location": "Berkeley, CA"
 	},
 	{
@@ -80,16 +50,6 @@
 		"location": "Portland, OR"
 	},
 	{
-		"email": "henry.example@example.com",
-		"username": "henry",
-		"password": "henry",
-		"name": "Henry Example",
-		"headline": "Wood Turner & Lathe Specialist",
-		"bio": "Creating beautiful turned bowls, vases, and decorative pieces. Focus on green wood turning and natural edge work. Love sharing techniques and helping others discover the art of wood turning.",
-		"interests": ["Wood Turning", "Lathe Work", "Green Wood", "Bowl Making"],
-		"location": "Berkeley, CA"
-	},
-	{
 		"email": "iris.example@example.com",
 		"username": "iris",
 		"password": "iris",
@@ -97,6 +57,6 @@
 		"headline": "Fine Woodworker & Craftsperson",
 		"bio": "Creating heirloom-quality furniture and small woodworking projects. Specialize in dovetail joints, hand-planed surfaces, and traditional finishing techniques. Always learning and refining skills.",
 		"interests": ["Fine Woodworking", "Dovetails", "Hand Planes", "Traditional Finishes"],
-		"location": "Portland, OR"
+		"location": "Berkeley, CA"
 	}
 ]
