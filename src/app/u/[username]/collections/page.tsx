@@ -76,7 +76,18 @@ export default function UserCollectionsPage() {
 	}, [allItems, search]);
 
 	// Use filter hook for filtering, sorting, and view state
-	const { filteredItems, filter, setFilter, sort, setSort, view, setView } = useFilter(filteredBySearch);
+	const { 
+		filteredItems, 
+		filter, 
+		setFilter, 
+		sort, 
+		setSort, 
+		view, 
+		setView,
+		selectedTags,
+		setSelectedTags,
+		availableTags,
+	} = useFilter(filteredBySearch);
 
 	// Check if any events have location data for map view
 	const hasLocationData = useMemo(
@@ -110,6 +121,9 @@ export default function UserCollectionsPage() {
 					view={view}
 					onViewChange={setView}
 					hasLocationData={hasLocationData}
+					selectedTags={selectedTags}
+					onTagsChange={setSelectedTags}
+					availableTags={availableTags}
 					title={`${username}'s Collections`}
 				/>
 			</div>

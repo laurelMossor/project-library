@@ -16,6 +16,9 @@ type CollectionPageProps = {
 	view: ViewType;
 	onViewChange: (view: ViewType) => void;
 	hasLocationData: boolean;
+	selectedTags: string[];
+	onTagsChange: (tags: string[]) => void;
+	availableTags: string[];
 	title?: string;
 };
 
@@ -32,6 +35,9 @@ export function CollectionPage({
 	view,
 	onViewChange,
 	hasLocationData,
+	selectedTags,
+	onTagsChange,
+	availableTags,
 	title = "Collections",
 }: CollectionPageProps) {
 	return (
@@ -50,6 +56,9 @@ export function CollectionPage({
 					view={view}
 					onViewChange={onViewChange}
 					hasLocationData={hasLocationData}
+					selectedTags={selectedTags}
+					onTagsChange={onTagsChange}
+					availableTags={availableTags}
 				/>
 			</div>
 

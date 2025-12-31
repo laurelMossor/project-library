@@ -5,6 +5,7 @@ import { Tags } from "../tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
+import { EntriesList } from "../entry/EntriesList";
 
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
 	const detailUrl = `/events/${event.id}`;
@@ -53,6 +54,12 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 					<ImageCarousel images={event.images} />
 				</div>
 			)}
+
+			<EntriesList 
+				collectionId={event.id} 
+				collectionType="event" 
+				showTitle={true}
+			/>
 
 			<Tags item={event} />
 		</div>

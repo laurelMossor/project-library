@@ -6,6 +6,7 @@ import { EventMap } from "@/lib/components/map/EventMap";
 import { Tags } from "@/lib/components/tag";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
+import { EntriesList } from "@/lib/components/entry/EntriesList";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -99,6 +100,8 @@ export default async function EventDetailPage({ params }: Props) {
 				{event.latitude != null && event.longitude != null && (
 					<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title} />
 				)}
+
+				<EntriesList collectionId={id} collectionType="event" />
 
 				<div className="flex flex-wrap gap-3 items-center">
 					{isOwner && <DeleteEventButton eventId={id} eventTitle={event.title} />}

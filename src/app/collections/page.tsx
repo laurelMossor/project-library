@@ -20,7 +20,18 @@ export default function CollectionsPage() {
 	const allItems: CollectionItem[] = useMemo(() => [...projects, ...events], [projects, events]);
 
 	// Use filter hook for filtering, sorting, and view state
-	const { filteredItems, filter, setFilter, sort, setSort, view, setView } = useFilter(allItems);
+	const { 
+		filteredItems, 
+		filter, 
+		setFilter, 
+		sort, 
+		setSort, 
+		view, 
+		setView,
+		selectedTags,
+		setSelectedTags,
+		availableTags,
+	} = useFilter(allItems);
 
 	// Check if any events have location data for map view
 	const hasLocationData = useMemo(
@@ -77,6 +88,9 @@ export default function CollectionsPage() {
 				view={view}
 				onViewChange={setView}
 				hasLocationData={hasLocationData}
+				selectedTags={selectedTags}
+				onTagsChange={setSelectedTags}
+				availableTags={availableTags}
 			/>
 		</main>
 	);

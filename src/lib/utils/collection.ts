@@ -36,6 +36,30 @@ export function sortCollectionItemsByDate(
 }
 
 /**
+ * Filter collection items by tags
+ * Returns items that have at least one tag matching any of the selected tags (case-insensitive, partial match)
+ */
+export function filterCollectionItemsByTags(
+	items: CollectionItem[],
+	selectedTags: string[]
+): CollectionItem[] {
+	if (selectedTags.length === 0) {
+		return items;
+	}
+	
+	return items.filter((item) => {
+		const itemTags = item.tags || [];
+		// Return true if any item tag contains any of the selected tags (case-insensitive, partial match)
+		return selectedTags.some((selectedTag) => {
+			const selectedTagLower = selectedTag.toLowerCase();
+			return itemTags.some((itemTag) => 
+				itemTag.toLowerCase().includes(selectedTagLower)
+			);
+		});
+	});
+}
+
+/**
  * Filter collection items by type
  */
 export function filterCollectionItems(

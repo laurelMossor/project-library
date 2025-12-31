@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ProjectCard } from "@/lib/components/project/ProjectCard";
 import { DeleteProjectButton } from "@/lib/components/project/DeleteProjectButton";
+import { EntriesList } from "@/lib/components/entry/EntriesList";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -25,6 +26,7 @@ export default async function ProjectDetailPage({ params }: Props) {
 		<main className="flex min-h-screen flex-col items-center justify-center p-8">
 			<div className="w-full max-w-2xl">
 				<ProjectCard project={project} truncate={false} />
+				<EntriesList collectionId={id} collectionType="project" />
 				<div className="mt-8 flex gap-4 items-center flex-wrap">
 					{isOwner && (
 						<>

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-// import "bootstrap/dist/css/bootstrap.min.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
 import { getUserById } from "@/lib/utils/server/user";
 import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
+import { Footer } from "@/lib/components/footer/Footer";
 
 export const metadata: Metadata = {
 	title: "Project Library",
@@ -45,6 +45,7 @@ export default async function RootLayout({
 						<main className="flex-1">
 							{children}
 						</main>
+						<Footer />
 					</div>
 				</Providers>
 			</body>

@@ -5,6 +5,7 @@ import { Tag, Tags } from "../tag";
 import { truncateText } from "../../utils/text";
 import { formatDateTime } from "../../utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
+import { EntriesList } from "../entry/EntriesList";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
@@ -47,6 +48,12 @@ export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem
 					<ImageCarousel images={project.images} />
 				</div>
 			)}
+
+			<EntriesList 
+				collectionId={project.id} 
+				collectionType="project" 
+				showTitle={true}
+			/>
 
 			<Tags item={project} />
 		</div>
