@@ -66,3 +66,34 @@
 /* body {
 	font-family: monospace, "Courier-New", SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", ui-monospace;
 } */
+
+.tooltip {
+	position: relative;
+	display: inline-block;
+}
+
+.tooltip .tooltiptext {
+	visibility: hidden;
+	background-color: var(--color-rich-brown);
+	color: var(--color-grey-white);
+	text-align: center;
+	border-radius: 6px;
+	padding: 4px 8px;
+	position: absolute;
+	z-index: 50;
+	top: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	opacity: 0;
+	transition: opacity 0.2s ease-in 0.5s, visibility 0s 0.7s;
+	white-space: nowrap;
+	font-size: 0.75rem;
+	pointer-events: none;
+	margin-top: 4px;
+}
+
+.tooltip:hover .tooltiptext {
+	visibility: visible;
+	opacity: 1;
+	transition: opacity 0.2s ease-in 0.5s, visibility 0s 0s;
+}

@@ -16,3 +16,20 @@ export const getInitials = (user: PublicUser): string => {
 	}
 	return user.username[0].toUpperCase();
 };
+
+export function getPathDisplayName(path: string): string {
+	// Remove leading slash and capitalize first letter
+	const cleaned = path.replace(/^\//, "");
+	if (!cleaned) return "Home";
+	
+	// Handle user profile paths (e.g., /u/username)
+	if (cleaned.startsWith("u/")) {
+		return "User Profile";
+	}
+	
+	// Capitalize first letter and replace hyphens with spaces
+	return cleaned
+		.split("-")
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+}
