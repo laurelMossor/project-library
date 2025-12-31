@@ -8,7 +8,7 @@ interface NavigationBarProps {
 export function NavigationBar({ userHomeLink }: NavigationBarProps) {
 	return (
 		<header className="h-[110px] w-full border-b border-rich-brown px-6">
-			<div className="flex items-center justify-between gap-4">
+			<div className="flex items-center justify-between gap-4 p-1">
 
 				<AnimatedProjectLibraryLogo />
 				<NavigationIcons userHomeLink={userHomeLink} />
