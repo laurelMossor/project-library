@@ -1,5 +1,5 @@
 import { ProfileData } from "./types/user";
-import { ProjectData } from "./types/project";
+import { ProjectData, ProjectUpdateInput } from "./types/project";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 
 // Validation utilities for user input
@@ -129,6 +129,49 @@ export function validateProjectData(data: ProjectData): { valid: boolean; error?
 	}
 
 	// Note: Images should be uploaded separately and linked to the project after creation
+
+	return { valid: true };
+}
+
+export function validateProjectUpdateData(data: ProjectUpdateInput): { valid: boolean; error?: string } {
+	if (data.title !== undefined) {
+		if (typeof data.title !== "string" || data.title.trim().length === 0) {
+			return { valid: false, error: "Title must be a non-empty string" };
+		}
+		if (data.title.length > 200) {
+			return { valid: false, error: "Title must be 200 characters or less" };
+		}
+	}
+
+	if (data.description !== undefined) {
+		if (typeof data.description !== "string" || data.description.trim().length === 0) {
+			return { valid: false, error: "Description must be a non-empty string" };
+		}
+		if (data.description.length > 5000) {
+			return { valid: false, error: "Description must be 5000 characters or less" };
+		}
+	}
+
+	if (data.tags !== undefined) {
+		if (!Array.isArray(data.tags)) {
+			return { valid: false, error: "Tags must be an array" };
+		}
+		if (data.tags.length > 10) {
+			return { valid: false, error: "Maximum 10 tags allowed" };
+		}
+		for (const tag of data.tags) {
+			if (typeof tag !== "string") {
+				return { valid: false, error: "Each tag must be a string" };
+			}
+			const trimmedTag = tag.trim();
+			if (trimmedTag.length === 0) {
+				return { valid: false, error: "Tags cannot be empty" };
+			}
+			if (trimmedTag.length > 50) {
+				return { valid: false, error: "Each tag must be 50 characters or less" };
+			}
+		}
+	}
 
 	return { valid: true };
 }

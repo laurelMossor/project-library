@@ -2,8 +2,9 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import { ProjectData, ProjectItem } from "../../types/project";
+import { ProjectData, ProjectItem, ProjectUpdateInput } from "../../types/project";
 import { projectWithOwnerFields } from "./fields";
+import { deleteImage } from "./storage";
 
 // Fetch a project by ID with owner information
 export async function getProjectById(id: string): Promise<ProjectItem | null> {
@@ -59,6 +60,79 @@ export async function createProject(ownerId: string, data: ProjectData): Promise
 		select: projectWithOwnerFields,
 	});
 	return project as ProjectItem;
+}
+
+// Update an existing project
+export async function updateProject(id: string, data: ProjectUpdateInput): Promise<ProjectItem> {
+	const updateData: {
+		title?: string;
+		description?: string;
+		tags?: string[];
+	} = {};
+
+	if (data.title !== undefined) {
+		updateData.title = data.title.trim();
+	}
+	if (data.description !== undefined) {
+		updateData.description = data.description.trim();
+	}
+	if (data.tags !== undefined) {
+		updateData.tags = data.tags;
+	}
+
+	// Ensure we have at least one field to update
+	if (Object.keys(updateData).length === 0) {
+		throw new Error("No fields to update");
+	}
+
+	try {
+		const project = await prisma.project.update({
+			where: { id },
+			data: updateData,
+			select: projectWithOwnerFields,
+		});
+		return project as ProjectItem;
+	} catch (error) {
+		if (error instanceof Error) {
+			// Check if it's a Prisma "Record not found" error
+			if (error.message.includes("Record to update not found") || error.message.includes("Unique constraint")) {
+				throw new Error("Project not found");
+			}
+			throw error;
+		}
+		throw new Error("Failed to update project in database");
+	}
+}
+
+// Delete a project
+export async function deleteProject(id: string): Promise<void> {
+	// Fetch project with images before deleting to get image URLs
+	const project = await prisma.project.findUnique({
+		where: { id },
+		select: projectWithOwnerFields,
+	});
+
+	if (!project) {
+		throw new Error("Project not found");
+	}
+
+	// Delete all associated images from storage bucket
+	if (project.images && project.images.length > 0) {
+		for (const image of project.images) {
+			if (image.url) {
+				const result = await deleteImage(image.url);
+				if (!result.success) {
+					console.error(`Failed to delete image ${image.id} from storage:`, result.error);
+					// Continue deleting other images even if one fails
+				}
+			}
+		}
+	}
+
+	// Delete the project (cascade will delete image records from database)
+	await prisma.project.delete({
+		where: { id },
+	});
 }
 
 

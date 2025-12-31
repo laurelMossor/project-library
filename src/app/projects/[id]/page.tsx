@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ProjectCard } from "@/lib/components/project/ProjectCard";
+import { DeleteProjectButton } from "@/lib/components/project/DeleteProjectButton";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -26,12 +27,20 @@ export default async function ProjectDetailPage({ params }: Props) {
 				<ProjectCard project={project} truncate={false} />
 				<div className="mt-8 flex gap-4 items-center flex-wrap">
 					{isOwner && (
-						<Link
-							href={`/projects/${id}/entries/new`}
-							className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
-						>
-							New Entry
-						</Link>
+						<>
+							<Link
+								href={`/projects/${id}/entries/new`}
+								className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+							>
+								New Entry
+							</Link>
+							<Link
+								href={`/projects/${id}/edit`}
+								className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
+							>
+								Edit Project
+							</Link>
+						</>
 					)}
 					{session && !isOwner && (
 						<Link
@@ -41,6 +50,7 @@ export default async function ProjectDetailPage({ params }: Props) {
 							Message Owner
 						</Link>
 					)}
+					{isOwner && <DeleteProjectButton projectId={id} projectTitle={project.title} />}
 					<Link href="/collections" className="underline">Back to collections</Link>
 					<Link href="/" className="underline">Home</Link>
 				</div>

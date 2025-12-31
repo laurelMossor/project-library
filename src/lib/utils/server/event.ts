@@ -5,6 +5,7 @@ import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
 import { eventWithOwnerFields } from "./fields";
+import { deleteImage } from "./storage";
 
 export async function getEventById(id: string): Promise<EventItem | null> {
 	const event = await prisma.event.findUnique({
@@ -111,10 +112,34 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 }
 
 export async function deleteEvent(id: string): Promise<EventItem> {
-	const event = await prisma.event.delete({
+	// Fetch event with images before deleting to get image URLs
+	const event = await prisma.event.findUnique({
 		where: { id },
 		select: eventWithOwnerFields,
 	});
-	return event as EventItem;
+
+	if (!event) {
+		throw new Error("Event not found");
+	}
+
+	// Delete all associated images from storage bucket
+	if (event.images && event.images.length > 0) {
+		for (const image of event.images) {
+			if (image.url) {
+				const result = await deleteImage(image.url);
+				if (!result.success) {
+					console.error(`Failed to delete image ${image.id} from storage:`, result.error);
+					// Continue deleting other images even if one fails
+				}
+			}
+		}
+	}
+
+	// Delete the event (cascade will delete image records from database)
+	const deletedEvent = await prisma.event.delete({
+		where: { id },
+		select: eventWithOwnerFields,
+	});
+	return deletedEvent as EventItem;
 }
 

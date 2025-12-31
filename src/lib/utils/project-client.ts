@@ -39,3 +39,44 @@ export async function fetchProjectById(id: string): Promise<ProjectItem | null> 
 	return res.json();
 }
 
+/**
+ * Update a project by ID
+ * Client-side utility that calls the PUT /api/projects/[id] endpoint
+ */
+export async function updateProject(
+	id: string,
+	data: {
+		title?: string;
+		description?: string;
+		tags?: string[];
+	}
+): Promise<ProjectItem> {
+	const res = await fetch(`/api/projects/${id}`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to update project");
+	}
+
+	return res.json();
+}
+
+/**
+ * Delete a project by ID
+ * Client-side utility that calls the DELETE /api/projects/[id] endpoint
+ */
+export async function deleteProject(id: string): Promise<void> {
+	const res = await fetch(`/api/projects/${id}`, {
+		method: "DELETE",
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to delete project");
+	}
+}
+

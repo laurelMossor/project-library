@@ -22,3 +22,10 @@ export interface ProjectData {
 	// and linked to the project after creation
 }
 
+export interface ProjectUpdateInput {
+	title?: string;
+	description?: string;
+	tags?: string[];
+	// Note: Images should be managed separately via image API endpoints
+}
+
