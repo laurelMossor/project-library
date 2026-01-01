@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton. User will indicate if they want more details than that.  
 
 
+#### Entry: Wed 12/31/2025 23:15 PST
+Fixed client/server boundary issues and build errors. Refactored `AboutModal` to accept `username` as a prop instead of fetching internally. Created `user-client.ts` utility following existing patterns (`project-client.ts`, `event-client.ts`) with `fetchProfile()` function for client-side profile fetching. Updated `NavigationIcons` to properly fetch username using `fetchProfile()` utility with `useEffect` hook, fixing incorrect `await` usage in non-async component. Removed server-only imports from `auth-client.ts` (`getUserById`, `auth`) that were causing Prisma to be bundled into client bundle, breaking the build. Updated `layout.tsx` and `NavigationBar` to pass `session` prop through component tree instead of `userHomeLink`.
+
 #### Entry: Tue 12/30/2025 21:43 PST
 Extended edit and delete functionality to projects, matching events pattern. Added PUT/DELETE handlers to `/api/projects/[id]` with ownership verification. Created reusable `EditProjectForm` component for both create and edit modes, refactored `/projects/new` to use it. Added `DeleteProjectButton` with confirmation dialog. Implemented image cleanup: `deleteEvent()` and `deleteProject()` now remove associated images from Supabase storage bucket before deletion, preventing orphaned files. Database records cleaned up via Prisma cascade. Improved error handling to return specific error messages. Added `ProjectUpdateInput` type and validation. All project and event CRUD operations now follow consistent patterns.
 

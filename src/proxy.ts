@@ -6,14 +6,11 @@ import { PRIVATE_USER_PAGE, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/li
 // This file replaces the old middleware.ts pattern
 
 // Routes that require authentication
-// Note: EVENT_EDIT and PROJECT_EDIT are functions, so we check for the pattern instead
 const protectedRoutes = [
 	PRIVATE_USER_PAGE,
 	PROJECT_NEW,
 	EVENT_NEW,
 	MESSAGES,
-	"/projects/", // Matches PROJECT_EDIT pattern
-	"/events/",   // Matches EVENT_EDIT pattern
 ];
 
 export default function proxy(req: NextRequest) {
