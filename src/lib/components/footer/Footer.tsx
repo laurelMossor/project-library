@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BugReportIcon } from "../icons/icons";
 
 export function Footer() {
 	return (
@@ -32,13 +33,14 @@ export function Footer() {
 					>
 						Feedback Survey
 					</a>
+					
 					<a
-						href="https://forms.google.com"
+						href="https://docs.google.com/forms/d/e/1FAIpQLScfIyo6yd_EvuJw4xJH-FFBgNid73QIGkAWaxUHVnSpgPbE4Q/viewform?usp=dialog"
 						target="_blank"
 						rel="noopener noreferrer"
 						className="text-rich-brown hover:underline"
 					>
-						Bug Report
+						<BugReportIcon />Bug Report
 					</a>
 				</div>
 			</div>
