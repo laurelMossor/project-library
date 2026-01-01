@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteEvent } from "@/lib/utils/event-client";
+import { COLLECTIONS } from "@/lib/const/routes";
 
 type Props = {
 	eventId: string;
@@ -21,7 +22,7 @@ export function DeleteEventButton({ eventId, eventTitle }: Props) {
 
 		try {
 			await deleteEvent(eventId);
-			router.push("/collections");
+			router.push(COLLECTIONS);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to delete event");
 			setIsDeleting(false);

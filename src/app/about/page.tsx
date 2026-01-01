@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { HOME } from "@/lib/const/routes";
 
 export default function AboutPage() {
 	return (
@@ -94,7 +95,7 @@ export default function AboutPage() {
 					</section>
 
 					<div className="mt-8 pt-6 border-t border-soft-grey">
-						<Link href="/" className="text-sm underline">Back to Home</Link>
+						<Link href={HOME} className="text-sm underline">Back to Home</Link>
 					</div>
 				</div>
 		</CenteredLayout>

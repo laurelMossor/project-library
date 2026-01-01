@@ -9,6 +9,7 @@ import { EventItem } from "@/lib/types/event";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
+import { PUBLIC_USER_PAGE } from "@/lib/const/routes";
 
 export default function UserCollectionsPage() {
 	const params = useParams();
@@ -105,7 +106,7 @@ export default function UserCollectionsPage() {
 		<PageLayout>
 			<div className="max-w-6xl mx-auto w-full">
 				<div className="mb-4">
-					<Link href={`/u/${username}`} className="text-sm text-gray-600 hover:underline mb-2 inline-block">
+					<Link href={PUBLIC_USER_PAGE(username)} className="text-sm text-gray-600 hover:underline mb-2 inline-block">
 						← Back to profile
 					</Link>
 				</div>

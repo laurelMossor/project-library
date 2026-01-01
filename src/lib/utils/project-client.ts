@@ -1,4 +1,5 @@
 import { ProjectItem } from "../types/project";
+import { API_PROJECTS, API_PROJECT } from "../const/routes";
 
 // CLIENT-SIDE FETCH UTILITIES
 // These functions fetch from the API routes and can be used in client components
@@ -10,8 +11,8 @@ import { ProjectItem } from "../types/project";
  */
 export async function fetchProjects(search?: string): Promise<ProjectItem[]> {
 	const url = search 
-		? `/api/projects?search=${encodeURIComponent(search)}` 
-		: "/api/projects";
+		? `${API_PROJECTS}?search=${encodeURIComponent(search)}` 
+		: API_PROJECTS;
 	
 	const res = await fetch(url);
 
@@ -27,7 +28,7 @@ export async function fetchProjects(search?: string): Promise<ProjectItem[]> {
  * Client-side utility that calls the /api/projects/[id] endpoint
  */
 export async function fetchProjectById(id: string): Promise<ProjectItem | null> {
-	const res = await fetch(`/api/projects/${id}`);
+	const res = await fetch(API_PROJECT(id));
 
 	if (!res.ok) {
 		if (res.status === 404) {
@@ -51,7 +52,7 @@ export async function updateProject(
 		tags?: string[];
 	}
 ): Promise<ProjectItem> {
-	const res = await fetch(`/api/projects/${id}`, {
+	const res = await fetch(API_PROJECT(id), {
 		method: "PUT",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(data),
@@ -70,7 +71,7 @@ export async function updateProject(
  * Client-side utility that calls the DELETE /api/projects/[id] endpoint
  */
 export async function deleteProject(id: string): Promise<void> {
-	const res = await fetch(`/api/projects/${id}`, {
+	const res = await fetch(API_PROJECT(id), {
 		method: "DELETE",
 	});
 

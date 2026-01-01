@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LogoutIcon, LoginIcon } from "@/lib/components/icons/icons";
+import { COLLECTIONS, LOGIN } from "@/lib/const/routes";
 
 interface LoginLogoutIconProps {
 	isLoggedIn: boolean;
@@ -16,11 +17,11 @@ export function LoginLogoutIcon({ isLoggedIn, iconStyles, iconButtonStyles }: Lo
 	const router = useRouter();
 
 	const handleLogout = async () => {
-		await signOut({ callbackUrl: "/collections" });
+		await signOut({ callbackUrl: COLLECTIONS });
 	};
 
 	const handleLogin = () => {
-		router.push("/login");
+		router.push(LOGIN);
 	};
 
 	return isLoggedIn ? (

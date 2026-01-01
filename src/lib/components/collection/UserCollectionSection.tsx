@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
+import { PROJECT_NEW, EVENT_NEW } from "@/lib/const/routes";
 
 type UserCollectionSectionProps = {
 	items: CollectionItem[];
@@ -67,8 +68,8 @@ export function UserCollectionSection({
 				<p className="text-gray-500">{emptyMessage}</p>
 				{showCreateLinks && (
 					<div className="mt-4 flex gap-4">
-						<Link href="/projects/new" className="underline">Create Project</Link>
-						<Link href="/events/new" className="underline">Create Event</Link>
+						<Link href={PROJECT_NEW} className="underline">Create Project</Link>
+						<Link href={EVENT_NEW} className="underline">Create Event</Link>
 					</div>
 				)}
 			</div>

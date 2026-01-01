@@ -11,6 +11,7 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { API_PROJECT_UPLOAD, API_PROJECTS, LOGIN_WITH_CALLBACK, PROJECT_NEW, PROJECT_DETAIL } from "@/lib/const/routes";
 
 const MAX_TAGS = 10;
 
@@ -92,7 +93,7 @@ export function EditProjectForm({ project }: Props) {
 					formData.append("projectId", project.id);
 
 					try {
-						const uploadRes = await fetch("/api/projects/upload", {
+						const uploadRes = await fetch(API_PROJECT_UPLOAD, {
 							method: "POST",
 							body: formData,
 						});
@@ -107,10 +108,10 @@ export function EditProjectForm({ project }: Props) {
 					}
 				}
 
-				router.push(`/projects/${project.id}`);
+				router.push(PROJECT_DETAIL(project.id));
 			} else {
 				// Create new project
-				const res = await fetch("/api/projects", {
+				const res = await fetch(API_PROJECTS, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -123,7 +124,7 @@ export function EditProjectForm({ project }: Props) {
 				if (!res.ok) {
 					const data = await res.json();
 					if (res.status === 401) {
-						router.push("/login?callbackUrl=/projects/new");
+						router.push(LOGIN_WITH_CALLBACK(PROJECT_NEW));
 						return;
 					}
 					setError(data.error || "Failed to create project");
@@ -141,7 +142,7 @@ export function EditProjectForm({ project }: Props) {
 					formData.append("projectId", projectData.id);
 
 					try {
-						const uploadRes = await fetch("/api/projects/upload", {
+						const uploadRes = await fetch(API_PROJECT_UPLOAD, {
 							method: "POST",
 							body: formData,
 						});
@@ -156,7 +157,7 @@ export function EditProjectForm({ project }: Props) {
 					}
 				}
 
-				router.push(`/projects/${projectData.id}`);
+				router.push(PROJECT_DETAIL(projectData.id));
 			}
 		} catch (err) {
 			console.error(`Failed to ${isEditMode ? "update" : "create"} project`, err);
@@ -229,7 +230,7 @@ export function EditProjectForm({ project }: Props) {
 					submitLabel={isEditMode ? "Update Project" : "Create Project"}
 					onCancel={() => {
 						if (isEditMode && project) {
-							router.push(`/projects/${project.id}`);
+							router.push(PROJECT_DETAIL(project.id));
 						} else {
 							router.back();
 						}

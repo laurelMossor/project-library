@@ -16,20 +16,21 @@ import Link from "next/link";
 import { EditableProfile } from "@/lib/components/user/EditableProfile";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE, PROFILE_EDIT, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS } from "@/lib/const/routes";
 
 export default async function ProfilePage() {
 	// Middleware protects this route, but we verify session here as a safety check
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		redirect("/login?callbackUrl=/profile");
+		redirect(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 	}
 
 	const userId = session.user.id;
 	const user = await getUserById(userId);
 
 	if (!user) {
-		redirect("/login?callbackUrl=/profile");
+		redirect(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 	}
 
 	return (
@@ -47,24 +48,24 @@ export default async function ProfilePage() {
 				<div className="bg-white border rounded-lg p-6 mb-6">
 					<h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
 					<div className="flex flex-col gap-3">
-						<ButtonLink href={`/u/${user.username}`} variant="secondary" fullWidth>
+						<ButtonLink href={PUBLIC_USER_PAGE(user.username)} variant="secondary" fullWidth>
 							View Public Profile
 						</ButtonLink>
-						<ButtonLink href="/profile/edit" variant="secondary" fullWidth>
+						<ButtonLink href={PROFILE_EDIT} variant="secondary" fullWidth>
 							Edit Profile (Full Form)
 						</ButtonLink>
-						<ButtonLink href="/projects/new" variant="secondary" fullWidth>
+						<ButtonLink href={PROJECT_NEW} variant="secondary" fullWidth>
 							Create New Project
 						</ButtonLink>
-						<ButtonLink href="/events/new" variant="secondary" fullWidth>
+						<ButtonLink href={EVENT_NEW} variant="secondary" fullWidth>
 							Create New Event
 						</ButtonLink>
 					</div>
 				</div>
 
 				<div className="flex gap-4 justify-center">
-					<Link href="/" className="text-sm underline text-gray-600">Home</Link>
-					<Link href="/collections" className="text-sm underline text-gray-600">Collections</Link>
+					<Link href={HOME} className="text-sm underline text-gray-600">Home</Link>
+					<Link href={COLLECTIONS} className="text-sm underline text-gray-600">Collections</Link>
 				</div>
 		</CenteredLayout>
 	);

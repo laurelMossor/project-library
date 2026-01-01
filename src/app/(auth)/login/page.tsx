@@ -3,8 +3,8 @@
 import { signIn, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/lib/components/ui/Button";
+import { PRIVATE_USER_PAGE, SIGNUP, HOME } from "@/lib/const/routes";
 
 export default function LoginPage() {
 	const { data: session } = useSession();
@@ -13,7 +13,7 @@ export default function LoginPage() {
 	const [error, setError] = useState("");
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const callbackUrl = searchParams.get("callbackUrl") || "/";
+	const callbackUrl = searchParams.get("callbackUrl") || HOME;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -40,7 +40,7 @@ export default function LoginPage() {
 				{session && (
 					<div className="bg-gray-100 p-3 rounded text-sm text-center">
 						Logged in as {session.user?.email}.{" "}
-						<a href="/profile" className="underline">Go to profile</a>
+						<a href={PRIVATE_USER_PAGE} className="underline">Go to profile</a>
 					</div>
 				)}
 
@@ -71,7 +71,7 @@ export default function LoginPage() {
 
 					<p className="text-sm text-center">
 						Don't have an account?{" "}
-						<a href="/signup" className="underline">Sign up</a>
+						<a href={SIGNUP} className="underline">Sign up</a>
 					</p>
 				</form>
 			</div>

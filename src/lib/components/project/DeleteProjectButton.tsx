@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteProject } from "@/lib/utils/project-client";
+import { COLLECTIONS } from "@/lib/const/routes";
 
 type Props = {
 	projectId: string;
@@ -21,7 +22,7 @@ export function DeleteProjectButton({ projectId, projectTitle }: Props) {
 
 		try {
 			await deleteProject(projectId);
-			router.push("/collections");
+			router.push(COLLECTIONS);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to delete project");
 			setIsDeleting(false);

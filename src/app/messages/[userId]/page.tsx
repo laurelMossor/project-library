@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/lib/components/ui/Button";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
+import { API_MESSAGE, API_MESSAGES, LOGIN_WITH_CALLBACK, MESSAGES } from "@/lib/const/routes";
 
 interface Message {
 	id: string;
@@ -101,11 +102,11 @@ export default function ConversationPage() {
 		setError("");
 
 		try {
-			const res = await fetch(`/api/messages/${userId}`);
+			const res = await fetch(API_MESSAGE(userId));
 
 			if (!res.ok) {
 				if (res.status === 401) {
-					router.push("/login?callbackUrl=/messages");
+					router.push(LOGIN_WITH_CALLBACK(MESSAGES));
 					return;
 				}
 				if (res.status === 404) {
@@ -184,7 +185,7 @@ export default function ConversationPage() {
 		setError("");
 
 		try {
-			const res = await fetch("/api/messages", {
+			const res = await fetch(API_MESSAGES, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -195,7 +196,7 @@ export default function ConversationPage() {
 
 			if (!res.ok) {
 				if (res.status === 401) {
-					router.push("/login?callbackUrl=/messages");
+					router.push(LOGIN_WITH_CALLBACK(MESSAGES));
 					return;
 				}
 				const data = await res.json();
@@ -236,7 +237,7 @@ export default function ConversationPage() {
 			<div className="max-w-4xl mx-auto w-full flex flex-col h-[calc(100vh-200px)]">
 				<div className="mb-4 flex items-center justify-between">
 					<div>
-						<Link href="/messages" className="text-sm underline mb-2 inline-block">
+						<Link href={MESSAGES} className="text-sm underline mb-2 inline-block">
 							← Back to Messages
 						</Link>
 						{otherUser && (

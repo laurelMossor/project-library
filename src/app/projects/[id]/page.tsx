@@ -6,6 +6,7 @@ import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 import { DeleteProjectButton } from "@/lib/components/project/DeleteProjectButton";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { PROJECT_ENTRY_NEW, PROJECT_EDIT, MESSAGE_CONVERSATION, COLLECTIONS, HOME } from "@/lib/const/routes";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -29,22 +30,22 @@ export default async function ProjectDetailPage({ params }: Props) {
 			<div className="mt-8 flex gap-4 items-center flex-wrap">
 				{isOwner && (
 					<>
-						<ButtonLink href={`/projects/${id}/entries/new`}>
+						<ButtonLink href={PROJECT_ENTRY_NEW(id)}>
 							New Entry
 						</ButtonLink>
-						<ButtonLink href={`/projects/${id}/edit`}>
+						<ButtonLink href={PROJECT_EDIT(id)}>
 							Edit Project
 						</ButtonLink>
 					</>
 				)}
 				{session && !isOwner && (
-					<ButtonLink href={`/messages/${project.owner.id}`}>
+					<ButtonLink href={MESSAGE_CONVERSATION(project.owner.id)}>
 						Message Owner
 					</ButtonLink>
 				)}
 				{isOwner && <DeleteProjectButton projectId={id} projectTitle={project.title} />}
-				<Link href="/collections" className="underline">Back to collections</Link>
-				<Link href="/" className="underline">Home</Link>
+				<Link href={COLLECTIONS} className="underline">Back to collections</Link>
+				<Link href={HOME} className="underline">Home</Link>
 			</div>
 		</CenteredLayout>
 	);

@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 import { EntriesList } from "@/lib/components/entry/EntriesList";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
+import { PUBLIC_USER_PAGE, MESSAGE_CONVERSATION, EVENT_EDIT, COLLECTIONS, HOME } from "@/lib/const/routes";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -36,7 +37,7 @@ export default async function EventDetailPage({ params }: Props) {
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
 						<Link
-							href={`/u/${event.owner.username}`}
+							href={PUBLIC_USER_PAGE(event.owner.username)}
 							className="text-base font-semibold text-black hover:underline"
 						>
 							{event.owner.name || event.owner.username}
@@ -45,7 +46,7 @@ export default async function EventDetailPage({ params }: Props) {
 					</div>
 					<div className="flex flex-wrap gap-3">
 						{session && !isOwner && (
-							<ButtonLink href={`/messages/${event.owner.id}`} size="sm">
+							<ButtonLink href={MESSAGE_CONVERSATION(event.owner.id)} size="sm">
 								Message owner
 							</ButtonLink>
 						)}
@@ -54,7 +55,7 @@ export default async function EventDetailPage({ params }: Props) {
 								<span className="rounded-full border border-emerald-400/70 px-3 py-1 text-xs font-semibold text-emerald-700">
 									You own this event
 								</span>
-								<ButtonLink href={`/events/${id}/edit`} size="sm" variant="secondary">
+								<ButtonLink href={EVENT_EDIT(id)} size="sm" variant="secondary">
 									Edit Event
 								</ButtonLink>
 							</>
@@ -101,12 +102,12 @@ export default async function EventDetailPage({ params }: Props) {
 				<div className="flex flex-wrap gap-3 items-center">
 					{isOwner && <DeleteEventButton eventId={id} eventTitle={event.title} />}
 					<Link
-						href="/collections"
+						href={COLLECTIONS}
 						className="text-sm font-medium text-black underline underline-offset-2"
 					>
 						Back to collections
 					</Link>
-					<Link href="/" className="text-sm font-medium text-black underline underline-offset-2">
+					<Link href={HOME} className="text-sm font-medium text-black underline underline-offset-2">
 						Home
 					</Link>
 				</div>

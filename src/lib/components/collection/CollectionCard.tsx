@@ -16,6 +16,7 @@ import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { EntriesList } from "../entry/EntriesList";
+import { EVENT_DETAIL, PROJECT_DETAIL, PUBLIC_USER_PAGE } from "@/lib/const/routes";
 
 type CollectionCardProps = {
 	item: CollectionItem;
@@ -24,7 +25,7 @@ type CollectionCardProps = {
 
 export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 	const isEventItem = isEvent(item);
-	const detailUrl = isEventItem ? `/events/${item.id}` : `/projects/${item.id}`;
+	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : PROJECT_DETAIL(item.id);
 	const displayDate = isEventItem ? item.dateTime : item.createdAt;
 
 	return (
@@ -57,7 +58,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			{/* Owner and date */}
 			<div className="flex flex-row items-center gap-2 mb-2">
 				<Link 
-					href={`/u/${item.owner.username}`}
+					href={PUBLIC_USER_PAGE(item.owner.username)}
 					className="text-sm text-rich-brown hover:underline"
 				>
 					{item.owner.name || item.owner.username}

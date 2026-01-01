@@ -7,20 +7,16 @@ import {
 } from "@/lib/utils/taxonomy";
 import { getUserById } from "@/lib/utils/server/user";
 import { redirect } from "next/navigation";
+import { LOGIN_WITH_CALLBACK, DEV_TAXONOMY } from "@/lib/const/routes";
+import { getUserId } from "@/lib/utils/auth-client";
 
 export default async function TaxonomyVisualizerPage() {
 	// Middleware protects this route, but we verify session here as a safety check
 	const session = await auth();
 
-	if (!session?.user?.id) {
-		redirect("/login?callbackUrl=/collection");
-	}
-
-	const userId = session.user.id;
-	const user = await getUserById(userId);
-
-	if (!user) {
-		redirect("/login?callbackUrl=/collection");
+	const userId = await getUserId(session);
+	if (!userId) {
+		redirect(LOGIN_WITH_CALLBACK(DEV_TAXONOMY));
 	}
 
 	const entries = await loadTaxonomyTopics();
@@ -34,7 +30,7 @@ export default async function TaxonomyVisualizerPage() {
 					<h1 className="text-3xl font-semibold">Taxonomy Visualizer</h1>
 				</div>
 				<p className="text-sm text-slate-500">
-					Graphing the public taxonomy so each topic sits under a single ancestor.
+					Hey! How'd you get here?
 				</p>
 				<p className="text-xs text-slate-400">
 					{entries.length} topics · {tree.length} primary branches
@@ -43,9 +39,6 @@ export default async function TaxonomyVisualizerPage() {
 
 			<section className="mx-auto w-full max-w-6xl rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm">
 				<h2 className="text-lg font-medium text-slate-700">Topic tree</h2>
-				<p className="text-sm text-slate-500">
-					The graph is generated from the CSV under `prisma/seed-data`.
-				</p>
 				<div className="mt-4">
 					{diagramDefinition ? (
 						<div className="mx-auto w-full max-w-5xl rounded-xl border border-slate-100 bg-white">

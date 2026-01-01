@@ -12,6 +12,7 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { Button } from "@/lib/components/ui/Button";
+import { API_EVENTS, LOGIN_WITH_CALLBACK, EVENT_NEW, EVENT_DETAIL } from "@/lib/const/routes";
 
 const MAX_TAGS = 10;
 
@@ -151,10 +152,10 @@ export function EditEventForm({ event }: Props) {
 					tags: normalizeTags(tags),
 				});
 
-				router.push(`/events/${event.id}`);
+				router.push(EVENT_DETAIL(event.id));
 			} else {
 				// Create new event
-				const response = await fetch("/api/events", {
+				const response = await fetch(API_EVENTS, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -171,7 +172,7 @@ export function EditEventForm({ event }: Props) {
 				if (!response.ok) {
 					const data = await response.json().catch(() => ({}));
 					if (response.status === 401) {
-						router.push("/login?callbackUrl=/events/new");
+						router.push(LOGIN_WITH_CALLBACK(EVENT_NEW));
 						return;
 					}
 					setError(data.error || "Failed to create event");
@@ -180,7 +181,7 @@ export function EditEventForm({ event }: Props) {
 				}
 
 				const eventData = await response.json();
-				router.push(`/events/${eventData.id}`);
+				router.push(EVENT_DETAIL(eventData.id));
 			}
 		} catch (err) {
 			console.error(`Failed to ${isEditMode ? "update" : "create"} event`, err);
@@ -278,7 +279,7 @@ export function EditEventForm({ event }: Props) {
 					submitLabel={isEditMode ? "Update event" : "Create event"}
 					onCancel={() => {
 						if (isEditMode && event) {
-							router.push(`/events/${event.id}`);
+							router.push(EVENT_DETAIL(event.id));
 						} else {
 							router.back();
 						}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getConversations } from "@/lib/utils/server/message";
 import { truncateText } from "@/lib/utils/text";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
+import { LOGIN_WITH_CALLBACK, MESSAGES, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 
 // Helper function to format timestamp as relative time or date
 function formatMessageTime(date: Date): string {
@@ -26,7 +27,7 @@ export default async function MessagesPage() {
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		redirect("/login?callbackUrl=/messages");
+		redirect(LOGIN_WITH_CALLBACK(MESSAGES));
 	}
 
 	const conversations = await getConversations(session.user.id);
@@ -45,7 +46,7 @@ export default async function MessagesPage() {
 						{conversations.map((conversation) => (
 							<Link
 								key={conversation.otherUser.id}
-								href={`/messages/${conversation.otherUser.id}`}
+								href={MESSAGE_CONVERSATION(conversation.otherUser.id)}
 								className="block border rounded p-4 hover:bg-gray-50 transition-colors"
 							>
 								<div className="flex items-start justify-between">

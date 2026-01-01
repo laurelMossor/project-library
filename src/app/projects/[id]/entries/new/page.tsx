@@ -8,6 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
+import { API_PROJECT_ENTRIES, PROJECT_DETAIL } from "@/lib/const/routes";
 
 export default function NewProjectEntryPage() {
 	const params = useParams();
@@ -24,7 +25,7 @@ export default function NewProjectEntryPage() {
 		setSubmitting(true);
 
 		try {
-			const res = await fetch(`/api/projects/${projectId}/entries`, {
+			const res = await fetch(API_PROJECT_ENTRIES(projectId), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -41,7 +42,7 @@ export default function NewProjectEntryPage() {
 			}
 
 			// Redirect back to project page
-			router.push(`/projects/${projectId}`);
+			router.push(PROJECT_DETAIL(projectId));
 			router.refresh();
 		} catch (err) {
 			setError("Failed to create entry. Please try again.");

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { COLLECTIONS } from "@/lib/const/routes";
 
 interface AnimatedProjectLibraryLogoProps {
 	height?: number;
@@ -10,7 +11,7 @@ interface AnimatedProjectLibraryLogoProps {
 export function AnimatedProjectLibraryLogo({ height = 120, width = 240, className = "h-[80px] w-auto" }: AnimatedProjectLibraryLogoProps) {
 
 	return (
-		<Link href="/collections" className="hover:opacity-80 transition-opacity flex items-center">
+		<Link href={COLLECTIONS} className="hover:opacity-80 transition-opacity flex items-center">
 			<Image
 				src={'/static/images/Project_Library_Animated_Logo.gif'}
 				alt="Project Library"

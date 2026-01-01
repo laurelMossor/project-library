@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./utils/server/prisma";
+import { LOGIN } from "./const/routes";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -43,7 +44,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 		}),
 	],
 	pages: {
-		signIn: "/login",
+		signIn: LOGIN,
 	},
 	callbacks: {
 		// Include user.id in the session so we can use it in server components

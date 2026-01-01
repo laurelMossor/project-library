@@ -8,6 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
+import { API_PROFILE, LOGIN_WITH_CALLBACK, PROFILE_EDIT, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -23,11 +24,11 @@ export default function EditProfilePage() {
 
 	// Load current profile data
 	useEffect(() => {
-		fetch("/api/profile")
+		fetch(API_PROFILE)
 			.then((res) => {
 				// Handle auth errors - redirect to login if unauthorized
 				if (res.status === 401) {
-					router.push("/login?callbackUrl=/profile/edit");
+					router.push(LOGIN_WITH_CALLBACK(PROFILE_EDIT));
 					return;
 				}
 				return res.json();
@@ -55,7 +56,7 @@ export default function EditProfilePage() {
 		setSaving(true);
 		setError("");
 
-		const res = await fetch("/api/profile", {
+		const res = await fetch(API_PROFILE, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -71,7 +72,7 @@ export default function EditProfilePage() {
 			const data = await res.json();
 			// Handle auth errors - redirect to login if unauthorized
 			if (res.status === 401) {
-				router.push("/login?callbackUrl=/profile/edit");
+				router.push(LOGIN_WITH_CALLBACK(PROFILE_EDIT));
 				return;
 			}
 			setError(data.error || "Failed to save");
@@ -79,7 +80,7 @@ export default function EditProfilePage() {
 			return;
 		}
 
-		router.push("/profile");
+		router.push(PRIVATE_USER_PAGE);
 	};
 
 	if (loading) {
@@ -143,7 +144,7 @@ export default function EditProfilePage() {
 
 				<FormActions
 					submitLabel="Save Profile"
-					onCancel={() => router.push("/profile")}
+					onCancel={() => router.push(PRIVATE_USER_PAGE)}
 					loading={saving}
 					disabled={saving}
 				/>

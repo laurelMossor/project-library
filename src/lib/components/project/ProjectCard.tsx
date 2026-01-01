@@ -14,10 +14,11 @@ import { truncateText } from "../../utils/text";
 import { formatDateTime } from "../../utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { EntriesList } from "../entry/EntriesList";
+import { PROJECT_DETAIL, PUBLIC_USER_PAGE } from "../../const/routes";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
-		<Link href={`/projects/${project.id}`}>
+		<Link href={PROJECT_DETAIL(project.id)}>
 			<h2 className="text-xl font-semibold mb-2 hover:underline">{project.title}</h2>
 		</Link>
 	);
@@ -42,7 +43,7 @@ export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem
 			
 			<div className="flex flex-row items-center gap-2 mb-2">
 				<Link 
-					href={`/u/${project.owner.username}`}
+					href={PUBLIC_USER_PAGE(project.owner.username)}
 					className="text-sm text-rich-brown hover:underline"
 				>
 					{project.owner.name || project.owner.username}

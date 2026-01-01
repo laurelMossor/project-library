@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
+import { API_AUTH_SIGNUP, LOGIN } from "@/lib/const/routes";
 
 export default function SignupPage() {
 	const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ export default function SignupPage() {
 		e.preventDefault();
 		setError("");
 
-		const res = await fetch("/api/auth/signup", {
+		const res = await fetch(API_AUTH_SIGNUP, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ email, username, password }),
@@ -28,7 +29,7 @@ export default function SignupPage() {
 		}
 
 		// Redirect to login after successful signup
-		router.push("/login");
+		router.push(LOGIN);
 	};
 
 	return (
@@ -68,7 +69,7 @@ export default function SignupPage() {
 
 				<p className="text-sm text-center">
 					Already have an account?{" "}
-					<a href="/login" className="underline">Log in</a>
+					<a href={LOGIN} className="underline">Log in</a>
 				</p>
 			</form>
 		</main>

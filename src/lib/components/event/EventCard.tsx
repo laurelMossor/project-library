@@ -14,10 +14,11 @@ import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { EntriesList } from "../entry/EntriesList";
+import { EVENT_DETAIL, PUBLIC_USER_PAGE } from "@/lib/const/routes";
 
 /** @deprecated Use CollectionCard instead */
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
-	const detailUrl = `/events/${event.id}`;
+	const detailUrl = EVENT_DETAIL(event.id);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
@@ -47,7 +48,7 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 			{/* Owner and date */}
 			<div className="flex flex-row items-center gap-2 mb-2">
 				<Link 
-					href={`/u/${event.owner.username}`}
+					href={PUBLIC_USER_PAGE(event.owner.username)}
 					className="text-sm text-rich-brown hover:underline"
 				>
 					{event.owner.name || event.owner.username}

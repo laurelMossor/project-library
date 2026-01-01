@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { PRIVATE_USER_PAGE, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
 
 // Note: In Next.js 16, middleware.ts is deprecated in favor of proxy.ts
 // This file replaces the old middleware.ts pattern
 
 // Routes that require authentication
-const protectedRoutes = ["/profile", "/projects/new"];
+// Note: EVENT_EDIT and PROJECT_EDIT are functions, so we check for the pattern instead
+const protectedRoutes = [
+	PRIVATE_USER_PAGE,
+	PROJECT_NEW,
+	EVENT_NEW,
+	MESSAGES,
+	"/projects/", // Matches PROJECT_EDIT pattern
+	"/events/",   // Matches EVENT_EDIT pattern
+];
 
 export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
@@ -28,7 +37,7 @@ export default function proxy(req: NextRequest) {
 
 	// If protected and no session cookie, redirect to login
 	if (isProtected && !sessionCookie) {
-		const loginUrl = new URL("/login", req.url);
+		const loginUrl = new URL(LOGIN, req.url);
 		loginUrl.searchParams.set("callbackUrl", pathname);
 		return NextResponse.redirect(loginUrl);
 	}

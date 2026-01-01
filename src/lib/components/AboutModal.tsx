@@ -1,6 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { COLLECTIONS, MESSAGES, PUBLIC_USER_PAGE } from "@/lib/const/routes";
+import { fetchProfile } from "@/lib/utils/user-client";
 
 const WELCOME_MESSAGE = `The Project Library is about process, not polish. This is a shared space for making, learning, and helping each other along the way. 
 
@@ -11,9 +14,10 @@ You can browse by topic or location, follow what's unfolding, and choose how you
 interface AboutModalProps {
 	isOpen: boolean;
 	onClose: () => void;
+	username: string | undefined;
 }
 
-export function AboutModal({ isOpen, onClose }: AboutModalProps) {
+export function AboutModal({ isOpen, onClose, username }: AboutModalProps) {
 	if (!isOpen) return null;
 
 	return (
@@ -53,13 +57,15 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
 					<div>
 						<h3 className="font-semibold mb-2">Navigation</h3>
 						<nav className="flex flex-col gap-2">
-							<Link href="/collections" className="text-whale-blue hover:underline">
+							<Link href={COLLECTIONS} className="text-whale-blue hover:underline">
 								Collections
 							</Link>
-							<Link href="/profile" className="text-whale-blue hover:underline">
-								Your Profile
-							</Link>
-							<Link href="/messages" className="text-whale-blue hover:underline">
+							{username && (
+								<Link href={PUBLIC_USER_PAGE(username)} className="text-whale-blue hover:underline">
+									Your Profile
+								</Link>
+							)}
+							<Link href={MESSAGES} className="text-whale-blue hover:underline">
 								Messages
 							</Link>
 						</nav>

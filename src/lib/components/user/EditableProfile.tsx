@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PublicUser } from "@/lib/types/user";
 import { Button } from "@/lib/components/ui/Button";
+import { API_PROFILE, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 
 type EditableProfileProps = {
 	user: PublicUser;
@@ -25,7 +26,7 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 		setSaving(true);
 		setError("");
 
-		const res = await fetch("/api/profile", {
+		const res = await fetch(API_PROFILE, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -40,7 +41,7 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 		if (!res.ok) {
 			const data = await res.json();
 			if (res.status === 401) {
-				router.push("/login?callbackUrl=/profile");
+				router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 				return;
 			}
 			setError(data.error || "Failed to save");

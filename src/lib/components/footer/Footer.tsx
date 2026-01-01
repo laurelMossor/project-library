@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { BugReportIcon } from "../icons/icons";
+import { ABOUT } from "@/lib/const/routes";
 
 export function Footer() {
 	return (
 		<footer className="border-t border-soft-grey mt-auto bg-grey-white">
 			<div className="max-w-6xl mx-auto px-8 py-6">
 				<div className="flex flex-wrap gap-6 justify-center text-sm">
-					<Link href="/about" className="text-rich-brown hover:underline">
+					<Link href={ABOUT} className="text-rich-brown hover:underline">
 						Community Guidelines
 					</Link>
 					<a
