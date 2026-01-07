@@ -39,7 +39,7 @@ export function EditProjectForm({ project }: Props) {
 	const [uploadingImage, setUploadingImage] = useState(false);
 
 	// Get existing image URL for edit mode
-	const existingImageUrl = project?.images?.[0]?.url || project?.imageUrl;
+	const existingImageUrl = project?.images?.[0]?.url;
 
 	// Use image upload hook
 	const {

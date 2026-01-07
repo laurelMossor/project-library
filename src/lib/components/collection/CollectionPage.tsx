@@ -1,7 +1,9 @@
 import { FilterBoard } from "./FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
+import { PaginationControls } from "./PaginationControls";
 import { CollectionItem } from "@/lib/types/collection";
 import { FilterType, SortType, ViewType } from "@/lib/hooks/useFilter";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { BetaTag } from "../tag/betaTag";
 
 type CollectionPageProps = {
@@ -21,6 +23,7 @@ type CollectionPageProps = {
 	onTagsChange: (tags: string[]) => void;
 	availableTags: string[];
 	title?: string;
+	itemsPerPage?: number;
 };
 
 export function CollectionPage({
@@ -40,7 +43,19 @@ export function CollectionPage({
 	onTagsChange,
 	availableTags,
 	title = "Collections",
+	itemsPerPage = 12,
 }: CollectionPageProps) {
+	// Use pagination hook to slice items for current page
+	const {
+		paginatedItems,
+		currentPage,
+		totalPages,
+		hasNextPage,
+		hasPreviousPage,
+		nextPage,
+		previousPage,
+	} = usePagination(filteredItems, itemsPerPage);
+
 	return (
 		<div className="max-w-6xl mx-auto w-full">
 			{/* Header */}
@@ -93,7 +108,15 @@ export function CollectionPage({
 
 			{/* Content display */}
 			{!loading && !error && filteredItems.length > 0 && (
-				<FilteredCollection items={filteredItems} view={view} />
+				<>
+					<FilteredCollection items={paginatedItems} view={view} />
+					<PaginationControls
+						currentPage={currentPage}
+						totalPages={totalPages}
+						onPrevious={previousPage}
+						onNext={nextPage}
+					/>
+				</>
 			)}
 		</div>
 	);
