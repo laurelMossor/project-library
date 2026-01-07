@@ -1,5 +1,8 @@
 "use client";
 
+// NOTE: THIS PAGE SHOULD UTILIZE THE SAME COLLECTION DISPLAY INTERFACE AS u/[username]/page.tsx
+// TODO: NEEDS REFACTOR, should be unifed with the main collections page and that of u/[username]/page.tsx
+
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
