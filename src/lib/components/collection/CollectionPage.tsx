@@ -2,6 +2,7 @@ import { FilterBoard } from "./FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
 import { CollectionItem } from "@/lib/types/collection";
 import { FilterType, SortType, ViewType } from "@/lib/hooks/useFilter";
+import { BetaTag } from "../tag/betaTag";
 
 type CollectionPageProps = {
 	filteredItems: CollectionItem[];
@@ -44,7 +45,10 @@ export function CollectionPage({
 		<div className="max-w-6xl mx-auto w-full">
 			{/* Header */}
 			<div className="mb-8">
-				<h1 className="text-3xl font-bold mb-4">{title}</h1>
+				<div className="flex gap-2">
+					<h1 className="text-3xl font-bold mb-4">{title}</h1>
+					<BetaTag />
+				</div>
 
 				<FilterBoard
 					search={search}
