@@ -10,8 +10,6 @@ export interface ProjectItem extends BaseCollectionItem {
 	type: "project";
 	images: ImageItem[]; // Images associated with this project
 	updatedAt: Date;
-	// Deprecated: imageUrl kept for backward compatibility during migration
-	imageUrl?: string | null;
 }
 
 export interface ProjectData {

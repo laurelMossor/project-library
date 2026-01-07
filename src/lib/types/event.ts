@@ -14,8 +14,6 @@ export interface EventItem extends BaseCollectionItem {
 	longitude: number | null;
 	images: ImageItem[]; // Images associated with this event
 	updatedAt: Date;
-	// Deprecated: imageUrls kept for backward compatibility during migration
-	imageUrls?: string[];
 }
 
 export interface EventCreateInput {
