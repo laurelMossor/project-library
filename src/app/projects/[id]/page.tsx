@@ -6,7 +6,8 @@ import { CollectionCard } from "@/lib/components/collection/CollectionCard";
 import { DeleteProjectButton } from "@/lib/components/project/DeleteProjectButton";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { PROJECT_ENTRY_NEW, PROJECT_EDIT, MESSAGE_CONVERSATION, COLLECTIONS, HOME } from "@/lib/const/routes";
+import { PROJECT_POST_NEW, PROJECT_EDIT, MESSAGE_CONVERSATION, COLLECTIONS, HOME } from "@/lib/const/routes";
+import { getOwnerUser, getOwnerId } from "@/lib/utils/owner";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -21,8 +22,10 @@ export default async function ProjectDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	// Check if current user is the project owner (only show message button if not owner)
-	const isOwner = session?.user?.id === project.owner.id;
+	// Check if current user is the project owner (via Actor)
+	const ownerUser = getOwnerUser(project.owner);
+	const ownerId = getOwnerId(project.owner);
+	const isOwner = session?.user?.id === ownerId;
 
 	return (
 		<CenteredLayout maxWidth="2xl">
@@ -30,16 +33,16 @@ export default async function ProjectDetailPage({ params }: Props) {
 			<div className="mt-8 flex gap-4 items-center flex-wrap">
 				{isOwner && (
 					<>
-						<ButtonLink href={PROJECT_ENTRY_NEW(id)}>
-							New Entry
+						<ButtonLink href={PROJECT_POST_NEW(id)}>
+							New Post
 						</ButtonLink>
 						<ButtonLink href={PROJECT_EDIT(id)}>
 							Edit Project
 						</ButtonLink>
 					</>
 				)}
-				{session && !isOwner && (
-					<ButtonLink href={MESSAGE_CONVERSATION(project.owner.id)}>
+				{session && !isOwner && ownerId && (
+					<ButtonLink href={MESSAGE_CONVERSATION(ownerId)}>
 						Message Owner
 					</ButtonLink>
 				)}

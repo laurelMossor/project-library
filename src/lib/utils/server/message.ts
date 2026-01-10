@@ -20,14 +20,18 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			},
 			receiver: {
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			},
 		},
@@ -36,7 +40,7 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
 
 	// Group messages by other user and get the most recent message for each conversation
 	const conversationMap = new Map<string, {
-		otherUser: { id: string; username: string; name: string | null };
+		otherUser: { id: string; username: string; firstName: string | null; middleName: string | null; lastName: string | null };
 		lastMessage: { content: string; createdAt: Date; senderId: string };
 	}>();
 
@@ -51,7 +55,9 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
 				otherUser: {
 					id: otherUser.id,
 					username: otherUser.username,
-					name: otherUser.name,
+					firstName: otherUser.firstName,
+					middleName: otherUser.middleName,
+					lastName: otherUser.lastName,
 				},
 				lastMessage: {
 					content: message.content,
@@ -88,14 +94,18 @@ export async function getMessages(userId: string, otherUserId: string): Promise<
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			},
 			receiver: {
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			},
 		},
@@ -109,8 +119,8 @@ export async function getMessages(userId: string, otherUserId: string): Promise<
 		receiverId: string;
 		createdAt: Date;
 		readAt: Date | null;
-		sender: { id: string; username: string; name: string | null };
-		receiver: { id: string; username: string; name: string | null };
+		sender: { id: string; username: string; firstName: string | null; middleName: string | null; lastName: string | null };
+		receiver: { id: string; username: string; firstName: string | null; middleName: string | null; lastName: string | null };
 	}) => ({
 		id: msg.id,
 		content: msg.content,
@@ -141,14 +151,18 @@ export async function sendMessage(
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			},
 			receiver: {
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			},
 		},

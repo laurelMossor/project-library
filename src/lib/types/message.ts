@@ -16,12 +16,16 @@ export interface MessageWithUsers extends Message {
 	sender: {
 		id: string;
 		username: string;
-		name: string | null;
+		firstName: string | null;
+		middleName: string | null;
+		lastName: string | null;
 	};
 	receiver: {
 		id: string;
 		username: string;
-		name: string | null;
+		firstName: string | null;
+		middleName: string | null;
+		lastName: string | null;
 	};
 }
 
@@ -36,7 +40,9 @@ export interface Conversation {
 	otherUser: {
 		id: string;
 		username: string;
-		name: string | null;
+		firstName: string | null;
+		middleName: string | null;
+		lastName: string | null;
 	};
 	lastMessage: {
 		content: string;

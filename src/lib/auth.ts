@@ -31,10 +31,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 					if (!passwordMatch) return null;
 
 					// Return user object (excluding password) for session
+					// Note: name field removed in v2, use firstName/lastName if needed
 					return {
 						id: user.id,
 						email: user.email,
-						name: user.name,
+						// name field removed - use firstName/lastName from user profile if needed
 					};
 				} catch (error) {
 					console.error("Authorization error:", error);

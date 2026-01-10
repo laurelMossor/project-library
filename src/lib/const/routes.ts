@@ -28,8 +28,10 @@ export const PROJECTS = "/projects";
 export const PROJECT_NEW = "/projects/new";
 export const PROJECT_DETAIL = (id: string) => `/projects/${id}`;
 export const PROJECT_EDIT = (id: string) => `/projects/${id}/edit`;
-export const PROJECT_ENTRIES = (id: string) => `/projects/${id}/entries`;
-export const PROJECT_ENTRY_NEW = (id: string) => `/projects/${id}/entries/new`;
+export const PROJECT_ENTRIES = (id: string) => `/projects/${id}/entries`; // Deprecated - use PROJECT_POSTS
+export const PROJECT_ENTRY_NEW = (id: string) => `/projects/${id}/entries/new`; // Deprecated - use PROJECT_POST_NEW
+export const PROJECT_POSTS = (id: string) => `/projects/${id}/posts`;
+export const PROJECT_POST_NEW = (id: string) => `/projects/${id}/posts/new`;
 
 // ============================================================================
 // Event Routes

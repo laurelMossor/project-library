@@ -25,12 +25,30 @@ export function validatePassword(password: string): boolean {
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
 	
-	if (data.name !== undefined && data.name !== null) {
-		if (typeof data.name !== "string") {
-			return { valid: false, error: "Name must be a string" };
+	if (data.firstName !== undefined && data.firstName !== null) {
+		if (typeof data.firstName !== "string") {
+			return { valid: false, error: "First name must be a string" };
 		}
-		if (data.name.length > 100) {
-			return { valid: false, error: "Name must be 100 characters or less" };
+		if (data.firstName.length > 50) {
+			return { valid: false, error: "First name must be 50 characters or less" };
+		}
+	}
+
+	if (data.middleName !== undefined && data.middleName !== null) {
+		if (typeof data.middleName !== "string") {
+			return { valid: false, error: "Middle name must be a string" };
+		}
+		if (data.middleName.length > 50) {
+			return { valid: false, error: "Middle name must be 50 characters or less" };
+		}
+	}
+
+	if (data.lastName !== undefined && data.lastName !== null) {
+		if (typeof data.lastName !== "string") {
+			return { valid: false, error: "Last name must be a string" };
+		}
+		if (data.lastName.length > 50) {
+			return { valid: false, error: "Last name must be 50 characters or less" };
 		}
 	}
 

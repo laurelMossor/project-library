@@ -6,9 +6,10 @@ import { EventMap } from "@/lib/components/map/EventMap";
 import { Tags } from "@/lib/components/tag";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
-import { EntriesList } from "@/lib/components/entry/EntriesList";
+import { PostsList } from "@/lib/components/post/PostsList";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { PUBLIC_USER_PAGE, MESSAGE_CONVERSATION, EVENT_EDIT, COLLECTIONS, HOME } from "@/lib/const/routes";
+import { getOwnerUser, getOwnerDisplayName, getOwnerUsername, getOwnerId } from "@/lib/utils/owner";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -23,7 +24,12 @@ export default async function EventDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	const isOwner = session?.user?.id === event.owner.id;
+	// Extract owner info from Actor structure
+	const ownerUser = getOwnerUser(event.owner);
+	const ownerDisplayName = getOwnerDisplayName(event.owner);
+	const ownerUsername = getOwnerUsername(event.owner);
+	const ownerId = getOwnerId(event.owner);
+	const isOwner = session?.user?.id === ownerId;
 
 	return (
 		<main className="flex min-h-screen items-center justify-center bg-slate-50 py-8 px-4">
@@ -35,18 +41,20 @@ export default async function EventDetailPage({ params }: Props) {
 				</div>
 
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<div>
-						<Link
-							href={PUBLIC_USER_PAGE(event.owner.username)}
-							className="text-base font-semibold text-black hover:underline"
-						>
-							{event.owner.name || event.owner.username}
-						</Link>
-						<p className="text-xs text-gray-500">@{event.owner.username}</p>
-					</div>
+					{ownerUsername && (
+						<div>
+							<Link
+								href={PUBLIC_USER_PAGE(ownerUsername)}
+								className="text-base font-semibold text-black hover:underline"
+							>
+								{ownerDisplayName}
+							</Link>
+							<p className="text-xs text-gray-500">@{ownerUsername}</p>
+						</div>
+					)}
 					<div className="flex flex-wrap gap-3">
-						{session && !isOwner && (
-							<ButtonLink href={MESSAGE_CONVERSATION(event.owner.id)} size="sm">
+						{session && !isOwner && ownerId && (
+							<ButtonLink href={MESSAGE_CONVERSATION(ownerId)} size="sm">
 								Message owner
 							</ButtonLink>
 						)}
@@ -97,7 +105,7 @@ export default async function EventDetailPage({ params }: Props) {
 					<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title} />
 				)}
 
-				<EntriesList collectionId={id} collectionType="event" />
+				<PostsList collectionId={id} collectionType="event" />
 
 				<div className="flex flex-wrap gap-3 items-center">
 					{isOwner && <DeleteEventButton eventId={id} eventTitle={event.title} />}

@@ -16,7 +16,9 @@ export default function EditProfilePage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
-	const [name, setName] = useState("");
+	const [firstName, setFirstName] = useState("");
+	const [middleName, setMiddleName] = useState("");
+	const [lastName, setLastName] = useState("");
 	const [headline, setHeadline] = useState("");
 	const [bio, setBio] = useState("");
 	const [interests, setInterests] = useState("");
@@ -37,7 +39,9 @@ export default function EditProfilePage() {
 				if (data && data.error) {
 					setError(data.error);
 				} else if (data) {
-					setName(data.name || "");
+					setFirstName(data.firstName || "");
+					setMiddleName(data.middleName || "");
+					setLastName(data.lastName || "");
 					setHeadline(data.headline || "");
 					setBio(data.bio || "");
 					setInterests(data.interests?.join(", ") || "");
@@ -60,7 +64,9 @@ export default function EditProfilePage() {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				name,
+				firstName,
+				middleName,
+				lastName,
 				headline,
 				bio,
 				interests: interests.split(",").map((s) => s.trim()).filter(Boolean),
@@ -94,12 +100,30 @@ export default function EditProfilePage() {
 
 				<FormError error={error} />
 
-				<FormField label="Name" htmlFor="name">
+				<FormField label="First Name" htmlFor="firstName">
 					<FormInput
-						id="name"
+						id="firstName"
 						type="text"
-						value={name}
-						onChange={(e) => setName(e.target.value)}
+						value={firstName}
+						onChange={(e) => setFirstName(e.target.value)}
+					/>
+				</FormField>
+
+				<FormField label="Middle Name (optional)" htmlFor="middleName">
+					<FormInput
+						id="middleName"
+						type="text"
+						value={middleName}
+						onChange={(e) => setMiddleName(e.target.value)}
+					/>
+				</FormField>
+
+				<FormField label="Last Name" htmlFor="lastName">
+					<FormInput
+						id="lastName"
+						type="text"
+						value={lastName}
+						onChange={(e) => setLastName(e.target.value)}
 					/>
 				</FormField>
 

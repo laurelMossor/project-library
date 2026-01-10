@@ -15,8 +15,9 @@ import { Tags } from "../tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
-import { EntriesList } from "../entry/EntriesList";
+import { PostsList } from "../post/PostsList";
 import { EVENT_DETAIL, PROJECT_DETAIL, PUBLIC_USER_PAGE } from "@/lib/const/routes";
+import { getOwnerUser, getOwnerDisplayName, getOwnerUsername } from "@/lib/utils/owner";
 
 type CollectionCardProps = {
 	item: CollectionItem;
@@ -27,13 +28,18 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 	const isEventItem = isEvent(item);
 	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : PROJECT_DETAIL(item.id);
 	const displayDate = isEventItem ? item.dateTime : item.createdAt;
+	
+	// Extract owner info from Actor structure
+	const ownerUser = getOwnerUser(item.owner);
+	const ownerDisplayName = getOwnerDisplayName(item.owner);
+	const ownerUsername = getOwnerUsername(item.owner);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			{/* Header: Profile pic + Title */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					<ProfilePicPlaceholder owner={item.owner} />
+					<ProfilePicPlaceholder owner={ownerUser || undefined} />
 					<div className="flex-1 min-w-0">
 						<Link href={detailUrl}>
 							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title}</h2>
@@ -56,17 +62,19 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			)}
 
 			{/* Owner and date */}
-			<div className="flex flex-row items-center gap-2 mb-2">
-				<Link 
-					href={PUBLIC_USER_PAGE(item.owner.username)}
-					className="text-sm text-rich-brown hover:underline"
-				>
-					{item.owner.name || item.owner.username}
-				</Link>
-				<p className="text-xs text-warm-grey">
-					{isEventItem ? "Event" : formatDateTime(displayDate)}
-				</p>
-			</div>
+			{ownerUsername && (
+				<div className="flex flex-row items-center gap-2 mb-2">
+					<Link 
+						href={PUBLIC_USER_PAGE(ownerUsername)}
+						className="text-sm text-rich-brown hover:underline"
+					>
+						{ownerDisplayName}
+					</Link>
+					<p className="text-xs text-warm-grey">
+						{isEventItem ? "Event" : formatDateTime(displayDate)}
+					</p>
+				</div>
+			)}
 
 			{/* Images */}
 			{item.images && item.images.length > 0 && (
@@ -75,8 +83,8 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 				</div>
 			)}
 
-			{/* Entries */}
-			<EntriesList 
+			{/* Posts */}
+			<PostsList 
 				collectionId={item.id} 
 				collectionType={isEventItem ? "event" : "project"} 
 				showTitle={true}
