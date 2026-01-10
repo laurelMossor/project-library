@@ -1,3 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
 // ========================
 // Enums
 // ========================
@@ -17,13 +25,11 @@ enum OrgRole {
 enum AttachmentType {
   PROJECT
   EVENT
-  ENTRY
-  USER_AVATAR
-  ORG_AVATAR
+  POST
 }
 
 // ========================
-// Core identity layer
+// Identity layer (Users + Orgs share Actor behavior)
 // ========================
 
 model Actor {
@@ -31,28 +37,29 @@ model Actor {
   type      ActorType
   createdAt DateTime  @default(now())
 
-  // 1:1 backrefs (exactly one will be set, enforced at app/migration level)
+  // 1:1 backrefs (enforced by app logic + migrations)
   user User?
   org  Org?
 
-  // ownership
+  // Ownership
   projects Project[]
   events   Event[]
+  posts    Post[]
 
-  // follows
-  // following: rows where this Actor is the follower
+  // Social graph
+  // Outgoing: I follow others
   following Follow[] @relation("Following")
-  // followers: rows where this Actor is being followed
+  // Incoming: others follow me
   followers Follow[] @relation("Followers")
 
   @@map("actors")
 }
 
 model Follow {
-  id           String   @id @default(cuid())
-  followerId   String
-  followingId  String
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
 
   follower  Actor @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
   following Actor @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
@@ -83,6 +90,10 @@ model User {
   interests    String[] @default([])
   location     String?
 
+  // Avatar (simple + explicit)
+  avatarImageId String?
+  avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -91,8 +102,8 @@ model User {
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
 
-  images           Image[]   // uploaded files (source-of-truth for file metadata)
-  orgMemberships   OrgMember[]
+  images         Image[] // uploaded files (metadata)
+  orgMemberships OrgMember[]
 
   @@map("users")
 }
@@ -109,13 +120,17 @@ model Org {
   interests String[] @default([])
   location  String?
 
+  // Avatar (simple + explicit)
+  avatarImageId String?
+  avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
 
-  members     OrgMember[]
-  roleLabels  OrgRoleLabel[]
+  members    OrgMember[]
+  roleLabels OrgRoleLabel[]
 
   @@map("orgs")
 }
@@ -165,6 +180,9 @@ model Project {
 
   owner Actor @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
 
+  // Descendant posts
+  posts Post[]
+
   @@index([ownerActorId])
   @@map("projects")
 }
@@ -187,12 +205,41 @@ model Event {
 
   owner Actor @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
 
+  // Descendant posts
+  posts Post[]
+
   @@index([ownerActorId, dateTime])
   @@map("events")
 }
 
+// Standalone posts (no projectId/eventId) and descendant posts (exactly one parent)
+// Note: enforce "projectId and eventId not both set" via app logic + a DB CHECK constraint in migration.
+model Post {
+  id           String   @id @default(cuid())
+  ownerActorId String
+
+  // Parent pointers (optional)
+  projectId    String?
+  eventId      String?
+
+  title        String?
+  content      String
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner   Actor    @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([ownerActorId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([eventId, createdAt])
+  @@map("posts")
+}
+
 // ========================
-// Messaging (unchanged)
+// Messaging
 // ========================
 
 model Message {
@@ -210,7 +257,7 @@ model Message {
 }
 
 // ========================
-// Files + Attachments
+// Images + Attachments
 // ========================
 
 model Image {
@@ -222,7 +269,13 @@ model Image {
   createdAt    DateTime @default(now())
 
   uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  // Used for Project/Event/Post galleries (and any other attachable targets you add later)
   attachments  ImageAttachment[]
+
+  // Backrefs for avatars
+  userAvatarFor User[] @relation("UserAvatar")
+  orgAvatarFor  Org[]  @relation("OrgAvatar")
 
   @@index([uploadedById])
   @@map("images")
