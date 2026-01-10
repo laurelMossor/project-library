@@ -95,7 +95,7 @@ model User {
   avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt  DateTime @updatedAt
 
   actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
 
