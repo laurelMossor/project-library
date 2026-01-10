@@ -12,6 +12,7 @@
     "lint": "eslint . --config eslint.config.mjs",
     "db:start": "brew services start postgresql@15",
     "db:migrate": "npx prisma migrate dev",
+    "db:migrate:deploy": "NODE_ENV=production npx prisma migrate deploy",
     "db:reset": "npx prisma migrate reset",
     "db:studio": "npx prisma studio",
     "db:seed": "NODE_ENV=production npx prisma db seed",
