@@ -44,31 +44,54 @@ Create a `.env.local` file in your project root (automatically ignored by git):
 
 ```bash
 # Local Development Database
-DATABASE_URL="postgresql://localhost:5432/projectlibrary_dev"
-DIRECT_URL="postgresql://localhost:5432/projectlibrary_dev"
+# Replace 'laurelmossor' with your macOS username
+DATABASE_URL="postgresql://laurelmossor@localhost:5432/projectlibrary_dev"
+
+# IMPORTANT: Prisma migrations use DIRECT_URL (from prisma.config.ts)
+DIRECT_URL="postgresql://laurelmossor@localhost:5432/projectlibrary_dev"
 ```
+
+**Note**: `prisma.config.ts` uses `DIRECT_URL` for migrations, so make sure it's set in `.env.local`.
 
 Keep your production values in `.env` (they won't be used when `.env.local` exists).
 
 ---
 
-## Step 3: Switch to v2 Schema and Reset Database
+## Step 3: Switch to v2 Schema and Create Fresh Migration
 
-Since you're dropping all data and reseeding, we can skip the complex data migration.
+Since you're dropping all data and reseeding, we'll create a fresh migration history for v2.
 
 ```bash
 # Verify local database is configured
-cat .env.local | grep DATABASE_URL
-# Should show: DATABASE_URL="postgresql://localhost:5432/projectlibrary_dev"
+cat .env.local | grep -E "(DATABASE_URL|DIRECT_URL)"
+# Should show both pointing to [username]@localhost:5432/projectlibrary_dev
 
 # Switch to v2 schema (if needed)
 cp prisma/schema.prisma.v2 prisma/schema.prisma
 
+# Backup old migrations (optional, for reference)
+mv prisma/migrations prisma/migrations.v1.backup
+
+# Create fresh migrations directory
+mkdir -p prisma/migrations
+
 # Generate Prisma client for v2
 npx prisma generate
 
-# Reset database (drops all tables, applies v2 schema)
-npx prisma migrate reset
+# IMPORTANT: Prisma migrate uses DIRECT_URL from prisma.config.ts
+# Make sure .env.local has DIRECT_URL set (it should from Step 2)
+
+# Drop the local database to start completely fresh
+dropdb projectlibrary_dev
+createdb projectlibrary_dev
+
+# Create a fresh initial migration for v2 schema
+npx prisma migrate dev --name init_v2
+
+# This will:
+# 1. Create a new migration file matching your v2 schema
+# 2. Apply it to your local database
+# 3. Set up clean migration history
 ```
 
 ---
@@ -117,9 +140,10 @@ psql projectlibrary_dev              # Connect to database
 
 # Prisma commands
 npx prisma generate                  # Generate client (safe)
-npx prisma migrate reset             # Reset database (⚠️ deletes data)
-npx prisma migrate deploy            # Apply migrations
-npx prisma studio                    # Open database viewer
+npx prisma migrate dev --name init_v2 # Create fresh v2 migration
+npx prisma migrate reset              # Reset database (⚠️ deletes data)
+npx prisma migrate deploy             # Apply migrations
+npx prisma studio                     # Open database viewer
 
 # Seed
 npm run db:seed                      # Run seed script
@@ -141,8 +165,10 @@ brew services list  # Check if running
 ```
 
 ### Wrong database being used
-- Verify `.env.local` exists: `cat .env.local | grep DATABASE_URL`
-- Should show: `DATABASE_URL="postgresql://localhost:5432/projectlibrary_dev"`
+- Verify `.env.local` exists with both URLs: `cat .env.local | grep -E "(DATABASE_URL|DIRECT_URL)"`
+- Should show both pointing to `[username]@localhost:5432/projectlibrary_dev` (include your macOS username)
+- **Important**: `prisma.config.ts` uses `DIRECT_URL` for migrations, not `DATABASE_URL`
+- If Prisma still connects to production, explicitly set DIRECT_URL: `DIRECT_URL="postgresql://$(whoami)@localhost:5432/projectlibrary_dev" npx prisma migrate dev --name init_v2`
 - Restart terminal/IDE after changing `.env` files
 
 ### Prisma client out of sync
@@ -153,6 +179,12 @@ npx prisma generate
 ### Seed script errors
 - Make sure you've run `npx prisma generate` after switching to v2 schema
 - Check that `DATABASE_URL` in `.env.local` points to local database
+
+### Migration conflicts
+If you see errors about existing migrations not matching the schema:
+- You've already backed up old migrations (they're in `prisma/migrations.v1.backup`)
+- The new `prisma/migrations` folder should only contain v2 migrations
+- If issues persist, delete `prisma/migrations` and run `npx prisma migrate dev --name init_v2` again
 
 ---
 
