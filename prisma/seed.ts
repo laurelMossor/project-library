@@ -3,18 +3,80 @@
  * Seed script for v2 schema
  * 
  * IMPORTANT: Before running this script:
- * 1. Make sure schema.prisma is set to v2 (schema.prisma.v2)
+ * 1. Make sure schema.prisma is set to v2
  * 2. Run: npx prisma generate
- * 3. Ensure DATABASE_URL in .env.local points to your local database
+ * 3. Ensure DATABASE_URL in .env.development (for dev) or .env.production (for prod) points to your database
  * 
- * This script uses the shared Prisma client which automatically reads
- * DATABASE_URL from .env.local (for local dev) or .env (for production)
+ * This script loads environment files in the same order as Next.js:
+ * 1. .env (base config - includes AUTH_SECRET)
+ * 2. .env.development or .env.production (based on NODE_ENV)
+ * 3. .env.local (local overrides, if exists)
  */
-import { ActorType, OrgRole, AttachmentType } from "@prisma/client";
+// CRITICAL: Load env files BEFORE importing Prisma client
+// The Prisma client reads DATABASE_URL at import time, so we must set it first
+import { config } from "dotenv";
+import { existsSync } from "fs";
+import { resolve } from "path";
+
+const isDev = process.env.NODE_ENV !== "production";
+
+// Load environment files in Next.js order (later overrides earlier)
+// 1. Base .env (contains AUTH_SECRET and shared config)
+const envPath = resolve(process.cwd(), ".env");
+if (existsSync(envPath)) {
+  config({ path: envPath });
+  console.log("📁 Loaded .env (base config)");
+}
+
+// 2. Environment-specific file (.env.development or .env.production)
+const envSpecificPath = resolve(
+  process.cwd(),
+  isDev ? ".env.development" : ".env.production"
+);
+if (existsSync(envSpecificPath)) {
+  config({ path: envSpecificPath, override: true });
+  console.log(`📁 Loaded ${isDev ? ".env.development" : ".env.production"} (${isDev ? "local" : "remote"} database)`);
+} else {
+  console.warn(`⚠️  ${isDev ? ".env.development" : ".env.production"} not found`);
+}
+
+// 3. .env.local (local overrides, highest priority)
+const envLocalPath = resolve(process.cwd(), ".env.local");
+if (existsSync(envLocalPath)) {
+  config({ path: envLocalPath, override: true });
+  console.log("📁 Loaded .env.local (local overrides)");
+}
+
+// Warn if using production database in dev
+if (isDev && process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")) {
+  console.warn("⚠️  WARNING: DATABASE_URL doesn't point to localhost!");
+  console.warn(`   Current DATABASE_URL: ${process.env.DATABASE_URL}`);
+  console.warn("   Make sure .env.development has DATABASE_URL set to local database");
+}
+
+import { PrismaClient, ActorType, OrgRole, AttachmentType } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/utils/server/prisma";
+
+// Create a fresh Prisma client for seeding (ensures it uses the correct DATABASE_URL from env files)
+// This avoids issues with the shared singleton client that might have been created with wrong env vars
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  const envFile = isDev ? ".env.development" : ".env.production";
+  throw new Error(`DATABASE_URL is not set. Make sure ${envFile} exists and has DATABASE_URL set.`);
+}
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(
+    new Pool({
+      connectionString,
+      max: 5,
+    })
+  ),
+});
 
 /**
  * Construct Supabase public URLs for seed images.
@@ -126,21 +188,68 @@ async function main() {
 
   // ---- Start clean (dev only)
   // Order matters due to FKs.
+  // Use try-catch to handle cases where tables don't exist yet (fresh database)
   console.log("🧹 Clearing tables...");
-  await prisma.imageAttachment.deleteMany();
-  await prisma.follow.deleteMany();
-  await prisma.orgRoleLabel.deleteMany();
-  await prisma.orgMember.deleteMany();
-  await prisma.message.deleteMany();
-  await prisma.post.deleteMany();
-  await prisma.event.deleteMany();
-  await prisma.project.deleteMany();
-
-  // Avatar relations point to Image; delete users/orgs before images.
-  await prisma.org.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.image.deleteMany();
-  await prisma.actor.deleteMany();
+  try {
+    await prisma.imageAttachment.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e; // P2021 = table doesn't exist
+  }
+  try {
+    await prisma.follow.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.orgRoleLabel.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.orgMember.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.message.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.post.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.event.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.project.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.org.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.user.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.image.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
+  try {
+    await prisma.actor.deleteMany();
+  } catch (e: any) {
+    if (e.code !== 'P2021') throw e;
+  }
 
   // ---- Create Users + Actors
   console.log("👤 Creating users + actors...");
@@ -184,7 +293,7 @@ async function main() {
   if (!defaultUploader) throw new Error("No users created; cannot seed images.");
 
   for (const img of imagesJson) {
-    const storagePath = `seed/${img.filename}`;
+    const storagePath = img.filename;
     const url = getSupabasePublicUrl(storagePath);
 
     const created = await prisma.image.create({
@@ -481,8 +590,11 @@ main()
     console.error("❌ Seed failed:", e);
     console.error("\n💡 Troubleshooting:");
     console.error("   1. Make sure schema.prisma is v2 and you've run: npx prisma generate");
-    console.error("   2. Check that DATABASE_URL in .env.local points to your local database");
-    console.error("   3. Verify the database exists: createdb projectlibrary_dev");
+    const envFile = isDev ? ".env.development" : ".env.production";
+    console.error(`   2. Check that DATABASE_URL in ${envFile} points to your database`);
+    if (isDev) {
+      console.error("   3. Verify the database exists: createdb projectlibrary_dev");
+    }
     process.exitCode = 1;
   })
   .finally(async () => {
