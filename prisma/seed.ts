@@ -329,7 +329,7 @@ async function main() {
       headline: "Hands-on learning, shared tools, good people.",
       bio: "A community org for woodworking, textiles, and skill shares.",
       location: "Portland, OR",
-      // owner/admin from seed users: Bella + George for example
+      // owner/admin from seed users: Alice + George for example
       ownerUserIdx: 1,
       adminUserIdxs: [4],
     },
