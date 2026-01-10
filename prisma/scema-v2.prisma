@@ -1,0 +1,244 @@
+// ========================
+// Enums
+// ========================
+
+enum ActorType {
+  USER
+  ORG
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  FOLLOWER
+}
+
+enum AttachmentType {
+  PROJECT
+  EVENT
+  ENTRY
+  USER_AVATAR
+  ORG_AVATAR
+}
+
+// ========================
+// Core identity layer
+// ========================
+
+model Actor {
+  id        String    @id @default(cuid())
+  type      ActorType
+  createdAt DateTime  @default(now())
+
+  // 1:1 backrefs (exactly one will be set, enforced at app/migration level)
+  user User?
+  org  Org?
+
+  // ownership
+  projects Project[]
+  events   Event[]
+
+  // follows
+  // following: rows where this Actor is the follower
+  following Follow[] @relation("Following")
+  // followers: rows where this Actor is being followed
+  followers Follow[] @relation("Followers")
+
+  @@map("actors")
+}
+
+model Follow {
+  id           String   @id @default(cuid())
+  followerId   String
+  followingId  String
+  createdAt    DateTime @default(now())
+
+  follower  Actor @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following Actor @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+// ========================
+// Users + Orgs
+// ========================
+
+model User {
+  id           String   @id @default(cuid())
+  actorId      String   @unique
+
+  email        String   @unique
+  passwordHash String
+  username     String   @unique
+
+  firstName    String?
+  middleName   String?
+  lastName     String?
+
+  headline     String?
+  bio          String?
+  interests    String[] @default([])
+  location     String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  images           Image[]   // uploaded files (source-of-truth for file metadata)
+  orgMemberships   OrgMember[]
+
+  @@map("users")
+}
+
+model Org {
+  id        String   @id @default(cuid())
+  actorId   String   @unique
+
+  name      String
+  slug      String   @unique
+
+  headline  String?
+  bio       String?
+  interests String[] @default([])
+  location  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  members     OrgMember[]
+  roleLabels  OrgRoleLabel[]
+
+  @@map("orgs")
+}
+
+model OrgMember {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      OrgRole  @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId, role])
+  @@map("org_members")
+}
+
+model OrgRoleLabel {
+  id        String   @id @default(cuid())
+  orgId     String
+  role      OrgRole
+  label     String
+  createdAt DateTime @default(now())
+
+  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, role])
+  @@map("org_role_labels")
+}
+
+// ========================
+// Content owned by Actor
+// ========================
+
+model Project {
+  id           String   @id @default(cuid())
+  ownerActorId String
+
+  title        String
+  description  String
+  tags         String[] @default([])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner Actor @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
+
+  @@index([ownerActorId])
+  @@map("projects")
+}
+
+model Event {
+  id           String   @id @default(cuid())
+  ownerActorId String
+
+  title        String
+  description  String
+  dateTime     DateTime
+  location     String
+  latitude     Float?
+  longitude    Float?
+
+  tags         String[] @default([])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner Actor @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
+
+  @@index([ownerActorId, dateTime])
+  @@map("events")
+}
+
+// ========================
+// Messaging (unchanged)
+// ========================
+
+model Message {
+  id          String    @id @default(cuid())
+  content     String
+  senderId    String
+  receiverId  String
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver    User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+// ========================
+// Files + Attachments
+// ========================
+
+model Image {
+  id           String   @id @default(cuid())
+  url          String
+  path         String
+  altText      String?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  attachments  ImageAttachment[]
+
+  @@index([uploadedById])
+  @@map("images")
+}
+
+model ImageAttachment {
+  id        String         @id @default(cuid())
+  imageId   String
+  type      AttachmentType
+  targetId  String
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([type, targetId])
+  @@index([imageId])
+  @@map("image_attachments")
+}
