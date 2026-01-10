@@ -6,6 +6,8 @@ import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event
 import type { Prisma } from "@prisma/client";
 import { eventWithOwnerFields } from "./fields";
 import { deleteImage } from "./storage";
+import { getActorIdForUser } from "./actor";
+import { getImagesForTarget, detachAllImagesForTarget } from "./image-attachment";
 
 export async function getEventById(id: string): Promise<EventItem | null> {
 	const event = await prisma.event.findUnique({
@@ -13,7 +15,12 @@ export async function getEventById(id: string): Promise<EventItem | null> {
 		select: eventWithOwnerFields,
 	});
 	if (!event) return null;
-	return event as EventItem;
+	
+	// Load images via ImageAttachment
+	const images = await getImagesForTarget("EVENT", id);
+	
+	// Add type field and images for TypeScript discrimination
+	return { ...event, type: "event" as const, images } as EventItem;
 }
 
 export interface GetAllEventsOptions {
@@ -41,19 +48,45 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 		...(options?.offset !== undefined ? { skip: options.offset } : {}),
 		...(options?.limit !== undefined ? { take: options.limit } : {}),
 	});
-	return events as EventItem[];
+	
+	// Load images for all events
+	const eventsWithImages = await Promise.all(
+		events.map(async (e) => {
+			const images = await getImagesForTarget("EVENT", e.id);
+			return { ...e, type: "event" as const, images };
+		})
+	);
+	
+	return eventsWithImages as EventItem[];
 }
 
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
+	const actorId = await getActorIdForUser(userId);
+	if (!actorId) return [];
+	
 	const events = await prisma.event.findMany({
-		where: { ownerId: userId },
+		where: { ownerActorId: actorId },
 		select: eventWithOwnerFields,
 		orderBy: { createdAt: "desc" },
 	});
-	return events as EventItem[];
+	
+	// Load images for all events
+	const eventsWithImages = await Promise.all(
+		events.map(async (e) => {
+			const images = await getImagesForTarget("EVENT", e.id);
+			return { ...e, type: "event" as const, images };
+		})
+	);
+	
+	return eventsWithImages as EventItem[];
 }
 
 export async function createEvent(ownerId: string, data: EventCreateInput): Promise<EventItem> {
+	const actorId = await getActorIdForUser(ownerId);
+	if (!actorId) {
+		throw new Error("User not found or has no actor");
+	}
+	
 	const event = await prisma.event.create({
 		data: {
 			title: data.title,
@@ -63,11 +96,12 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 			latitude: data.latitude ?? null,
 			longitude: data.longitude ?? null,
 			tags: data.tags || [],
-			ownerId,
+			ownerActorId: actorId,
 		},
 		select: eventWithOwnerFields,
 	});
-	return event as EventItem;
+	// Add type field for TypeScript discrimination
+	return { ...event, type: "event" as const } as EventItem;
 }
 
 export async function updateEvent(id: string, data: EventUpdateInput): Promise<EventItem> {
@@ -108,38 +142,50 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 		data: updateData,
 		select: eventWithOwnerFields,
 	});
-	return event as EventItem;
+	
+	// Load images via ImageAttachment
+	const images = await getImagesForTarget("EVENT", event.id);
+	
+	// Add type field and images for TypeScript discrimination
+	return { ...event, type: "event" as const, images } as EventItem;
 }
 
 export async function deleteEvent(id: string): Promise<EventItem> {
-	// Fetch event with images before deleting to get image URLs
+	// Fetch event to verify it exists
 	const event = await prisma.event.findUnique({
 		where: { id },
-		select: eventWithOwnerFields,
+		select: { id: true },
 	});
 
 	if (!event) {
 		throw new Error("Event not found");
 	}
 
+	// Get all images attached to this event
+	const images = await getImagesForTarget("EVENT", id);
+
 	// Delete all associated images from storage bucket
-	if (event.images && event.images.length > 0) {
-		for (const image of event.images) {
-			if (image.url) {
-				const result = await deleteImage(image.url);
-				if (!result.success) {
-					console.error(`Failed to delete image ${image.id} from storage:`, result.error);
-					// Continue deleting other images even if one fails
-				}
+	for (const image of images) {
+		if (image.url) {
+			const result = await deleteImage(image.url);
+			if (!result.success) {
+				console.error(`Failed to delete image ${image.id} from storage:`, result.error);
+				// Continue deleting other images even if one fails
 			}
 		}
 	}
 
-	// Delete the event (cascade will delete image records from database)
+	// Delete all image attachments (cascade will handle image deletion if needed)
+	await detachAllImagesForTarget("EVENT", id);
+
+	// Delete the event (cascade will delete posts)
 	const deletedEvent = await prisma.event.delete({
 		where: { id },
 		select: eventWithOwnerFields,
 	});
-	return deletedEvent as EventItem;
+	
+	// Note: Images already deleted above, so we don't need to load them
+	// Add type field for TypeScript discrimination
+	return { ...deletedEvent, type: "event" as const, images: [] } as EventItem;
 }
 

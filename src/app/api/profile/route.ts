@@ -31,21 +31,24 @@ export async function PUT(request: Request) {
 	}
 
 	const data = await request.json();
-	const { name, headline, bio, interests, location } = data;
+	const { firstName, middleName, lastName, headline, bio, interests, location, avatarImageId } = data;
 
 	// Validate profile data
-	const validation = validateProfileData({ name, headline, bio, interests, location });
+	const validation = validateProfileData({ firstName, middleName, lastName, headline, bio, interests, location });
 	if (!validation.valid) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
 
 	try {
 		const user = await updateUserProfile(session.user.id, {
-			name,
+			firstName,
+			middleName,
+			lastName,
 			headline,
 			bio,
 			interests,
 			location,
+			avatarImageId,
 		});
 
 		return NextResponse.json(user);

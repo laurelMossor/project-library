@@ -1,14 +1,16 @@
 import { BaseCollectionItem } from "./collection-base";
 import { ImageItem } from "./image";
+import type { PostItem } from "./post";
 
 /**
- * Project type - matches Prisma schema
+ * Project type - matches Prisma schema v2
  * Extends BaseCollectionItem with project-specific fields
- * The 'type' field is stored in the database as a discriminator for collection handling
+ * Note: 'type' field is derived (not in database) for TypeScript type discrimination
  */
 export interface ProjectItem extends BaseCollectionItem {
-	type: "project";
-	images: ImageItem[]; // Images associated with this project
+	type: "project"; // Derived field for type discrimination
+	images: ImageItem[]; // Images associated with this project (via ImageAttachment)
+	posts?: PostItem[]; // Descendant posts (optional, loaded when needed)
 	updatedAt: Date;
 }
 

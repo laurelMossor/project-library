@@ -4,6 +4,7 @@ import { getProjectById, updateProject, deleteProject } from "@/lib/utils/server
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProjectUpdateData } from "@/lib/validations";
 import type { ProjectUpdateInput } from "@/lib/types/project";
+import { getActorIdForUser, actorOwnsProject } from "@/lib/utils/server/actor";
 
 // GET /api/projects/[id] - Get a single project by ID
 // Public endpoint (no auth required)
@@ -43,7 +44,9 @@ export async function PUT(
 		return notFound("Project not found");
 	}
 
-	if (project.owner.id !== session.user.id) {
+	// Check ownership via Actor
+	const actorId = await getActorIdForUser(session.user.id);
+	if (!actorId || !(await actorOwnsProject(actorId, id))) {
 		return unauthorized("Only the owner can update this project");
 	}
 
@@ -113,7 +116,9 @@ export async function DELETE(
 		return notFound("Project not found");
 	}
 
-	if (project.owner.id !== session.user.id) {
+	// Check ownership via Actor
+	const actorId = await getActorIdForUser(session.user.id);
+	if (!actorId || !(await actorOwnsProject(actorId, id))) {
 		return unauthorized("Only the owner can delete this project");
 	}
 
