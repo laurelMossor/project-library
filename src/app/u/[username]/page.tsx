@@ -15,7 +15,7 @@ import { notFound } from "next/navigation";
 import { getProjectsByUser } from "@/lib/utils/server/project";
 import { getEventsByUser } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
-import { ProfileHeader } from "@/lib/components/user/ProfileHeader";
+import { UserProfileHeader } from "@/lib/components/user/UserProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 
 type Props = {
@@ -45,7 +45,7 @@ export default async function PublicProfilePage({ params }: Props) {
 
 	return (
 		<CenteredLayout maxWidth="6xl">
-			<ProfileHeader user={user} isOwnProfile={isOwnProfile} session={session} />
+			<UserProfileHeader user={user} isOwnProfile={isOwnProfile} session={session} />
 
 			{/* User's Collection Section */}
 			<UserCollectionSection 

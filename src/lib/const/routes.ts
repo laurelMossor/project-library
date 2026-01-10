@@ -17,6 +17,13 @@ export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
 export const USER_COLLECTIONS = (username: string) => `/u/${username}/collections`;
 
 // ============================================================================
+// Org & Profile Routes
+// ============================================================================
+export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
+export const PRIVATE_ORG_PAGE = (slug: string) => `/profile/org/${slug}`;
+export const ORG_COLLECTIONS = (slug: string) => `/o/${slug}/collections`;
+
+// ============================================================================
 // Collections Routes
 // ============================================================================
 export const COLLECTIONS = "/collections";

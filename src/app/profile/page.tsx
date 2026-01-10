@@ -11,12 +11,13 @@
  */
 import { auth } from "@/lib/auth";
 import { getUserById } from "@/lib/utils/server/user";
+import { getOrgsForUser } from "@/lib/utils/server/org";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { EditableProfile } from "@/lib/components/user/EditableProfile";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE, PROFILE_EDIT, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE, PROFILE_EDIT, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS, PRIVATE_ORG_PAGE } from "@/lib/const/routes";
 
 export default async function ProfilePage() {
 	// Middleware protects this route, but we verify session here as a safety check
@@ -27,7 +28,10 @@ export default async function ProfilePage() {
 	}
 
 	const userId = session.user.id;
-	const user = await getUserById(userId);
+	const [user, orgs] = await Promise.all([
+		getUserById(userId),
+		getOrgsForUser(userId),
+	]);
 
 	if (!user) {
 		redirect(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
@@ -62,6 +66,24 @@ export default async function ProfilePage() {
 						</ButtonLink>
 					</div>
 				</div>
+
+				{orgs.length > 0 && (
+					<div className="bg-white border rounded-lg p-6 mb-6">
+						<h2 className="text-xl font-semibold mb-4">Switch to Org Profile</h2>
+						<div className="flex flex-col gap-3">
+							{orgs.map((org) => (
+								<ButtonLink 
+									key={org.id} 
+									href={PRIVATE_ORG_PAGE(org.slug)} 
+									variant="secondary" 
+									fullWidth
+								>
+									Switch to {org.name} Profile
+								</ButtonLink>
+							))}
+						</div>
+					</div>
+				)}
 
 				<div className="flex gap-4 justify-center">
 					<Link href={HOME} className="text-sm underline text-gray-600">Home</Link>

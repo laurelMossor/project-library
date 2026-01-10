@@ -56,7 +56,11 @@ export async function getAllProjects(search?: string): Promise<ProjectItem[]> {
 export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> {
 	const actorId = await getActorIdForUser(userId);
 	if (!actorId) return [];
-	
+	return getProjectsByActor(actorId);
+}
+
+// Fetch all projects by a specific actor (works for both users and orgs)
+export async function getProjectsByActor(actorId: string): Promise<ProjectItem[]> {
 	const projects = await prisma.project.findMany({
 		where: { ownerActorId: actorId },
 		select: projectWithOwnerFields,

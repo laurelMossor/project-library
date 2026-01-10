@@ -1,11 +1,11 @@
 import { PublicUser, getUserDisplayName } from "@/lib/types/user";
 import { Tag } from "../tag";
 
-type ProfileDisplayProps = {
+type UserProfileDisplayProps = {
 	user: PublicUser;
 };
 
-export function ProfileDisplay({ user }: ProfileDisplayProps) {
+export function UserProfileDisplay({ user }: UserProfileDisplayProps) {
 	return (
 		<div className="flex-1">
 			<h1 className="text-3xl font-bold">{getUserDisplayName(user)}</h1>

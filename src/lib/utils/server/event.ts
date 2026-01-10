@@ -63,7 +63,11 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const actorId = await getActorIdForUser(userId);
 	if (!actorId) return [];
-	
+	return getEventsByActor(actorId);
+}
+
+// Fetch all events by a specific actor (works for both users and orgs)
+export async function getEventsByActor(actorId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
 		where: { ownerActorId: actorId },
 		select: eventWithOwnerFields,

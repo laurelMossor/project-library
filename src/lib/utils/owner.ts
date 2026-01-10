@@ -3,7 +3,7 @@
  * In v2, owners are Actors which can be Users or Orgs
  */
 
-import { PublicUser } from "../types/user";
+import { PublicUser, getUserDisplayName } from "../types/user";
 
 /**
  * Owner structure from database (Actor with user/org)
@@ -37,11 +37,11 @@ export function getOwnerUser(owner: ActorOwner): PublicUser | null {
 
 /**
  * Get display name for owner (user or org)
+ * For users: uses getUserDisplayName utility (displayName > firstName + lastName > username)
  */
 export function getOwnerDisplayName(owner: ActorOwner): string {
 	if (owner.type === "USER" && owner.user) {
-		const nameParts = [owner.user.firstName, owner.user.middleName, owner.user.lastName].filter(Boolean);
-		return nameParts.length > 0 ? nameParts.join(' ') : owner.user.username;
+		return getUserDisplayName(owner.user);
 	}
 	if (owner.type === "ORG" && owner.org) {
 		return owner.org.name;

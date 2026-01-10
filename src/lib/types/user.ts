@@ -2,6 +2,7 @@ export interface ProfileData {
 	firstName?: string;
 	middleName?: string;
 	lastName?: string;
+	displayName?: string;
 	headline?: string;
 	bio?: string;
 	interests?: string[];
@@ -18,6 +19,7 @@ export interface User {
 	firstName: string | null;
 	middleName: string | null;
 	lastName: string | null;
+	displayName: string | null;
 	headline: string | null;
 	bio: string | null;
 	interests: string[];
@@ -35,6 +37,7 @@ export interface PublicUser {
 	firstName: string | null;
 	middleName: string | null;
 	lastName: string | null;
+	displayName: string | null;
 	headline: string | null;
 	bio: string | null;
 	interests: string[];
@@ -43,7 +46,19 @@ export interface PublicUser {
 }
 
 // Helper to get display name from user
-export function getUserDisplayName(user: { firstName?: string | null; middleName?: string | null; lastName?: string | null; username: string }): string {
-	const nameParts = [user.firstName, user.middleName, user.lastName].filter(Boolean);
-	return nameParts.length > 0 ? nameParts.join(' ') : user.username;
+// Priority: displayName > firstName + lastName > username
+export function getUserDisplayName(user: { displayName?: string | null; firstName?: string | null; middleName?: string | null; lastName?: string | null; username: string }): string {
+	// First priority: use displayName if set
+	if (user.displayName) {
+		return user.displayName;
+	}
+	
+	// Second priority: firstName + lastName (excludes middleName)
+	const nameParts = [user.firstName, user.lastName].filter(Boolean);
+	if (nameParts.length > 0) {
+		return nameParts.join(' ');
+	}
+	
+	// Fallback: username
+	return user.username;
 }

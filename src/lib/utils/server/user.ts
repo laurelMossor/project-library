@@ -12,6 +12,7 @@ const personalProfileFields = {
 	firstName: true,
 	middleName: true,
 	lastName: true,
+	displayName: true,
 	headline: true,
 	bio: true,
 	interests: true,
@@ -27,6 +28,7 @@ export const publicUserFields = {
 	firstName: true,
 	middleName: true,
 	lastName: true,
+	displayName: true,
 	headline: true,
 	bio: true,
 	interests: true,
@@ -57,6 +59,7 @@ export async function updateUserProfile(
 		firstName?: string;
 		middleName?: string;
 		lastName?: string;
+		displayName?: string;
 		headline?: string;
 		bio?: string;
 		interests?: string[];
@@ -70,6 +73,7 @@ export async function updateUserProfile(
 			firstName: data.firstName,
 			middleName: data.middleName,
 			lastName: data.lastName,
+			displayName: data.displayName,
 			headline: data.headline,
 			bio: data.bio,
 			interests: data.interests || [],

@@ -92,11 +92,13 @@ const prisma = new PrismaClient({
 const getSupabasePublicUrl = (storagePath: string): string => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
-    // Fallback for local dev when Supabase isn't configured
-    // These URLs won't work, but seed data will still be created
-    console.warn("⚠️  NEXT_PUBLIC_SUPABASE_URL not set. Using placeholder URLs for seed images.");
-    console.warn("   Images won't load, but database seeding will complete.");
-    return `https://placeholder.supabase.co/storage/v1/object/public/uploads/${storagePath}`;
+    // Don't use placeholder URLs - they cause issues in production
+    // Instead, throw an error so the user knows to set the env var
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL is not set. " +
+      "Please set it in .env or .env.local to generate correct image URLs for seed data. " +
+      "Example: NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co"
+    );
   }
   return `${supabaseUrl}/storage/v1/object/public/uploads/${storagePath}`;
 };
