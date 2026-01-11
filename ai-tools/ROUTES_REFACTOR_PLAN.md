@@ -205,31 +205,30 @@ ORG_PROFILE_EDIT = "/o/profile/edit"
    - **MVP:** JWT is sufficient
 
 3. **Route Protection**
-   - **Current:** Each page checks auth individually
-   - **Better:** Create route groups with middleware
-   - **MVP:** Current approach works, but consider middleware for `/u/profile/*` and `/o/profile/*`
+   - **Current:** Uses `proxy.ts` for basic auth checks, pages verify permissions individually
+   - **Better:** Update `proxy.ts` to protect `/u/profile/*` and `/o/profile/*` routes
+   - **MVP:** Update proxy.ts to include new protected routes
 
 4. **Actor Context Propagation**
    - **Issue:** Need to pass active actor to many components
-   - **Solution:** Create React context or utility that derives actor from session
-   - **MVP:** Pass session to components, derive actor as needed
+   - **Solution:** Create React context that derives actor from session (YES, DO THIS)
+   - **MVP:** Create `ActorContext` provider that wraps app and provides active actor
 
 ---
 
-## Recommended Middleware Enhancement
+## Recommended Proxy Enhancement
 
-**Create `/src/middleware.ts`** (if not exists):
-```typescript
-// Protect /u/profile/* and /o/profile/* routes
-// Verify activeOrgId permissions on /o/profile/* routes
-```
+**Update `/src/proxy.ts`:**
+- Add `/u/profile/*` and `/o/profile/*` to protectedRoutes
+- Note: Full permission verification (org membership) still happens in pages for security
+- Proxy only checks for session cookie existence
 
-This would:
-- Protect private profile routes
-- Validate org permissions before allowing access
-- Reduce duplicate auth checks in pages
+This will:
+- Protect private profile routes at the proxy level
+- Pages still verify org permissions individually (more secure)
+- Reduce redirects for unauthenticated users
 
-**MVP Decision:** Can be added later if needed. Current per-page checks work fine.
+**MVP Decision:** Update proxy.ts to include new routes. Page-level permission checks remain.
 
 ---
 

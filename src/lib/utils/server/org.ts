@@ -59,3 +59,26 @@ export async function getUserOrgRole(userId: string, orgId: string) {
 	return membership?.role || null;
 }
 
+// Update an org's profile data
+export async function updateOrgProfile(
+	orgId: string,
+	data: {
+		headline?: string;
+		bio?: string;
+		interests?: string[];
+		location?: string;
+		avatarImageId?: string | null;
+	}
+) {
+	return prisma.org.update({
+		where: { id: orgId },
+		data: {
+			headline: data.headline,
+			bio: data.bio,
+			interests: data.interests || [],
+			location: data.location,
+			avatarImageId: data.avatarImageId,
+		},
+		select: publicOrgFields,
+	});
+}
