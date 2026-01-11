@@ -4,7 +4,7 @@ import { getOrgById, updateOrgProfile, getUserOrgRole } from "@/lib/utils/server
 import { unauthorized, badRequest } from "@/lib/utils/errors";
 
 /**
- * GET /api/org/profile
+ * GET /api/me/org
  * Get the current active org's profile (based on activeOrgId in session)
  */
 export async function GET() {
@@ -32,7 +32,7 @@ export async function GET() {
 }
 
 /**
- * PUT /api/org/profile
+ * PUT /api/me/org
  * Update the current active org's profile (based on activeOrgId in session)
  */
 export async function PUT(request: Request) {

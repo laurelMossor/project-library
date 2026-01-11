@@ -8,7 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
-import { LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
+import { API_ME_ORG, LOGIN_WITH_CALLBACK, ORG_PROFILE_EDIT, PRIVATE_ORG_PAGE } from "@/lib/const/routes";
 
 export default function EditOrgProfilePage() {
 	const router = useRouter();
@@ -23,11 +23,11 @@ export default function EditOrgProfilePage() {
 
 	// Load current org profile data
 	useEffect(() => {
-		fetch("/api/org/profile")
+		fetch(API_ME_ORG)
 			.then((res) => {
 				// Handle auth errors - redirect to login if unauthorized
 				if (res.status === 401) {
-					router.push(LOGIN_WITH_CALLBACK("/o/profile/edit"));
+					router.push(LOGIN_WITH_CALLBACK(PRIVATE_ORG_PAGE));
 					return;
 				}
 				return res.json();
@@ -54,7 +54,7 @@ export default function EditOrgProfilePage() {
 		setSaving(true);
 		setError("");
 
-		const res = await fetch("/api/org/profile", {
+		const res = await fetch(API_ME_ORG, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -69,7 +69,7 @@ export default function EditOrgProfilePage() {
 			const data = await res.json();
 			// Handle auth errors - redirect to login if unauthorized
 			if (res.status === 401) {
-				router.push(LOGIN_WITH_CALLBACK("/o/profile/edit"));
+				router.push(LOGIN_WITH_CALLBACK(PRIVATE_ORG_PAGE));
 				return;
 			}
 			setError(data.error || "Failed to save");
@@ -77,7 +77,7 @@ export default function EditOrgProfilePage() {
 			return;
 		}
 
-		router.push("/o/profile");
+		router.push(PRIVATE_ORG_PAGE);
 	};
 
 	if (loading) {

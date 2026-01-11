@@ -4,7 +4,7 @@ import { getOrgsForUser } from "@/lib/utils/server/org";
 import { unauthorized } from "@/lib/utils/errors";
 
 /**
- * GET /api/users/me/orgs
+ * GET /api/me/orgs
  * Get all organizations the current user belongs to
  */
 export async function GET() {

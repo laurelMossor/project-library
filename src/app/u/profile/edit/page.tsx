@@ -8,7 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
-import { API_PROFILE, LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
+import { API_ME_USER, LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -26,7 +26,7 @@ export default function EditProfilePage() {
 
 	// Load current profile data
 	useEffect(() => {
-		fetch(API_PROFILE)
+		fetch(API_ME_USER)
 			.then((res) => {
 				// Handle auth errors - redirect to login if unauthorized
 				if (res.status === 401) {
@@ -60,7 +60,7 @@ export default function EditProfilePage() {
 		setSaving(true);
 		setError("");
 
-		const res = await fetch(API_PROFILE, {
+		const res = await fetch(API_ME_USER, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({

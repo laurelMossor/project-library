@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
+import { API_ME_ACTOR, API_ME_ORG } from "@/lib/const/routes";
 
 /**
  * OrgActorBanner
@@ -25,7 +26,7 @@ export function OrgActorBanner() {
 			return;
 		}
 
-		fetch("/api/org/profile")
+		fetch(API_ME_ORG)
 			.then((res) => {
 				if (res.ok) {
 					return res.json();
@@ -50,8 +51,10 @@ export function OrgActorBanner() {
 		setSwitching(true);
 
 		try {
-			const res = await fetch("/api/auth/switch-to-user", {
-				method: "POST",
+			const res = await fetch(API_ME_ACTOR, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ orgId: null }),
 			});
 
 			if (res.ok) {

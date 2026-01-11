@@ -4,7 +4,10 @@ import { getUserById, updateUserProfile } from "@/lib/utils/server/user";
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProfileData } from "@/lib/validations";
 
-// GET /api/profile - Get current user's profile
+/**
+ * GET /api/me/user
+ * Get current user's profile
+ */
 export async function GET() {
 	const session = await auth();
 
@@ -21,8 +24,11 @@ export async function GET() {
 	return NextResponse.json(user);
 }
 
-// PUT /api/profile - Update current user's profile
-// Note: DELETE operation is intentionally omitted - account deletion is not part of MVP
+/**
+ * PUT /api/me/user
+ * Update current user's profile
+ * Note: DELETE operation is intentionally omitted - account deletion is not part of MVP
+ */
 export async function PUT(request: Request) {
 	const session = await auth();
 

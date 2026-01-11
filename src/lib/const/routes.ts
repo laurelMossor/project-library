@@ -62,13 +62,33 @@ export const MESSAGE_CONVERSATION = (userId: string) => `/messages/${userId}`;
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
-export const API_PROFILE = "/api/profile";
+
+// Current User Context API Routes (all under /api/me/)
+export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
+export const API_ME_ORG = "/api/me/org"; // GET/PUT current active org profile
+export const API_ME_ORGS = "/api/me/orgs"; // GET user's orgs
+export const API_ME_ACTOR = "/api/me/actor"; // GET current actor, PUT to switch actor
+
+// Public User API Routes
+export const API_USER_PROJECTS = (username: string) => `/api/users/${username}/projects`;
+export const API_USER_EVENTS = (username: string) => `/api/users/${username}/events`;
+
+// Legacy API Routes (deprecated - use new routes above)
+export const API_PROFILE = "/api/profile"; // Deprecated - use API_ME_USER
+
+// Project API Routes
 export const API_PROJECTS = "/api/projects";
 export const API_PROJECT_UPLOAD = "/api/projects/upload";
 export const API_PROJECT = (id: string) => `/api/projects/${id}`;
 export const API_PROJECT_ENTRIES = (id: string) => `/api/projects/${id}/entries`;
+export const API_PROJECT_POSTS = (id: string) => `/api/projects/${id}/posts`;
+
+// Event API Routes
 export const API_EVENTS = "/api/events";
 export const API_EVENT = (id: string) => `/api/events/${id}`;
+export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
+
+// Message API Routes
 export const API_MESSAGES = "/api/messages";
 export const API_MESSAGE = (userId: string) => `/api/messages/${userId}`;
 

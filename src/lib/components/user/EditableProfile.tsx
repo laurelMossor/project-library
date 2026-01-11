@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PublicUser } from "@/lib/types/user";
 import { Button } from "@/lib/components/ui/Button";
-import { API_PROFILE, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 
 type EditableProfileProps = {
 	user: PublicUser;
@@ -28,7 +28,7 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 		setSaving(true);
 		setError("");
 
-		const res = await fetch(API_PROFILE, {
+		const res = await fetch(API_ME_USER, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({

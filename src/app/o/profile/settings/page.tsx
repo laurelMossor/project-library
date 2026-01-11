@@ -14,7 +14,7 @@ import { useSession } from "next-auth/react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { Button } from "@/lib/components/ui/Button";
-import { LOGIN_WITH_CALLBACK, HOME } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, HOME, API_ME_ORGS, ORG_PROFILE_SETTINGS, API_ME_ACTOR, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, ORG_PROFILE_EDIT } from "@/lib/const/routes";
 
 interface Org {
 	id: string;
@@ -37,10 +37,10 @@ export default function OrgSettingsPage() {
 		}
 
 		// Fetch user's orgs
-		fetch("/api/users/me/orgs")
+		fetch(API_ME_ORGS)
 			.then((res) => {
 				if (res.status === 401) {
-					router.push(LOGIN_WITH_CALLBACK("/o/profile/settings"));
+					router.push(LOGIN_WITH_CALLBACK(ORG_PROFILE_SETTINGS));
 					return;
 				}
 				return res.json();
@@ -62,8 +62,8 @@ export default function OrgSettingsPage() {
 		setError("");
 
 		try {
-			const res = await fetch("/api/auth/switch-org", {
-				method: "POST",
+			const res = await fetch(API_ME_ACTOR, {
+				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ orgId }),
 			});
@@ -79,7 +79,7 @@ export default function OrgSettingsPage() {
 			await updateSession();
 			
 			// Redirect to org profile
-			router.push("/o/profile");
+			router.push(PRIVATE_ORG_PAGE);
 		} catch (err) {
 			setError("Failed to switch to organization");
 			setSwitching(false);
@@ -91,8 +91,10 @@ export default function OrgSettingsPage() {
 		setError("");
 
 		try {
-			const res = await fetch("/api/auth/switch-to-user", {
-				method: "POST",
+			const res = await fetch(API_ME_ACTOR, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ orgId: null }),
 			});
 
 			if (!res.ok) {
@@ -106,7 +108,7 @@ export default function OrgSettingsPage() {
 			await updateSession();
 			
 			// Redirect to user profile
-			router.push("/u/profile");
+			router.push(PRIVATE_USER_PAGE);
 		} catch (err) {
 			setError("Failed to switch to user");
 			setSwitching(false);
@@ -189,18 +191,18 @@ export default function OrgSettingsPage() {
 			<div className="bg-white border rounded-lg p-6 mb-6">
 				<h2 className="text-xl font-semibold mb-4">Quick Links</h2>
 				<div className="flex flex-col gap-3">
-					<ButtonLink href="/u/profile" variant="secondary" fullWidth>
+					<ButtonLink href={PRIVATE_USER_PAGE} variant="secondary" fullWidth>
 						User Profile
 					</ButtonLink>
-					<ButtonLink href="/u/profile/edit" variant="secondary" fullWidth>
+					<ButtonLink href={USER_PROFILE_EDIT} variant="secondary" fullWidth>
 						Edit User Profile
 					</ButtonLink>
 					{activeOrgId && (
 						<>
-							<ButtonLink href="/o/profile" variant="secondary" fullWidth>
+							<ButtonLink href={PRIVATE_ORG_PAGE} variant="secondary" fullWidth>
 								Org Profile
 							</ButtonLink>
-							<ButtonLink href="/o/profile/edit" variant="secondary" fullWidth>
+							<ButtonLink href={ORG_PROFILE_EDIT} variant="secondary" fullWidth>
 								Edit Org Profile
 							</ButtonLink>
 						</>
