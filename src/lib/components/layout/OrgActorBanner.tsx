@@ -58,7 +58,9 @@ export function OrgActorBanner() {
 			});
 
 			if (res.ok) {
-				await updateSession();
+				// Update session to clear activeOrgId
+				// This triggers the JWT callback with trigger === "update"
+				await updateSession({ activeOrgId: null });
 				router.push("/u/profile");
 			}
 		} catch (err) {

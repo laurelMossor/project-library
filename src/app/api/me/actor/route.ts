@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth, update } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { canActAsOrg } from "@/lib/utils/server/actor-session";
 import { getActiveActor } from "@/lib/utils/server/actor-session";
 
@@ -64,10 +64,11 @@ export async function PUT(request: Request) {
 
 		// If orgId is null or undefined, switch to user
 		if (orgId === null || orgId === undefined) {
-			await update({
-				activeOrgId: null,
+			// Return success - client will call updateSession() which triggers JWT callback
+			return NextResponse.json({ 
+				success: true, 
+				activeOrgId: null
 			});
-			return NextResponse.json({ success: true, activeOrgId: null });
 		}
 
 		// If orgId is provided, validate it's a string
@@ -87,10 +88,7 @@ export async function PUT(request: Request) {
 			);
 		}
 
-		// Update session with activeOrgId
-		await update({
-			activeOrgId: orgId,
-		});
+		// Return success - client will call updateSession() which triggers JWT callback
 
 		return NextResponse.json({ success: true, activeOrgId: orgId });
 	} catch (error) {

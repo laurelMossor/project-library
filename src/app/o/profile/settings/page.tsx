@@ -75,8 +75,9 @@ export default function OrgSettingsPage() {
 				return;
 			}
 
-			// Update session
-			await updateSession();
+			// Update session with new activeOrgId
+			// This triggers the JWT callback with trigger === "update"
+			await updateSession({ activeOrgId: orgId });
 			
 			// Redirect to org profile
 			router.push(PRIVATE_ORG_PAGE);
@@ -104,8 +105,9 @@ export default function OrgSettingsPage() {
 				return;
 			}
 
-			// Update session
-			await updateSession();
+			// Update session to clear activeOrgId
+			// This triggers the JWT callback with trigger === "update"
+			await updateSession({ activeOrgId: null });
 			
 			// Redirect to user profile
 			router.push(PRIVATE_USER_PAGE);
