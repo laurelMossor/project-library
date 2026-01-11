@@ -11,17 +11,20 @@ export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUr
 // ============================================================================
 // User & Profile Routes
 // ============================================================================
-export const PRIVATE_USER_PAGE = "/profile";
-export const PROFILE_EDIT = "/profile/edit";
+export const PRIVATE_USER_PAGE = "/u/profile";
+export const USER_PROFILE_SETTINGS = "/u/profile/settings";
+export const USER_PROFILE_EDIT = "/u/profile/edit";
 export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
-export const USER_COLLECTIONS = (username: string) => `/u/${username}/collections`;
+// USER_COLLECTIONS removed - collections are shown inline on public profile
 
 // ============================================================================
 // Org & Profile Routes
 // ============================================================================
 export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
-export const PRIVATE_ORG_PAGE = (slug: string) => `/profile/org/${slug}`;
-export const ORG_COLLECTIONS = (slug: string) => `/o/${slug}/collections`;
+export const PRIVATE_ORG_PAGE = "/o/profile";
+export const ORG_PROFILE_SETTINGS = "/o/profile/settings";
+export const ORG_PROFILE_EDIT = "/o/profile/edit";
+// ORG_COLLECTIONS removed - collections are shown inline on public profile
 
 // ============================================================================
 // Collections Routes

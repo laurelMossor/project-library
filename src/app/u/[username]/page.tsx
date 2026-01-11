@@ -7,7 +7,7 @@
  * - Shows action buttons based on viewer (own profile vs. other user's profile)
  * - Used for sharing and discovering user content
  * 
- * For the private settings page, see: /profile
+ * For the private settings page, see: /u/profile
  */
 import { getUserByUsername } from "@/lib/utils/server/user";
 import { auth } from "@/lib/auth";

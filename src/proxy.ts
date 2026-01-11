@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { PRIVATE_USER_PAGE, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
+import { PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS, ORG_PROFILE_EDIT, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
 
 // Note: In Next.js 16, middleware.ts is deprecated in favor of proxy.ts
 // This file replaces the old middleware.ts pattern
@@ -8,6 +8,11 @@ import { PRIVATE_USER_PAGE, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/li
 // Routes that require authentication
 const protectedRoutes = [
 	PRIVATE_USER_PAGE,
+	USER_PROFILE_SETTINGS,
+	USER_PROFILE_EDIT,
+	PRIVATE_ORG_PAGE,
+	ORG_PROFILE_SETTINGS,
+	ORG_PROFILE_EDIT,
 	PROJECT_NEW,
 	EVENT_NEW,
 	MESSAGES,

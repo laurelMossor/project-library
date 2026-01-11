@@ -41,7 +41,7 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 								Edit Profile
 							</ButtonLink>
 						) : (
-							<ButtonLink href={PRIVATE_ORG_PAGE(actor.data.slug)} fullWidth>
+							<ButtonLink href={PRIVATE_ORG_PAGE} fullWidth>
 								Edit Profile
 							</ButtonLink>
 						)}

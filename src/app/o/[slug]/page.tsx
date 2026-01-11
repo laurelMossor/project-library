@@ -7,7 +7,7 @@
  * - Shows action buttons based on viewer (own org vs. other org)
  * - Used for sharing and discovering org content
  * 
- * For the private settings page, see: /profile/org/[slug]
+ * For the private settings page, see: /o/profile
  */
 import { getOrgBySlug } from "@/lib/utils/server/org";
 import { auth } from "@/lib/auth";
