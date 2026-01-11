@@ -1,4 +1,37 @@
-Project Library – Conceptual Schema Tree
+Project Library
+=======================================
+
+
+App Layout - Routes
+---------
+
+u/
+├─ Profile/
+│  ├─ page.tsx        # Private user profile, links to settings
+│  ├─ Settings/
+│  │   └─page.tsx     # A collection of private actions a user can take for their profile and orgs
+│  │                  # Navigate between user actor and org actor here
+│  └─ Edit/
+│      └─page.tsx     # Edit profile form (there are two duplicates of this form, choose one and reuse the components)
+│
+└─ [username]
+   └─ page.tsx        # Public User profile
+
+o/
+├─ Profile/
+│  ├─ page.tsx        # Private org profile, links to settings
+│  ├─ Settings/
+│  │   └─page.tsx     # A collection of private actions an Org can take for their profile
+│  │                  # Navigate between user actor and org actor here
+│  └─ Edit/
+│      └─page.tsx     # Edit profile form (Reuse existing components)
+│
+└─ [slug]
+   └─ page.tsx        # Public Org profile
+
+------------------------------------------------
+
+Conceptual Schema Tree
 =======================================
 
 Actor
@@ -86,3 +119,4 @@ User
 
 • Orgs do not send messages directly
 • Members act on behalf of orgs
+
