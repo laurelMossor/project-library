@@ -8,7 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
-import { API_ME_USER, LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
+import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -30,7 +30,7 @@ export default function EditProfilePage() {
 			.then((res) => {
 				// Handle auth errors - redirect to login if unauthorized
 				if (res.status === 401) {
-					router.push(LOGIN_WITH_CALLBACK("/u/profile/edit"));
+					router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 					return;
 				}
 				return res.json();
@@ -78,7 +78,7 @@ export default function EditProfilePage() {
 			const data = await res.json();
 			// Handle auth errors - redirect to login if unauthorized
 			if (res.status === 401) {
-				router.push(LOGIN_WITH_CALLBACK("/u/profile/edit"));
+				router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 				return;
 			}
 			setError(data.error || "Failed to save");
@@ -86,7 +86,7 @@ export default function EditProfilePage() {
 			return;
 		}
 
-		router.push("/u/profile");
+		router.push(PRIVATE_USER_PAGE);
 	};
 
 	if (loading) {
@@ -168,7 +168,7 @@ export default function EditProfilePage() {
 
 				<FormActions
 					submitLabel="Save Profile"
-					onCancel={() => router.push("/u/profile")}
+					onCancel={() => router.push(PRIVATE_USER_PAGE)}
 					loading={saving}
 					disabled={saving}
 				/>

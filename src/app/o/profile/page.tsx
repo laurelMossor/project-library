@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, PUBLIC_ORG_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PUBLIC_ORG_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS, ORG_PROFILE_EDIT } from "@/lib/const/routes";
 import { ActorProfileDisplay } from "@/lib/components/actor/ActorProfileDisplay";
 import { Actor } from "@/lib/types/actor";
 
@@ -23,28 +23,28 @@ export default async function OrgProfilePage() {
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		redirect(LOGIN_WITH_CALLBACK("/o/profile"));
+		redirect(LOGIN_WITH_CALLBACK(PRIVATE_ORG_PAGE));
 	}
 
 	// Check if user has activeOrgId in session
 	const activeOrgId = session.user.activeOrgId;
 	if (!activeOrgId) {
 		// No active org, redirect to settings to select one
-		redirect("/o/profile/settings");
+		redirect(ORG_PROFILE_SETTINGS);
 	}
 
 	// Get org and verify user has permission
 	const org = await getOrgById(activeOrgId);
 	if (!org) {
 		// Org doesn't exist, clear activeOrgId and redirect to settings
-		redirect("/o/profile/settings");
+		redirect(ORG_PROFILE_SETTINGS);
 	}
 
 	// Verify user has permission to act as this org
 	const role = await getUserOrgRole(session.user.id, org.id);
 	if (!role || role === "FOLLOWER") {
 		// User lost permission, redirect to settings
-		redirect("/o/profile/settings");
+		redirect(ORG_PROFILE_SETTINGS);
 	}
 
 	// Create Actor type for the org
@@ -68,10 +68,10 @@ export default async function OrgProfilePage() {
 					<ButtonLink href={PUBLIC_ORG_PAGE(org.slug)} variant="secondary" fullWidth>
 						View Public Profile
 					</ButtonLink>
-					<ButtonLink href="/o/profile/edit" variant="secondary" fullWidth>
+					<ButtonLink href={ORG_PROFILE_EDIT} variant="secondary" fullWidth>
 						Edit Profile
 					</ButtonLink>
-					<ButtonLink href="/o/profile/settings" variant="secondary" fullWidth>
+					<ButtonLink href={ORG_PROFILE_SETTINGS} variant="secondary" fullWidth>
 						Settings
 					</ButtonLink>
 					<ButtonLink href={PROJECT_NEW} variant="secondary" fullWidth>

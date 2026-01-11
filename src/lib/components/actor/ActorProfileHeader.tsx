@@ -36,15 +36,9 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 				{isOwnProfile ? (
 					<>
 						{/* Edit Profile button - different routes for USER vs ORG */}
-						{actor.type === "USER" ? (
-							<ButtonLink href={PRIVATE_USER_PAGE} fullWidth>
-								Edit Profile
-							</ButtonLink>
-						) : (
-							<ButtonLink href={PRIVATE_ORG_PAGE} fullWidth>
-								Edit Profile
-							</ButtonLink>
-						)}
+						<ButtonLink href={actor.type === "USER" ? PRIVATE_USER_PAGE : PRIVATE_ORG_PAGE} fullWidth>
+							Edit Profile
+						</ButtonLink>
 						<ButtonLink href={PROJECT_NEW} fullWidth>
 							New Project
 						</ButtonLink>

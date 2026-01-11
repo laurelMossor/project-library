@@ -17,14 +17,14 @@ import Link from "next/link";
 import { EditableProfile } from "@/lib/components/user/EditableProfile";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS, PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT } from "@/lib/const/routes";
 
 export default async function UserProfilePage() {
 	// Verify session
 	const session = await auth();
 
 	if (!session?.user?.id) {
-		redirect(LOGIN_WITH_CALLBACK("/u/profile"));
+		redirect(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 	}
 
 	const userId = session.user.id;
@@ -34,7 +34,7 @@ export default async function UserProfilePage() {
 	]);
 
 	if (!user) {
-		redirect(LOGIN_WITH_CALLBACK("/u/profile"));
+		redirect(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 	}
 
 	return (
@@ -55,10 +55,10 @@ export default async function UserProfilePage() {
 					<ButtonLink href={PUBLIC_USER_PAGE(user.username)} variant="secondary" fullWidth>
 						View Public Profile
 					</ButtonLink>
-					<ButtonLink href="/u/profile/edit" variant="secondary" fullWidth>
-						Edit Profile (Full Form)
+					<ButtonLink href={USER_PROFILE_EDIT} variant="secondary" fullWidth>
+						Edit Profile
 					</ButtonLink>
-					<ButtonLink href="/u/profile/settings" variant="secondary" fullWidth>
+					<ButtonLink href={USER_PROFILE_SETTINGS} variant="secondary" fullWidth>
 						Settings
 					</ButtonLink>
 					<ButtonLink href={PROJECT_NEW} variant="secondary" fullWidth>
@@ -74,7 +74,7 @@ export default async function UserProfilePage() {
 				<div className="bg-white border rounded-lg p-6 mb-6">
 					<h2 className="text-xl font-semibold mb-4">Organizations</h2>
 					<p className="text-sm text-gray-600 mb-4">You belong to {orgs.length} organization{orgs.length !== 1 ? 's' : ''}. Switch to an org profile in Settings.</p>
-					<ButtonLink href="/u/profile/settings" variant="secondary" fullWidth>
+					<ButtonLink href={USER_PROFILE_SETTINGS} variant="secondary" fullWidth>
 						Go to Settings
 					</ButtonLink>
 				</div>
