@@ -6,6 +6,9 @@
 4. For now, treat them like a substantially detailed commit message with some details but not a ton.
 
 
+#### Entry: Mon 01/12/2026 21:27 PST
+Implemented org creation feature. Added "Create Organization" button to user profile page and org creation form at `/orgs/new` with name, slug (auto-generated), headline, bio, interests, and location fields. Built `POST /api/orgs` endpoint with `validateOrgData()` validation. Added `createOrg()` server utility that creates Actor (type ORG), Org record, and OrgMember with OWNER role. Created slug generation utility for URL-safe slugs. Form follows existing profile creation patterns. Features marked "coming soon" (parent topic, admins, private/public) deferred pending schema changes.
+
 #### Entry: Sun 01/11/2026 12:07 PST
 Refactored routing architecture for unified actor-based design. Created unified profile routes `/u/profile` and `/o/profile` with matching edit and settings pages, replacing scattered profile routes. Implemented `ActorContext` to manage current actor state (user or org) throughout the app. Added org switching functionality via `/api/auth/switch-org` and `/api/auth/switch-to-user` routes. Consolidated API routes to `/api/me/*` pattern with unified `/api/me/actor` endpoint returning current actor based on session, replacing separate profile endpoints. Updated navigation bar to route to org profile when acting as org. Removed obsolete route constants and cleaned up unused profile pages. All profile pages now use consistent actor-based patterns with unified edit and settings functionality.
 
