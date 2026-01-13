@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { AboutModal } from "../AboutModal";
-import { AboutIcon, CollectionsIcon, UserHomeIcon } from "../icons/icons";
+import { AboutIcon, CollectionsIcon, UserHomeIcon, MessageIcon, PencilIcon } from "../icons/icons";
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 import { Tooltip } from "../tooltip/Tooltip";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
-import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE } from "@/lib/const/routes";
+import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE, MESSAGES } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { API_ME_ACTOR } from "@/lib/const/routes";
+import { NewItemModal } from "./NewItemModal";
 
 interface NavigationIconsProps {
 	session: ReturnType<typeof useSession>["data"] | null;
@@ -26,6 +27,7 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 	const [profileTooltip, setProfileTooltip] = useState<string>("Profile Page");
 	const [username, setUsername] = useState<string | undefined>(undefined);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const isMobile = useIsMobile();
 	const navIconStyles = isMobile ? "w-5 h-5" : "w-6 h-6";
 
@@ -112,6 +114,33 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 					<CollectionsIcon className={navIconStyles} />
 				</Link>
 			</Tooltip>
+
+			{/* Pencil icon - opens modal for new project/event */}
+			{isLoggedIn && (
+				<Tooltip text="Create New">
+					<button
+						onClick={() => setIsNewItemModalOpen(true)}
+						className={navIconButtonStyles}
+						aria-label="Create New"
+					>
+						<PencilIcon className={navIconStyles} />
+					</button>
+				</Tooltip>
+			)}
+			<NewItemModal isOpen={isNewItemModalOpen} onClose={() => setIsNewItemModalOpen(false)} />
+
+			{/* Message icon - links to messages panel */}
+			{isLoggedIn && (
+				<Tooltip text="Messages">
+					<Link
+						href={MESSAGES}
+						className={navIconButtonStyles}
+						aria-label="Messages"
+					>
+						<MessageIcon className={navIconStyles} />
+					</Link>
+				</Tooltip>
+			)}
 
 			{/* Profile icon - links to active actor's profile (user or org) */}
 			{isLoggedIn && profileLink && (
