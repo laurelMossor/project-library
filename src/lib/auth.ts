@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./utils/server/prisma";
 import { LOGIN } from "./const/routes";
 
-export const { handlers, signIn, signOut, auth, update } = NextAuth({
+export const { handlers, signIn, signOut, auth } = NextAuth({
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 	providers: [
 		Credentials({
@@ -67,7 +67,7 @@ export const { handlers, signIn, signOut, auth, update } = NextAuth({
 		async jwt({ token, user, trigger, session: sessionData }) {
 			// On sign in, set user id
 			if (user) {
-				token.sub = user.id;
+				token.sub = user.id as string;
 				// Clear activeOrgId on new sign in
 				token.activeOrgId = undefined;
 			}

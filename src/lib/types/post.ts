@@ -20,9 +20,16 @@ export interface PostItem {
 
 /**
  * Post data for creating a new post
- * Derived from PostItem, excluding auto-generated fields
+ * Derived from PostItem, excluding auto-generated fields and ownerActorId
+ * (ownerActorId is handled internally by createPost function from ownerId)
+ * projectId and eventId are optional - only one should be set for descendant posts
  */
-export type PostCreateInput = Omit<PostItem, "id" | "createdAt" | "updatedAt" | "owner" | "project" | "event">;
+export type PostCreateInput = {
+	projectId?: string | null;
+	eventId?: string | null;
+	title?: string | null;
+	content: string;
+};
 
 /**
  * Post data for updating an existing post

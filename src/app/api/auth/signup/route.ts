@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { ActorType } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
 import { badRequest } from "@/lib/utils/errors";
 import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
@@ -39,10 +40,22 @@ export async function POST(request: Request) {
 		return badRequest("User with this email or username already exists");
 	}
 
-	// Hash password and create user (store normalized email)
+	// Hash password
 	const passwordHash = await bcrypt.hash(password, 10);
+
+	// Create actor first (required for User)
+	const actor = await prisma.actor.create({
+		data: { type: ActorType.USER },
+	});
+
+	// Create user with actor reference
 	const user = await prisma.user.create({
-		data: { email: normalizedEmail, passwordHash, username },
+		data: {
+			actorId: actor.id,
+			email: normalizedEmail,
+			passwordHash,
+			username,
+		},
 	});
 
 	return NextResponse.json({ id: user.id, email: user.email }, { status: 201 });

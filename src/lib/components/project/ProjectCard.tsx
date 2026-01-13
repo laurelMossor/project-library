@@ -13,8 +13,9 @@ import { Tag, Tags } from "../tag";
 import { truncateText } from "../../utils/text";
 import { formatDateTime } from "../../utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
-import { EntriesList } from "../entry/EntriesList";
-import { PROJECT_DETAIL, PUBLIC_USER_PAGE } from "../../const/routes";
+import { PostsList } from "../post/PostsList";
+import { PROJECT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "../../const/routes";
+import { getOwnerUser, getOwnerDisplayName, getOwnerUsername } from "../../utils/owner";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
@@ -26,11 +27,15 @@ const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 
 /** @deprecated Use CollectionCard instead */
 export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem, truncate?: boolean }) => {
+	const ownerUser = getOwnerUser(project.owner);
+	const ownerDisplayName = getOwnerDisplayName(project.owner);
+	const ownerUsername = getOwnerUsername(project.owner);
+
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					<ProfilePicPlaceholder project={project} />
+					{ownerUser && <ProfilePicPlaceholder owner={ownerUser} />}
 					<div className="flex-1 min-w-0">
 						<TitleHeaderLink project={project} />
 					</div>
@@ -42,12 +47,14 @@ export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem
 			</p>
 			
 			<div className="flex flex-row items-center gap-2 mb-2">
-				<Link 
-					href={PUBLIC_USER_PAGE(project.owner.username)}
-					className="text-sm text-rich-brown hover:underline"
-				>
-					{project.owner.name || project.owner.username}
-				</Link>
+				{ownerUsername && (
+					<Link 
+						href={project.owner.type === "USER" ? PUBLIC_USER_PAGE(ownerUsername) : PUBLIC_ORG_PAGE(ownerUsername)}
+						className="text-sm text-rich-brown hover:underline"
+					>
+						{ownerDisplayName}
+					</Link>
+				)}
 				<p className="text-xs text-warm-grey">
 					{formatDateTime(project.createdAt)}
 				</p>
@@ -59,7 +66,7 @@ export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem
 				</div>
 			)}
 
-			<EntriesList 
+			<PostsList 
 				collectionId={project.id} 
 				collectionType="project" 
 				showTitle={true}
