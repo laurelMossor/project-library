@@ -109,6 +109,75 @@ Similar approach - add `prisma migrate deploy` to your build script.
 
 **Warning**: Be careful with automated migrations. It's often safer to run them manually so you can verify they succeed before deploying.
 
+## Resolving Failed Migrations
+
+If a migration fails in production (P3009 error), you need to resolve it before applying new migrations.
+
+### Step 1: Check Migration Status
+```bash
+NODE_ENV=production npx prisma migrate status
+```
+
+This will show:
+- Which migrations have been applied
+- Which migrations failed
+- Which migrations are pending
+
+### Step 2: Check What Actually Happened
+
+Connect to your database and check:
+1. **Did the migration partially apply?** (some tables created, some not)
+2. **What error occurred?** (check Supabase logs or Prisma migration table)
+
+You can query the migration history:
+```sql
+SELECT migration_name, finished_at, applied_steps_count, logs 
+FROM _prisma_migrations 
+ORDER BY started_at DESC 
+LIMIT 5;
+```
+
+### Step 3: Resolve the Failed Migration
+
+You have two options:
+
+#### Option A: Mark as Rolled Back (if migration failed completely)
+If the migration failed early and didn't create any tables:
+```bash
+NODE_ENV=production npx prisma migrate resolve --rolled-back 20260110034536_init_v2
+```
+
+#### Option B: Mark as Applied (if migration partially succeeded)
+If the migration created some tables but failed partway through:
+```bash
+NODE_ENV=production npx prisma migrate resolve --applied 20260110034536_init_v2
+```
+
+**⚠️ Warning**: Only use `--applied` if you're sure the migration's changes are actually in the database. Otherwise, you'll have schema drift.
+
+### Step 4: Fix and Re-apply
+
+After resolving the failed migration:
+
+1. **If you marked it as rolled back:**
+   - Fix any issues in the migration SQL
+   - Re-run: `npm run db:migrate:deploy`
+
+2. **If you marked it as applied:**
+   - Check what's missing from the migration
+   - Create a new migration to add the missing pieces:
+     ```bash
+     npm run db:migrate --name fix_v2_schema
+     ```
+
+### Step 5: Verify Database State
+
+After resolving, verify your database matches your schema:
+```bash
+NODE_ENV=production npx prisma db pull  # See what's actually in DB
+NODE_ENV=production npx prisma migrate status  # Check migration status
+```
+
 ## Rollback Plan
 
 If a migration fails or causes issues:

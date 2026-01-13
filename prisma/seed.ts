@@ -87,7 +87,7 @@ const prisma = new PrismaClient({
  * - Production: .env has NEXT_PUBLIC_SUPABASE_URL pointing to your Supabase project
  * 
  * Bucket name: "uploads" (matches the app's storage configuration)
- * URL format: ${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/uploads/${path}
+ * URL format: ${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/uploads/examples/${path}
  */
 const getSupabasePublicUrl = (storagePath: string): string => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -100,7 +100,7 @@ const getSupabasePublicUrl = (storagePath: string): string => {
       "Example: NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co"
     );
   }
-  return `${supabaseUrl}/storage/v1/object/public/uploads/${storagePath}`;
+  return `${supabaseUrl}/storage/v1/object/public/uploads/examples/${storagePath}`;
 };
 
 /**
