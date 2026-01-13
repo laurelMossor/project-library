@@ -82,3 +82,56 @@ export async function updateOrgProfile(
 		select: publicOrgFields,
 	});
 }
+
+// Create a new org
+export async function createOrg(
+	userId: string,
+	data: {
+		name: string;
+		slug: string;
+		headline?: string;
+		bio?: string;
+		interests?: string[];
+		location?: string;
+	}
+) {
+	const { ActorType, OrgRole } = await import("@prisma/client");
+
+	// Check if slug is already taken
+	const existingOrg = await prisma.org.findUnique({
+		where: { slug: data.slug },
+	});
+	if (existingOrg) {
+		throw new Error("An organization with this slug already exists");
+	}
+
+	// Create actor first (required for Org)
+	const actor = await prisma.actor.create({
+		data: { type: ActorType.ORG },
+	});
+
+	// Create org
+	const org = await prisma.org.create({
+		data: {
+			actorId: actor.id,
+			name: data.name.trim(),
+			slug: data.slug.trim(),
+			headline: data.headline?.trim() || null,
+			bio: data.bio?.trim() || null,
+			interests: data.interests || [],
+			location: data.location?.trim() || null,
+		},
+		select: publicOrgFields,
+	});
+
+	// Create org membership with OWNER role
+	await prisma.orgMember.create({
+		data: {
+			orgId: org.id,
+			userId,
+			role: OrgRole.OWNER,
+		},
+	});
+
+	return org;
+}

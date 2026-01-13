@@ -24,6 +24,7 @@ export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
 export const PRIVATE_ORG_PAGE = "/o/profile";
 export const ORG_PROFILE_SETTINGS = "/o/profile/settings";
 export const ORG_PROFILE_EDIT = "/o/profile/edit";
+export const ORG_NEW = "/orgs/new";
 // ORG_COLLECTIONS removed - collections are shown inline on public profile
 
 // ============================================================================
@@ -87,6 +88,9 @@ export const API_PROJECT_POSTS = (id: string) => `/api/projects/${id}/posts`;
 export const API_EVENTS = "/api/events";
 export const API_EVENT = (id: string) => `/api/events/${id}`;
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
+
+// Org API Routes
+export const API_ORGS = "/api/orgs";
 
 // Message API Routes
 export const API_MESSAGES = "/api/messages";

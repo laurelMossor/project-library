@@ -17,7 +17,7 @@ import Link from "next/link";
 import { EditableProfile } from "@/lib/components/user/EditableProfile";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS, PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PUBLIC_USER_PAGE, PROJECT_NEW, EVENT_NEW, HOME, COLLECTIONS, PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT, ORG_NEW } from "@/lib/const/routes";
 
 export default async function UserProfilePage() {
 	// Verify session
@@ -66,6 +66,9 @@ export default async function UserProfilePage() {
 					</ButtonLink>
 					<ButtonLink href={EVENT_NEW} variant="secondary" fullWidth>
 						Create New Event
+					</ButtonLink>
+					<ButtonLink href={ORG_NEW} variant="secondary" fullWidth>
+						Create Organization
 					</ButtonLink>
 				</div>
 			</div>
