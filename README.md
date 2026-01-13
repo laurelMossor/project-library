@@ -8,6 +8,8 @@ A platform for sharing and discovering projects, matching with collaborators bas
 - **Database:** PostgreSQL + Prisma ORM
 - **Auth:** NextAuth v5 (credentials)
 - **Styling:** Tailwind CSS
+- **Hosting:** Vercel
+- **Database:** Supabase
 
 ## Getting Started
 
