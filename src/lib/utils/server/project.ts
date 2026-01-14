@@ -8,6 +8,12 @@ import { deleteImage } from "./storage";
 import { getActorIdForUser } from "./actor";
 import { getImagesForTarget, detachAllImagesForTarget } from "./image-attachment";
 
+export interface GetAllProjectsOptions {
+	search?: string;
+	limit?: number;
+	offset?: number;
+}
+
 // Fetch a project by ID with owner information
 export async function getProjectById(id: string): Promise<ProjectItem | null> {
 	const project = await prisma.project.findUnique({
@@ -23,9 +29,9 @@ export async function getProjectById(id: string): Promise<ProjectItem | null> {
 	return { ...project, type: "project" as const, images } as ProjectItem;
 }
 
-// Fetch all projects with optional basic text search
+// Fetch all projects with optional basic text search and pagination
 // Search matches title or description (case-insensitive partial match)
-export async function getAllProjects(search?: string): Promise<ProjectItem[]> {
+export async function getAllProjects(search?: string, options?: GetAllProjectsOptions): Promise<ProjectItem[]> {
 	const where = search
 		? {
 				OR: [
@@ -39,6 +45,8 @@ export async function getAllProjects(search?: string): Promise<ProjectItem[]> {
 		where,
 		select: projectWithOwnerFields,
 		orderBy: { createdAt: "desc" }, // Most recent first
+		...(options?.offset !== undefined ? { skip: options.offset } : {}),
+		...(options?.limit !== undefined ? { take: options.limit } : {}),
 	});
 	
 	// Load images for all projects

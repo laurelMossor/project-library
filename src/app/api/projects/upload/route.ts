@@ -7,6 +7,7 @@ import { ImageItem } from "@/lib/types/image";
 import { imageFields } from "@/lib/utils/server/fields";
 import { getActorIdForUser, actorOwnsProject, actorOwnsEvent } from "@/lib/utils/server/actor";
 import { attachImage } from "@/lib/utils/server/image-attachment";
+import { checkRateLimit } from "@/lib/utils/server/rate-limit";
 
 // POST /api/projects/upload - Upload an image for a project or event
 // Protected endpoint (requires authentication)
@@ -24,6 +25,19 @@ export async function POST(request: Request) {
 
 	if (!session?.user?.id) {
 		return unauthorized();
+	}
+
+	// Rate limiting: 20 uploads per hour per user
+	const rateLimit = checkRateLimit(`upload:${session.user.id}`, {
+		maxRequests: 20,
+		windowMs: 60 * 60 * 1000, // 1 hour
+	});
+
+	if (!rateLimit.allowed) {
+		return NextResponse.json(
+			{ error: "Too many uploads. Please try again later." },
+			{ status: 429 }
+		);
 	}
 
 	try {
