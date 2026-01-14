@@ -32,6 +32,11 @@ export async function POST(request: Request) {
 		const projectId = formData.get("projectId") as string | null;
 		const eventId = formData.get("eventId") as string | null;
 		const altText = formData.get("altText") as string | null;
+		
+		// Validate altText if provided (max 500 chars)
+		if (altText !== null && altText !== undefined && typeof altText === "string" && altText.length > 500) {
+			return badRequest("Alt text must be 500 characters or less");
+		}
 
 		if (!file) {
 			return badRequest("No image file provided");
@@ -91,8 +96,9 @@ export async function POST(request: Request) {
 		}
 
 		// Upload to Supabase storage
-		// Upload directly to the `uploads` bucket root (no folder prefix)
-		const result = await uploadImage(file, "");
+		// Scope uploads by user ID to prevent path traversal and organize files
+		const userFolder = `users/${session.user.id}`;
+		const result = await uploadImage(file, userFolder);
 
 		if (result.error) {
 			if (debug) {
@@ -126,12 +132,13 @@ export async function POST(request: Request) {
 		}
 
 		// Create Image record (no direct projectId/eventId - use ImageAttachment)
+		// Explicitly set fields to prevent mass assignment
 		const createdImage = await prisma.image.create({
 			data: {
 				url: result.imageUrl,
 				path: result.path,
-				altText: altText?.trim() || null,
-				uploadedById: session.user.id,
+				altText: altText && typeof altText === "string" ? altText.trim().slice(0, 500) || null : null,
+				uploadedById: session.user.id, // Derived from auth, not client input
 			},
 			select: imageFields,
 		});
@@ -172,13 +179,6 @@ export async function POST(request: Request) {
 		return NextResponse.json(imageRecord, { status: 200 });
 	} catch (error) {
 		console.error("Error uploading image:", error);
-		// Only return error message in debug mode, otherwise sanitize
-		if (debug && error instanceof Error) {
-			// In debug mode, still sanitize to avoid leaking sensitive paths
-			// TODO: Create sanitizeErrorMessage function
-			const sanitizedMessage = error.message.replace(/\/[^\s]+/g, "[path]");
-			return badRequest(sanitizedMessage);
-		}
 		return badRequest("Failed to upload image");
 	}
 }
