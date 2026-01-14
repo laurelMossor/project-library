@@ -67,19 +67,33 @@ export async function updateUserProfile(
 		avatarImageId?: string | null;
 	}
 ) {
+	// Build update data object with only explicitly provided fields
+	// This prevents accidentally overwriting fields with undefined
+	const updateData: {
+		firstName?: string;
+		middleName?: string;
+		lastName?: string;
+		displayName?: string;
+		headline?: string;
+		bio?: string;
+		interests?: string[];
+		location?: string;
+		avatarImageId?: string | null;
+	} = {};
+
+	if (data.firstName !== undefined) updateData.firstName = data.firstName;
+	if (data.middleName !== undefined) updateData.middleName = data.middleName;
+	if (data.lastName !== undefined) updateData.lastName = data.lastName;
+	if (data.displayName !== undefined) updateData.displayName = data.displayName;
+	if (data.headline !== undefined) updateData.headline = data.headline;
+	if (data.bio !== undefined) updateData.bio = data.bio;
+	if (data.interests !== undefined) updateData.interests = data.interests;
+	if (data.location !== undefined) updateData.location = data.location;
+	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
+
 	return prisma.user.update({
 		where: { id: userId },
-		data: {
-			firstName: data.firstName,
-			middleName: data.middleName,
-			lastName: data.lastName,
-			displayName: data.displayName,
-			headline: data.headline,
-			bio: data.bio,
-			interests: data.interests || [],
-			location: data.location,
-			avatarImageId: data.avatarImageId,
-		},
+		data: updateData,
 		select: personalProfileFields,
 	});
 }

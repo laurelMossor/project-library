@@ -27,6 +27,8 @@ export function getSupabaseClient() {
 	}
 
 	// Use service role key for server-side operations (bypasses RLS)
+	// TODO: Ensure RLS policies are enabled on user-owned tables in Supabase
+	// The service role key bypasses RLS, so all authorization must be enforced in application code
 	supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
 		auth: {
 			autoRefreshToken: false,

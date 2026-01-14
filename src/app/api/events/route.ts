@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { createEvent, GetAllEventsOptions, getAllEvents } from "@/lib/utils/server/event";
 import { unauthorized, badRequest } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
+import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -17,15 +18,35 @@ function parseNumber(value: unknown): number | null {
 
 // GET /api/events - list events with optional search/pagination
 export async function GET(request: Request) {
+	// Rate limiting: 60 requests per minute per IP for search endpoints
+	const clientId = getClientIdentifier(request);
+	const rateLimit = checkRateLimit(`search-events:${clientId}`, {
+		maxRequests: 60,
+		windowMs: 60 * 1000, // 1 minute
+	});
+
+	if (!rateLimit.allowed) {
+		return NextResponse.json(
+			{ error: "Too many requests. Please try again later." },
+			{ status: 429 }
+		);
+	}
+
 	const { searchParams } = new URL(request.url);
 	const search = searchParams.get("search") || undefined;
 	const limit = parseNumber(searchParams.get("limit"));
 	const offset = parseNumber(searchParams.get("offset"));
 
+	// Enforce max limit to prevent abuse (max 100 items per request)
+	const MAX_LIMIT = 100;
+	const enforcedLimit = typeof limit === "number" && limit > 0 
+		? Math.min(limit, MAX_LIMIT) 
+		: undefined;
+
 	try {
 		const options: GetAllEventsOptions = {
 			search,
-			limit: typeof limit === "number" && limit > 0 ? limit : undefined,
+			limit: enforcedLimit,
 			offset: typeof offset === "number" && offset >= 0 ? offset : undefined,
 		};
 		const events = await getAllEvents(options);

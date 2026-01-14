@@ -70,15 +70,25 @@ export async function updateOrgProfile(
 		avatarImageId?: string | null;
 	}
 ) {
+	// Build update data object with only explicitly provided fields
+	// This prevents accidentally overwriting fields with undefined
+	const updateData: {
+		headline?: string;
+		bio?: string;
+		interests?: string[];
+		location?: string;
+		avatarImageId?: string | null;
+	} = {};
+
+	if (data.headline !== undefined) updateData.headline = data.headline;
+	if (data.bio !== undefined) updateData.bio = data.bio;
+	if (data.interests !== undefined) updateData.interests = data.interests;
+	if (data.location !== undefined) updateData.location = data.location;
+	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
+
 	return prisma.org.update({
 		where: { id: orgId },
-		data: {
-			headline: data.headline,
-			bio: data.bio,
-			interests: data.interests || [],
-			location: data.location,
-			avatarImageId: data.avatarImageId,
-		},
+		data: updateData,
 		select: publicOrgFields,
 	});
 }

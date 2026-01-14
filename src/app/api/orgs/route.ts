@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 	} catch (error) {
 		console.error("Error creating org:", error);
 		if (error instanceof Error && error.message.includes("already exists")) {
-			return badRequest(error.message);
+			return badRequest("An organization with this slug already exists");
 		}
 		return badRequest("Failed to create organization");
 	}

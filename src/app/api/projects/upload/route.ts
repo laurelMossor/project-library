@@ -7,6 +7,7 @@ import { ImageItem } from "@/lib/types/image";
 import { imageFields } from "@/lib/utils/server/fields";
 import { getActorIdForUser, actorOwnsProject, actorOwnsEvent } from "@/lib/utils/server/actor";
 import { attachImage } from "@/lib/utils/server/image-attachment";
+import { checkRateLimit } from "@/lib/utils/server/rate-limit";
 
 // POST /api/projects/upload - Upload an image for a project or event
 // Protected endpoint (requires authentication)
@@ -26,12 +27,30 @@ export async function POST(request: Request) {
 		return unauthorized();
 	}
 
+	// Rate limiting: 20 uploads per hour per user
+	const rateLimit = checkRateLimit(`upload:${session.user.id}`, {
+		maxRequests: 20,
+		windowMs: 60 * 60 * 1000, // 1 hour
+	});
+
+	if (!rateLimit.allowed) {
+		return NextResponse.json(
+			{ error: "Too many uploads. Please try again later." },
+			{ status: 429 }
+		);
+	}
+
 	try {
 		const formData = await request.formData();
 		const file = formData.get("image") as File | null;
 		const projectId = formData.get("projectId") as string | null;
 		const eventId = formData.get("eventId") as string | null;
 		const altText = formData.get("altText") as string | null;
+		
+		// Validate altText if provided (max 500 chars)
+		if (altText !== null && altText !== undefined && typeof altText === "string" && altText.length > 500) {
+			return badRequest("Alt text must be 500 characters or less");
+		}
 
 		if (!file) {
 			return badRequest("No image file provided");
@@ -91,8 +110,9 @@ export async function POST(request: Request) {
 		}
 
 		// Upload to Supabase storage
-		// Upload directly to the `uploads` bucket root (no folder prefix)
-		const result = await uploadImage(file, "");
+		// Scope uploads by user ID to prevent path traversal and organize files
+		const userFolder = `users/${session.user.id}`;
+		const result = await uploadImage(file, userFolder);
 
 		if (result.error) {
 			if (debug) {
@@ -126,12 +146,13 @@ export async function POST(request: Request) {
 		}
 
 		// Create Image record (no direct projectId/eventId - use ImageAttachment)
+		// Explicitly set fields to prevent mass assignment
 		const createdImage = await prisma.image.create({
 			data: {
 				url: result.imageUrl,
 				path: result.path,
-				altText: altText?.trim() || null,
-				uploadedById: session.user.id,
+				altText: altText && typeof altText === "string" ? altText.trim().slice(0, 500) || null : null,
+				uploadedById: session.user.id, // Derived from auth, not client input
 			},
 			select: imageFields,
 		});
@@ -172,9 +193,6 @@ export async function POST(request: Request) {
 		return NextResponse.json(imageRecord, { status: 200 });
 	} catch (error) {
 		console.error("Error uploading image:", error);
-		if (debug && error instanceof Error) {
-			return badRequest(error.message);
-		}
 		return badRequest("Failed to upload image");
 	}
 }

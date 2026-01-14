@@ -78,7 +78,7 @@ export async function POST(
 	} catch (error) {
 		console.error("Error creating post:", error);
 		if (error instanceof Error && error.message === "Event not found") {
-			return notFound(error.message);
+			return notFound("Event not found");
 		}
 		return serverError("Failed to create post");
 	}

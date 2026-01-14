@@ -95,8 +95,11 @@ export async function PUT(
 		return NextResponse.json(updatedProject);
 	} catch (error) {
 		console.error("Error updating project:", error);
-		const errorMessage = error instanceof Error ? error.message : "Failed to update project";
-		return badRequest(errorMessage);
+		// Sanitize error message to prevent leaking internal details
+		if (error instanceof Error && error.message.includes("not found")) {
+			return notFound("Project not found");
+		}
+		return badRequest("Failed to update project");
 	}
 }
 

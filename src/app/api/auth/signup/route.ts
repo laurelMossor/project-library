@@ -4,8 +4,23 @@ import { ActorType } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
 import { badRequest } from "@/lib/utils/errors";
 import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
+import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 
 export async function POST(request: Request) {
+	// Rate limiting: 5 signups per hour per IP
+	const clientId = getClientIdentifier(request);
+	const rateLimit = checkRateLimit(`signup:${clientId}`, {
+		maxRequests: 5,
+		windowMs: 60 * 60 * 1000, // 1 hour
+	});
+
+	if (!rateLimit.allowed) {
+		return NextResponse.json(
+			{ error: "Too many signup attempts. Please try again later." },
+			{ status: 429 }
+		);
+	}
+
 	const { email, password, username } = await request.json();
 
 	// Basic validation - check all required fields are present

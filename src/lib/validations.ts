@@ -453,3 +453,73 @@ export function validateOrgData(data: OrgCreateData): { valid: boolean; error?: 
 	return { valid: true };
 }
 
+// Org update validation (for updating existing orgs - excludes name and slug which cannot be changed)
+export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData type
+	headline?: string | null;
+	bio?: string | null;
+	interests?: string[];
+	location?: string | null;
+	avatarImageId?: string | null;
+}): { valid: boolean; error?: string } {
+	// Validate headline: optional, max 200 characters
+	if (data.headline !== undefined && data.headline !== null) {
+		if (typeof data.headline !== "string") {
+			return { valid: false, error: "Headline must be a string" };
+		}
+		if (data.headline.length > 200) {
+			return { valid: false, error: "Headline must be 200 characters or less" };
+		}
+	}
+
+	// Validate bio: optional, max 2000 characters
+	if (data.bio !== undefined && data.bio !== null) {
+		if (typeof data.bio !== "string") {
+			return { valid: false, error: "Bio must be a string" };
+		}
+		if (data.bio.length > 2000) {
+			return { valid: false, error: "Bio must be 2000 characters or less" };
+		}
+	}
+
+	// Validate interests: optional array, each interest 1-50 chars, max 10 interests
+	if (data.interests !== undefined && data.interests !== null) {
+		if (!Array.isArray(data.interests)) {
+			return { valid: false, error: "Interests must be an array" };
+		}
+		if (data.interests.length > 10) {
+			return { valid: false, error: "Maximum 10 interests allowed" };
+		}
+		for (const interest of data.interests) {
+			if (typeof interest !== "string") {
+				return { valid: false, error: "Each interest must be a string" };
+			}
+			const trimmedInterest = interest.trim();
+			if (trimmedInterest.length === 0) {
+				return { valid: false, error: "Interests cannot be empty" };
+			}
+			if (trimmedInterest.length > 50) {
+				return { valid: false, error: "Each interest must be 50 characters or less" };
+			}
+		}
+	}
+
+	// Validate location: optional, max 100 characters
+	if (data.location !== undefined && data.location !== null) {
+		if (typeof data.location !== "string") {
+			return { valid: false, error: "Location must be a string" };
+		}
+		if (data.location.length > 100) {
+			return { valid: false, error: "Location must be 100 characters or less" };
+		}
+	}
+
+	// avatarImageId validation - just check it's a string if provided
+	if (data.avatarImageId !== undefined && data.avatarImageId !== null) {
+		if (typeof data.avatarImageId !== "string") {
+			return { valid: false, error: "Avatar image ID must be a string" };
+		}
+	}
+
+	return { valid: true };
+}
+
