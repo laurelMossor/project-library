@@ -1,265 +1,236 @@
-# Cursor Agent — Security Review Directions (MVP)
+# Cursor Agent — SECURITY FIX PASS (MVP)
 
-## Purpose
+## Mode
 
-Perform a **security-minded codebase review** appropriate for an MVP built with:
-- Next.js (App Router)
-- React
-- Prisma
-- Supabase
-- Vercel
+You are in **fix-first mode**, not documentation mode.
 
-The goal is **not perfection**, but to verify that the codebase demonstrates:
-- Clear trust boundaries
-- Consistent authorization
-- Sensible defaults
-- Awareness of common security failure modes
+Your job is to:
+- **Inspect the code**
+- **Modify the code**
+- **Add missing guards**
+- **Tighten unsafe defaults**
 
-When issues are found:
-- Prefer **low-complexity, high-impact fixes**
-- Call out **intentional gaps** vs **accidental vulnerabilities**
-- Avoid over-engineering recommendations
+❌ Do NOT write new markdown files  
+❌ Do NOT create long explanations  
+❌ Do NOT propose hypothetical systems  
+
+✅ Make small, concrete code changes  
+✅ Prefer edits over refactors  
+✅ Leave TODO comments only when unavoidable  
 
 ---
 
-## Review Order (Follow This Sequence)
+## Hard Constraints
 
-1. Authentication & authorization
-2. Server mutations (API routes / server actions)
-3. Database access & Prisma usage
-4. Input validation & mass assignment
-5. Supabase configuration (Auth, RLS, Storage)
-6. File uploads
-7. Data exposure & serialization
-8. XSS & content rendering
-9. Secrets & environment variables
-10. Rate limiting & abuse controls
-11. Logging & error handling
-12. Dependencies & supply chain
+- Assume this is an **MVP** — fixes must be lightweight
+- Do not introduce new infrastructure unless absolutely required
+- Do not redesign auth or data models
+- Do not add abstractions unless they reduce repeated unsafe patterns
+
+If a fix would take more than ~10–15 minutes of engineering time, **leave a TODO and move on**.
 
 ---
 
-## 1. Authentication & Authorization
+## STEP 1 — Lock Down All Mutations (DO THIS FIRST)
 
-### Verify:
-- User identity is **derived server-side**, never trusted from client input
-- No mutation accepts `userId`, `ownerId`, or `orgId` from the client without verification
-- Authorization logic exists beyond “user is logged in”
+### Action
+1. Find **every database write**:
+   - `prisma.*create`
+   - `prisma.*update`
+   - `prisma.*upsert`
+   - `prisma.*delete`
 
-### Look for:
-- Centralized helpers such as:
-  - `requireUser()`
-  - `requireOrgRole()`
-  - `canEditProject(user, project)`
-- Consistent use of these helpers before **every** write operation
+2. For each write:
+   - Ensure a server-side auth check exists
+   - Ensure ownership / role is enforced
+   - Ensure input is validated
 
-### Flag as issues:
-- Auth checks duplicated inconsistently
-- Mutations guarded only by `if (!session)` without ownership checks
+### Required Fixes
+- If a mutation accepts `userId`, `ownerId`, or `orgId` from the client:
+  - ❌ REMOVE it
+  - ✅ Derive identity from auth context
+- If a mutation lacks authorization:
+  - Add a guard inline (do not invent a new system)
 
----
-
-## 2. Server Actions & API Routes
-
-### Verify:
-- All mutations:
-  - Require authentication
-  - Perform authorization checks
-  - Validate input before DB writes
-- Public endpoints are **intentionally public**
-
-### Look for:
-- Server Actions exported into client components
-- Route handlers that mutate state without guards
-
-### Flag as issues:
-- “Hidden” mutations that are callable without auth
-- Overly permissive GET endpoints returning sensitive data
+### Stop Condition
+- No database write can be reached by an unauthenticated or unauthorized user
 
 ---
 
-## 3. Prisma & Database Access
+## STEP 2 — Enforce Input Validation at Write Boundaries
 
-### Verify:
-- No raw client input is passed directly into Prisma calls
-- `select` is preferred over returning full models
-- Update operations use explicit field allowlists
+### Action
+1. For each mutation:
+   - Locate the input source (form, action, route handler)
+   - Add or enforce Zod validation **before** DB access
 
-### Look for:
-- Centralized `select` objects (e.g. `publicUserSelect`)
-- Explicit `where` clauses enforcing ownership
+### Required Fixes
+- Replace `prisma.model.create({ data: req.body })`
+- Use explicit allowlists:
+  ```ts
+  const data = schema.parse(input)
+Use .strict() where appropriate
 
-### Flag as issues:
-- Mass assignment via `data: req.body`
-- Returning internal or sensitive fields by default
+Stop Condition
+No raw request body is written to the database
 
----
+STEP 3 — Remove Mass Assignment & Over-Fetching
+Action
+Replace broad Prisma writes and reads:
 
-## 4. Input Validation & Trust Boundaries
+data: input
 
-### Verify:
-- All external input is validated using Zod (or equivalent)
-- Validation occurs **before** database writes
-- `.strict()` schemas are used where appropriate
+include: { ... }
 
-### Look for:
-- `safeParse` usage
-- Schemas colocated with routes or actions
+Introduce explicit select objects where needed
 
-### Flag as issues:
-- Missing validation on update routes
-- Reusing client-side schemas without server enforcement
+Required Fixes
+Update operations must explicitly list writable fields
 
----
+Public responses must not return internal or sensitive fields
 
-## 5. Supabase (Auth, RLS, Storage)
+Stop Condition
+No endpoint returns full User / Org / Membership objects by default
 
-### Verify:
-- Row Level Security (RLS) is enabled for user/org-owned tables
-- Policies reflect ownership or membership, not blanket access
-- Supabase service role key is never exposed to the client
+STEP 4 — Lock Down Server Actions & API Routes
+Action
+Find all:
 
-### Look for:
-- Clear separation between app-layer authz and DB-layer RLS
-- Intentional documentation of RLS usage
+Route handlers
 
-### Flag as issues:
-- Tables with RLS disabled unintentionally
-- Policies using `using (true)` or equivalent
+Server Actions
 
----
+RPC-like functions callable from client code
 
-## 6. File Uploads & Storage
+For each mutation:
 
-### Verify:
-- File size limits are enforced
-- MIME types are allowlisted (e.g. jpeg/png/webp)
-- Upload paths are scoped by user or org
-- Buckets are not publicly writable
+Add requireUser() or equivalent
 
-### Look for:
-- Rejection of SVG and executable formats
-- Metadata stored in DB, files stored in object storage
+Add ownership checks
 
-### Flag as issues:
-- Open upload endpoints
-- Public write access to storage buckets
+Required Fixes
+Mutations must fail fast if user is not authenticated
 
----
+Public routes must be intentionally public
 
-## 7. Data Exposure & Serialization
+Stop Condition
+No mutation can be called anonymously
 
-### Verify:
-- APIs return only fields needed by the client
-- Internal IDs, roles, and emails are not leaked unnecessarily
+STEP 5 — Tighten Supabase Usage (If Present)
+Action
+Inspect Supabase Auth usage
 
-### Look for:
-- DTOs or select objects
-- Explicit serialization boundaries
+Inspect RLS policies and storage buckets
 
-### Flag as issues:
-- Returning full User / Org models to the client
-- Leaking admin or role information unintentionally
+Required Fixes
+Ensure RLS is enabled on user-owned tables
 
----
+Ensure storage buckets are not publicly writable
 
-## 8. XSS & Content Rendering
+Ensure service role keys are never used client-side
 
-### Verify:
-- User-generated content is treated as plain text OR sanitized
-- `dangerouslySetInnerHTML` is avoided or justified
+If Fix Is Non-Trivial
+Add a TODO comment at the call site
 
-### Look for:
-- Markdown rendering pipelines
-- Sanitization libraries where HTML is allowed
+Do NOT write documentation
 
-### Flag as issues:
-- Rendering raw HTML from user input
-- Unsanitized markdown rendering
+STEP 6 — Harden File Uploads (If Any)
+Action
+Locate upload endpoints or actions
 
----
+Enforce constraints
 
-## 9. Secrets & Environment Variables
+Required Fixes
+Add file size limits
 
-### Verify:
-- Secrets are never prefixed with `NEXT_PUBLIC_`
-- Env vars are validated at runtime (e.g. Zod `env.ts`)
-- No secrets are logged or returned in errors
+Add MIME allowlist:
 
-### Look for:
-- Clear separation of server vs client env vars
-- Distinct dev/staging/prod configuration
+jpeg
 
-### Flag as issues:
-- Hardcoded secrets
-- Logging env values
+png
 
----
+webp
 
-## 10. Rate Limiting & Abuse Controls
+Reject SVG and unknown types
 
-### Verify:
-- Public or expensive endpoints have basic rate limiting
-- Upload, auth, and search routes are protected
+Scope file paths by user or org
 
-### Look for:
-- IP-based or user-based throttling
-- Pagination limits
+Stop Condition
+Uploads cannot accept arbitrary files or sizes
 
-### Flag as issues:
-- Unbounded queries
-- No protection on signup or upload flows
+STEP 7 — Prevent XSS by Default
+Action
+Search for:
 
----
+dangerouslySetInnerHTML
 
-## 11. Logging & Error Handling
+Markdown renderers
 
-### Verify:
-- Errors returned to clients are sanitized
-- Stack traces are not exposed in production
-- Logs avoid PII and credentials
+Required Fixes
+Remove or gate unsafe rendering
 
-### Look for:
-- Centralized error handling
-- Structured logging
+Treat user content as plain text unless sanitized
 
-### Flag as issues:
-- Returning raw Prisma or stack errors to the client
+Stop Condition
+No raw HTML from user input is rendered
 
----
+STEP 8 — Sanitize Errors & Logs
+Action
+Find error responses returned to the client
 
-## 12. Dependencies & Supply Chain
+Find logging statements
 
-### Verify:
-- Lockfile is present and committed
-- Known vulnerabilities are addressed
-- Dependency updates are tracked
+Required Fixes
+Do not return stack traces or Prisma errors to the client
 
-### Look for:
-- Dependabot or equivalent tooling
-- Minimal dependency surface area
+Avoid logging tokens, cookies, or request bodies
 
-### Flag as issues:
-- Abandoned or high-risk packages
-- Ignored audit warnings
+Stop Condition
+Client-facing errors are generic and safe
 
----
+STEP 9 — Environment & Secrets Check
+Action
+Scan env usage
 
-## Output Expectations
+Required Fixes
+Remove any secrets prefixed with NEXT_PUBLIC_
 
-For each finding:
-- Classify as one of:
-  - 🔴 Vulnerability
-  - 🟡 Risk / MVP tradeoff
-  - 🟢 Good practice already in place
-- Provide:
-  - Short explanation
-  - Recommended fix (MVP-appropriate)
-  - Whether it should block launch or not
+Ensure server-only env vars are never exposed
 
-Avoid:
-- Enterprise-only recommendations
-- “Rewrite the auth system” suggestions
-- Overly theoretical security commentary
+Stop Condition
+No secrets are reachable from client bundles
 
-Focus on **practical, incremental improvement**.
+STEP 10 — Add Minimal Abuse Protection (Optional but Preferred)
+Action
+Identify:
+
+Auth routes
+
+Upload routes
+
+Search endpoints
+
+Required Fixes (If Easy)
+Add basic rate limiting
+
+Add pagination limits
+
+If Not Easy
+Leave a TODO and move on
+
+Output Rules
+Make direct code edits
+
+Leave inline TODO comments only when blocked
+
+Do not summarize the entire review
+
+Do not generate new documents
+
+Do not explain security theory
+
+Your success condition is measurable:
+
+A casual attacker cannot mutate or exfiltrate data by calling endpoints directly.
+
+Proceed immediately.
