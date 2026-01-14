@@ -172,8 +172,12 @@ export async function POST(request: Request) {
 		return NextResponse.json(imageRecord, { status: 200 });
 	} catch (error) {
 		console.error("Error uploading image:", error);
+		// Only return error message in debug mode, otherwise sanitize
 		if (debug && error instanceof Error) {
-			return badRequest(error.message);
+			// In debug mode, still sanitize to avoid leaking sensitive paths
+			// TODO: Create sanitizeErrorMessage function
+			const sanitizedMessage = error.message.replace(/\/[^\s]+/g, "[path]");
+			return badRequest(sanitizedMessage);
 		}
 		return badRequest("Failed to upload image");
 	}

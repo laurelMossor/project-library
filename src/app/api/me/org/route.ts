@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getOrgById, updateOrgProfile, getUserOrgRole } from "@/lib/utils/server/org";
 import { unauthorized, badRequest } from "@/lib/utils/errors";
+import { validateOrgUpdateData } from "@/lib/validations";
 
 /**
  * GET /api/me/org
@@ -52,6 +53,18 @@ export async function PUT(request: Request) {
 
 	const data = await request.json();
 	const { headline, bio, interests, location, avatarImageId } = data;
+
+	// Validate org update data
+	const validation = validateOrgUpdateData({
+		headline,
+		bio,
+		interests,
+		location,
+		avatarImageId,
+	});
+	if (!validation.valid) {
+		return badRequest(validation.error || "Invalid org data");
+	}
 
 	try {
 		const org = await updateOrgProfile(orgId, {
