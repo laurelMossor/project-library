@@ -31,6 +31,6 @@ next-env.d.ts
 public/uploads/
 
 /src/generated/prisma
-
 .env.development
 .env.production
+.env.local

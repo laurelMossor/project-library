@@ -4,6 +4,7 @@ import { deleteEvent, getEventById, updateEvent } from "@/lib/utils/server/event
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateEventUpdateData } from "@/lib/validations";
 import type { EventUpdateInput } from "@/lib/types/event";
+import { getActorIdForUser, actorOwnsEvent } from "@/lib/utils/server/actor";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -52,7 +53,9 @@ export async function PUT(
 		return notFound("Event not found");
 	}
 
-	if (event.owner.id !== session.user.id) {
+	// Check ownership via Actor
+	const actorId = await getActorIdForUser(session.user.id);
+	if (!actorId || !(await actorOwnsEvent(actorId, id))) {
 		return unauthorized("Only the owner can update this event");
 	}
 
@@ -160,7 +163,9 @@ export async function DELETE(
 		return notFound("Event not found");
 	}
 
-	if (event.owner.id !== session.user.id) {
+	// Check ownership via Actor
+	const actorId = await getActorIdForUser(session.user.id);
+	if (!actorId || !(await actorOwnsEvent(actorId, id))) {
 		return unauthorized("Only the owner can delete this event");
 	}
 

@@ -1,4 +1,4 @@
-import { PublicUser } from "./user";
+import type { ActorOwner } from "../utils/owner";
 
 /**
  * Base interface for all collection items (projects, events, etc.)
@@ -13,14 +13,16 @@ import { PublicUser } from "./user";
  * - getCollectionItemDate(item): Returns the display date (dateTime for events, createdAt for projects)
  * - getCollectionItemUrl(item): Returns the detail page URL
  * - getCollectionItemType(item): Returns the type discriminator
+ * 
+ * Note: In v2, owner is an Actor (can be User or Org), not directly a PublicUser
  */
 export interface BaseCollectionItem {
 	id: string;
 	title: string;
 	description: string;
 	tags: string[];
-	owner: PublicUser;
+	owner: ActorOwner; // Actor with user/org in v2
 	createdAt: Date;
-	type: string; // Discriminator field - must be set by implementing types (e.g., "project", "event")
+	type: string; // Discriminator field - must be set by implementing types (e.g., "project", "event") Is this still needed?
 }
 

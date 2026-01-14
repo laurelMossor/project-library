@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getMessages } from "@/lib/utils/server/message";
 import { unauthorized, badRequest, notFound } from "@/lib/utils/errors";
 import { prisma } from "@/lib/utils/server/prisma";
+import { getUserDisplayName } from "@/lib/types/user";
 
 // GET /api/messages/[userId] - Get all messages between current user and specified user
 // Protected endpoint (requires authentication)
@@ -36,19 +37,29 @@ export async function GET(
 		// The frontend can still display the conversation page
 		if (messages.length === 0) {
 			// Fetch other user info to include in response
-			const otherUser = await prisma.user.findUnique({
+			const otherUserData = await prisma.user.findUnique({
 				where: { id: userId },
 				select: {
 					id: true,
 					username: true,
-					name: true,
+					displayName: true,
+					firstName: true,
+					middleName: true,
+					lastName: true,
 				},
 			});
 			
-			if (otherUser) {
+			if (otherUserData) {
+				// Compute display name using utility function (firstName + lastName, fallback to username)
+				const displayName = getUserDisplayName(otherUserData);
+				
 				return NextResponse.json({
 					messages: [],
-					otherUser,
+					otherUser: {
+						id: otherUserData.id,
+						username: otherUserData.username,
+						displayName,
+					},
 				});
 			}
 		}

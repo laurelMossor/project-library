@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PublicUser } from "@/lib/types/user";
 import { Button } from "@/lib/components/ui/Button";
-import { API_PROFILE, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 
 type EditableProfileProps = {
 	user: PublicUser;
@@ -16,7 +16,9 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
-	const [name, setName] = useState(initialUser.name || "");
+	const [firstName, setFirstName] = useState(initialUser.firstName || "");
+	const [middleName, setMiddleName] = useState(initialUser.middleName || "");
+	const [lastName, setLastName] = useState(initialUser.lastName || "");
 	const [headline, setHeadline] = useState(initialUser.headline || "");
 	const [bio, setBio] = useState(initialUser.bio || "");
 	const [interests, setInterests] = useState(initialUser.interests?.join(", ") || "");
@@ -26,11 +28,13 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 		setSaving(true);
 		setError("");
 
-		const res = await fetch(API_PROFILE, {
+		const res = await fetch(API_ME_USER, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				name,
+				firstName,
+				middleName,
+				lastName,
 				headline,
 				bio,
 				interests: interests.split(",").map((s) => s.trim()).filter(Boolean),
@@ -55,7 +59,9 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 	};
 
 	const handleCancel = () => {
-		setName(initialUser.name || "");
+		setFirstName(initialUser.firstName || "");
+		setMiddleName(initialUser.middleName || "");
+		setLastName(initialUser.lastName || "");
 		setHeadline(initialUser.headline || "");
 		setBio(initialUser.bio || "");
 		setInterests(initialUser.interests?.join(", ") || "");
@@ -70,11 +76,31 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 				{error && <p className="text-red-500 text-sm">{error}</p>}
 
 				<div>
-					<label className="block text-sm font-medium mb-1 text-gray-500">Name</label>
+					<label className="block text-sm font-medium mb-1 text-gray-500">First Name</label>
 					<input
 						type="text"
-						value={name}
-						onChange={(e) => setName(e.target.value)}
+						value={firstName}
+						onChange={(e) => setFirstName(e.target.value)}
+						className="w-full border p-2 rounded"
+					/>
+				</div>
+
+				<div>
+					<label className="block text-sm font-medium mb-1 text-gray-500">Middle Name (optional)</label>
+					<input
+						type="text"
+						value={middleName}
+						onChange={(e) => setMiddleName(e.target.value)}
+						className="w-full border p-2 rounded"
+					/>
+				</div>
+
+				<div>
+					<label className="block text-sm font-medium mb-1 text-gray-500">Last Name</label>
+					<input
+						type="text"
+						value={lastName}
+						onChange={(e) => setLastName(e.target.value)}
 						className="w-full border p-2 rounded"
 					/>
 				</div>
@@ -147,11 +173,15 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 		);
 	}
 
+	const displayName = [initialUser.firstName, initialUser.middleName, initialUser.lastName]
+		.filter(Boolean)
+		.join(' ') || initialUser.username;
+
 	return (
 		<div className="space-y-4">
 			<div>
 				<span className="text-sm text-gray-500">Name:</span>
-				<p>{initialUser.name || "Not set"}</p>
+				<p>{displayName}</p>
 			</div>
 			<div>
 				<span className="text-sm text-gray-500">Username:</span>

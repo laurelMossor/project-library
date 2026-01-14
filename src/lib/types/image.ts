@@ -1,17 +1,33 @@
 /**
- * Image type - matches Prisma schema
+ * Image type - matches Prisma schema v2
  * Represents an image stored in Supabase Storage with metadata
+ * Note: Images are attached via ImageAttachment, not direct foreign keys
  */
 export interface ImageItem {
 	id: string;
 	url: string; // Full Supabase public URL
 	path: string; // Storage path (e.g., "1735123456789-abc1234.jpg")
 	altText: string | null; // Optional alt text for accessibility
-	projectId: string | null; // Foreign key to Project (if image belongs to a project)
-	eventId: string | null; // Foreign key to Event (if image belongs to an event)
 	uploadedById: string; // Who uploaded the image
 	createdAt: Date;
+	// Note: projectId/eventId removed - use ImageAttachment instead
 }
+
+/**
+ * ImageAttachment type - matches Prisma schema v2
+ * Represents the polymorphic attachment of images to targets
+ */
+export interface ImageAttachmentItem {
+	id: string;
+	imageId: string;
+	type: "PROJECT" | "EVENT" | "POST";
+	targetId: string; // ID of the target (project, event, or post)
+	sortOrder: number;
+	createdAt: Date;
+	image?: ImageItem; // Optional, included when loading with image relation
+}
+
+export type AttachmentType = "PROJECT" | "EVENT" | "POST";
 
 /**
  * Image data for creating a new image

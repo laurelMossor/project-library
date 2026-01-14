@@ -3,22 +3,37 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let supabaseClient: ReturnType<typeof createClient> | null = null;
 
-if (!supabaseUrl) {
-	throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set. Please check your environment variables.");
+/**
+ * Get Supabase client (lazy-loaded)
+ * Throws error only when actually used, not at module load time
+ * This allows the app to start without Supabase configured for local development
+ */
+export function getSupabaseClient() {
+	if (supabaseClient) {
+		return supabaseClient;
+	}
+
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+	if (!supabaseUrl) {
+		throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set. Please check your environment variables.");
+	}
+
+	if (!supabaseServiceKey) {
+		throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set. Please check your environment variables.");
+	}
+
+	// Use service role key for server-side operations (bypasses RLS)
+	supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+		auth: {
+			autoRefreshToken: false,
+			persistSession: false,
+		},
+	});
+
+	return supabaseClient;
 }
-
-if (!supabaseServiceKey) {
-	throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set. Please check your environment variables.");
-}
-
-// Use service role key for server-side operations (bypasses RLS)
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-	auth: {
-		autoRefreshToken: false,
-		persistSession: false,
-	},
-});
 

@@ -5,6 +5,8 @@ import { prisma } from "./prisma";
 import { ProjectData, ProjectItem, ProjectUpdateInput } from "../../types/project";
 import { projectWithOwnerFields } from "./fields";
 import { deleteImage } from "./storage";
+import { getActorIdForUser } from "./actor";
+import { getImagesForTarget, detachAllImagesForTarget } from "./image-attachment";
 
 // Fetch a project by ID with owner information
 export async function getProjectById(id: string): Promise<ProjectItem | null> {
@@ -13,7 +15,12 @@ export async function getProjectById(id: string): Promise<ProjectItem | null> {
 		select: projectWithOwnerFields,
 	});
 	if (!project) return null;
-	return project as ProjectItem;
+	
+	// Load images via ImageAttachment
+	const images = await getImagesForTarget("PROJECT", id);
+	
+	// Add type field and images for TypeScript discrimination
+	return { ...project, type: "project" as const, images } as ProjectItem;
 }
 
 // Fetch all projects with optional basic text search
@@ -33,33 +40,68 @@ export async function getAllProjects(search?: string): Promise<ProjectItem[]> {
 		select: projectWithOwnerFields,
 		orderBy: { createdAt: "desc" }, // Most recent first
 	});
-	return projects as ProjectItem[];
+	
+	// Load images for all projects
+	const projectsWithImages = await Promise.all(
+		projects.map(async (p) => {
+			const images = await getImagesForTarget("PROJECT", p.id);
+			return { ...p, type: "project" as const, images };
+		})
+	);
+	
+	return projectsWithImages as ProjectItem[];
 }
 
-// Fetch all projects by a specific user
+// Fetch all projects by a specific user (via their actor)
 export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> {
+	const actorId = await getActorIdForUser(userId);
+	if (!actorId) return [];
+	return getProjectsByActor(actorId);
+}
+
+// Fetch all projects by a specific actor (works for both users and orgs)
+export async function getProjectsByActor(actorId: string): Promise<ProjectItem[]> {
 	const projects = await prisma.project.findMany({
-		where: { ownerId: userId },
+		where: { ownerActorId: actorId },
 		select: projectWithOwnerFields,
 		orderBy: { createdAt: "desc" },
 	});
-	return projects as ProjectItem[];
+	
+	// Load images for all projects
+	const projectsWithImages = await Promise.all(
+		projects.map(async (p) => {
+			const images = await getImagesForTarget("PROJECT", p.id);
+			return { ...p, type: "project" as const, images };
+		})
+	);
+	
+	return projectsWithImages as ProjectItem[];
 }
 
-// Create a new project for a user
+// Create a new project for a user (via their actor)
 // Tags are optional - if not provided or empty, defaults appropriately
-// Images should be uploaded separately and linked to the project
+// Images should be uploaded separately and linked to the project via ImageAttachment
 export async function createProject(ownerId: string, data: ProjectData): Promise<ProjectItem> {
+	const actorId = await getActorIdForUser(ownerId);
+	if (!actorId) {
+		throw new Error("User not found or has no actor");
+	}
+	
 	const project = await prisma.project.create({
 		data: {
 			title: data.title,
 			description: data.description,
 			tags: data.tags || [],
-			ownerId,
+			ownerActorId: actorId,
 		},
 		select: projectWithOwnerFields,
 	});
-	return project as ProjectItem;
+	
+	// Load images via ImageAttachment
+	const images = await getImagesForTarget("PROJECT", project.id);
+	
+	// Add type field and images for TypeScript discrimination
+	return { ...project, type: "project" as const, images } as ProjectItem;
 }
 
 // Update an existing project
@@ -91,7 +133,8 @@ export async function updateProject(id: string, data: ProjectUpdateInput): Promi
 			data: updateData,
 			select: projectWithOwnerFields,
 		});
-		return project as ProjectItem;
+		// Add type field for TypeScript discrimination
+		return { ...project, type: "project" as const } as ProjectItem;
 	} catch (error) {
 		if (error instanceof Error) {
 			// Check if it's a Prisma "Record not found" error
@@ -106,30 +149,34 @@ export async function updateProject(id: string, data: ProjectUpdateInput): Promi
 
 // Delete a project
 export async function deleteProject(id: string): Promise<void> {
-	// Fetch project with images before deleting to get image URLs
+	// Fetch project to verify it exists
 	const project = await prisma.project.findUnique({
 		where: { id },
-		select: projectWithOwnerFields,
+		select: { id: true },
 	});
 
 	if (!project) {
 		throw new Error("Project not found");
 	}
 
+	// Get all images attached to this project
+	const images = await getImagesForTarget("PROJECT", id);
+
 	// Delete all associated images from storage bucket
-	if (project.images && project.images.length > 0) {
-		for (const image of project.images) {
-			if (image.url) {
-				const result = await deleteImage(image.url);
-				if (!result.success) {
-					console.error(`Failed to delete image ${image.id} from storage:`, result.error);
-					// Continue deleting other images even if one fails
-				}
+	for (const image of images) {
+		if (image.url) {
+			const result = await deleteImage(image.url);
+			if (!result.success) {
+				console.error(`Failed to delete image ${image.id} from storage:`, result.error);
+				// Continue deleting other images even if one fails
 			}
 		}
 	}
 
-	// Delete the project (cascade will delete image records from database)
+	// Delete all image attachments (cascade will handle image deletion if needed)
+	await detachAllImagesForTarget("PROJECT", id);
+
+	// Delete the project (cascade will delete posts)
 	await prisma.project.delete({
 		where: { id },
 	});

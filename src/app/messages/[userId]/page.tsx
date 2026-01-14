@@ -17,19 +17,25 @@ interface Message {
 	sender: {
 		id: string;
 		username: string;
-		name: string | null;
+		firstName: string | null;
+		middleName: string | null;
+		lastName: string | null;
 	};
 	receiver: {
 		id: string;
 		username: string;
-		name: string | null;
+		firstName: string | null;
+		middleName: string | null;
+		lastName: string | null;
 	};
 }
 
 interface OtherUser {
 	id: string;
 	username: string;
-	name: string | null;
+	firstName: string | null;
+	middleName: string | null;
+	lastName: string | null;
 }
 
 // Helper function to format timestamp
@@ -242,7 +248,9 @@ export default function ConversationPage() {
 						</Link>
 						{otherUser && (
 							<h1 className="text-2xl font-bold">
-								Conversation with {otherUser.name || otherUser.username}
+								Conversation with {[otherUser.firstName, otherUser.middleName, otherUser.lastName]
+									.filter(Boolean)
+									.join(' ') || otherUser.username}
 							</h1>
 						)}
 					</div>

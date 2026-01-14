@@ -31,10 +31,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 					if (!passwordMatch) return null;
 
 					// Return user object (excluding password) for session
+					// Note: name field removed in v2, use firstName/lastName if needed
 					return {
 						id: user.id,
 						email: user.email,
-						name: user.name,
+						// name field removed - use firstName/lastName from user profile if needed
 					};
 				} catch (error) {
 					console.error("Authorization error:", error);
@@ -47,11 +48,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 		signIn: LOGIN,
 	},
 	callbacks: {
-		// Include user.id in the session so we can use it in server components
+		// Include user.id and activeOrgId in the session so we can use it in server components
 		async session({ session, token }) {
 			try {
 				if (token?.sub) {
 					session.user.id = token.sub;
+				}
+				// Include activeOrgId from token if present
+				if (token?.activeOrgId) {
+					session.user.activeOrgId = token.activeOrgId;
 				}
 				return session;
 			} catch (error) {
@@ -59,9 +64,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 				return session;
 			}
 		},
-		async jwt({ token, user }) {
+		async jwt({ token, user, trigger, session: sessionData }) {
+			// On sign in, set user id
 			if (user) {
-				token.sub = user.id;
+				token.sub = user.id as string;
+				// Clear activeOrgId on new sign in
+				token.activeOrgId = undefined;
+			}
+			// Allow updating activeOrgId via session update (from API routes)
+			if (trigger === "update" && sessionData?.activeOrgId !== undefined) {
+				token.activeOrgId = sessionData.activeOrgId;
 			}
 			return token;
 		},

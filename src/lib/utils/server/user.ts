@@ -6,24 +6,34 @@ import { prisma } from "./prisma";
 // Standard fields to select when fetching a user profile
 const personalProfileFields = {
 	id: true,
+	actorId: true,
 	username: true,
 	email: true,
-	name: true,
+	firstName: true,
+	middleName: true,
+	lastName: true,
+	displayName: true,
 	headline: true,
 	bio: true,
 	interests: true,
 	location: true,
+	avatarImageId: true,
 } as const;
 
 // Public fields (excludes sensitive data like email, but includes ID for messaging)
 export const publicUserFields = {
 	id: true,
+	actorId: true,
 	username: true,
-	name: true,
+	firstName: true,
+	middleName: true,
+	lastName: true,
+	displayName: true,
 	headline: true,
 	bio: true,
 	interests: true,
 	location: true,
+	avatarImageId: true,
 } as const;
 
 // Fetch a user by ID (for authenticated user's own profile)
@@ -46,22 +56,44 @@ export async function getUserByUsername(username: string) {
 export async function updateUserProfile(
 	userId: string,
 	data: {
-		name?: string;
+		firstName?: string;
+		middleName?: string;
+		lastName?: string;
+		displayName?: string;
 		headline?: string;
 		bio?: string;
 		interests?: string[];
 		location?: string;
+		avatarImageId?: string | null;
 	}
 ) {
 	return prisma.user.update({
 		where: { id: userId },
 		data: {
-			name: data.name,
+			firstName: data.firstName,
+			middleName: data.middleName,
+			lastName: data.lastName,
+			displayName: data.displayName,
 			headline: data.headline,
 			bio: data.bio,
 			interests: data.interests || [],
 			location: data.location,
+			avatarImageId: data.avatarImageId,
 		},
 		select: personalProfileFields,
+	});
+}
+
+// Get actor for a user
+export async function getActorForUser(userId: string) {
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { actorId: true },
+	});
+	if (!user) return null;
+	
+	return prisma.actor.findUnique({
+		where: { id: user.actorId },
+		include: { user: true },
 	});
 }

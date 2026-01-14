@@ -11,10 +11,21 @@ export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUr
 // ============================================================================
 // User & Profile Routes
 // ============================================================================
-export const PRIVATE_USER_PAGE = "/profile";
-export const PROFILE_EDIT = "/profile/edit";
+export const PRIVATE_USER_PAGE = "/u/profile";
+export const USER_PROFILE_SETTINGS = "/u/profile/settings";
+export const USER_PROFILE_EDIT = "/u/profile/edit";
 export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
-export const USER_COLLECTIONS = (username: string) => `/u/${username}/collections`;
+// USER_COLLECTIONS removed - collections are shown inline on public profile
+
+// ============================================================================
+// Org & Profile Routes
+// ============================================================================
+export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
+export const PRIVATE_ORG_PAGE = "/o/profile";
+export const ORG_PROFILE_SETTINGS = "/o/profile/settings";
+export const ORG_PROFILE_EDIT = "/o/profile/edit";
+export const ORG_NEW = "/orgs/new";
+// ORG_COLLECTIONS removed - collections are shown inline on public profile
 
 // ============================================================================
 // Collections Routes
@@ -28,8 +39,10 @@ export const PROJECTS = "/projects";
 export const PROJECT_NEW = "/projects/new";
 export const PROJECT_DETAIL = (id: string) => `/projects/${id}`;
 export const PROJECT_EDIT = (id: string) => `/projects/${id}/edit`;
-export const PROJECT_ENTRIES = (id: string) => `/projects/${id}/entries`;
-export const PROJECT_ENTRY_NEW = (id: string) => `/projects/${id}/entries/new`;
+export const PROJECT_ENTRIES = (id: string) => `/projects/${id}/entries`; // Deprecated - use PROJECT_POSTS
+export const PROJECT_ENTRY_NEW = (id: string) => `/projects/${id}/entries/new`; // Deprecated - use PROJECT_POST_NEW
+export const PROJECT_POSTS = (id: string) => `/projects/${id}/posts`;
+export const PROJECT_POST_NEW = (id: string) => `/projects/${id}/posts/new`;
 
 // ============================================================================
 // Event Routes
@@ -50,13 +63,36 @@ export const MESSAGE_CONVERSATION = (userId: string) => `/messages/${userId}`;
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
-export const API_PROFILE = "/api/profile";
+
+// Current User Context API Routes (all under /api/me/)
+export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
+export const API_ME_ORG = "/api/me/org"; // GET/PUT current active org profile
+export const API_ME_ORGS = "/api/me/orgs"; // GET user's orgs
+export const API_ME_ACTOR = "/api/me/actor"; // GET current actor, PUT to switch actor
+
+// Public User API Routes
+export const API_USER_PROJECTS = (username: string) => `/api/users/${username}/projects`;
+export const API_USER_EVENTS = (username: string) => `/api/users/${username}/events`;
+
+// Legacy API Routes (deprecated - use new routes above)
+export const API_PROFILE = "/api/profile"; // Deprecated - use API_ME_USER
+
+// Project API Routes
 export const API_PROJECTS = "/api/projects";
 export const API_PROJECT_UPLOAD = "/api/projects/upload";
 export const API_PROJECT = (id: string) => `/api/projects/${id}`;
 export const API_PROJECT_ENTRIES = (id: string) => `/api/projects/${id}/entries`;
+export const API_PROJECT_POSTS = (id: string) => `/api/projects/${id}/posts`;
+
+// Event API Routes
 export const API_EVENTS = "/api/events";
 export const API_EVENT = (id: string) => `/api/events/${id}`;
+export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
+
+// Org API Routes
+export const API_ORGS = "/api/orgs";
+
+// Message API Routes
 export const API_MESSAGES = "/api/messages";
 export const API_MESSAGE = (userId: string) => `/api/messages/${userId}`;
 

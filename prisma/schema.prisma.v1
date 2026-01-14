@@ -1,0 +1,128 @@
+// Prisma schema for Project Library
+// Defines the database models and their relationships
+
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User model for authentication and profiles (Milestone A & B)
+model User {
+	id             String    @id @default(cuid())
+	email          String    @unique
+	passwordHash   String    // bcrypt hashed password
+	username       String    @unique
+	name           String?
+	headline       String?
+	bio            String?
+	interests      String[]  @default([]) // array of interest tags, optional
+	location       String?
+	createdAt      DateTime  @default(now())
+	updatedAt      DateTime  @updatedAt
+
+	projects       Project[] // projects owned by this user
+	events         Event[]   // events created by this user
+	sentMessages   Message[] @relation("SentMessages") // messages sent by this user
+	receivedMessages Message[] @relation("ReceivedMessages") // messages received by this user
+	images         Image[]   // images uploaded by this user
+
+	@@map("users")
+}
+
+// Project model for user-created projects (Milestone C)
+// Enhanced with image support (Milestone E)
+model Project {
+	id             String    @id @default(cuid())
+	type           String    @default("project") // discriminator field for collection types
+	title          String    // required project title
+	description    String    // required project description
+	tags           String[]  // array of project tags, optional
+	ownerId        String    // foreign key to User
+	createdAt      DateTime  @default(now())
+	updatedAt      DateTime  @updatedAt
+	images 		   Image[]	 // array of images, optional
+
+	owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+	@@map("projects")
+}
+
+// Event model for Milestone F (new post type with location data)
+model Event {
+	id          String    @id @default(cuid())
+	type        String    @default("event") // discriminator field for collection types
+	title       String    // required event title
+	description String    // required event description
+	dateTime    DateTime  // when the event occurs
+	location    String    // address or location name
+	latitude    Float?    // optional coordinates for map display
+	longitude   Float?    // optional coordinates for map display
+	tags        String[]  @default([]) // event tags/categories
+	ownerId     String
+	createdAt   DateTime  @default(now())
+	updatedAt   DateTime  @updatedAt
+
+	owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+	images      Image[]   // images associated with this event
+	// Note: entries relation removed - query by collectionType="event" and collectionId=id instead
+
+	@@map("events")
+}
+
+// Message model for direct messaging between users
+model Message {
+	id          String    @id @default(cuid())
+	content     String    // message text content
+	senderId    String    // foreign key to User (sender)
+	receiverId  String    // foreign key to User (receiver)
+	createdAt   DateTime  @default(now())
+	readAt      DateTime? // timestamp when message was read (optional, for future read receipts)
+
+	sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+	receiver    User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+	@@map("messages")
+}
+
+// Entry model for collection updates/entries (works for Project, Event, Post, etc.)
+// Uses polymorphic pattern: collectionType + collectionId to identify parent
+// No explicit foreign keys needed - collectionType + collectionId is sufficient
+model Entry {
+	id             String    @id @default(cuid())
+	collectionType String    // "project" | "event" | "post" - type of collection this entry belongs to
+	collectionId   String    // ID of the collection item (Project, Event, Post, etc.)
+	title          String?   // optional entry title (e.g., "Update #1", "Progress Update")
+	content        String    // entry text content
+	createdAt      DateTime  @default(now())
+	updatedAt      DateTime  @updatedAt
+
+	// Index for efficient queries by collection type and ID
+	@@index([collectionType, collectionId])
+	@@map("entries")
+}
+
+// Image model for storing image metadata and URLs
+// Supports multiple images per collection item (Project, Event, etc.)
+model Image {
+	id          String    @id @default(cuid())
+	url         String    // Full Supabase public URL
+	path        String    // Storage path (e.g., "1735123456789-abc1234.jpg")
+	altText     String?   // Optional alt text for accessibility
+	projectId   String?   // Foreign key to Project (if image belongs to a project)
+	eventId     String?   // Foreign key to Event (if image belongs to an event)
+	postId      String?   // FK to Post (not implemented yet)
+	uploadedById String   // Who uploaded the image
+	createdAt   DateTime  @default(now())
+
+	uploadedBy  User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+	project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+	event       Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+	// Ensure image belongs to exactly one collection type
+	@@index([projectId])
+	@@index([eventId])
+	@@map("images")
+}

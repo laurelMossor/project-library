@@ -1,18 +1,20 @@
 import { BaseCollectionItem } from "./collection-base";
 import { ImageItem } from "./image";
+import type { PostItem } from "./post";
 
 /**
- * Event type - matches Prisma schema
+ * Event type - matches Prisma schema v2
  * Extends BaseCollectionItem with event-specific fields
- * The 'type' field is stored in the database as a discriminator for collection handling
+ * Note: 'type' field is derived (not in database) for TypeScript type discrimination
  */
 export interface EventItem extends BaseCollectionItem {
-	type: "event";
+	type: "event"; // Derived field for type discrimination
 	dateTime: Date;
 	location: string;
 	latitude: number | null;
 	longitude: number | null;
-	images: ImageItem[]; // Images associated with this event
+	images: ImageItem[]; // Images associated with this event (via ImageAttachment)
+	posts?: PostItem[]; // Descendant posts (optional, loaded when needed)
 	updatedAt: Date;
 }
 

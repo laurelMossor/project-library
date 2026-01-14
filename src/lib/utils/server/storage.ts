@@ -8,7 +8,7 @@
 //
 // Debug mode: Set DEBUG_UPLOADS=true to see detailed upload information
 
-import { supabase } from "./supabase";
+import { getSupabaseClient } from "./supabase";
 
 const BUCKET_NAME = "uploads";
 // const USE_SIGNED_URLS = false;
@@ -58,6 +58,7 @@ export async function uploadImage(
 		const buffer = Buffer.from(bytes);
 
 		// Upload to Supabase storage
+		const supabase = getSupabaseClient();
 		const { data, error } = await supabase.storage
 			.from(BUCKET_NAME)
 			.upload(filepath, buffer, {
@@ -97,7 +98,7 @@ export async function uploadImage(
 		// Get public URL (bucket must be PUBLIC in Supabase Storage settings)
 		const {
 			data: { publicUrl },
-		} = supabase.storage.from(BUCKET_NAME).getPublicUrl(filepath);
+		} = getSupabaseClient().storage.from(BUCKET_NAME).getPublicUrl(filepath);
 
 		if (debug || process.env.NODE_ENV !== "production") {
 			console.log("[storage] Upload successful. Public URL:", publicUrl);
@@ -134,6 +135,7 @@ export async function deleteImage(
 
 		const filepath = pathParts.slice(bucketIndex + 1).join("/");
 
+		const supabase = getSupabaseClient();
 		const { error } = await supabase.storage.from(BUCKET_NAME).remove([filepath]);
 
 		if (error) {

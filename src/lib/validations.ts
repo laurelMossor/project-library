@@ -25,12 +25,30 @@ export function validatePassword(password: string): boolean {
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
 	
-	if (data.name !== undefined && data.name !== null) {
-		if (typeof data.name !== "string") {
-			return { valid: false, error: "Name must be a string" };
+	if (data.firstName !== undefined && data.firstName !== null) {
+		if (typeof data.firstName !== "string") {
+			return { valid: false, error: "First name must be a string" };
 		}
-		if (data.name.length > 100) {
-			return { valid: false, error: "Name must be 100 characters or less" };
+		if (data.firstName.length > 50) {
+			return { valid: false, error: "First name must be 50 characters or less" };
+		}
+	}
+
+	if (data.middleName !== undefined && data.middleName !== null) {
+		if (typeof data.middleName !== "string") {
+			return { valid: false, error: "Middle name must be a string" };
+		}
+		if (data.middleName.length > 50) {
+			return { valid: false, error: "Middle name must be 50 characters or less" };
+		}
+	}
+
+	if (data.lastName !== undefined && data.lastName !== null) {
+		if (typeof data.lastName !== "string") {
+			return { valid: false, error: "Last name must be a string" };
+		}
+		if (data.lastName.length > 50) {
+			return { valid: false, error: "Last name must be 50 characters or less" };
 		}
 	}
 
@@ -334,6 +352,104 @@ export function validateMessageContent(content: string): { valid: boolean; error
 	if (content.length > 5000) {
 		return { valid: false, error: "Message content must be 5000 characters or less" };
 	}
+	return { valid: true };
+}
+
+// Org validation utilities
+
+export interface OrgCreateData {
+	name: string;
+	slug: string;
+	headline?: string;
+	bio?: string;
+	interests?: string[];
+	location?: string;
+}
+
+export function validateOrgData(data: OrgCreateData): { valid: boolean; error?: string } {
+	// Validate name: required, 1-100 characters
+	if (!data.name || typeof data.name !== "string") {
+		return { valid: false, error: "Organization name is required" };
+	}
+	if (data.name.trim().length === 0) {
+		return { valid: false, error: "Organization name cannot be empty" };
+	}
+	if (data.name.length > 100) {
+		return { valid: false, error: "Organization name must be 100 characters or less" };
+	}
+
+	// Validate slug: required, 3-50 characters, alphanumeric and hyphens only
+	if (!data.slug || typeof data.slug !== "string") {
+		return { valid: false, error: "URL slug is required" };
+	}
+	if (data.slug.trim().length === 0) {
+		return { valid: false, error: "URL slug cannot be empty" };
+	}
+	if (data.slug.length < 3) {
+		return { valid: false, error: "URL slug must be at least 3 characters" };
+	}
+	if (data.slug.length > 50) {
+		return { valid: false, error: "URL slug must be 50 characters or less" };
+	}
+	if (!/^[a-z0-9-]+$/.test(data.slug)) {
+		return { valid: false, error: "URL slug can only contain lowercase letters, numbers, and hyphens" };
+	}
+	if (data.slug.startsWith("-") || data.slug.endsWith("-")) {
+		return { valid: false, error: "URL slug cannot start or end with a hyphen" };
+	}
+
+	// Validate headline: optional, max 200 characters
+	if (data.headline !== undefined && data.headline !== null) {
+		if (typeof data.headline !== "string") {
+			return { valid: false, error: "Headline must be a string" };
+		}
+		if (data.headline.length > 200) {
+			return { valid: false, error: "Headline must be 200 characters or less" };
+		}
+	}
+
+	// Validate bio: optional, max 2000 characters
+	if (data.bio !== undefined && data.bio !== null) {
+		if (typeof data.bio !== "string") {
+			return { valid: false, error: "Bio must be a string" };
+		}
+		if (data.bio.length > 2000) {
+			return { valid: false, error: "Bio must be 2000 characters or less" };
+		}
+	}
+
+	// Validate interests: optional array, each interest 1-50 chars, max 10 interests
+	if (data.interests !== undefined && data.interests !== null) {
+		if (!Array.isArray(data.interests)) {
+			return { valid: false, error: "Interests must be an array" };
+		}
+		if (data.interests.length > 10) {
+			return { valid: false, error: "Maximum 10 interests allowed" };
+		}
+		for (const interest of data.interests) {
+			if (typeof interest !== "string") {
+				return { valid: false, error: "Each interest must be a string" };
+			}
+			const trimmedInterest = interest.trim();
+			if (trimmedInterest.length === 0) {
+				return { valid: false, error: "Interests cannot be empty" };
+			}
+			if (trimmedInterest.length > 50) {
+				return { valid: false, error: "Each interest must be 50 characters or less" };
+			}
+		}
+	}
+
+	// Validate location: optional, max 100 characters
+	if (data.location !== undefined && data.location !== null) {
+		if (typeof data.location !== "string") {
+			return { valid: false, error: "Location must be a string" };
+		}
+		if (data.location.length > 100) {
+			return { valid: false, error: "Location must be 100 characters or less" };
+		}
+	}
+
 	return { valid: true };
 }
 

@@ -5,6 +5,8 @@ import { uploadImage } from "@/lib/utils/server/storage";
 import { prisma } from "@/lib/utils/server/prisma";
 import { ImageItem } from "@/lib/types/image";
 import { imageFields } from "@/lib/utils/server/fields";
+import { getActorIdForUser, actorOwnsProject, actorOwnsEvent } from "@/lib/utils/server/actor";
+import { attachImage } from "@/lib/utils/server/image-attachment";
 
 // POST /api/projects/upload - Upload an image for a project or event
 // Protected endpoint (requires authentication)
@@ -12,7 +14,7 @@ import { imageFields } from "@/lib/utils/server/fields";
 // Configuration:
 // - Bucket: "uploads" (must be PUBLIC in Supabase Storage settings)
 // - Uploads to bucket root (no folder prefix)
-// - Creates Image record linked to project or event
+// - Creates Image record and ImageAttachment to link to project or event
 // - Returns ImageItem with all image metadata
 //
 // Debug: Set DEBUG_UPLOADS=true to see detailed upload information
@@ -57,28 +59,33 @@ export async function POST(request: Request) {
 			return badRequest("File size too large. Maximum size is 5MB");
 		}
 
-		// Verify the project/event exists and user owns it before uploading
+		// Verify the project/event exists and user owns it before uploading (via Actor)
+		const actorId = await getActorIdForUser(session.user.id);
+		if (!actorId) {
+			return unauthorized("User not found or has no actor");
+		}
+
 		if (projectId) {
 			const project = await prisma.project.findUnique({
 				where: { id: projectId },
-				select: { ownerId: true },
+				select: { id: true },
 			});
 			if (!project) {
 				return badRequest("Project not found");
 			}
-			if (project.ownerId !== session.user.id) {
+			if (!(await actorOwnsProject(actorId, projectId))) {
 				return unauthorized("You can only add images to your own projects");
 			}
 		}
 		if (eventId) {
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
-				select: { ownerId: true },
+				select: { id: true },
 			});
 			if (!event) {
 				return badRequest("Event not found");
 			}
-			if (event.ownerId !== session.user.id) {
+			if (!(await actorOwnsEvent(actorId, eventId))) {
 				return unauthorized("You can only add images to your own events");
 			}
 		}
@@ -118,18 +125,24 @@ export async function POST(request: Request) {
 			return badRequest("Upload succeeded but did not return image URL or path");
 		}
 
+		// Create Image record (no direct projectId/eventId - use ImageAttachment)
 		const createdImage = await prisma.image.create({
 			data: {
 				url: result.imageUrl,
 				path: result.path,
 				altText: altText?.trim() || null,
-				projectId: projectId || null,
-				eventId: eventId || null,
 				uploadedById: session.user.id,
 			},
 			select: imageFields,
 		});
 		const imageRecord = createdImage as ImageItem;
+
+		// Create ImageAttachment to link image to project or event
+		if (projectId) {
+			await attachImage(createdImage.id, "PROJECT", projectId, 0);
+		} else if (eventId) {
+			await attachImage(createdImage.id, "EVENT", eventId, 0);
+		}
 
 		if (debug) {
 			const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -2,45 +2,93 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { AboutModal } from "../AboutModal";
-import { AboutIcon, CollectionsIcon, UserHomeIcon } from "../icons/icons";
+import { AboutIcon, CollectionsIcon, UserHomeIcon, MessageIcon, PencilIcon } from "../icons/icons";
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 import { Tooltip } from "../tooltip/Tooltip";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
-import { COLLECTIONS, PUBLIC_USER_PAGE } from "@/lib/const/routes";
-import { Session } from "next-auth";
+import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE, MESSAGES } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
-import { fetchProfile } from "@/lib/utils/user-client";
+import { API_ME_ACTOR } from "@/lib/const/routes";
+import { NewItemModal } from "./NewItemModal";
 
 interface NavigationIconsProps {
-	session: Session | null;
+	session: ReturnType<typeof useSession>["data"] | null;
 }
 
 const navIconButtonStyles = "p-2 hover:opacity-80 rounded transition-colors";
 
-export function NavigationIcons({ session }: NavigationIconsProps) {
-	const isLoggedIn = hasSession(session);
+export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) {
+	const { data: session } = useSession();
+	const activeSession = session || sessionProp;
+	const isLoggedIn = hasSession(activeSession);
+	const [profileLink, setProfileLink] = useState<string | undefined>(undefined);
+	const [profileTooltip, setProfileTooltip] = useState<string>("Profile Page");
 	const [username, setUsername] = useState<string | undefined>(undefined);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const isMobile = useIsMobile();
 	const navIconStyles = isMobile ? "w-5 h-5" : "w-6 h-6";
 
 	useEffect(() => {
 		if (isLoggedIn) {
-			fetchProfile()
-				.then((user) => {
-					if (user?.username) {
-						setUsername(user.username);
+			// Fetch active actor to determine which profile to link to
+			fetch(API_ME_ACTOR)
+				.then((res) => {
+					if (res.ok) {
+						return res.json();
+					}
+					return null;
+				})
+				.then((data) => {
+					if (data && data.type === "ORG") {
+						// Link to org's public profile
+						setProfileLink(PUBLIC_ORG_PAGE(data.data.slug));
+						setProfileTooltip(`${data.data.name} Profile`);
+						// Still get username for AboutModal (fetch user profile)
+						fetch("/api/me/user")
+							.then((res) => res.ok ? res.json() : null)
+							.then((user) => {
+								if (user?.username) {
+									setUsername(user.username);
+								}
+							})
+							.catch(() => {});
+					} else if (data && data.type === "USER") {
+						// Link to user's public profile
+						setProfileLink(PUBLIC_USER_PAGE(data.data.username));
+						setProfileTooltip("Profile Page");
+						setUsername(data.data.username);
+					} else {
+						// Fallback: try to get user profile
+						fetch("/api/me/user")
+							.then((res) => {
+								if (res.ok) {
+									return res.json();
+								}
+								return null;
+							})
+							.then((user) => {
+								if (user?.username) {
+									setProfileLink(PUBLIC_USER_PAGE(user.username));
+									setProfileTooltip("Profile Page");
+									setUsername(user.username);
+								}
+							})
+							.catch(() => {
+								// Silently fail
+							});
 					}
 				})
 				.catch(() => {
-					// Silently fail if user is not authenticated
-					setUsername(undefined);
+					// Silently fail - profile link won't show
 				});
 		} else {
+			setProfileLink(undefined);
 			setUsername(undefined);
 		}
-	}, [isLoggedIn]);
+	}, [isLoggedIn, activeSession?.user?.activeOrgId]);
 
 	return (
 		<nav className="flex items-center gap-4">
@@ -67,13 +115,40 @@ export function NavigationIcons({ session }: NavigationIconsProps) {
 				</Link>
 			</Tooltip>
 
-			{/* User Home icon - only show when logged in and username is available */}
-			{isLoggedIn && username && (
-				<Tooltip text={"Profile Page"}>
-					<Link
-						href={PUBLIC_USER_PAGE(username)}
+			{/* Pencil icon - opens modal for new project/event */}
+			{isLoggedIn && (
+				<Tooltip text="Create New">
+					<button
+						onClick={() => setIsNewItemModalOpen(true)}
 						className={navIconButtonStyles}
-						aria-label="User Home"
+						aria-label="Create New"
+					>
+						<PencilIcon className={navIconStyles} />
+					</button>
+				</Tooltip>
+			)}
+			<NewItemModal isOpen={isNewItemModalOpen} onClose={() => setIsNewItemModalOpen(false)} />
+
+			{/* Message icon - links to messages panel */}
+			{isLoggedIn && (
+				<Tooltip text="Messages">
+					<Link
+						href={MESSAGES}
+						className={navIconButtonStyles}
+						aria-label="Messages"
+					>
+						<MessageIcon className={navIconStyles} />
+					</Link>
+				</Tooltip>
+			)}
+
+			{/* Profile icon - links to active actor's profile (user or org) */}
+			{isLoggedIn && profileLink && (
+				<Tooltip text={profileTooltip}>
+					<Link
+						href={profileLink}
+						className={navIconButtonStyles}
+						aria-label="Profile"
 					>
 						<UserHomeIcon className={navIconStyles} />
 					</Link>

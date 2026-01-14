@@ -1,5 +1,5 @@
 import { PublicUser } from "../types/user";
-import { API_PROFILE } from "../const/routes";
+import { API_ME_USER } from "../const/routes";
 
 // CLIENT-SIDE FETCH UTILITIES
 // These functions fetch from the API routes and can be used in client components
@@ -7,11 +7,11 @@ import { API_PROFILE } from "../const/routes";
 
 /**
  * Fetch current user's profile
- * Client-side utility that calls the /api/profile endpoint
+ * Client-side utility that calls the /api/me/user endpoint
  * Returns null if user is not authenticated
  */
 export async function fetchProfile(): Promise<PublicUser | null> {
-	const res = await fetch(API_PROFILE);
+	const res = await fetch(API_ME_USER);
 
 	if (!res.ok) {
 		if (res.status === 401 || res.status === 404) {
