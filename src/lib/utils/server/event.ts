@@ -7,7 +7,8 @@ import type { Prisma } from "@prisma/client";
 import { eventWithOwnerFields } from "./fields";
 import { deleteImage } from "./storage";
 import { getActorIdForUser } from "./actor";
-import { getImagesForTarget, detachAllImagesForTarget } from "./image-attachment";
+import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
+import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
 
 export async function getEventById(id: string): Promise<EventItem | null> {
 	const event = await prisma.event.findUnique({
@@ -20,7 +21,12 @@ export async function getEventById(id: string): Promise<EventItem | null> {
 	const images = await getImagesForTarget("EVENT", id);
 	
 	// Add type field and images for TypeScript discrimination
-	return { ...event, type: "event" as const, images } as EventItem;
+	const eventItem: EventItem = {
+		...event,
+		type: COLLECTION_ITEM_TYPES.EVENT,
+		images,
+	};
+	return eventItem;
 }
 
 export interface GetAllEventsOptions {
@@ -49,15 +55,21 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 		...(options?.limit !== undefined ? { take: options.limit } : {}),
 	});
 	
-	// Load images for all events
-	const eventsWithImages = await Promise.all(
-		events.map(async (e) => {
-			const images = await getImagesForTarget("EVENT", e.id);
-			return { ...e, type: "event" as const, images };
-		})
-	);
+	// Batch load images for all events (fixes N+1 query problem)
+	const eventIds = events.map(e => e.id);
+	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 	
-	return eventsWithImages as EventItem[];
+	// Attach images to events
+	const eventsWithImages: EventItem[] = events.map((e) => {
+		const images = imagesMap.get(e.id) || [];
+		return {
+			...e,
+			type: COLLECTION_ITEM_TYPES.EVENT,
+			images,
+		};
+	});
+	
+	return eventsWithImages;
 }
 
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
@@ -74,15 +86,21 @@ export async function getEventsByActor(actorId: string): Promise<EventItem[]> {
 		orderBy: { createdAt: "desc" },
 	});
 	
-	// Load images for all events
-	const eventsWithImages = await Promise.all(
-		events.map(async (e) => {
-			const images = await getImagesForTarget("EVENT", e.id);
-			return { ...e, type: "event" as const, images };
-		})
-	);
+	// Batch load images for all events (fixes N+1 query problem)
+	const eventIds = events.map(e => e.id);
+	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 	
-	return eventsWithImages as EventItem[];
+	// Attach images to events
+	const eventsWithImages: EventItem[] = events.map((e) => {
+		const images = imagesMap.get(e.id) || [];
+		return {
+			...e,
+			type: COLLECTION_ITEM_TYPES.EVENT,
+			images,
+		};
+	});
+	
+	return eventsWithImages;
 }
 
 export async function createEvent(ownerId: string, data: EventCreateInput): Promise<EventItem> {
@@ -104,8 +122,16 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 		},
 		select: eventWithOwnerFields,
 	});
-	// Add type field for TypeScript discrimination
-	return { ...event, type: "event" as const } as EventItem;
+	// Load images via ImageAttachment
+	const images = await getImagesForTarget("EVENT", event.id);
+	
+	// Add type field and images for TypeScript discrimination
+	const eventItem: EventItem = {
+		...event,
+		type: COLLECTION_ITEM_TYPES.EVENT,
+		images,
+	};
+	return eventItem;
 }
 
 export async function updateEvent(id: string, data: EventUpdateInput): Promise<EventItem> {
@@ -151,7 +177,12 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 	const images = await getImagesForTarget("EVENT", event.id);
 	
 	// Add type field and images for TypeScript discrimination
-	return { ...event, type: "event" as const, images } as EventItem;
+	const eventItem: EventItem = {
+		...event,
+		type: COLLECTION_ITEM_TYPES.EVENT,
+		images,
+	};
+	return eventItem;
 }
 
 export async function deleteEvent(id: string): Promise<EventItem> {
@@ -190,6 +221,11 @@ export async function deleteEvent(id: string): Promise<EventItem> {
 	
 	// Note: Images already deleted above, so we don't need to load them
 	// Add type field for TypeScript discrimination
-	return { ...deletedEvent, type: "event" as const, images: [] } as EventItem;
+	const eventItem: EventItem = {
+		...deletedEvent,
+		type: COLLECTION_ITEM_TYPES.EVENT,
+		images: [],
+	};
+	return eventItem;
 }
 

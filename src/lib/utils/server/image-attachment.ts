@@ -55,6 +55,48 @@ export async function getImagesForTarget(
 }
 
 /**
+ * Batch load images for multiple targets (fixes N+1 query problem)
+ * Returns a map of targetId -> ImageItem[]
+ */
+export async function getImagesForTargetsBatch(
+	type: AttachmentType,
+	targetIds: string[]
+): Promise<Map<string, ImageItem[]>> {
+	if (targetIds.length === 0) {
+		return new Map();
+	}
+
+	const attachments = await prisma.imageAttachment.findMany({
+		where: {
+			type,
+			targetId: { in: targetIds },
+		},
+		include: {
+			image: {
+				select: imageFields,
+			},
+		},
+		orderBy: {
+			sortOrder: "asc",
+		},
+	});
+
+	// Group by targetId
+	const imageMap = new Map<string, ImageItem[]>();
+	for (const targetId of targetIds) {
+		imageMap.set(targetId, []);
+	}
+
+	for (const attachment of attachments) {
+		const existing = imageMap.get(attachment.targetId) || [];
+		existing.push(attachment.image as ImageItem);
+		imageMap.set(attachment.targetId, existing);
+	}
+
+	return imageMap;
+}
+
+/**
  * Remove an image attachment
  */
 export async function detachImage(imageId: string, targetId: string): Promise<void> {

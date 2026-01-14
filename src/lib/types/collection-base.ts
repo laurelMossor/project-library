@@ -16,6 +16,13 @@ import type { ActorOwner } from "../utils/owner";
  * 
  * Note: In v2, owner is an Actor (can be User or Org), not directly a PublicUser
  */
+
+export const COLLECTION_ITEM_TYPES = {
+	PROJECT: "project",
+	EVENT: "event",
+} as const;
+
+export type CollectionItemType = typeof COLLECTION_ITEM_TYPES[keyof typeof COLLECTION_ITEM_TYPES];
 export interface BaseCollectionItem {
 	id: string;
 	title: string;
@@ -23,6 +30,6 @@ export interface BaseCollectionItem {
 	tags: string[];
 	owner: ActorOwner; // Actor with user/org in v2
 	createdAt: Date;
-	type: string; // Discriminator field - must be set by implementing types (e.g., "project", "event") Is this still needed?
+	type: CollectionItemType;
 }
 

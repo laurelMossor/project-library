@@ -6,7 +6,8 @@ import { ProjectData, ProjectItem, ProjectUpdateInput } from "../../types/projec
 import { projectWithOwnerFields } from "./fields";
 import { deleteImage } from "./storage";
 import { getActorIdForUser } from "./actor";
-import { getImagesForTarget, detachAllImagesForTarget } from "./image-attachment";
+import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
+import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
 
 // Fetch a project by ID with owner information
 export async function getProjectById(id: string): Promise<ProjectItem | null> {
@@ -20,7 +21,12 @@ export async function getProjectById(id: string): Promise<ProjectItem | null> {
 	const images = await getImagesForTarget("PROJECT", id);
 	
 	// Add type field and images for TypeScript discrimination
-	return { ...project, type: "project" as const, images } as ProjectItem;
+	const projectItem: ProjectItem = {
+		...project,
+		type: COLLECTION_ITEM_TYPES.PROJECT,
+		images,
+	};
+	return projectItem;
 }
 
 // Fetch all projects with optional basic text search
@@ -41,15 +47,21 @@ export async function getAllProjects(search?: string): Promise<ProjectItem[]> {
 		orderBy: { createdAt: "desc" }, // Most recent first
 	});
 	
-	// Load images for all projects
-	const projectsWithImages = await Promise.all(
-		projects.map(async (p) => {
-			const images = await getImagesForTarget("PROJECT", p.id);
-			return { ...p, type: "project" as const, images };
-		})
-	);
+	// Batch load images for all projects (fixes N+1 query problem)
+	const projectIds = projects.map(p => p.id);
+	const imagesMap = await getImagesForTargetsBatch("PROJECT", projectIds);
 	
-	return projectsWithImages as ProjectItem[];
+	// Attach images to projects
+	const projectsWithImages: ProjectItem[] = projects.map((p) => {
+		const images = imagesMap.get(p.id) || [];
+		return {
+			...p,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images,
+		};
+	});
+	
+	return projectsWithImages;
 }
 
 // Fetch all projects by a specific user (via their actor)
@@ -67,15 +79,21 @@ export async function getProjectsByActor(actorId: string): Promise<ProjectItem[]
 		orderBy: { createdAt: "desc" },
 	});
 	
-	// Load images for all projects
-	const projectsWithImages = await Promise.all(
-		projects.map(async (p) => {
-			const images = await getImagesForTarget("PROJECT", p.id);
-			return { ...p, type: "project" as const, images };
-		})
-	);
+	// Batch load images for all projects (fixes N+1 query problem)
+	const projectIds = projects.map(p => p.id);
+	const imagesMap = await getImagesForTargetsBatch("PROJECT", projectIds);
 	
-	return projectsWithImages as ProjectItem[];
+	// Attach images to projects
+	const projectsWithImages: ProjectItem[] = projects.map((p) => {
+		const images = imagesMap.get(p.id) || [];
+		return {
+			...p,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images,
+		};
+	});
+	
+	return projectsWithImages;
 }
 
 // Create a new project for a user (via their actor)
@@ -101,7 +119,12 @@ export async function createProject(ownerId: string, data: ProjectData): Promise
 	const images = await getImagesForTarget("PROJECT", project.id);
 	
 	// Add type field and images for TypeScript discrimination
-	return { ...project, type: "project" as const, images } as ProjectItem;
+	const projectItem: ProjectItem = {
+		...project,
+		type: COLLECTION_ITEM_TYPES.PROJECT,
+		images,
+	};
+	return projectItem;
 }
 
 // Update an existing project
@@ -133,8 +156,16 @@ export async function updateProject(id: string, data: ProjectUpdateInput): Promi
 			data: updateData,
 			select: projectWithOwnerFields,
 		});
-		// Add type field for TypeScript discrimination
-		return { ...project, type: "project" as const } as ProjectItem;
+		// Load images via ImageAttachment
+		const images = await getImagesForTarget("PROJECT", project.id);
+		
+		// Add type field and images for TypeScript discrimination
+		const projectItem: ProjectItem = {
+			...project,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images,
+		};
+		return projectItem;
 	} catch (error) {
 		if (error instanceof Error) {
 			// Check if it's a Prisma "Record not found" error
