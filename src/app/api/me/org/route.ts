@@ -52,7 +52,7 @@ export async function PUT(request: Request) {
 	}
 
 	const data = await request.json();
-	const { headline, bio, interests, location, avatarImageId } = data;
+	const { headline, bio, interests, location, addressLine1, addressLine2, city, state, zip, parentTopic, isPublic, avatarImageId } = data;
 
 	// Validate org update data
 	const validation = validateOrgUpdateData({
@@ -60,6 +60,13 @@ export async function PUT(request: Request) {
 		bio,
 		interests,
 		location,
+		addressLine1,
+		addressLine2,
+		city,
+		state,
+		zip,
+		parentTopic,
+		isPublic,
 		avatarImageId,
 	});
 	if (!validation.valid) {
@@ -72,6 +79,13 @@ export async function PUT(request: Request) {
 			bio,
 			interests,
 			location,
+			addressLine1,
+			addressLine2,
+			city,
+			state,
+			zip,
+			parentTopic,
+			isPublic,
 			avatarImageId,
 		});
 

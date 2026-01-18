@@ -13,6 +13,13 @@ export const publicOrgFields = {
 	bio: true,
 	interests: true,
 	location: true,
+	addressLine1: true,
+	addressLine2: true,
+	city: true,
+	state: true,
+	zip: true,
+	parentTopic: true,
+	isPublic: true,
 	avatarImageId: true,
 } as const;
 
@@ -67,6 +74,13 @@ export async function updateOrgProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
+		addressLine1?: string | null;
+		addressLine2?: string | null;
+		city?: string | null;
+		state?: string | null;
+		zip?: string | null;
+		parentTopic?: string | null;
+		isPublic?: boolean;
 		avatarImageId?: string | null;
 	}
 ) {
@@ -77,6 +91,13 @@ export async function updateOrgProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
+		addressLine1?: string | null;
+		addressLine2?: string | null;
+		city?: string | null;
+		state?: string | null;
+		zip?: string | null;
+		parentTopic?: string | null;
+		isPublic?: boolean;
 		avatarImageId?: string | null;
 	} = {};
 
@@ -84,6 +105,13 @@ export async function updateOrgProfile(
 	if (data.bio !== undefined) updateData.bio = data.bio;
 	if (data.interests !== undefined) updateData.interests = data.interests;
 	if (data.location !== undefined) updateData.location = data.location;
+	if (data.addressLine1 !== undefined) updateData.addressLine1 = data.addressLine1;
+	if (data.addressLine2 !== undefined) updateData.addressLine2 = data.addressLine2;
+	if (data.city !== undefined) updateData.city = data.city;
+	if (data.state !== undefined) updateData.state = data.state;
+	if (data.zip !== undefined) updateData.zip = data.zip;
+	if (data.parentTopic !== undefined) updateData.parentTopic = data.parentTopic;
+	if (data.isPublic !== undefined) updateData.isPublic = data.isPublic;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
 
 	return prisma.org.update({

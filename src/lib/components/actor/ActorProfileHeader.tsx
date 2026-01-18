@@ -4,11 +4,12 @@
  * This component handles profile headers for both User and Org actors.
  * - When viewing own profile: Shows "Edit Profile" (different routes for USER vs ORG), "New Project", "New Event"
  * - When viewing other's profile: 
- *   - For USER: Shows "Send Message" (orgs don't have messaging per schema)
- *   - For ORG: Shows "Follow" button (follow functionality to be implemented)
+ *   - For USER: Shows "Send Message" and "Follow" buttons
+ *   - For ORG: Shows "Follow" button
  */
 "use client";
 
+import { useState, useEffect } from "react";
 import { Actor } from "@/lib/types/actor";
 import { ActorProfileDisplay } from "./ActorProfileDisplay";
 import { ButtonLink } from "../ui/ButtonLink";
@@ -26,6 +27,48 @@ type ActorProfileHeaderProps = {
 
 export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId }: ActorProfileHeaderProps) {
 	const loggedIn = hasSession(session);
+	const [isFollowing, setIsFollowing] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
+	const [isToggling, setIsToggling] = useState(false);
+
+	// Check if user is following this actor
+	useEffect(() => {
+		if (!loggedIn || isOwnProfile) {
+			setIsLoading(false);
+			return;
+		}
+
+		fetch(`/api/actors/${actor.data.actorId}/follow`)
+			.then((res) => res.json())
+			.then((data) => {
+				setIsFollowing(data.isFollowing || false);
+				setIsLoading(false);
+			})
+			.catch(() => {
+				setIsLoading(false);
+			});
+	}, [actor.data.actorId, loggedIn, isOwnProfile]);
+
+	const handleFollowToggle = async () => {
+		if (isToggling) return;
+
+		setIsToggling(true);
+		const method = isFollowing ? "DELETE" : "POST";
+		
+		try {
+			const res = await fetch(`/api/actors/${actor.data.actorId}/follow`, {
+				method,
+			});
+
+			if (res.ok) {
+				setIsFollowing(!isFollowing);
+			}
+		} catch (error) {
+			console.error("Failed to toggle follow:", error);
+		} finally {
+			setIsToggling(false);
+		}
+	};
 
 	return (
 		<div className="flex flex-col md:flex-row gap-8 mb-8">
@@ -48,26 +91,23 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 					</>
 				) : (
 					/* Viewing someone else's profile */
-					loggedIn && (
+					loggedIn && !isLoading && (
 						<>
-							{actor.type === "USER" ? (
+							{actor.type === "USER" && (
 								/* For users: show message button */
 								<ButtonLink href={MESSAGE_CONVERSATION(actor.data.id)} fullWidth>
 									Send Message
 								</ButtonLink>
-							) : (
-								/* For orgs: show follow button (follow functionality to be implemented) */
-								<Button
-									fullWidth
-									variant="secondary"
-									onClick={() => {
-										// TODO: Implement follow/unfollow functionality
-										alert("Follow functionality coming soon!");
-									}}
-								>
-									Follow
-								</Button>
 							)}
+							{/* Follow button for both users and orgs */}
+							<Button
+								fullWidth
+								variant={isFollowing ? "secondary" : "primary"}
+								onClick={handleFollowToggle}
+								disabled={isToggling}
+							>
+								{isToggling ? "..." : isFollowing ? "Unfollow" : "Follow"}
+							</Button>
 						</>
 					)
 				)}

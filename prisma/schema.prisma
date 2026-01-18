@@ -91,6 +91,9 @@ model User {
   interests    String[] @default([])
   location     String?
 
+  // Privacy setting
+  isPublic     Boolean  @default(true)
+
   // Avatar (simple + explicit)
   avatarImageId String?
   avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
@@ -120,6 +123,19 @@ model Org {
   bio       String?
   interests String[] @default([])
   location  String?
+
+  // Address fields
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  zip          String?
+
+  // Parent Topic (placeholder using simple string for now)
+  parentTopic  String?
+
+  // Privacy setting
+  isPublic     Boolean  @default(true)
 
   // Avatar (simple + explicit)
   avatarImageId String?

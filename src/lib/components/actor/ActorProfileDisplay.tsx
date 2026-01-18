@@ -17,6 +17,12 @@ export function ActorProfileDisplay({ actor }: ActorProfileDisplayProps) {
 			<h1 className="text-3xl font-bold">{displayName}</h1>
 			{headline && <p className="text-lg mt-1">{headline}</p>}
 			{location && <p className="text-sm text-gray-500 mt-1">{location}</p>}
+			{/* TODO: Add Types for Org and User and create tag w/ details */}
+			{actor.type === "ORG" && (
+				<p className="text-sm text-gray-400 mt-1">
+					{actor.data.isPublic ? "Public" : "Private"}
+				</p>
+			)}
 
 			{bio && (
 				<div className="mt-6">

@@ -17,6 +17,7 @@ const personalProfileFields = {
 	bio: true,
 	interests: true,
 	location: true,
+	isPublic: true,
 	avatarImageId: true,
 } as const;
 
@@ -64,6 +65,7 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
+		isPublic?: boolean;
 		avatarImageId?: string | null;
 	}
 ) {
@@ -78,6 +80,7 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
+		isPublic?: boolean;
 		avatarImageId?: string | null;
 	} = {};
 
@@ -89,6 +92,7 @@ export async function updateUserProfile(
 	if (data.bio !== undefined) updateData.bio = data.bio;
 	if (data.interests !== undefined) updateData.interests = data.interests;
 	if (data.location !== undefined) updateData.location = data.location;
+	if (data.isPublic !== undefined) updateData.isPublic = data.isPublic;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
 
 	return prisma.user.update({

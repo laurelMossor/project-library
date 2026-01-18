@@ -8,6 +8,13 @@ export interface PublicOrg {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
+	addressLine1: string | null;
+	addressLine2: string | null;
+	city: string | null;
+	state: string | null;
+	zip: string | null;
+	parentTopic: string | null;
+	isPublic: boolean;
 	avatarImageId: string | null;
 }
 

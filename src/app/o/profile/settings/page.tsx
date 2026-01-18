@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { Button } from "@/lib/components/ui/Button";
+import { AdminManagement } from "@/lib/components/org/AdminManagement";
 import { LOGIN_WITH_CALLBACK, HOME, API_ME_ORGS, ORG_PROFILE_SETTINGS, API_ME_ACTOR, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, ORG_PROFILE_EDIT } from "@/lib/const/routes";
 
 interface Org {
@@ -189,6 +190,12 @@ export default function OrgSettingsPage() {
 					</div>
 				)}
 			</div>
+
+			{activeOrgId && (
+				<div className="mb-6">
+					<AdminManagement orgId={activeOrgId} />
+				</div>
+			)}
 
 			<div className="bg-white border rounded-lg p-6 mb-6">
 				<h2 className="text-xl font-semibold mb-4">Quick Links</h2>

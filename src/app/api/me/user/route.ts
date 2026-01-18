@@ -37,10 +37,10 @@ export async function PUT(request: Request) {
 	}
 
 	const data = await request.json();
-	const { firstName, middleName, lastName, headline, bio, interests, location, avatarImageId } = data;
+	const { firstName, middleName, lastName, headline, bio, interests, location, isPublic, avatarImageId } = data;
 
 	// Validate profile data
-	const validation = validateProfileData({ firstName, middleName, lastName, headline, bio, interests, location });
+	const validation = validateProfileData({ firstName, middleName, lastName, headline, bio, interests, location, isPublic });
 	if (!validation.valid) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
@@ -54,6 +54,7 @@ export async function PUT(request: Request) {
 			bio,
 			interests,
 			location,
+			isPublic,
 			avatarImageId,
 		});
 

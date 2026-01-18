@@ -19,6 +19,7 @@ import { ActorProfileHeader } from "@/lib/components/actor/ActorProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { Actor } from "@/lib/types/actor";
 import { getUserOrgRole } from "@/lib/utils/server/org";
+import { FollowersList, FollowingList } from "@/lib/components/actor/FollowersList";
 
 type Props = {
 	params: Promise<{ slug: string }>;
@@ -61,6 +62,12 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 				session={session}
 				currentUserId={session?.user?.id || null}
 			/>
+
+			{/* Followers and Following */}
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+				<FollowersList actorId={org.actorId} title="Followers" />
+				<FollowingList actorId={org.actorId} title="Following" />
+			</div>
 
 			{/* Org's Collection Section */}
 			<UserCollectionSection 

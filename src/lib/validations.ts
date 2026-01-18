@@ -94,6 +94,13 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 		}
 	}
 
+	// Validate isPublic: optional boolean
+	if (data.isPublic !== undefined && data.isPublic !== null) {
+		if (typeof data.isPublic !== "boolean") {
+			return { valid: false, error: "isPublic must be a boolean" };
+		}
+	}
+
 	return { valid: true };
 }
 
@@ -459,6 +466,13 @@ export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData
 	bio?: string | null;
 	interests?: string[];
 	location?: string | null;
+	addressLine1?: string | null;
+	addressLine2?: string | null;
+	city?: string | null;
+	state?: string | null;
+	zip?: string | null;
+	parentTopic?: string | null;
+	isPublic?: boolean;
 	avatarImageId?: string | null;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
@@ -510,6 +524,69 @@ export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData
 		}
 		if (data.location.length > 100) {
 			return { valid: false, error: "Location must be 100 characters or less" };
+		}
+	}
+
+	// Validate address fields: optional, max 200 characters each
+	if (data.addressLine1 !== undefined && data.addressLine1 !== null) {
+		if (typeof data.addressLine1 !== "string") {
+			return { valid: false, error: "Address line 1 must be a string" };
+		}
+		if (data.addressLine1.length > 200) {
+			return { valid: false, error: "Address line 1 must be 200 characters or less" };
+		}
+	}
+
+	if (data.addressLine2 !== undefined && data.addressLine2 !== null) {
+		if (typeof data.addressLine2 !== "string") {
+			return { valid: false, error: "Address line 2 must be a string" };
+		}
+		if (data.addressLine2.length > 200) {
+			return { valid: false, error: "Address line 2 must be 200 characters or less" };
+		}
+	}
+
+	if (data.city !== undefined && data.city !== null) {
+		if (typeof data.city !== "string") {
+			return { valid: false, error: "City must be a string" };
+		}
+		if (data.city.length > 100) {
+			return { valid: false, error: "City must be 100 characters or less" };
+		}
+	}
+
+	if (data.state !== undefined && data.state !== null) {
+		if (typeof data.state !== "string") {
+			return { valid: false, error: "State must be a string" };
+		}
+		if (data.state.length > 100) {
+			return { valid: false, error: "State must be 100 characters or less" };
+		}
+	}
+
+	if (data.zip !== undefined && data.zip !== null) {
+		if (typeof data.zip !== "string") {
+			return { valid: false, error: "ZIP code must be a string" };
+		}
+		if (data.zip.length > 20) {
+			return { valid: false, error: "ZIP code must be 20 characters or less" };
+		}
+	}
+
+	// Validate parent topic: optional, max 100 characters
+	if (data.parentTopic !== undefined && data.parentTopic !== null) {
+		if (typeof data.parentTopic !== "string") {
+			return { valid: false, error: "Parent topic must be a string" };
+		}
+		if (data.parentTopic.length > 100) {
+			return { valid: false, error: "Parent topic must be 100 characters or less" };
+		}
+	}
+
+	// Validate isPublic: optional boolean
+	if (data.isPublic !== undefined && data.isPublic !== null) {
+		if (typeof data.isPublic !== "boolean") {
+			return { valid: false, error: "isPublic must be a boolean" };
 		}
 	}
 

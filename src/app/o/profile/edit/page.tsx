@@ -20,6 +20,13 @@ export default function EditOrgProfilePage() {
 	const [bio, setBio] = useState("");
 	const [interests, setInterests] = useState("");
 	const [location, setLocation] = useState("");
+	const [addressLine1, setAddressLine1] = useState("");
+	const [addressLine2, setAddressLine2] = useState("");
+	const [city, setCity] = useState("");
+	const [state, setState] = useState("");
+	const [zip, setZip] = useState("");
+	const [parentTopic, setParentTopic] = useState("");
+	const [isPublic, setIsPublic] = useState(true);
 
 	// Load current org profile data
 	useEffect(() => {
@@ -40,6 +47,13 @@ export default function EditOrgProfilePage() {
 					setBio(data.bio || "");
 					setInterests(data.interests?.join(", ") || "");
 					setLocation(data.location || "");
+					setAddressLine1(data.addressLine1 || "");
+					setAddressLine2(data.addressLine2 || "");
+					setCity(data.city || "");
+					setState(data.state || "");
+					setZip(data.zip || "");
+					setParentTopic(data.parentTopic || "");
+					setIsPublic(data.isPublic !== undefined ? data.isPublic : true);
 				}
 				setLoading(false);
 			})
@@ -62,6 +76,13 @@ export default function EditOrgProfilePage() {
 				bio,
 				interests: interests.split(",").map((s) => s.trim()).filter(Boolean),
 				location,
+				addressLine1: addressLine1 || null,
+				addressLine2: addressLine2 || null,
+				city: city || null,
+				state: state || null,
+				zip: zip || null,
+				parentTopic: parentTopic || null,
+				isPublic,
 			}),
 		});
 
@@ -128,6 +149,88 @@ export default function EditOrgProfilePage() {
 						onChange={(e) => setLocation(e.target.value)}
 						placeholder="e.g. San Francisco, CA"
 					/>
+				</FormField>
+
+				<div className="border-t pt-4">
+					<h2 className="text-lg font-semibold mb-4">Address</h2>
+					
+					<FormField label="Address Line 1" htmlFor="addressLine1">
+						<FormInput
+							id="addressLine1"
+							type="text"
+							value={addressLine1}
+							onChange={(e) => setAddressLine1(e.target.value)}
+							placeholder="Street address"
+						/>
+					</FormField>
+
+					<FormField label="Address Line 2" htmlFor="addressLine2">
+						<FormInput
+							id="addressLine2"
+							type="text"
+							value={addressLine2}
+							onChange={(e) => setAddressLine2(e.target.value)}
+							placeholder="Apartment, suite, etc. (optional)"
+						/>
+					</FormField>
+
+					<div className="grid grid-cols-2 gap-4">
+						<FormField label="City" htmlFor="city">
+							<FormInput
+								id="city"
+								type="text"
+								value={city}
+								onChange={(e) => setCity(e.target.value)}
+								placeholder="City"
+							/>
+						</FormField>
+
+						<FormField label="State" htmlFor="state">
+							<FormInput
+								id="state"
+								type="text"
+								value={state}
+								onChange={(e) => setState(e.target.value)}
+								placeholder="State"
+							/>
+						</FormField>
+					</div>
+
+					<FormField label="ZIP Code" htmlFor="zip">
+						<FormInput
+							id="zip"
+							type="text"
+							value={zip}
+							onChange={(e) => setZip(e.target.value)}
+							placeholder="ZIP code"
+						/>
+					</FormField>
+				</div>
+
+				<FormField label="Parent Topic" htmlFor="parentTopic" helpText="Main topic or category for this organization">
+					<FormInput
+						id="parentTopic"
+						type="text"
+						value={parentTopic}
+						onChange={(e) => setParentTopic(e.target.value)}
+						placeholder="e.g. Arts & Crafts"
+					/>
+				</FormField>
+
+				<FormField label="Privacy" htmlFor="isPublic">
+					<div className="flex items-center gap-2">
+						<input
+							id="isPublic"
+							type="checkbox"
+							checked={isPublic}
+							onChange={(e) => setIsPublic(e.target.checked)}
+							className="w-4 h-4"
+						/>
+						<label htmlFor="isPublic" className="text-sm">
+							Public profile (visible to everyone)
+						</label>
+					</div>
+					<p className="text-xs text-gray-500 mt-1">Uncheck to make this organization private</p>
 				</FormField>
 
 				<FormActions

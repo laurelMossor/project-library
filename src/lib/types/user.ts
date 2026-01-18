@@ -7,6 +7,7 @@ export interface ProfileData {
 	bio?: string;
 	interests?: string[];
 	location?: string;
+	isPublic?: boolean;
 	avatarImageId?: string | null;
 }
 
@@ -24,6 +25,7 @@ export interface User {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
+	isPublic: boolean;
 	avatarImageId: string | null;
 	createdAt: Date;
 	updatedAt: Date;
