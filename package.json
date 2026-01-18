@@ -16,7 +16,7 @@
     "db:migrate:deploy": "NODE_ENV=production npx prisma migrate deploy",
     "db:reset": "npx prisma migrate reset",
     "db:studio": "npx prisma studio",
-    "db:seed": "NODE_ENV=production npx prisma db seed",
+    "db:seed:deploy": "NODE_ENV=production npx prisma db seed",
     "db:seed:dev": "NODE_ENV=development npx prisma db seed",
     "db:generate": "npx prisma generate"
   },
@@ -25,6 +25,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@notionhq/client": "^5.7.0",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@supabase/supabase-js": "^2.89.0",
