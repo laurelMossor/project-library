@@ -9,62 +9,67 @@ datasource db {
 // ========================
 // Enums
 // ========================
-
-enum ActorType {
+enum OwnerType {
   USER
   ORG
 }
 
 enum OrgRole {
-  OWNER
+  SUPERADMIN
   ADMIN
   MEMBER
-  FOLLOWER
 }
 
-enum AttachmentType {
+enum CollectionType {
   PROJECT
   EVENT
   POST
 }
 
-// ========================
-// Identity layer (Users + Orgs share Actor behavior)
-// ========================
+enum ArtifactType extends CollectionType {
+  MESSAGE
+}
 
-model Actor {
+// Note: Each User and User + Org combo has a unique Owner identity, with the User-first attribution pattern
+
+model Owner {
   id        String    @id @default(cuid())
-  type      ActorType
+  userId    String    @unique
+  orgId     String?
+  type      OwnerType
   createdAt DateTime  @default(now())
 
-  // 1:1 backrefs (enforced by app logic + migrations)
+  // 1:1 backrefs
   user User?
   org  Org?
 
   // Ownership
-  projects Project[]
-  events   Event[]
-  posts    Post[]
+  projects         Project[]
+  events           Event[]
+  posts            Post[]
+  images           Image[] // uploaded files (metadata)
+  
+  // Messaging
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
 
-  // Social graph
-  // Outgoing: I follow others
-  following Follow[] @relation("Following")
-  // Incoming: others follow me
-  followers Follow[] @relation("Followers")
-
-  @@map("actors")
+  @@map("owners")
 }
 
 model Follow {
-  id          String   @id @default(cuid())
-  followerId  String
-  followingId String
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  followerType  OwnerType
+  followerId    String
+  followingType OwnerType
+  followingId   String
+  createdAt     DateTime @default(now())
 
-  follower  Actor @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
-  following Actor @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  userFollower  User? @relation("Following", references: [id], onDelete: Cascade)
+  userFollowing User? @relation("Followers", references: [id], onDelete: Cascade)
+  orgFollower  Org? @relation("Following", references: [id], onDelete: Cascade)
+  orgFollowing Org? @relation("Followers", references: [id], onDelete: Cascade)
 
-  @@unique([followerId, followingId])
+  @@unique([, followingId])
   @@index([followingId])
   @@map("follows")
 }
@@ -74,8 +79,15 @@ model Follow {
 // ========================
 
 model User {
-  id           String   @id @default(cuid())
-  actorId      String   @unique
+  id          String   @id @default(cuid())
+  ownerId     String   @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Outgoing: I follow others
+  following Follow[] @relation("Following")
+  // Incoming: others follow me
+  followers Follow[] @relation("Followers")
 
   email        String   @unique
   passwordHash String
@@ -86,27 +98,14 @@ model User {
   lastName     String?
   displayName  String?  // Preferred display name (overrides firstName + lastName)
 
+  // Profile
   headline     String?
   bio          String?
   interests    String[] @default([])
   location     String?
-
-  // Privacy setting
   isPublic     Boolean  @default(true)
-
-  // Avatar (simple + explicit)
   avatarImageId String?
   avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
-
-  createdAt    DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
-
-  sentMessages     Message[] @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
-
-  images         Image[] // uploaded files (metadata)
   orgMemberships OrgMember[]
 
   @@map("users")
@@ -114,8 +113,10 @@ model User {
 
 model Org {
   id        String   @id @default(cuid())
-  actorId   String   @unique
+  createdByUserId   String   
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   name      String
   slug      String   @unique
 
@@ -123,6 +124,7 @@ model Org {
   bio       String?
   interests String[] @default([])
   location  String?
+  isPublic  Boolean  @default(true)
 
   // Address fields
   addressLine1 String?
@@ -134,79 +136,66 @@ model Org {
   // Parent Topic (placeholder using simple string for now)
   parentTopic  String?
 
-  // Privacy setting
-  isPublic     Boolean  @default(true)
-
-  // Avatar (simple + explicit)
   avatarImageId String?
   avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  
+  // Outgoing: I follow others
+  following Follow[] @relation("Following")
+  // Incoming: others follow me
+  followers Follow[] @relation("Followers")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
-
-  members    OrgMember[]
-  roleLabels OrgRoleLabel[]
+  members       OrgMember[]
+  admins        OrgMember[]
+  superadminId  String @default(createdByUserId)
 
   @@map("orgs")
 }
 
 model OrgMember {
   id        String   @id @default(cuid())
-  orgId     String
   userId    String
   role      OrgRole  @default(MEMBER)
   createdAt DateTime @default(now())
 
-  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org Org @relative(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, userId])
   @@index([orgId, role])
   @@map("org_members")
 }
 
-model OrgRoleLabel {
-  id        String   @id @default(cuid())
-  orgId     String
-  role      OrgRole
-  label     String
-  createdAt DateTime @default(now())
-
-  org Org @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([orgId, role])
-  @@map("org_role_labels")
-}
-
 // ========================
-// Content owned by Actor
+// Content attributed to an Owner (User or Org-User)
 // ========================
 
 model Project {
   id           String   @id @default(cuid())
-  ownerActorId String
-
+  userId       String
+  createdByOrg Boolean  @ default(false)
+  orgId        String?
   title        String
   description  String
-  tags         String[] @default([])
-
+ 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  owner Actor @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
-
-  // Descendant posts
-  posts Post[]
-
-  @@index([ownerActorId])
+  owner        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updates Post[]
+  tags         String[] @default([])
+  topics       String[] @default([])
+  @@index([userId])
   @@map("projects")
 }
 
 model Event {
   id           String   @id @default(cuid())
-  ownerActorId String
+  userId       String
+  createdByOrg Boolean  @ default(false)
+  orgId        String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   title        String
   description  String
@@ -216,27 +205,26 @@ model Event {
   longitude    Float?
 
   tags         String[] @default([])
+  topics       String[] @default([])
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  owner User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updates Post[]
 
-  owner Actor @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
-
-  // Descendant posts
-  posts Post[]
-
-  @@index([ownerActorId, dateTime])
+  @@index([userId, dateTime])
   @@map("events")
 }
 
 // Standalone posts (no projectId/eventId) and descendant posts (exactly one parent)
 // Note: enforce "projectId and eventId not both set" via app logic + a DB CHECK constraint in migration.
+
 model Post {
   id           String   @id @default(cuid())
-  ownerActorId String
+  userId       String
+  createdByOrg Boolean  @ default(false)
+  orgId        String?
 
   // Parent pointers (optional)
-  projectId    String?
+  parentType   CollectionType
   eventId      String?
 
   title        String?
@@ -245,11 +233,16 @@ model Post {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  owner   Actor    @relation(fields: [ownerActorId], references: [id], onDelete: Cascade)
+  owner Owner @relation(fields: [owner], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  @@index([ownerActorId, createdAt])
+  tags         String[] @default([])
+  topics       String[] @default([])
+
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
   @@index([projectId, createdAt])
   @@index([eventId, createdAt])
   @@map("posts")
@@ -260,16 +253,22 @@ model Post {
 // ========================
 
 model Message {
-  id          String    @id @default(cuid())
-  content     String
-  senderId    String
-  receiverId  String
-  createdAt   DateTime  @default(now())
-  readAt      DateTime?
+  id           String    @id @default(cuid())
+  content      String
+  senderId     String    // References Owner.id (Owner.type determines if User or Org)
+  receiverId   String    // References Owner.id (Owner.type determines if User or Org)
+  senderOrgId  String?   // Denormalized: set when sender is an org (for efficient org message queries)
+  receiverOrgId String?   // Denormalized: set when receiver is an org (for efficient org message queries)
+  createdAt    DateTime  @default(now())
+  readAt       DateTime?
 
-  sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver    User      @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender       Owner     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     Owner     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([senderOrgId])
+  @@index([receiverOrgId])
   @@map("messages")
 }
 
@@ -301,7 +300,7 @@ model Image {
 model ImageAttachment {
   id        String         @id @default(cuid())
   imageId   String
-  type      AttachmentType
+  type      ArtifactType
   targetId  String
   sortOrder Int            @default(0)
   createdAt DateTime       @default(now())
