@@ -14,6 +14,11 @@ enum OwnerType {
   ORG
 }
 
+enum OwnerStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
 enum OrgRole {
   SUPERADMIN
   ADMIN
@@ -34,14 +39,14 @@ enum ArtifactType extends CollectionType {
 
 model Owner {
   id        String    @id @default(cuid())
-  userId    String    @unique
-  orgId     String?
+  userId    String    // References User.id
+  orgId     String?   // References Org.id (null for personal Owner)
   type      OwnerType
   createdAt DateTime  @default(now())
 
-  // 1:1 backrefs
-  user User?
-  org  Org?
+  // Relations
+  user User @relation("UserOwners", fields: [userId], references: [id], onDelete: Cascade)
+  org  Org? @relation("OrgOwners", fields: [orgId], references: [id], onDelete: Cascade)
 
   // Ownership
   projects         Project[]
@@ -53,6 +58,9 @@ model Owner {
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
 
+  status           OwnerStatus @default(ACTIVE)
+
+  @@unique([userId, orgId]) // Allows one personal Owner (orgId=null) + multiple org Owners per user
   @@map("owners")
 }
 
@@ -80,9 +88,15 @@ model Follow {
 
 model User {
   id          String   @id @default(cuid())
-  ownerId     String   @unique
+  ownerId     String   @unique // References Owner.id (the user's personal Owner)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime @updatedAt
+
+  // Personal Owner (the one referenced by ownerId - orgId is null)
+  userOwner Owner @relation("PersonalOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // All Owners this user has (personal + org-based) - inverse of Owner.user
+  allOwners Owner[] @relation("UserOwners")
 
   // Outgoing: I follow others
   following Follow[] @relation("Following")
@@ -106,7 +120,7 @@ model User {
   isPublic     Boolean  @default(true)
   avatarImageId String?
   avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
-  orgMemberships OrgMember[]
+  orgMemberships Org[]
 
   @@map("users")
 }
@@ -138,6 +152,9 @@ model Org {
 
   avatarImageId String?
   avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  
+  // All Owners for this org (users acting on behalf of this org) - inverse of Owner.org
+  owners Owner[] @relation("OrgOwners")
   
   // Outgoing: I follow others
   following Follow[] @relation("Following")
