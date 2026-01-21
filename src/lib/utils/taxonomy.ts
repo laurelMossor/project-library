@@ -8,12 +8,17 @@ const TAXONOMY_CSV_PATH = path.join(
 	"Topics Table V1.2.csv"
 );
 
-export interface TaxonomyTopicRow {
-	topic: string;
-	parent?: string;
-	descendants: string[];
-	synonyms: string[];
-}
+export interface TopicNodeRow {
+	id: string;          // stable ID (slug/uuid). avoid using the display name as identity
+	label: string;       // display name
+	parentId?: string;   // undefined/null means root
+	synonyms?: string[]; // optional
+  }
+//   That’s it.
+  
+//   “Children” are rows.filter(r => r.parentId === id)
+  
+//   “Descendants” are computed via traversal when needed (or cached/materialized if performance requires later)
 
 export interface TaxonomyTreeNode {
 	name: string;
@@ -90,7 +95,7 @@ function parseMultiValueField(value?: string): string[] {
 		.filter(Boolean);
 }
 
-export function parseTaxonomyCsv(csvContent: string): TaxonomyTopicRow[] {
+export function parseTaxonomyCsv(csvContent: string): TopicNodeRow[] {
 	const lines = csvContent
 		.split(/\r?\n/)
 		.map((line) => line.trim())
@@ -105,121 +110,56 @@ export function parseTaxonomyCsv(csvContent: string): TaxonomyTopicRow[] {
 	return rows.map((row) => {
 		const [topic, ancestors, descendants, synonyms] = parseCsvLine(row);
 
+		const label = normalizeTopicLabel(topic);
+		const id = normalizeTopicKey(label);
+		const parentLabel = normalizeField(ancestors);
+		const parentId = parentLabel ? normalizeTopicKey(parentLabel) : undefined;
+
 		return {
-			topic: topic.trim(),
-			parent: normalizeField(ancestors),
-			descendants: parseMultiValueField(descendants),
+			id,
+			label,
+			parentId,
 			synonyms: parseMultiValueField(synonyms)
 		};
 	});
 }
 
-export async function loadTaxonomyTopics(): Promise<TaxonomyTopicRow[]> {
+export async function loadTaxonomyTopics(): Promise<TopicNodeRow[]> {
 	const file = await readFile(TAXONOMY_CSV_PATH, "utf8");
 	return parseTaxonomyCsv(file);
 }
 
-export function buildTaxonomyTree(rows: TaxonomyTopicRow[]): TaxonomyTreeNode[] {
-	type InternalNode = TaxonomyTreeNode & {
-		_key: string;
-		_explicitParentKey?: string;
-		_inferredParentKeys: Set<string>;
-		_childrenKeys: Set<string>;
-	};
+export function buildTaxonomyTree(rows: TopicNodeRow[]): TaxonomyTreeNode[] {
+	// Build a map of nodes by ID for quick lookup
+	const nodeMap = new Map<string, TaxonomyTreeNode>();
 
-	const nodeMap = new Map<string, InternalNode>();
-
-	const getOrCreateNode = (rawName: string): InternalNode => {
-		const name = normalizeTopicLabel(rawName);
-		const key = normalizeTopicKey(name);
-		const existing = nodeMap.get(key);
-		if (existing) {
-			return existing;
-		}
-
-		const newNode: InternalNode = {
-			_key: key,
-			name,
-			children: [],
-			synonyms: [],
-			_inferredParentKeys: new Set<string>(),
-			_childrenKeys: new Set<string>()
-		};
-
-		nodeMap.set(key, newNode);
-		return newNode;
-	};
-
-	// 1) Collect nodes + synonyms + parent candidates.
+	// First pass: create all nodes
 	for (const row of rows) {
-		const node = getOrCreateNode(row.topic);
-		node.synonyms = Array.from(new Set([...node.synonyms, ...row.synonyms]));
+		nodeMap.set(row.id, {
+			name: row.label,
+			children: [],
+			synonyms: row.synonyms || []
+		});
+	}
 
-		if (row.parent) {
-			const parentNode = getOrCreateNode(row.parent);
-			// Explicit parent is the strongest signal; keep the first one we see to stay deterministic.
-			node._explicitParentKey ??= parentNode._key;
+	// Second pass: build parent-child relationships
+	for (const row of rows) {
+		const node = nodeMap.get(row.id);
+		if (!node) {
+			continue;
 		}
 
-		// Descendants are child relationships. Many CSV rows won't exist for descendants, so we
-		// treat this as a valid way to build the tree.
-		for (const descendant of row.descendants) {
-			const child = getOrCreateNode(descendant);
-			if (child._key === node._key) {
-				continue;
+		if (row.parentId) {
+			const parent = nodeMap.get(row.parentId);
+			if (parent && row.parentId !== row.id) {
+				// Prevent self-cycles
+				node.parent = parent.name;
+				parent.children.push(node);
 			}
-			child._inferredParentKeys.add(node._key);
 		}
 	}
 
-	// 2) Choose a single parent per node:
-	// - explicit parent wins
-	// - otherwise, if exactly 1 inferred parent exists, use it
-	// - otherwise choose a deterministic inferred parent (alphabetical) to keep a tree
-	for (const node of nodeMap.values()) {
-		const chosenParentKey =
-			node._explicitParentKey ??
-			(node._inferredParentKeys.size === 1
-				? Array.from(node._inferredParentKeys)[0]
-				: node._inferredParentKeys.size > 1
-					? Array.from(node._inferredParentKeys).sort()[0]
-					: undefined);
-
-		if (!chosenParentKey) {
-			continue;
-		}
-
-		// Prevent trivial self-cycles.
-		if (chosenParentKey === node._key) {
-			continue;
-		}
-
-		const parent = nodeMap.get(chosenParentKey);
-		if (!parent) {
-			continue;
-		}
-
-		node.parent = parent.name;
-	}
-
-	// 3) Build children arrays from chosen parents, deduping by canonical key.
-	for (const node of nodeMap.values()) {
-		if (!node.parent) {
-			continue;
-		}
-
-		const parentKey = normalizeTopicKey(node.parent);
-		const parent = nodeMap.get(parentKey);
-		if (!parent) {
-			continue;
-		}
-
-		if (!parent._childrenKeys.has(node._key)) {
-			parent._childrenKeys.add(node._key);
-			parent.children.push(node);
-		}
-	}
-
+	// Collect root nodes (nodes without parents)
 	const roots: TaxonomyTreeNode[] = [];
 	for (const node of nodeMap.values()) {
 		if (!node.parent) {
@@ -227,6 +167,7 @@ export function buildTaxonomyTree(rows: TaxonomyTopicRow[]): TaxonomyTreeNode[] 
 		}
 	}
 
+	// Sort tree recursively
 	const sortChildren = (node: TaxonomyTreeNode) => {
 		node.children.sort((a, b) => a.name.localeCompare(b.name));
 		node.children.forEach(sortChildren);
