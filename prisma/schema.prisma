@@ -20,7 +20,7 @@ enum OwnerStatus {
 }
 
 enum OrgRole {
-  SUPERADMIN
+  OWNER
   ADMIN
   MEMBER
 }
@@ -149,21 +149,23 @@ model Org {
 
   // Parent Topic (placeholder using simple string for now)
   parentTopic  String?
+  topics       Topic[]
+  tags         String[] @default([])
 
   avatarImageId String?
   avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
   
   // All Owners for this org (users acting on behalf of this org) - inverse of Owner.org
-  owners Owner[] @relation("OrgOwners")
+  owners        Owner[] @relation("OrgOwners")
   
   // Outgoing: I follow others
-  following Follow[] @relation("Following")
+  following     Follow[] @relation("Following")
   // Incoming: others follow me
-  followers Follow[] @relation("Followers")
+  followers     Follow[] @relation("Followers")
 
   members       OrgMember[]
   admins        OrgMember[]
-  superadminId  String @default(createdByUserId)
+  userOwner     User @relation(fields: [user], references: [id], onDelete: Cascade) // userOwner has superadmin role for Org
 
   @@map("orgs")
 }
@@ -250,7 +252,7 @@ model Post {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  owner Owner @relation(fields: [owner], references: [id], onDelete: Cascade)
+  owner        Owner @relation(fields: [owner], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
@@ -327,4 +329,11 @@ model ImageAttachment {
   @@index([type, targetId])
   @@index([imageId])
   @@map("image_attachments")
+}
+
+model Topic {
+	id        String
+	label     String;
+	parentId? String;
+	synonyms? String[];
 }

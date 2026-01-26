@@ -5,20 +5,15 @@ const TAXONOMY_CSV_PATH = path.join(
 	process.cwd(),
 	"prisma",
 	"seed-data",
-	"Topics Table V1.2.csv"
+	"Topics Table V1.6.csv"
 );
 
 export interface TopicNodeRow {
-	id: string;          // stable ID (slug/uuid). avoid using the display name as identity
-	label: string;       // display name
-	parentId?: string;   // undefined/null means root
-	synonyms?: string[]; // optional
-  }
-//   That’s it.
-  
-//   “Children” are rows.filter(r => r.parentId === id)
-  
-//   “Descendants” are computed via traversal when needed (or cached/materialized if performance requires later)
+	id: string;
+	label: string;
+	parentId?: string;
+	synonyms?: string[];
+}
 
 export interface TaxonomyTreeNode {
 	name: string;
@@ -106,22 +101,57 @@ export function parseTaxonomyCsv(csvContent: string): TopicNodeRow[] {
 	}
 
 	const [, ...rows] = lines;
+	const topicMap = new Map<string, TopicNodeRow>();
+	const parentLabelMap = new Map<string, string>(); // Maps parentId -> original parentLabel
 
-	return rows.map((row) => {
-		const [topic, ancestors, descendants, synonyms] = parseCsvLine(row);
+	for (const row of rows) {
+		const [topic, ancestors, synonyms] = parseCsvLine(row);
 
 		const label = normalizeTopicLabel(topic);
 		const id = normalizeTopicKey(label);
 		const parentLabel = normalizeField(ancestors);
 		const parentId = parentLabel ? normalizeTopicKey(parentLabel) : undefined;
+		const rowSynonyms = parseMultiValueField(synonyms);
 
-		return {
-			id,
-			label,
-			parentId,
-			synonyms: parseMultiValueField(synonyms)
-		};
-	});
+		// Track parent labels for creating missing parent nodes
+		if (parentLabel && parentId) {
+			// Store the first occurrence of each parent label (normalized)
+			if (!parentLabelMap.has(parentId)) {
+				parentLabelMap.set(parentId, normalizeTopicLabel(parentLabel));
+			}
+		}
+
+		const existing = topicMap.get(id);
+		if (existing) {
+			// Merge synonyms if topic appears multiple times
+			const mergedSynonyms = Array.from(
+				new Set([...(existing.synonyms || []), ...rowSynonyms])
+			);
+			existing.synonyms = mergedSynonyms.length > 0 ? mergedSynonyms : undefined;
+			// Keep the first parentId (first occurrence wins)
+		} else {
+			topicMap.set(id, {
+				id,
+				label,
+				parentId,
+				synonyms: rowSynonyms.length > 0 ? rowSynonyms : undefined
+			});
+		}
+	}
+
+	// Create missing parent nodes
+	for (const [parentId, parentLabel] of parentLabelMap.entries()) {
+		if (!topicMap.has(parentId)) {
+			topicMap.set(parentId, {
+				id: parentId,
+				label: parentLabel,
+				parentId: undefined, // Missing parents are root nodes
+				synonyms: undefined
+			});
+		}
+	}
+
+	return Array.from(topicMap.values());
 }
 
 export async function loadTaxonomyTopics(): Promise<TopicNodeRow[]> {
@@ -133,7 +163,7 @@ export function buildTaxonomyTree(rows: TopicNodeRow[]): TaxonomyTreeNode[] {
 	// Build a map of nodes by ID for quick lookup
 	const nodeMap = new Map<string, TaxonomyTreeNode>();
 
-	// First pass: create all nodes
+	// First pass: create all nodes from rows
 	for (const row of rows) {
 		nodeMap.set(row.id, {
 			name: row.label,
@@ -149,10 +179,10 @@ export function buildTaxonomyTree(rows: TopicNodeRow[]): TaxonomyTreeNode[] {
 			continue;
 		}
 
-		if (row.parentId) {
+		if (row.parentId && row.parentId !== row.id) {
+			// Prevent self-cycles
 			const parent = nodeMap.get(row.parentId);
-			if (parent && row.parentId !== row.id) {
-				// Prevent self-cycles
+			if (parent) {
 				node.parent = parent.name;
 				parent.children.push(node);
 			}
@@ -201,11 +231,7 @@ export function buildMermaidDiagram(tree: TaxonomyTreeNode[]): string {
 
 	const renderNode = (node: TaxonomyTreeNode) => {
 		const nodeId = getId(node.name);
-		const label = node.synonyms.length
-			? `${node.name} (${node.synonyms.join(", ")})`
-			: node.name;
-
-		lines.push(`${nodeId}["${escapeLabel(label)}"]`);
+		lines.push(`${nodeId}["${escapeLabel(node.name)}"]`);
 
 		node.children.forEach((child) => {
 			const childId = renderNode(child);
