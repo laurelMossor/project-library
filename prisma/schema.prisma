@@ -9,6 +9,7 @@ datasource db {
 // ========================
 // Enums
 // ========================
+
 enum OwnerType {
   USER
   ORG
@@ -25,39 +26,34 @@ enum OrgRole {
   MEMBER
 }
 
-enum CollectionType {
+// Used for ImageAttachment target typing.
+// (If you later allow attachments on more models, extend this enum.)
+enum ArtifactType {
   PROJECT
   EVENT
   POST
-}
-
-enum ArtifactType extends CollectionType {
-  MESSAGE
   IMAGE
+  MESSAGE
 }
 
+// ========================
+// Users (base type)
+// ========================
+//
 model User {
-  id          String   @id @default(cuid())
-  ownerId     String   @unique // References Owner.id (the user's personal Owner)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  ownerId   String   @unique // References Owner.id (personal Owner)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relationships
-  owner      Owner @relation("UserOwner", fields: [ownerId], references: [id], onDelete: Cascade) // The unique, personal owner profile (the one referenced by ownerId - orgId is null)
-  owners     Owner[] @relation("UserOwners")  // All Owners this user has (personal + org-based) - inverse of Owner.user
-  adminOf        Org[]
-  orgMemberships Org[]
-  following   Follow[] @relation("Following")   // Outgoing: I follow others
-  followers   Follow[] @relation("Followers")  // Incoming: others follow me
-
-  email        String   @unique
+  email        String @unique
   passwordHash String
-  username     String   @unique
+  username     String @unique
 
-  firstName    String?
-  middleName   String?
-  lastName     String?
-  displayName  String?  // Preferred display name (overrides firstName + lastName)
+  firstName   String?
+  middleName  String?
+  lastName    String?
+  displayName String?
 
   // Profile
   headline     String?
@@ -68,69 +64,75 @@ model User {
   avatarImageId String?
   avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
+  // Relationships
+  userOwner      Owner        @relation("UserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owners         Owner[]
+  createdOrgs    Org[]        @relation("OrgCreatedBy")
+
   @@map("users")
-}
-
-model Follow {
-  id            String   @id @default(cuid())
-  followerType  OwnerType
-  followerId    String
-  followingType OwnerType
-  followingId   String
-  createdAt     DateTime @default(now())
-
-  userFollower  User? @relation("Following", references: [id], onDelete: Cascade)
-  userFollowing User? @relation("Followers", references: [id], onDelete: Cascade)
-  orgFollower   Org? @relation("Following", references: [id], onDelete: Cascade)
-  orgFollowing  Org? @relation("Followers", references: [id], onDelete: Cascade)
-
-  @@unique([, followingId])
-  @@index([followingId])
-  @@map("follows")
 }
 
 // ========================
 // Owners + Orgs
 // ========================
-
-// Note: Each User and User + Org combo has a unique Owner identity, with the User-first attribution pattern
+//
+// User-first attribution:
+// - Every Owner always points back to a responsible `userId`.
+// - Personal Owner: `orgId` is null and `type` is USER.
+// - Org Owner ("wearing an org hat"): `orgId` is set and `type` is ORG.
+//
+// Important Postgres note:
+// - `@@unique([userId, orgId])` does NOT prevent multiple (userId, NULL) rows.
+//   If you need "exactly one personal owner per user", add a partial unique index in SQL:
+//     CREATE UNIQUE INDEX owners_one_personal_per_user ON owners("userId") WHERE "orgId" IS NULL;
 
 model Owner {
-  id        String    @id @default(cuid())
-  isOrg     Boolean   @default(false)
-  userId    String    // References User.id
-  orgId     String?   // References Org.id (null for personal Owner)
+  id        String      @id @default(cuid())
+  userId    String
+  orgId     String?
   type      OwnerType
-  createdAt DateTime  @default(now())
+  status    OwnerStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
 
   // Relations
-  user      User @relation("UserOwners", fields: [userId], references: [id], onDelete: Cascade)
-  org       Org? @relation("OrgOwners", fields: [orgId], references: [id], onDelete: Cascade)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Org?  @relation("OrgOwners", fields: [orgId], references: [id], onDelete: Cascade)
+  // Backref from User.userOwner (personal owner)
+  userOwner User? @relation("UserOwner")
+  // Primary owner for org(s)
+  primaryOrgs Org[] @relation("OrgPrimaryOwner")
 
-  // Ownership
-  projects         Project[]
-  events           Event[]
-  posts            Post[]
-  images           Image[] // uploaded files (metadata)
-  
+  // Social graph
+  following Follow[] @relation("OwnerFollowing")
+  followers Follow[] @relation("OwnerFollowers")
+
+  // Content attribution
+  projects Project[]
+  events   Event[]
+  posts    Post[]
+  images   Image[]
+
   // Messaging
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
 
-  status           OwnerStatus @default(ACTIVE)
+  // Org membership tie (for org-based owners)
+  orgMembership OrgMember?
 
-  @@unique([userId, orgId]) // Allows one personal Owner (orgId=null) + multiple org Owners per user
+  @@unique([userId, orgId])
+  @@index([userId])
+  @@index([orgId])
   @@map("owners")
 }
 
 model Org {
-  id        String   @id @default(cuid())
-  createdByUserId   String   
+  id              String   @id @default(cuid())
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  name      String
-  slug      String   @unique
+  name String
+  slug String @unique
 
   headline  String?
   bio       String?
@@ -145,112 +147,125 @@ model Org {
   state        String?
   zip          String?
 
-  // Parent Topic (placeholder using simple string for now)
-  parentTopic  String?
-  topics       Topic[]
-  tags         String[] @default([])
+  // Taxonomy (lightweight MVP)
+  parentTopic String?
+  tags        String[] @default([])
+  topics      Topic[]
 
   avatarImageId String?
   avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
-  
+
   // Relationships
-  owner         Owner @relation(fields: [owner], references: [id], onDelete: Cascade) // owner has superadmin role for Org
-  owners        Owner[] @relation("OrgOwners")   // All Owners for this org (users acting on behalf of this org) - inverse of Owner.org
-  following     Follow[] @relation("Following")   // Outgoing: I follow others
-  followers     Follow[] @relation("Followers")   // Incoming: others follow me
+  createdByUser User       @relation("OrgCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  ownerId   String // default is createdbyuser
+  owner         Owner @relation("OrgPrimaryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owners        Owner[] @relation("OrgOwners")
   members       OrgMember[]
 
+  @@index([ownerId])
   @@map("orgs")
 }
 
+// Membership & role live on the join.
+// `ownerId` connects membership to the user's org-based Owner identity ("hat").
 model OrgMember {
-  id        String   @id @default(cuid())
-  userId    String
-  role      OrgRole  @default(MEMBER)
+  id        String  @id @default(cuid())
+  orgId     String
+  ownerId   String  @unique
+  role      OrgRole @default(MEMBER)
   createdAt DateTime @default(now())
 
-  user      User @relation("UserOwners", fields: [userId], references: [id], onDelete: Cascade)
-  org        Org @relative(fields: [orgId], references: [id], onDelete: Cascade)
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, ownerId])
   @@index([orgId, role])
   @@map("org_members")
 }
 
 // ========================
-// Content attributed to an Owner (User or Org Admin)
+// Social graph (Owner follows Owner)
+// ========================
+
+model Follow {
+  id               String   @id @default(cuid())
+  followerOwnerId  String
+  followingOwnerId String
+  createdAt        DateTime @default(now())
+
+  follower  Owner @relation("OwnerFollowing", fields: [followerOwnerId], references: [id], onDelete: Cascade)
+  following Owner @relation("OwnerFollowers", fields: [followingOwnerId], references: [id], onDelete: Cascade)
+
+  @@unique([followerOwnerId, followingOwnerId])
+  @@index([followerOwnerId])
+  @@index([followingOwnerId])
+  @@map("follows")
+}
+
+// ========================
+// Content attributed to an Owner
 // ========================
 
 model Project {
-  id           String   @id @default(cuid())
-  userId       String
-  createdByOrg Boolean  @ default(false)
-  orgId        String?
-  title        String
-  description  String
- 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  ownerId     String
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  owner        Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  updates Post[]
-  tags         String[] @default([])
-  topics       String[] @default([])
-  @@index([userId])
+  owner  Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts  Post[]
+
+  tags   String[] @default([])
+  topics String[] @default([])
+
+  @@index([ownerId, createdAt])
   @@map("projects")
 }
 
 model Event {
-  id           String   @id @default(cuid())
-  userId       String
-  createdByOrg Boolean  @ default(false)
-  orgId        String?
+  id          String   @id @default(cuid())
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  title       String
+  description String
+  eventDateTime    DateTime
+  location    String
+  latitude    Float?
+  longitude   Float?
 
-  title        String
-  description  String
-  dateTime     DateTime
-  location     String
-  latitude     Float?
-  longitude    Float?
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts Post[]
 
-  tags         String[] @default([])
-  topics       String[] @default([])
+  tags   String[] @default([])
+  topics String[] @default([])
 
-  owner        Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  updates Post[]
-
-  @@index([userId, dateTime])
+  @@index([ownerId, createdAt])
   @@map("events")
 }
 
-// Standalone posts (no projectId/eventId) and descendant posts (exactly one parent)
-// Note: enforce "projectId and eventId not both set" via app logic + a DB CHECK constraint in migration.
-
+// Standalone posts (projectId/eventId both null) and child posts (exactly one parent).
+// Enforce "projectId and eventId not both set" via a DB CHECK constraint in a migration (Prisma can't express it).
 model Post {
-  id           String   @id @default(cuid())
-  userId       String
-  createdByOrg Boolean  @ default(false)
-  orgId        String?
+  id        String   @id @default(cuid())
+  ownerId   String
+  projectId String?
+  eventId   String?
 
-  // Parent pointers (optional)
-  parentType   CollectionType
-  eventId      String?
+  title   String?
+  content String
 
-  title        String?
-  content      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  owner   Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  owner        Owner @relation(fields: [owner], references: [id], onDelete: Cascade)
-  project      Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  event        Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  tags         String[] @default([])
-  topics       String[] @default([])
+  tags   String[] @default([])
+  topics String[] @default([])
 
   @@index([ownerId, createdAt])
   @@index([projectId, createdAt])
@@ -259,22 +274,23 @@ model Post {
 }
 
 // ========================
-// Messaging
+// Messaging (Owner -> Owner)
 // ========================
 
 model Message {
-  id           String    @id @default(cuid())
-  content      String
-  senderId     String    // References Owner.id (Owner.type determines if User or Org)
-  receiverId   String    // References Owner.id (Owner.type determines if User or Org)
-  sentByOrg     Boolean @defaul(false)
-  senderOrgId   String?   // Denormalized: set when sender is an org (for efficient org message queries)
-  receiverOrgId String?   // Denormalized: set when receiver is an org (for efficient org message queries)
-  createdAt     DateTime  @default(now())
-  readAt        DateTime?
+  id        String   @id @default(cuid())
+  content   String
+  senderId  String
+  receiverId String
+  createdAt DateTime @default(now())
+  readAt    DateTime?
 
-  sender       Owner     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver     Owner     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  // Optional denormalization for org inbox queries
+  senderOrgId   String?
+  receiverOrgId String?
+
+  sender   Owner @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver Owner @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([senderId])
   @@index([receiverId])
@@ -288,14 +304,14 @@ model Message {
 // ========================
 
 model Image {
-  id           String   @id @default(cuid())
-  url          String
-  path         String
-  altText      String?
-  uploadedById String
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  url            String
+  path           String
+  altText        String?
+  uploadedById   String
+  createdAt      DateTime @default(now())
 
-  uploadedBy   Owner @relation(fields: [owner], references: [id], onDelete: Cascade)
+  uploadedBy      Owner @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   // Used for Project/Event/Post galleries (and any other attachable targets you add later)
   attachments  ImageAttachment[]
@@ -309,12 +325,12 @@ model Image {
 }
 
 model ImageAttachment {
-  id        String         @id @default(cuid())
+  id        String      @id @default(cuid())
   imageId   String
   type      ArtifactType
   targetId  String
-  sortOrder Int            @default(0)
-  createdAt DateTime       @default(now())
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
 
   image     Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
 
@@ -323,11 +339,17 @@ model ImageAttachment {
   @@map("image_attachments")
 }
 
+// Lightweight taxonomy table (can evolve later).
+// The Org <-> Topic relation is an implicit many-to-many join table.
 model Topic {
-	id          String
-	label       String;
-	parentId?   String;
-	synonyms?   String[];
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id
+  label     String
+  parentId  String?
+  synonyms  String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgs Org[]
+
+  @@map("topics")
 }

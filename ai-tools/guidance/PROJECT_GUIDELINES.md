@@ -14,7 +14,7 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 ## Tech Stack
 React, NextJS, Primsa, Supabase (DB and Storage buckets), Launched using Vercel 
 
-## App Diagram
+# App Diagram --- NEEDS UPDATE ---
 Project Library – Conceptual Schema Tree
 =======================================
 
