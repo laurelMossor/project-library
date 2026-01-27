@@ -6,7 +6,7 @@ import { prisma } from "./prisma";
 // Standard fields to select when fetching a user profile
 const personalProfileFields = {
 	id: true,
-	actorId: true,
+	ownerId: true,
 	username: true,
 	email: true,
 	firstName: true,
@@ -24,7 +24,7 @@ const personalProfileFields = {
 // Public fields (excludes sensitive data like email, but includes ID for messaging)
 export const publicUserFields = {
 	id: true,
-	actorId: true,
+	ownerId: true,
 	username: true,
 	firstName: true,
 	middleName: true,
@@ -102,16 +102,10 @@ export async function updateUserProfile(
 	});
 }
 
-// Get actor for a user
-export async function getActorForUser(userId: string) {
-	const user = await prisma.user.findUnique({
-		where: { id: userId },
-		select: { actorId: true },
-	});
-	if (!user) return null;
-	
-	return prisma.actor.findUnique({
-		where: { id: user.actorId },
+// Get owner for a user (personal owner)
+export async function getOwnerForUser(userId: string) {
+	return prisma.owner.findFirst({
+		where: { userId, orgId: null },
 		include: { user: true },
 	});
 }

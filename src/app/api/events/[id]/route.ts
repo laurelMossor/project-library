@@ -1,12 +1,29 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, forbidden, notFound, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
+import { validateEventUpdateData } from "@/lib/validations";
+import { eventWithOwnerFields } from "@/lib/utils/server/fields";
+import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
+import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
 
 type Params = { params: Promise<{ id: string }> };
+
+function parseNumber(value: unknown): number | null {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+}
 
 /**
  * GET /api/events/:id
  * Get an event by ID
+ * Public endpoint
  */
 export async function GET(request: Request, { params }: Params) {
 	try {
@@ -14,84 +31,32 @@ export async function GET(request: Request, { params }: Params) {
 
 		const event = await prisma.event.findUnique({
 			where: { id },
-			include: {
-				owner: {
-					select: {
-						id: true,
-						type: true,
-						userId: true,
-						orgId: true,
-						user: {
-							select: {
-								id: true,
-								username: true,
-								displayName: true,
-								firstName: true,
-								lastName: true,
-								avatarImageId: true,
-							},
-						},
-						org: {
-							select: {
-								id: true,
-								slug: true,
-								name: true,
-								avatarImageId: true,
-							},
-						},
-					},
-				},
-				posts: {
-					orderBy: { createdAt: "desc" },
-					take: 10,
-					select: {
-						id: true,
-						title: true,
-						content: true,
-						createdAt: true,
-					},
-				},
-			},
+			select: eventWithOwnerFields,
 		});
 
 		if (!event) {
 			return notFound("Event not found");
 		}
 
-		return success({
-			event: {
-				id: event.id,
-				ownerId: event.ownerId,
-				title: event.title,
-				description: event.description,
-				eventDateTime: event.eventDateTime,
-				location: event.location,
-				latitude: event.latitude,
-				longitude: event.longitude,
-				tags: event.tags,
-				topics: event.topics,
-				createdAt: event.createdAt,
-				updatedAt: event.updatedAt,
-				owner: {
-					id: event.owner.id,
-					type: event.owner.type,
-					user: event.owner.user,
-					org: event.owner.org,
-				},
-				posts: event.posts,
-			},
-		});
+		// Load images
+		const images = await getImagesForTarget("EVENT", id);
+
+		const eventItem = {
+			...event,
+			type: COLLECTION_ITEM_TYPES.EVENT,
+			images,
+		};
+
+		return NextResponse.json(eventItem);
 	} catch (error) {
 		console.error("GET /api/events/:id error:", error);
-		return serverError();
+		return serverError("Failed to fetch event");
 	}
 }
 
 /**
  * PATCH /api/events/:id
  * Update an event (must be owner)
- * 
- * Body: { title?: string, description?: string, eventDateTime?: string, location?: string, latitude?: number, longitude?: number, tags?: string[], topics?: string[] }
  */
 export async function PATCH(request: Request, { params }: Params) {
 	try {
@@ -101,54 +66,91 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const { id } = await params;
-		const body = await request.json();
 
 		// Verify event exists and belongs to active owner
-		const event = await prisma.event.findUnique({ where: { id } });
-		if (!event) {
+		const existing = await prisma.event.findUnique({
+			where: { id },
+			select: { ownerId: true },
+		});
+
+		if (!existing) {
 			return notFound("Event not found");
 		}
 
-		if (event.ownerId !== ctx.activeOwnerId) {
-			return forbidden("You can only edit your own events");
+		if (existing.ownerId !== ctx.activeOwnerId) {
+			return NextResponse.json(
+				{ error: "You can only edit your own events" },
+				{ status: 403 }
+			);
 		}
 
-		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = body;
+		const data = await request.json();
+		const { title, description, dateTime, eventDateTime, location, latitude, longitude, tags, topics } = data;
+
+		// Support both dateTime (old) and eventDateTime (new) field names
+		const eventDate = eventDateTime || dateTime;
+		const parsedDateTime = eventDate ? new Date(eventDate) : undefined;
+		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
+		const parsedLongitude = longitude !== undefined ? parseNumber(longitude) : undefined;
+
+		// Process tags if provided
+		let processedTags: string[] | undefined;
+		if (tags !== undefined) {
+			if (typeof tags === "string") {
+				processedTags = tags
+					.split(",")
+					.map((tag) => tag.trim())
+					.filter(Boolean);
+			} else if (Array.isArray(tags)) {
+				processedTags = tags
+					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
+					.filter(Boolean);
+			}
+		}
+
+		// Validate update data
+		const validation = validateEventUpdateData({
+			title,
+			description,
+			dateTime: parsedDateTime,
+			location,
+			latitude: parsedLatitude ?? undefined,
+			longitude: parsedLongitude ?? undefined,
+			tags: processedTags,
+		});
+		if (!validation.valid) {
+			return badRequest(validation.error || "Invalid event data");
+		}
 
 		const updateData: Record<string, unknown> = {};
 		if (title !== undefined) updateData.title = title.trim();
 		if (description !== undefined) updateData.description = description.trim();
-		if (eventDateTime !== undefined) updateData.eventDateTime = new Date(eventDateTime);
+		if (parsedDateTime !== undefined) updateData.eventDateTime = parsedDateTime;
 		if (location !== undefined) updateData.location = location.trim();
-		if (latitude !== undefined) updateData.latitude = latitude;
-		if (longitude !== undefined) updateData.longitude = longitude;
-		if (tags !== undefined) updateData.tags = tags;
-		if (topics !== undefined) updateData.topics = topics;
+		if (parsedLatitude !== undefined) updateData.latitude = parsedLatitude;
+		if (parsedLongitude !== undefined) updateData.longitude = parsedLongitude;
+		if (processedTags !== undefined) updateData.tags = processedTags;
+		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 
-		const updated = await prisma.event.update({
+		const event = await prisma.event.update({
 			where: { id },
 			data: updateData,
+			select: eventWithOwnerFields,
 		});
 
-		return success({
-			event: {
-				id: updated.id,
-				ownerId: updated.ownerId,
-				title: updated.title,
-				description: updated.description,
-				eventDateTime: updated.eventDateTime,
-				location: updated.location,
-				latitude: updated.latitude,
-				longitude: updated.longitude,
-				tags: updated.tags,
-				topics: updated.topics,
-				createdAt: updated.createdAt,
-				updatedAt: updated.updatedAt,
-			},
-		});
+		// Load images
+		const images = await getImagesForTarget("EVENT", id);
+
+		const eventItem = {
+			...event,
+			type: COLLECTION_ITEM_TYPES.EVENT,
+			images,
+		};
+
+		return NextResponse.json(eventItem);
 	} catch (error) {
 		console.error("PATCH /api/events/:id error:", error);
-		return serverError();
+		return serverError("Failed to update event");
 	}
 }
 
@@ -166,20 +168,27 @@ export async function DELETE(request: Request, { params }: Params) {
 		const { id } = await params;
 
 		// Verify event exists and belongs to active owner
-		const event = await prisma.event.findUnique({ where: { id } });
-		if (!event) {
+		const existing = await prisma.event.findUnique({
+			where: { id },
+			select: { ownerId: true },
+		});
+
+		if (!existing) {
 			return notFound("Event not found");
 		}
 
-		if (event.ownerId !== ctx.activeOwnerId) {
-			return forbidden("You can only delete your own events");
+		if (existing.ownerId !== ctx.activeOwnerId) {
+			return NextResponse.json(
+				{ error: "You can only delete your own events" },
+				{ status: 403 }
+			);
 		}
 
 		await prisma.event.delete({ where: { id } });
 
-		return success({ deleted: true });
+		return NextResponse.json({ success: true });
 	} catch (error) {
 		console.error("DELETE /api/events/:id error:", error);
-		return serverError();
+		return serverError("Failed to delete event");
 	}
 }

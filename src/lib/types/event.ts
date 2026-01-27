@@ -3,25 +3,24 @@ import { ImageItem } from "./image";
 import type { PostItem } from "./post";
 
 /**
- * Event type - matches Prisma schema v2
+ * Event type - matches Prisma schema v0.3
  * Extends BaseCollectionItem with event-specific fields
  * Note: 'type' field is derived (not in database) for TypeScript type discrimination
  */
 export interface EventItem extends BaseCollectionItem {
 	type: "event"; // Derived field for type discrimination
-	dateTime: Date;
+	eventDateTime: Date; // Schema v0.3 uses eventDateTime
 	location: string;
 	latitude: number | null;
 	longitude: number | null;
 	images: ImageItem[]; // Images associated with this event (via ImageAttachment)
 	posts?: PostItem[]; // Descendant posts (optional, loaded when needed)
-	updatedAt: Date;
 }
 
 export interface EventCreateInput {
 	title: string;
 	description: string;
-	dateTime: Date;
+	eventDateTime: Date;
 	location: string;
 	latitude?: number | null;
 	longitude?: number | null;
@@ -32,7 +31,7 @@ export interface EventCreateInput {
 export interface EventUpdateInput {
 	title?: string;
 	description?: string;
-	dateTime?: Date;
+	eventDateTime?: Date;
 	location?: string;
 	latitude?: number | null;
 	longitude?: number | null;

@@ -1,12 +1,18 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, forbidden, notFound, badRequest, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
+import { validateProjectUpdateData } from "@/lib/validations";
+import { projectWithOwnerFields } from "@/lib/utils/server/fields";
+import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
+import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
 
 type Params = { params: Promise<{ id: string }> };
 
 /**
  * GET /api/projects/:id
  * Get a project by ID
+ * Public endpoint
  */
 export async function GET(request: Request, { params }: Params) {
 	try {
@@ -14,80 +20,32 @@ export async function GET(request: Request, { params }: Params) {
 
 		const project = await prisma.project.findUnique({
 			where: { id },
-			include: {
-				owner: {
-					select: {
-						id: true,
-						type: true,
-						userId: true,
-						orgId: true,
-						user: {
-							select: {
-								id: true,
-								username: true,
-								displayName: true,
-								firstName: true,
-								lastName: true,
-								avatarImageId: true,
-							},
-						},
-						org: {
-							select: {
-								id: true,
-								slug: true,
-								name: true,
-								avatarImageId: true,
-							},
-						},
-					},
-				},
-				posts: {
-					orderBy: { createdAt: "desc" },
-					take: 10,
-					select: {
-						id: true,
-						title: true,
-						content: true,
-						createdAt: true,
-					},
-				},
-			},
+			select: projectWithOwnerFields,
 		});
 
 		if (!project) {
 			return notFound("Project not found");
 		}
 
-		return success({
-			project: {
-				id: project.id,
-				ownerId: project.ownerId,
-				title: project.title,
-				description: project.description,
-				tags: project.tags,
-				topics: project.topics,
-				createdAt: project.createdAt,
-				updatedAt: project.updatedAt,
-				owner: {
-					id: project.owner.id,
-					type: project.owner.type,
-					user: project.owner.user,
-					org: project.owner.org,
-				},
-				posts: project.posts,
-			},
-		});
+		// Load images
+		const images = await getImagesForTarget("PROJECT", id);
+
+		const projectItem = {
+			...project,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images,
+		};
+
+		return NextResponse.json(projectItem);
 	} catch (error) {
 		console.error("GET /api/projects/:id error:", error);
-		return serverError();
+		return serverError("Failed to fetch project");
 	}
 }
 
 /**
  * PATCH /api/projects/:id
  * Update a project (must be owner)
- * 
- * Body: { title?: string, description?: string, tags?: string[], topics?: string[] }
  */
 export async function PATCH(request: Request, { params }: Params) {
 	try {
@@ -97,45 +55,77 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const { id } = await params;
-		const body = await request.json();
 
 		// Verify project exists and belongs to active owner
-		const project = await prisma.project.findUnique({ where: { id } });
-		if (!project) {
+		const existing = await prisma.project.findUnique({
+			where: { id },
+			select: { ownerId: true },
+		});
+
+		if (!existing) {
 			return notFound("Project not found");
 		}
 
-		if (project.ownerId !== ctx.activeOwnerId) {
-			return forbidden("You can only edit your own projects");
+		if (existing.ownerId !== ctx.activeOwnerId) {
+			return NextResponse.json(
+				{ error: "You can only edit your own projects" },
+				{ status: 403 }
+			);
 		}
 
-		const { title, description, tags, topics } = body;
+		const data = await request.json();
+		const { title, description, tags, topics } = data;
 
-		const updated = await prisma.project.update({
+		// Process tags if provided
+		let processedTags: string[] | undefined;
+		if (tags !== undefined) {
+			if (typeof tags === "string") {
+				processedTags = tags
+					.split(",")
+					.map((tag) => tag.trim())
+					.filter(Boolean);
+			} else if (Array.isArray(tags)) {
+				processedTags = tags
+					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
+					.filter(Boolean);
+			}
+		}
+
+		// Validate update data
+		const validation = validateProjectUpdateData({
+			title,
+			description,
+			tags: processedTags,
+		});
+		if (!validation.valid) {
+			return badRequest(validation.error || "Invalid project data");
+		}
+
+		const updateData: Record<string, unknown> = {};
+		if (title !== undefined) updateData.title = title.trim();
+		if (description !== undefined) updateData.description = description.trim();
+		if (processedTags !== undefined) updateData.tags = processedTags;
+		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
+
+		const project = await prisma.project.update({
 			where: { id },
-			data: {
-				...(title !== undefined ? { title: title.trim() } : {}),
-				...(description !== undefined ? { description: description.trim() } : {}),
-				...(tags !== undefined ? { tags } : {}),
-				...(topics !== undefined ? { topics } : {}),
-			},
+			data: updateData,
+			select: projectWithOwnerFields,
 		});
 
-		return success({
-			project: {
-				id: updated.id,
-				ownerId: updated.ownerId,
-				title: updated.title,
-				description: updated.description,
-				tags: updated.tags,
-				topics: updated.topics,
-				createdAt: updated.createdAt,
-				updatedAt: updated.updatedAt,
-			},
-		});
+		// Load images
+		const images = await getImagesForTarget("PROJECT", id);
+
+		const projectItem = {
+			...project,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images,
+		};
+
+		return NextResponse.json(projectItem);
 	} catch (error) {
 		console.error("PATCH /api/projects/:id error:", error);
-		return serverError();
+		return serverError("Failed to update project");
 	}
 }
 
@@ -153,20 +143,27 @@ export async function DELETE(request: Request, { params }: Params) {
 		const { id } = await params;
 
 		// Verify project exists and belongs to active owner
-		const project = await prisma.project.findUnique({ where: { id } });
-		if (!project) {
+		const existing = await prisma.project.findUnique({
+			where: { id },
+			select: { ownerId: true },
+		});
+
+		if (!existing) {
 			return notFound("Project not found");
 		}
 
-		if (project.ownerId !== ctx.activeOwnerId) {
-			return forbidden("You can only delete your own projects");
+		if (existing.ownerId !== ctx.activeOwnerId) {
+			return NextResponse.json(
+				{ error: "You can only delete your own projects" },
+				{ status: 403 }
+			);
 		}
 
 		await prisma.project.delete({ where: { id } });
 
-		return success({ deleted: true });
+		return NextResponse.json({ success: true });
 	} catch (error) {
 		console.error("DELETE /api/projects/:id error:", error);
-		return serverError();
+		return serverError("Failed to delete project");
 	}
 }

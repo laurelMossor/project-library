@@ -1,14 +1,15 @@
 /**
- * Utilities for working with Actor-based ownership
- * In v2, owners are Actors which can be Users or Orgs
+ * Utilities for working with Owner-based ownership
+ * In v0.3, Owner represents user identity or org membership
  */
 
 import { PublicUser, getUserDisplayName } from "../types/user";
 
 /**
- * Owner structure from database (Actor with user/org)
+ * Owner structure from API responses
+ * Note: Matches projectWithOwnerFields/eventWithOwnerFields shape
  */
-export type ActorOwner = {
+export type OwnerView = {
 	id: string;
 	type: "USER" | "ORG";
 	user: PublicUser | null;
@@ -24,11 +25,14 @@ export type ActorOwner = {
 	} | null;
 };
 
+// Alias for backward compatibility
+export type ActorOwner = OwnerView;
+
 /**
- * Extract PublicUser from Actor owner structure
- * Returns the user if owner is a USER actor, null otherwise
+ * Extract PublicUser from Owner
+ * Returns the user if owner type is USER, null otherwise
  */
-export function getOwnerUser(owner: ActorOwner): PublicUser | null {
+export function getOwnerUser(owner: OwnerView): PublicUser | null {
 	if (owner.type === "USER" && owner.user) {
 		return owner.user;
 	}
@@ -39,7 +43,7 @@ export function getOwnerUser(owner: ActorOwner): PublicUser | null {
  * Get display name for owner (user or org)
  * For users: uses getUserDisplayName utility (displayName > firstName + lastName > username)
  */
-export function getOwnerDisplayName(owner: ActorOwner): string {
+export function getOwnerDisplayName(owner: OwnerView): string {
 	if (owner.type === "USER" && owner.user) {
 		return getUserDisplayName(owner.user);
 	}
@@ -52,7 +56,7 @@ export function getOwnerDisplayName(owner: ActorOwner): string {
 /**
  * Get username/slug for owner (for links)
  */
-export function getOwnerUsername(owner: ActorOwner): string | null {
+export function getOwnerUsername(owner: OwnerView): string | null {
 	if (owner.type === "USER" && owner.user) {
 		return owner.user.username;
 	}
@@ -65,7 +69,7 @@ export function getOwnerUsername(owner: ActorOwner): string | null {
 /**
  * Get owner ID (user id or org id)
  */
-export function getOwnerId(owner: ActorOwner): string | null {
+export function getOwnerId(owner: OwnerView): string | null {
 	if (owner.type === "USER" && owner.user) {
 		return owner.user.id;
 	}

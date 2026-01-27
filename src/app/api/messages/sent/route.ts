@@ -1,10 +1,12 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, serverError } from "@/lib/utils/errors";
 
 /**
  * GET /api/messages/sent
  * Get messages sent by activeOwnerId
+ * Protected endpoint
  */
 export async function GET() {
 	try {
@@ -45,22 +47,22 @@ export async function GET() {
 			take: 50,
 		});
 
-		return success({
-			messages: messages.map((m) => ({
-				id: m.id,
-				senderId: m.senderId,
-				receiverId: m.receiverId,
-				content: m.content,
-				createdAt: m.createdAt,
-				readAt: m.readAt,
-				receiver: {
-					id: m.receiver.id,
-					type: m.receiver.type,
-					user: m.receiver.user,
-					org: m.receiver.org,
-				},
-			})),
-		});
+		const messagesList = messages.map((m) => ({
+			id: m.id,
+			senderId: m.senderId,
+			receiverId: m.receiverId,
+			content: m.content,
+			createdAt: m.createdAt,
+			readAt: m.readAt,
+			receiver: {
+				id: m.receiver.id,
+				type: m.receiver.type,
+				user: m.receiver.user,
+				org: m.receiver.org,
+			},
+		}));
+
+		return NextResponse.json(messagesList);
 	} catch (error) {
 		console.error("GET /api/messages/sent error:", error);
 		return serverError();

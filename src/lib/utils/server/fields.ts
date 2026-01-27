@@ -45,9 +45,11 @@ export const imagesRelationFields = {
  */
 export const projectBaseFields = {
 	id: true,
+	ownerId: true,
 	title: true,
 	description: true,
 	tags: true,
+	topics: true,
 	createdAt: true,
 	updatedAt: true,
 } as const;
@@ -87,16 +89,19 @@ export const projectWithOwnerFields = {
 /**
  * Base fields for Event model (without relations)
  * Note: type field removed in v2 - derived in TypeScript
+ * Note: eventDateTime (not dateTime) per schema v0.3
  */
 export const eventBaseFields = {
 	id: true,
+	ownerId: true,
 	title: true,
 	description: true,
-	dateTime: true,
+	eventDateTime: true,
 	location: true,
 	latitude: true,
 	longitude: true,
 	tags: true,
+	topics: true,
 	createdAt: true,
 	updatedAt: true,
 } as const;

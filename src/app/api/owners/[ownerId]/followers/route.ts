@@ -1,11 +1,13 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
-import { success, notFound, serverError } from "@/lib/utils/server/api-response";
+import { notFound, serverError } from "@/lib/utils/errors";
 
 type Params = { params: Promise<{ ownerId: string }> };
 
 /**
  * GET /api/owners/:ownerId/followers
  * Get list of owners that follow this owner
+ * Public endpoint
  */
 export async function GET(request: Request, { params }: Params) {
 	try {
@@ -46,31 +48,31 @@ export async function GET(request: Request, { params }: Params) {
 			orderBy: { createdAt: "desc" },
 		});
 
-		return success({
-			followers: follows.map((f) => ({
-				ownerId: f.follower.id,
-				type: f.follower.type,
-				followedAt: f.createdAt,
-				user: f.follower.user
-					? {
-							id: f.follower.user.id,
-							username: f.follower.user.username,
-							displayName: f.follower.user.displayName,
-							firstName: f.follower.user.firstName,
-							lastName: f.follower.user.lastName,
-							avatarImageId: f.follower.user.avatarImageId,
-					  }
-					: null,
-				org: f.follower.org
-					? {
-							id: f.follower.org.id,
-							slug: f.follower.org.slug,
-							name: f.follower.org.name,
-							avatarImageId: f.follower.org.avatarImageId,
-					  }
-					: null,
-			})),
-		});
+		const followers = follows.map((f) => ({
+			ownerId: f.follower.id,
+			type: f.follower.type,
+			followedAt: f.createdAt,
+			user: f.follower.user
+				? {
+						id: f.follower.user.id,
+						username: f.follower.user.username,
+						displayName: f.follower.user.displayName,
+						firstName: f.follower.user.firstName,
+						lastName: f.follower.user.lastName,
+						avatarImageId: f.follower.user.avatarImageId,
+				  }
+				: null,
+			org: f.follower.org
+				? {
+						id: f.follower.org.id,
+						slug: f.follower.org.slug,
+						name: f.follower.org.name,
+						avatarImageId: f.follower.org.avatarImageId,
+				  }
+				: null,
+		}));
+
+		return NextResponse.json({ followers });
 	} catch (error) {
 		console.error("GET /api/owners/:ownerId/followers error:", error);
 		return serverError();

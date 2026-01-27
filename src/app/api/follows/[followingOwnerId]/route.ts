@@ -1,12 +1,14 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, notFound, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
 
 type Params = { params: Promise<{ followingOwnerId: string }> };
 
 /**
  * DELETE /api/follows/:followingOwnerId
  * Unfollow an owner as the active owner
+ * Protected endpoint
  */
 export async function DELETE(request: Request, { params }: Params) {
 	try {
@@ -36,7 +38,7 @@ export async function DELETE(request: Request, { params }: Params) {
 			where: { id: follow.id },
 		});
 
-		return success({ unfollowed: true });
+		return NextResponse.json({ success: true });
 	} catch (error) {
 		console.error("DELETE /api/follows/:followingOwnerId error:", error);
 		return serverError();

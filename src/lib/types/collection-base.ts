@@ -1,4 +1,4 @@
-import type { ActorOwner } from "../utils/owner";
+import type { OwnerView } from "../utils/owner";
 
 /**
  * Base interface for all collection items (projects, events, etc.)
@@ -10,11 +10,11 @@ import type { ActorOwner } from "../utils/owner";
  * 3. Implement utility functions (getCollectionItemDate, getCollectionItemUrl, etc.)
  * 
  * Common utility functions:
- * - getCollectionItemDate(item): Returns the display date (dateTime for events, createdAt for projects)
+ * - getCollectionItemDate(item): Returns the display date (eventDateTime for events, createdAt for projects)
  * - getCollectionItemUrl(item): Returns the detail page URL
  * - getCollectionItemType(item): Returns the type discriminator
  * 
- * Note: In v2, owner is an Actor (can be User or Org), not directly a PublicUser
+ * Note: In v0.3, owner is an Owner (can be personal or org-based)
  */
 
 export const COLLECTION_ITEM_TYPES = {
@@ -25,11 +25,14 @@ export const COLLECTION_ITEM_TYPES = {
 export type CollectionItemType = typeof COLLECTION_ITEM_TYPES[keyof typeof COLLECTION_ITEM_TYPES];
 export interface BaseCollectionItem {
 	id: string;
+	ownerId: string;
 	title: string;
 	description: string;
 	tags: string[];
-	owner: ActorOwner; // Actor with user/org in v2
+	topics: string[];
+	owner: OwnerView;
 	createdAt: Date;
+	updatedAt: Date;
 	type: CollectionItemType;
 }
 

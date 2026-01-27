@@ -3,7 +3,7 @@ import { ImageItem } from "./image";
 import type { PostItem } from "./post";
 
 /**
- * Project type - matches Prisma schema v2
+ * Project type - matches Prisma schema v0.3
  * Extends BaseCollectionItem with project-specific fields
  * Note: 'type' field is derived (not in database) for TypeScript type discrimination
  */

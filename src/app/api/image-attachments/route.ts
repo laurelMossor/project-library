@@ -1,11 +1,13 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, forbidden, notFound, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { ArtifactType } from "@prisma/client";
 
 /**
  * POST /api/image-attachments
  * Attach an image to an artifact (Project, Event, or Post)
+ * Protected endpoint
  * 
  * Body: { imageId: string, type: ArtifactType, targetId: string, sortOrder?: number }
  */
@@ -38,7 +40,10 @@ export async function POST(request: Request) {
 		}
 
 		if (image.uploadedById !== ctx.activeOwnerId) {
-			return forbidden("You can only attach your own images");
+			return NextResponse.json(
+				{ error: "You can only attach your own images" },
+				{ status: 403 }
+			);
 		}
 
 		// Verify target exists and belongs to user
@@ -59,7 +64,10 @@ export async function POST(request: Request) {
 		}
 
 		if (targetOwnerId !== ctx.activeOwnerId) {
-			return forbidden("You can only attach images to your own content");
+			return NextResponse.json(
+				{ error: "You can only attach images to your own content" },
+				{ status: 403 }
+			);
 		}
 
 		const attachment = await prisma.imageAttachment.create({
@@ -71,18 +79,16 @@ export async function POST(request: Request) {
 			},
 		});
 
-		return success(
+		return NextResponse.json(
 			{
-				attachment: {
-					id: attachment.id,
-					imageId: attachment.imageId,
-					type: attachment.type,
-					targetId: attachment.targetId,
-					sortOrder: attachment.sortOrder,
-					createdAt: attachment.createdAt,
-				},
+				id: attachment.id,
+				imageId: attachment.imageId,
+				type: attachment.type,
+				targetId: attachment.targetId,
+				sortOrder: attachment.sortOrder,
+				createdAt: attachment.createdAt,
 			},
-			201
+			{ status: 201 }
 		);
 	} catch (error) {
 		console.error("POST /api/image-attachments error:", error);

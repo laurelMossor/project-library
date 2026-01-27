@@ -1,6 +1,7 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, forbidden, notFound, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { OrgRole } from "@prisma/client";
 
 type Params = { params: Promise<{ orgId: string; ownerId: string }> };
@@ -8,6 +9,7 @@ type Params = { params: Promise<{ orgId: string; ownerId: string }> };
 /**
  * PATCH /api/orgs/:orgId/members/:ownerId
  * Update a member's role
+ * Protected endpoint - requires OWNER role
  * 
  * Body: { role: OrgRole }
  */
@@ -29,11 +31,10 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Check org exists
 		const org = await prisma.org.findUnique({ where: { id: orgId } });
 		if (!org) {
-			return notFound("Org not found");
+			return notFound("Organization not found");
 		}
 
 		// Check requester has permission (must be OWNER of this org)
-		// Only OWNER can change roles
 		const requesterMembership = await prisma.orgMember.findFirst({
 			where: {
 				orgId,
@@ -43,7 +44,10 @@ export async function PATCH(request: Request, { params }: Params) {
 		});
 
 		if (!requesterMembership) {
-			return forbidden("You must be an owner of this org to change roles");
+			return NextResponse.json(
+				{ error: "You must be an owner of this organization to change roles" },
+				{ status: 403 }
+			);
 		}
 
 		// Find the target membership
@@ -52,7 +56,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		});
 
 		if (!targetMembership || targetMembership.orgId !== orgId) {
-			return notFound("Member not found in this org");
+			return notFound("Member not found in this organization");
 		}
 
 		// Prevent demoting the last OWNER
@@ -61,7 +65,7 @@ export async function PATCH(request: Request, { params }: Params) {
 				where: { orgId, role: OrgRole.OWNER },
 			});
 			if (ownerCount <= 1) {
-				return badRequest("Cannot demote the last owner of the org");
+				return badRequest("Cannot demote the last owner of the organization");
 			}
 		}
 
@@ -71,15 +75,13 @@ export async function PATCH(request: Request, { params }: Params) {
 			data: { role },
 		});
 
-		return success({
-			member: {
-				id: updated.id,
-				ownerId: updated.ownerId,
-				role: updated.role,
-			},
+		return NextResponse.json({
+			id: updated.id,
+			ownerId: updated.ownerId,
+			role: updated.role,
 		});
 	} catch (error) {
 		console.error("PATCH /api/orgs/:orgId/members/:ownerId error:", error);
-		return serverError();
+		return serverError("Failed to update member role");
 	}
 }

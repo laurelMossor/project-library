@@ -1,10 +1,12 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, notFound, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 
 /**
  * POST /api/follows
  * Follow another owner as the active owner
+ * Protected endpoint
  * 
  * Body: { followingOwnerId: string }
  */
@@ -55,16 +57,14 @@ export async function POST(request: Request) {
 			},
 		});
 
-		return success(
+		return NextResponse.json(
 			{
-				follow: {
-					id: follow.id,
-					followerOwnerId: follow.followerOwnerId,
-					followingOwnerId: follow.followingOwnerId,
-					createdAt: follow.createdAt,
-				},
+				id: follow.id,
+				followerOwnerId: follow.followerOwnerId,
+				followingOwnerId: follow.followingOwnerId,
+				createdAt: follow.createdAt,
 			},
-			201
+			{ status: 201 }
 		);
 	} catch (error) {
 		console.error("POST /api/follows error:", error);

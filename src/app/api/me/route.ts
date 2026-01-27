@@ -1,12 +1,14 @@
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getOwnersForUser, getPersonalOwner } from "@/lib/utils/server/owner";
+import { getOwnersForUser } from "@/lib/utils/server/owner";
 import { getActiveOwnerId } from "@/lib/utils/server/session";
-import { success, unauthorized, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, serverError } from "@/lib/utils/errors";
 
 /**
  * GET /api/me
  * Returns current user + their owners summary (for "switch hat" UI)
+ * Protected endpoint
  */
 export async function GET() {
 	try {
@@ -42,7 +44,7 @@ export async function GET() {
 		// Get active owner ID (from session or fallback to personal)
 		const activeOwnerId = await getActiveOwnerId(userId);
 
-		return success({
+		return NextResponse.json({
 			user: {
 				id: user.id,
 				username: user.username,

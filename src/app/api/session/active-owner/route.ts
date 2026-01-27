@@ -1,10 +1,12 @@
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { canSetActiveOwner } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, forbidden, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 
 /**
  * POST /api/session/active-owner
  * Set the active owner for the current session
+ * Protected endpoint
  * 
  * Body: { activeOwnerId: string }
  */
@@ -26,14 +28,17 @@ export async function POST(request: Request) {
 		// Validate that user can set this owner as active
 		const canSet = await canSetActiveOwner(userId, activeOwnerId);
 		if (!canSet) {
-			return forbidden("You cannot act as this owner");
+			return NextResponse.json(
+				{ error: "You cannot act as this owner" },
+				{ status: 403 }
+			);
 		}
 
 		// Note: The actual session update needs to happen via NextAuth's update mechanism
 		// This endpoint validates the request; the client should call update() on the session
 		// to persist the change. We return the validated activeOwnerId.
-		
-		return success({ activeOwnerId });
+
+		return NextResponse.json({ activeOwnerId });
 	} catch (error) {
 		console.error("POST /api/session/active-owner error:", error);
 		return serverError();

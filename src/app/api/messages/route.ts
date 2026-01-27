@@ -1,10 +1,13 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, notFound, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
+import { validateMessageContent } from "@/lib/validations";
 
 /**
  * POST /api/messages
  * Send a message as activeOwnerId
+ * Protected endpoint
  * 
  * Body: { receiverOwnerId: string, content: string }
  */
@@ -22,8 +25,10 @@ export async function POST(request: Request) {
 			return badRequest("receiverOwnerId is required");
 		}
 
-		if (!content || typeof content !== "string" || content.trim().length === 0) {
-			return badRequest("content is required");
+		// Validate content
+		const contentValidation = validateMessageContent(content);
+		if (!contentValidation.valid) {
+			return badRequest(contentValidation.error || "Invalid message content");
 		}
 
 		// Can't message yourself
@@ -55,18 +60,16 @@ export async function POST(request: Request) {
 			},
 		});
 
-		return success(
+		return NextResponse.json(
 			{
-				message: {
-					id: message.id,
-					senderId: message.senderId,
-					receiverId: message.receiverId,
-					content: message.content,
-					createdAt: message.createdAt,
-					readAt: message.readAt,
-				},
+				id: message.id,
+				senderId: message.senderId,
+				receiverId: message.receiverId,
+				content: message.content,
+				createdAt: message.createdAt,
+				readAt: message.readAt,
 			},
-			201
+			{ status: 201 }
 		);
 	} catch (error) {
 		console.error("POST /api/messages error:", error);

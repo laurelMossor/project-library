@@ -1,15 +1,17 @@
 /**
- * Post type - matches Prisma schema v2
- * Replaces Entry model - can be standalone or descendant (attached to Project/Event)
- * Posts are owned by Actor (User or Org)
+ * Post type - matches Prisma schema v0.3
+ * Can be standalone or descendant (attached to Project/Event)
+ * Posts are owned by Owner
  */
 export interface PostItem {
 	id: string;
-	ownerActorId: string; // Actor that owns this post
+	ownerId: string; // Owner that owns this post
 	projectId: string | null; // Optional - if set, this is a descendant post of a project
 	eventId: string | null; // Optional - if set, this is a descendant post of an event
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
+	tags: string[];
+	topics: string[];
 	createdAt: Date;
 	updatedAt: Date;
 	// Relations (optional, loaded when needed)
@@ -20,8 +22,8 @@ export interface PostItem {
 
 /**
  * Post data for creating a new post
- * Derived from PostItem, excluding auto-generated fields and ownerActorId
- * (ownerActorId is handled internally by createPost function from ownerId)
+ * Derived from PostItem, excluding auto-generated fields and ownerId
+ * (ownerId is handled internally by createPost function)
  * projectId and eventId are optional - only one should be set for descendant posts
  */
 export type PostCreateInput = {
@@ -29,13 +31,14 @@ export type PostCreateInput = {
 	eventId?: string | null;
 	title?: string | null;
 	content: string;
+	tags?: string[];
 };
 
 /**
  * Post data for updating an existing post
  * Only updatable fields
  */
-export type PostUpdateInput = Partial<Pick<PostItem, "title" | "content">>;
+export type PostUpdateInput = Partial<Pick<PostItem, "title" | "content" | "tags">>;
 
 /**
  * Type guard to check if post is a project descendant

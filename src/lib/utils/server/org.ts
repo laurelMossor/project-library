@@ -2,11 +2,12 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
+import { OwnerType, OwnerStatus, OrgRole } from "@prisma/client";
 
 // Public fields for org profile
 export const publicOrgFields = {
 	id: true,
-	actorId: true,
+	ownerId: true,
 	name: true,
 	slug: true,
 	headline: true,
@@ -19,8 +20,11 @@ export const publicOrgFields = {
 	state: true,
 	zip: true,
 	parentTopic: true,
+	tags: true,
 	isPublic: true,
 	avatarImageId: true,
+	createdAt: true,
+	updatedAt: true,
 } as const;
 
 // Fetch an org by slug (for public profile pages)
@@ -39,30 +43,39 @@ export async function getOrgById(id: string) {
 	});
 }
 
-// Get all orgs that a user is a member of
+// Get all orgs that a user is a member of (via their org-based owners)
 export async function getOrgsForUser(userId: string) {
-	const orgMemberships = await prisma.orgMember.findMany({
-		where: { userId },
+	// Find all org-based owners for this user
+	const orgOwners = await prisma.owner.findMany({
+		where: {
+			userId,
+			orgId: { not: null },
+		},
 		include: {
-			org: {
-				select: publicOrgFields,
-			},
+			org: { select: publicOrgFields },
 		},
 	});
-	return orgMemberships.map((membership) => membership.org);
+	
+	return orgOwners
+		.filter((owner) => owner.org !== null)
+		.map((owner) => owner.org!);
 }
 
 // Get org member role for a user
 export async function getUserOrgRole(userId: string, orgId: string) {
+	// Find the org-based owner for this user+org combo
+	const owner = await prisma.owner.findFirst({
+		where: { userId, orgId },
+		select: { id: true },
+	});
+	
+	if (!owner) return null;
+	
 	const membership = await prisma.orgMember.findUnique({
-		where: {
-			orgId_userId: {
-				orgId,
-				userId,
-			},
-		},
+		where: { ownerId: owner.id },
 		select: { role: true },
 	});
+	
 	return membership?.role || null;
 }
 
@@ -133,8 +146,6 @@ export async function createOrg(
 		location?: string;
 	}
 ) {
-	const { ActorType, OrgRole } = await import("@prisma/client");
-
 	// Check if slug is already taken
 	const existingOrg = await prisma.org.findUnique({
 		where: { slug: data.slug },
@@ -143,33 +154,56 @@ export async function createOrg(
 		throw new Error("An organization with this slug already exists");
 	}
 
-	// Create actor first (required for Org)
-	const actor = await prisma.actor.create({
-		data: { type: ActorType.ORG },
-	});
+	// Create in a transaction
+	return prisma.$transaction(async (tx) => {
+		// Get or create user's personal owner (to be the primary org owner)
+		let personalOwner = await tx.owner.findFirst({
+			where: { userId, orgId: null },
+		});
+		if (!personalOwner) {
+			personalOwner = await tx.owner.create({
+				data: {
+					userId,
+					type: OwnerType.USER,
+					status: OwnerStatus.ACTIVE,
+				},
+			});
+		}
 
-	// Create org
-	const org = await prisma.org.create({
-		data: {
-			actorId: actor.id,
-			name: data.name.trim(),
-			slug: data.slug.trim(),
-			headline: data.headline?.trim() || null,
-			bio: data.bio?.trim() || null,
-			interests: data.interests || [],
-			location: data.location?.trim() || null,
-		},
-		select: publicOrgFields,
-	});
+		// Create org
+		const org = await tx.org.create({
+			data: {
+				ownerId: personalOwner.id,
+				createdByUserId: userId,
+				name: data.name.trim(),
+				slug: data.slug.trim(),
+				headline: data.headline?.trim() || null,
+				bio: data.bio?.trim() || null,
+				interests: data.interests || [],
+				location: data.location?.trim() || null,
+			},
+			select: publicOrgFields,
+		});
 
-	// Create org membership with OWNER role
-	await prisma.orgMember.create({
-		data: {
-			orgId: org.id,
-			userId,
-			role: OrgRole.OWNER,
-		},
-	});
+		// Create org-based owner for this user
+		const orgOwner = await tx.owner.create({
+			data: {
+				userId,
+				orgId: org.id,
+				type: OwnerType.ORG,
+				status: OwnerStatus.ACTIVE,
+			},
+		});
 
-	return org;
+		// Create org membership with OWNER role
+		await tx.orgMember.create({
+			data: {
+				orgId: org.id,
+				ownerId: orgOwner.id,
+				role: OrgRole.OWNER,
+			},
+		});
+
+		return org;
+	});
 }

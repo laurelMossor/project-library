@@ -1,11 +1,13 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
-import { success, notFound, serverError } from "@/lib/utils/server/api-response";
+import { notFound, serverError } from "@/lib/utils/errors";
 
 type Params = { params: Promise<{ orgId: string }> };
 
 /**
  * GET /api/orgs/:orgId
  * Get org profile
+ * Public endpoint
  */
 export async function GET(request: Request, { params }: Params) {
 	try {
@@ -19,6 +21,7 @@ export async function GET(request: Request, { params }: Params) {
 				name: true,
 				headline: true,
 				bio: true,
+				interests: true,
 				location: true,
 				isPublic: true,
 				avatarImageId: true,
@@ -35,12 +38,12 @@ export async function GET(request: Request, { params }: Params) {
 		});
 
 		if (!org) {
-			return notFound("Org not found");
+			return notFound("Organization not found");
 		}
 
-		return success({ org });
+		return NextResponse.json(org);
 	} catch (error) {
 		console.error("GET /api/orgs/:orgId error:", error);
-		return serverError();
+		return serverError("Failed to fetch organization");
 	}
 }

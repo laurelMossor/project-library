@@ -1,12 +1,100 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { validateProjectData } from "@/lib/validations";
+import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { projectWithOwnerFields } from "@/lib/utils/server/fields";
+import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
+import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+
+function parseNumber(value: unknown): number | null {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+	return null;
+}
+
+/**
+ * GET /api/projects
+ * List projects with optional search/pagination
+ * Public endpoint (no auth required)
+ */
+export async function GET(request: Request) {
+	// Rate limiting: 60 requests per minute per IP
+	const clientId = getClientIdentifier(request);
+	const rateLimit = checkRateLimit(`search-projects:${clientId}`, {
+		maxRequests: 60,
+		windowMs: 60 * 1000,
+	});
+
+	if (!rateLimit.allowed) {
+		return NextResponse.json(
+			{ error: "Too many requests. Please try again later." },
+			{ status: 429 }
+		);
+	}
+
+	const { searchParams } = new URL(request.url);
+	const search = searchParams.get("search") || undefined;
+	const ownerId = searchParams.get("ownerId") || undefined;
+	const orgId = searchParams.get("orgId") || undefined;
+	const userId = searchParams.get("userId") || undefined;
+	const limit = parseNumber(searchParams.get("limit"));
+	const offset = parseNumber(searchParams.get("offset"));
+
+	// Enforce max limit (100 items per request)
+	const MAX_LIMIT = 100;
+	const enforcedLimit =
+		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
+
+	try {
+		const projects = await prisma.project.findMany({
+			where: {
+				...(search
+					? {
+							OR: [
+								{ title: { contains: search, mode: "insensitive" } },
+								{ description: { contains: search, mode: "insensitive" } },
+							],
+					  }
+					: {}),
+				...(ownerId ? { ownerId } : {}),
+				...(orgId ? { owner: { orgId } } : {}),
+				...(userId ? { owner: { userId } } : {}),
+			},
+			select: projectWithOwnerFields,
+			orderBy: { createdAt: "desc" },
+			take: enforcedLimit,
+			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
+		});
+
+		// Batch load images
+		const projectIds = projects.map((p) => p.id);
+		const imagesMap = await getImagesForTargetsBatch("PROJECT", projectIds);
+
+		// Transform to include type and images
+		const projectsWithImages = projects.map((p) => ({
+			...p,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images: imagesMap.get(p.id) || [],
+		}));
+
+		return NextResponse.json(projectsWithImages);
+	} catch (error) {
+		console.error("GET /api/projects error:", error);
+		return serverError("Failed to fetch projects");
+	}
+}
 
 /**
  * POST /api/projects
- * Create a project attributed to activeOwnerId
- * 
- * Body: { title: string, description: string, tags?: string[], topics?: string[] }
+ * Create a new project
+ * Protected endpoint (requires authentication)
  */
 export async function POST(request: Request) {
 	try {
@@ -15,15 +103,32 @@ export async function POST(request: Request) {
 			return unauthorized();
 		}
 
-		const body = await request.json();
-		const { title, description, tags, topics } = body;
+		const data = await request.json();
+		const { title, description, tags, topics } = data;
 
-		if (!title || typeof title !== "string" || title.trim().length === 0) {
-			return badRequest("title is required");
+		// Process tags: normalize to array, trim, and filter empty values
+		let processedTags: string[] = [];
+		if (tags) {
+			if (typeof tags === "string") {
+				processedTags = tags
+					.split(",")
+					.map((tag) => tag.trim())
+					.filter(Boolean);
+			} else if (Array.isArray(tags)) {
+				processedTags = tags
+					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
+					.filter(Boolean);
+			}
 		}
 
-		if (!description || typeof description !== "string") {
-			return badRequest("description is required");
+		// Validate project data
+		const validation = validateProjectData({
+			title,
+			description,
+			tags: processedTags.length > 0 ? processedTags : undefined,
+		});
+		if (!validation.valid) {
+			return badRequest(validation.error || "Invalid project data");
 		}
 
 		const project = await prisma.project.create({
@@ -31,111 +136,22 @@ export async function POST(request: Request) {
 				ownerId: ctx.activeOwnerId,
 				title: title.trim(),
 				description: description.trim(),
-				tags: Array.isArray(tags) ? tags : [],
+				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
 			},
+			select: projectWithOwnerFields,
 		});
 
-		return success(
-			{
-				project: {
-					id: project.id,
-					ownerId: project.ownerId,
-					title: project.title,
-					description: project.description,
-					tags: project.tags,
-					topics: project.topics,
-					createdAt: project.createdAt,
-					updatedAt: project.updatedAt,
-				},
-			},
-			201
-		);
+		// Return with type and empty images (new project has no images yet)
+		const projectItem = {
+			...project,
+			type: COLLECTION_ITEM_TYPES.PROJECT,
+			images: [],
+		};
+
+		return NextResponse.json(projectItem, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/projects error:", error);
-		return serverError();
-	}
-}
-
-/**
- * GET /api/projects
- * List projects with optional filters
- * 
- * Query: ?ownerId=...&orgId=...&userId=...
- */
-export async function GET(request: Request) {
-	try {
-		const url = new URL(request.url);
-		const ownerId = url.searchParams.get("ownerId");
-		const orgId = url.searchParams.get("orgId");
-		const userId = url.searchParams.get("userId");
-
-		const projects = await prisma.project.findMany({
-			where: {
-				...(ownerId ? { ownerId } : {}),
-				...(orgId ? { owner: { orgId } } : {}),
-				...(userId ? { owner: { userId } } : {}),
-			},
-			include: {
-				owner: {
-					select: {
-						id: true,
-						type: true,
-						userId: true,
-						orgId: true,
-						user: {
-							select: {
-								id: true,
-								username: true,
-								displayName: true,
-							},
-						},
-						org: {
-							select: {
-								id: true,
-								slug: true,
-								name: true,
-							},
-						},
-					},
-				},
-			},
-			orderBy: { createdAt: "desc" },
-			take: 50,
-		});
-
-		return success({
-			projects: projects.map((p) => ({
-				id: p.id,
-				ownerId: p.ownerId,
-				title: p.title,
-				description: p.description,
-				tags: p.tags,
-				topics: p.topics,
-				createdAt: p.createdAt,
-				updatedAt: p.updatedAt,
-				owner: {
-					id: p.owner.id,
-					type: p.owner.type,
-					user: p.owner.user
-						? {
-								id: p.owner.user.id,
-								username: p.owner.user.username,
-								displayName: p.owner.user.displayName,
-						  }
-						: null,
-					org: p.owner.org
-						? {
-								id: p.owner.org.id,
-								slug: p.owner.org.slug,
-								name: p.owner.org.name,
-						  }
-						: null,
-				},
-			})),
-		});
-	} catch (error) {
-		console.error("GET /api/projects error:", error);
-		return serverError();
+		return serverError("Failed to create project");
 	}
 }

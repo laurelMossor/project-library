@@ -1,11 +1,13 @@
+import { NextResponse } from "next/server";
 import { getOwnerById } from "@/lib/utils/server/owner";
-import { success, notFound, serverError } from "@/lib/utils/server/api-response";
+import { notFound, serverError } from "@/lib/utils/errors";
 
 type Params = { params: Promise<{ ownerId: string }> };
 
 /**
  * GET /api/owners/:ownerId
  * Get a public owner view with optional includes
+ * Public endpoint
  * 
  * Query: ?include=user,org
  */
@@ -25,36 +27,34 @@ export async function GET(request: Request, { params }: Params) {
 			return notFound("Owner not found");
 		}
 
-		return success({
-			owner: {
-				id: owner.id,
-				type: owner.type,
-				userId: owner.userId,
-				orgId: owner.orgId,
-				status: owner.status,
-				createdAt: owner.createdAt,
-				...(includeUser && owner.user
-					? {
-							user: {
-								id: owner.user.id,
-								username: owner.user.username,
-								displayName: owner.user.displayName,
-								firstName: owner.user.firstName,
-								lastName: owner.user.lastName,
-							},
-					  }
-					: {}),
-				...(includeOrg && owner.org
-					? {
-							org: {
-								id: owner.org.id,
-								slug: owner.org.slug,
-								name: owner.org.name,
-							},
-					  }
-					: {}),
-			},
-		});
+		const response: Record<string, unknown> = {
+			id: owner.id,
+			type: owner.type,
+			userId: owner.userId,
+			orgId: owner.orgId,
+			status: owner.status,
+			createdAt: owner.createdAt,
+		};
+
+		if (includeUser && owner.user) {
+			response.user = {
+				id: owner.user.id,
+				username: owner.user.username,
+				displayName: owner.user.displayName,
+				firstName: owner.user.firstName,
+				lastName: owner.user.lastName,
+			};
+		}
+
+		if (includeOrg && owner.org) {
+			response.org = {
+				id: owner.org.id,
+				slug: owner.org.slug,
+				name: owner.org.name,
+			};
+		}
+
+		return NextResponse.json(response);
 	} catch (error) {
 		console.error("GET /api/owners/:ownerId error:", error);
 		return serverError();

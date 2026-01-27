@@ -3,7 +3,19 @@
 
 import { prisma } from "./prisma";
 import type { PostItem, PostCreateInput, PostUpdateInput } from "@/lib/types/post";
-import { getActorIdForUser } from "./actor";
+
+const postSelectFields = {
+	id: true,
+	ownerId: true,
+	projectId: true,
+	eventId: true,
+	title: true,
+	content: true,
+	tags: true,
+	topics: true,
+	createdAt: true,
+	updatedAt: true,
+};
 
 /**
  * Fetch all posts for a project, sorted by createdAt (newest first)
@@ -12,16 +24,7 @@ export async function getPostsForProject(projectId: string): Promise<PostItem[]>
 	const posts = await prisma.post.findMany({
 		where: { projectId },
 		orderBy: { createdAt: "desc" },
-		select: {
-			id: true,
-			ownerActorId: true,
-			projectId: true,
-			eventId: true,
-			title: true,
-			content: true,
-			createdAt: true,
-			updatedAt: true,
-		},
+		select: postSelectFields,
 	});
 
 	return posts as PostItem[];
@@ -34,16 +37,7 @@ export async function getPostsForEvent(eventId: string): Promise<PostItem[]> {
 	const posts = await prisma.post.findMany({
 		where: { eventId },
 		orderBy: { createdAt: "desc" },
-		select: {
-			id: true,
-			ownerActorId: true,
-			projectId: true,
-			eventId: true,
-			title: true,
-			content: true,
-			createdAt: true,
-			updatedAt: true,
-		},
+		select: postSelectFields,
 	});
 
 	return posts as PostItem[];
@@ -52,24 +46,15 @@ export async function getPostsForEvent(eventId: string): Promise<PostItem[]> {
 /**
  * Fetch all standalone posts (no projectId or eventId), sorted by createdAt (newest first)
  */
-export async function getStandalonePosts(ownerActorId?: string): Promise<PostItem[]> {
-	const where = ownerActorId
-		? { projectId: null, eventId: null, ownerActorId }
+export async function getStandalonePosts(ownerId?: string): Promise<PostItem[]> {
+	const where = ownerId
+		? { projectId: null, eventId: null, ownerId }
 		: { projectId: null, eventId: null };
 	
 	const posts = await prisma.post.findMany({
 		where,
 		orderBy: { createdAt: "desc" },
-		select: {
-			id: true,
-			ownerActorId: true,
-			projectId: true,
-			eventId: true,
-			title: true,
-			content: true,
-			createdAt: true,
-			updatedAt: true,
-		},
+		select: postSelectFields,
 	});
 
 	return posts as PostItem[];
@@ -81,16 +66,7 @@ export async function getStandalonePosts(ownerActorId?: string): Promise<PostIte
 export async function getPostById(postId: string): Promise<PostItem | null> {
 	const post = await prisma.post.findUnique({
 		where: { id: postId },
-		select: {
-			id: true,
-			ownerActorId: true,
-			projectId: true,
-			eventId: true,
-			title: true,
-			content: true,
-			createdAt: true,
-			updatedAt: true,
-		},
+		select: postSelectFields,
 	});
 
 	return post as PostItem | null;
@@ -112,12 +88,6 @@ export async function createPost(
 	// Validate that projectId and eventId are not both set
 	if (data.projectId && data.eventId) {
 		throw new Error("Post cannot belong to both a project and an event");
-	}
-
-	// Get actorId for the owner
-	const actorId = await getActorIdForUser(ownerId);
-	if (!actorId) {
-		throw new Error("User not found or has no actor");
 	}
 
 	// If projectId is set, verify project exists
@@ -145,22 +115,14 @@ export async function createPost(
 	// Create the post
 	const post = await prisma.post.create({
 		data: {
-			ownerActorId: actorId,
+			ownerId,
 			projectId: data.projectId || null,
 			eventId: data.eventId || null,
 			title: data.title?.trim() || null,
 			content: data.content.trim(),
+			tags: data.tags || [],
 		},
-		select: {
-			id: true,
-			ownerActorId: true,
-			projectId: true,
-			eventId: true,
-			title: true,
-			content: true,
-			createdAt: true,
-			updatedAt: true,
-		},
+		select: postSelectFields,
 	});
 
 	return post as PostItem;
@@ -176,6 +138,7 @@ export async function updatePost(
 	const updateData: {
 		title?: string | null;
 		content?: string;
+		tags?: string[];
 	} = {};
 
 	if (data.title !== undefined) {
@@ -189,6 +152,10 @@ export async function updatePost(
 		updateData.content = data.content.trim();
 	}
 
+	if (data.tags !== undefined) {
+		updateData.tags = data.tags;
+	}
+
 	// Ensure we have at least one field to update
 	if (Object.keys(updateData).length === 0) {
 		throw new Error("No fields to update");
@@ -198,16 +165,7 @@ export async function updatePost(
 		const post = await prisma.post.update({
 			where: { id: postId },
 			data: updateData,
-			select: {
-				id: true,
-				ownerActorId: true,
-				projectId: true,
-				eventId: true,
-				title: true,
-				content: true,
-				createdAt: true,
-				updatedAt: true,
-			},
+			select: postSelectFields,
 		});
 
 		return post as PostItem;
@@ -230,4 +188,3 @@ export async function deletePost(postId: string): Promise<void> {
 		where: { id: postId },
 	});
 }
-

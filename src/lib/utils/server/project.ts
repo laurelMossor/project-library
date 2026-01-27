@@ -5,9 +5,9 @@ import { prisma } from "./prisma";
 import { ProjectData, ProjectItem, ProjectUpdateInput } from "../../types/project";
 import { projectWithOwnerFields } from "./fields";
 import { deleteImage } from "./storage";
-import { getActorIdForUser } from "./actor";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import type { OwnerView } from "@/lib/utils/owner";
 
 export interface GetAllProjectsOptions {
 	search?: string;
@@ -27,12 +27,12 @@ export async function getProjectById(id: string): Promise<ProjectItem | null> {
 	const images = await getImagesForTarget("PROJECT", id);
 	
 	// Add type field and images for TypeScript discrimination
-	const projectItem: ProjectItem = {
+	return {
 		...project,
+		owner: project.owner as unknown as OwnerView,
 		type: COLLECTION_ITEM_TYPES.PROJECT,
 		images,
 	};
-	return projectItem;
 }
 
 // Fetch all projects with optional basic text search and pagination
@@ -60,29 +60,21 @@ export async function getAllProjects(search?: string, options?: GetAllProjectsOp
 	const imagesMap = await getImagesForTargetsBatch("PROJECT", projectIds);
 	
 	// Attach images to projects
-	const projectsWithImages: ProjectItem[] = projects.map((p) => {
+	return projects.map((p) => {
 		const images = imagesMap.get(p.id) || [];
 		return {
 			...p,
+			owner: p.owner as unknown as OwnerView,
 			type: COLLECTION_ITEM_TYPES.PROJECT,
 			images,
 		};
 	});
-	
-	return projectsWithImages;
 }
 
-// Fetch all projects by a specific user (via their actor)
-export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> {
-	const actorId = await getActorIdForUser(userId);
-	if (!actorId) return [];
-	return getProjectsByActor(actorId);
-}
-
-// Fetch all projects by a specific actor (works for both users and orgs)
-export async function getProjectsByActor(actorId: string): Promise<ProjectItem[]> {
+// Fetch all projects by a specific owner
+export async function getProjectsByOwner(ownerId: string): Promise<ProjectItem[]> {
 	const projects = await prisma.project.findMany({
-		where: { ownerActorId: actorId },
+		where: { ownerId },
 		select: projectWithOwnerFields,
 		orderBy: { createdAt: "desc" },
 	});
@@ -92,47 +84,52 @@ export async function getProjectsByActor(actorId: string): Promise<ProjectItem[]
 	const imagesMap = await getImagesForTargetsBatch("PROJECT", projectIds);
 	
 	// Attach images to projects
-	const projectsWithImages: ProjectItem[] = projects.map((p) => {
+	return projects.map((p) => {
 		const images = imagesMap.get(p.id) || [];
 		return {
 			...p,
+			owner: p.owner as unknown as OwnerView,
 			type: COLLECTION_ITEM_TYPES.PROJECT,
 			images,
 		};
 	});
-	
-	return projectsWithImages;
 }
 
-// Create a new project for a user (via their actor)
+// Fetch all projects by a specific user (via their personal owner)
+export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> {
+	// Find user's personal owner
+	const personalOwner = await prisma.owner.findFirst({
+		where: { userId, orgId: null },
+		select: { id: true },
+	});
+	if (!personalOwner) return [];
+	return getProjectsByOwner(personalOwner.id);
+}
+
+// Create a new project for an owner
 // Tags are optional - if not provided or empty, defaults appropriately
 // Images should be uploaded separately and linked to the project via ImageAttachment
 export async function createProject(ownerId: string, data: ProjectData): Promise<ProjectItem> {
-	const actorId = await getActorIdForUser(ownerId);
-	if (!actorId) {
-		throw new Error("User not found or has no actor");
-	}
-	
 	const project = await prisma.project.create({
 		data: {
 			title: data.title,
 			description: data.description,
 			tags: data.tags || [],
-			ownerActorId: actorId,
+			ownerId,
 		},
 		select: projectWithOwnerFields,
 	});
 	
-	// Load images via ImageAttachment
+	// Load images via ImageAttachment (will be empty for new project)
 	const images = await getImagesForTarget("PROJECT", project.id);
 	
 	// Add type field and images for TypeScript discrimination
-	const projectItem: ProjectItem = {
+	return {
 		...project,
+		owner: project.owner as unknown as OwnerView,
 		type: COLLECTION_ITEM_TYPES.PROJECT,
 		images,
 	};
-	return projectItem;
 }
 
 // Update an existing project
@@ -168,12 +165,12 @@ export async function updateProject(id: string, data: ProjectUpdateInput): Promi
 		const images = await getImagesForTarget("PROJECT", project.id);
 		
 		// Add type field and images for TypeScript discrimination
-		const projectItem: ProjectItem = {
+		return {
 			...project,
+			owner: project.owner as unknown as OwnerView,
 			type: COLLECTION_ITEM_TYPES.PROJECT,
 			images,
 		};
-		return projectItem;
 	} catch (error) {
 		if (error instanceof Error) {
 			// Check if it's a Prisma "Record not found" error
@@ -220,5 +217,3 @@ export async function deleteProject(id: string): Promise<void> {
 		where: { id },
 	});
 }
-
-

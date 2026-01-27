@@ -1,11 +1,12 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { success, unauthorized, badRequest, serverError } from "@/lib/utils/server/api-response";
+import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 
 /**
  * POST /api/images
  * Create image metadata attributed to activeOwnerId
- * (Actual file upload can use a signed URL flow)
+ * Protected endpoint
  * 
  * Body: { url: string, path: string, altText?: string }
  */
@@ -27,6 +28,16 @@ export async function POST(request: Request) {
 			return badRequest("path is required");
 		}
 
+		// Validate altText if provided
+		if (altText !== undefined && altText !== null) {
+			if (typeof altText !== "string") {
+				return badRequest("altText must be a string");
+			}
+			if (altText.length > 500) {
+				return badRequest("altText must be 500 characters or less");
+			}
+		}
+
 		const image = await prisma.image.create({
 			data: {
 				url,
@@ -36,18 +47,16 @@ export async function POST(request: Request) {
 			},
 		});
 
-		return success(
+		return NextResponse.json(
 			{
-				image: {
-					id: image.id,
-					url: image.url,
-					path: image.path,
-					altText: image.altText,
-					uploadedById: image.uploadedById,
-					createdAt: image.createdAt,
-				},
+				id: image.id,
+				url: image.url,
+				path: image.path,
+				altText: image.altText,
+				uploadedById: image.uploadedById,
+				createdAt: image.createdAt,
 			},
-			201
+			{ status: 201 }
 		);
 	} catch (error) {
 		console.error("POST /api/images error:", error);
@@ -58,8 +67,9 @@ export async function POST(request: Request) {
 /**
  * GET /api/images
  * List images uploaded by activeOwnerId
+ * Protected endpoint
  */
-export async function GET(request: Request) {
+export async function GET() {
 	try {
 		const ctx = await getSessionContext();
 		if (!ctx) {
@@ -72,15 +82,15 @@ export async function GET(request: Request) {
 			take: 50,
 		});
 
-		return success({
-			images: images.map((i) => ({
-				id: i.id,
-				url: i.url,
-				path: i.path,
-				altText: i.altText,
-				createdAt: i.createdAt,
-			})),
-		});
+		const imagesList = images.map((i) => ({
+			id: i.id,
+			url: i.url,
+			path: i.path,
+			altText: i.altText,
+			createdAt: i.createdAt,
+		}));
+
+		return NextResponse.json(imagesList);
 	} catch (error) {
 		console.error("GET /api/images error:", error);
 		return serverError();

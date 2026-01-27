@@ -1,14 +1,66 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { getOrCreatePersonalOwner, getOrCreateOrgOwner } from "@/lib/utils/server/owner";
-import { success, unauthorized, badRequest, serverError } from "@/lib/utils/server/api-response";
+import { getOrCreatePersonalOwner } from "@/lib/utils/server/owner";
+import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { validateOrgData } from "@/lib/validations";
+import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { OwnerType, OwnerStatus, OrgRole } from "@prisma/client";
 
 /**
+ * GET /api/orgs
+ * List public orgs
+ * Public endpoint
+ */
+export async function GET(request: Request) {
+	// Rate limiting
+	const clientId = getClientIdentifier(request);
+	const rateLimit = checkRateLimit(`search-orgs:${clientId}`, {
+		maxRequests: 60,
+		windowMs: 60 * 1000,
+	});
+
+	if (!rateLimit.allowed) {
+		return NextResponse.json(
+			{ error: "Too many requests. Please try again later." },
+			{ status: 429 }
+		);
+	}
+
+	const { searchParams } = new URL(request.url);
+	const topicId = searchParams.get("topicId") || undefined;
+
+	try {
+		const orgs = await prisma.org.findMany({
+			where: {
+				isPublic: true,
+				...(topicId ? { topics: { some: { id: topicId } } } : {}),
+			},
+			select: {
+				id: true,
+				slug: true,
+				name: true,
+				headline: true,
+				bio: true,
+				location: true,
+				avatarImageId: true,
+				createdAt: true,
+			},
+			orderBy: { createdAt: "desc" },
+			take: 50,
+		});
+
+		return NextResponse.json(orgs);
+	} catch (error) {
+		console.error("GET /api/orgs error:", error);
+		return serverError("Failed to fetch organizations");
+	}
+}
+
+/**
  * POST /api/orgs
- * Create a new org
- * 
- * Body: { name: string, slug: string, bio?: string, ... }
+ * Create a new organization
+ * Protected endpoint
  */
 export async function POST(request: Request) {
 	try {
@@ -17,27 +69,29 @@ export async function POST(request: Request) {
 			return unauthorized();
 		}
 
-		const body = await request.json();
-		const { name, slug, bio, headline, location, isPublic } = body;
+		const data = await request.json();
+		const { name, slug, bio, headline, location, interests, isPublic } = data;
 
-		if (!name || typeof name !== "string" || name.trim().length === 0) {
-			return badRequest("name is required");
-		}
-
-		if (!slug || typeof slug !== "string" || slug.trim().length === 0) {
-			return badRequest("slug is required");
+		// Validate org data
+		const validation = validateOrgData({
+			name,
+			slug,
+			headline,
+			bio,
+			interests,
+			location,
+		});
+		if (!validation.valid) {
+			return badRequest(validation.error || "Invalid organization data");
 		}
 
 		// Check slug uniqueness
-		const existingOrg = await prisma.org.findUnique({ where: { slug } });
+		const existingOrg = await prisma.org.findUnique({ where: { slug: slug.toLowerCase() } });
 		if (existingOrg) {
-			return badRequest("An org with this slug already exists");
+			return badRequest("An organization with this URL already exists");
 		}
 
-		// Create the org with a transaction:
-		// 1. Create the org with the user's personal owner as the primary owner
-		// 2. Create an org-based owner for the user
-		// 3. Create OrgMember with OWNER role
+		// Create org in a transaction
 		const result = await prisma.$transaction(async (tx) => {
 			// Get or create user's personal owner to be the primary org owner
 			const personalOwner = await getOrCreatePersonalOwner(ctx.userId);
@@ -47,9 +101,10 @@ export async function POST(request: Request) {
 				data: {
 					name: name.trim(),
 					slug: slug.trim().toLowerCase(),
-					bio: bio || null,
-					headline: headline || null,
-					location: location || null,
+					bio: bio?.trim() || null,
+					headline: headline?.trim() || null,
+					location: location?.trim() || null,
+					interests: Array.isArray(interests) ? interests : [],
 					isPublic: isPublic !== false,
 					createdByUserId: ctx.userId,
 					ownerId: personalOwner.id,
@@ -78,60 +133,22 @@ export async function POST(request: Request) {
 			return { org, orgOwner };
 		});
 
-		return success(
+		return NextResponse.json(
 			{
-				org: {
-					id: result.org.id,
-					slug: result.org.slug,
-					name: result.org.name,
-					bio: result.org.bio,
-					headline: result.org.headline,
-					isPublic: result.org.isPublic,
-					createdAt: result.org.createdAt,
-				},
+				id: result.org.id,
+				slug: result.org.slug,
+				name: result.org.name,
+				bio: result.org.bio,
+				headline: result.org.headline,
+				location: result.org.location,
+				isPublic: result.org.isPublic,
+				createdAt: result.org.createdAt,
 				orgOwnerId: result.orgOwner.id,
 			},
-			201
+			{ status: 201 }
 		);
 	} catch (error) {
 		console.error("POST /api/orgs error:", error);
-		return serverError();
-	}
-}
-
-/**
- * GET /api/orgs
- * List orgs (public orgs, optionally filtered)
- * 
- * Query: ?topicId=...
- */
-export async function GET(request: Request) {
-	try {
-		const url = new URL(request.url);
-		const topicId = url.searchParams.get("topicId");
-
-		const orgs = await prisma.org.findMany({
-			where: {
-				isPublic: true,
-				...(topicId ? { topics: { some: { id: topicId } } } : {}),
-			},
-			select: {
-				id: true,
-				slug: true,
-				name: true,
-				headline: true,
-				bio: true,
-				location: true,
-				avatarImageId: true,
-				createdAt: true,
-			},
-			orderBy: { createdAt: "desc" },
-			take: 50,
-		});
-
-		return success({ orgs });
-	} catch (error) {
-		console.error("GET /api/orgs error:", error);
-		return serverError();
+		return serverError("Failed to create organization");
 	}
 }
