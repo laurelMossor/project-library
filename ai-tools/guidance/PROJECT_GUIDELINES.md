@@ -14,40 +14,41 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 ## Tech Stack
 React, NextJS, Primsa, Supabase (DB and Storage buckets), Launched using Vercel 
 
-# App Diagram --- NEEDS UPDATE ---
+# App Diagram (reflects current Prisma schema)
 Project Library – Conceptual Schema Tree
 =======================================
 
-Actor
-├─ User
-│  ├─ avatarImage → Image
-│  ├─ sentMessages → Message → received by User
-│  └─ OrgMember → Org
-│
-├─ Org
-│  ├─ avatarImage → Image
-│  └─ OrgMember → User
-│
-├─ Project
-│  └─ Post            (project updates)
-│
-├─ Event
-│  └─ Post            (event updates / announcements)
-│
-└─ Post               (standalone feed post)
+User (base type)
+├─ userOwner → Owner          (the user's personal owner profile)
+├─ owners → Owner[]           (personal + org-based)
+└─ avatarImage → Image
+
+Owner (attribution + identity)
+├─ user → User                (responsible user; always set)
+├─ org → Org?                 (set when acting on behalf of an org)
+├─ projects → Project[]
+│  └─ posts → Post[]           (project updates)
+├─ events → Event[]
+│  └─ posts → Post[]           (event updates / announcements)
+├─ posts → Post[]              (standalone posts + updates)
+├─ images → Image[]            (uploaded file metadata)
+└─ sentMessages/receivedMessages → Message
+
+Org
+├─ owner → Owner               (primary org owner)
+├─ owners → Owner[]            (owners whose orgId = this org)
+├─ members → OrgMember[]
+└─ avatarImage → Image
 
 ------------------------------------------------
 
 Social Graph (Followers)
 ------------------------
-Actor
-├─ follows → Actor
-└─ followed by ← Actor
+Owner
+├─ follows → Owner
+└─ followed by ← Owner
 
-• User → User
-• User → Org
-• Org  → User
-• Org  → Org
+• Stored as `Follow(followerOwnerId, followingOwnerId)`
 
 ------------------------------------------------
 
@@ -55,18 +56,17 @@ Org Membership & Roles
 ----------------------
 Org
 └─ OrgMember
-   ├─ User
-   └─ role (OWNER | ADMIN | MEMBER | FOLLOWER)
+   ├─ Owner
+   └─ role (OWNER | ADMIN | MEMBER)
 
-• Users can belong to many orgs
-• Orgs can have many users
 • Role lives on the join, not on User or Org
+• Each membership links an `Org` to an org-based `Owner` ("hat")
 
 ------------------------------------------------
 
 Images & Attachments
 --------------------
-User
+Owner
 └─ Image              (uploadedBy)
 
 User ── avatarImage ── Image
@@ -86,8 +86,8 @@ Image
 
 Content Ownership Rules
 -----------------------
-• Everything is owned by an Actor
-• Project/Event/Post all belong to exactly one Actor
+• Everything is owned by an Owner
+• Project/Event/Post all belong to exactly one Owner
 • Post may optionally belong to:
     – one Project OR
     – one Event
@@ -97,9 +97,6 @@ Content Ownership Rules
 
 Messaging
 ---------
-User
-├─ sent Message → User
-└─ received Message ← User
-
-• Orgs do not send messages directly
-• Members act on behalf of orgs
+Owner
+├─ sent Message → Owner
+└─ received Message ← Owner
