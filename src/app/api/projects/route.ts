@@ -1,106 +1,141 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { getAllProjects, createProject } from "@/lib/utils/server/project";
-import { unauthorized, badRequest } from "@/lib/utils/errors";
-import { validateProjectData } from "@/lib/validations";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { prisma } from "@/lib/utils/server/prisma";
+import { getSessionContext } from "@/lib/utils/server/session";
+import { success, unauthorized, badRequest, serverError } from "@/lib/utils/server/api-response";
 
-function parseNumber(value: unknown): number | null {
-	if (typeof value === "number" && Number.isFinite(value)) {
-		return value;
-	}
-	if (typeof value === "string") {
-		const parsed = Number(value);
-		return Number.isFinite(parsed) ? parsed : null;
-	}
-	return null;
-}
-
-// GET /api/projects - Get all projects with optional search/pagination
-// Public endpoint (no auth required)
-export async function GET(request: Request) {
-	// Rate limiting: 60 requests per minute per IP for search endpoints
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`search-projects:${clientId}`, {
-		maxRequests: 60,
-		windowMs: 60 * 1000, // 1 minute
-	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
-
-	const { searchParams } = new URL(request.url);
-	const search = searchParams.get("search") || undefined;
-	const limit = parseNumber(searchParams.get("limit"));
-	const offset = parseNumber(searchParams.get("offset"));
-
-	// Enforce max limit to prevent abuse (max 100 items per request)
-	const MAX_LIMIT = 100;
-	const enforcedLimit = typeof limit === "number" && limit > 0 
-		? Math.min(limit, MAX_LIMIT) 
-		: undefined;
-
-	try {
-		const projects = await getAllProjects(search, {
-			limit: enforcedLimit,
-			offset: typeof offset === "number" && offset >= 0 ? offset : undefined,
-		});
-		return NextResponse.json(projects);
-	} catch (error) {
-		console.error("Error fetching projects:", error);
-		return badRequest("Failed to fetch projects");
-	}
-}
-
-// POST /api/projects - Create a new project
-// Protected endpoint (requires authentication)
+/**
+ * POST /api/projects
+ * Create a project attributed to activeOwnerId
+ * 
+ * Body: { title: string, description: string, tags?: string[], topics?: string[] }
+ */
 export async function POST(request: Request) {
-	const session = await auth();
-
-	if (!session?.user?.id) {
-		return unauthorized();
-	}
-
-	const data = await request.json();
-	const { title, description, tags } = data;
-
 	try {
-		// Process tags first: normalize to array, trim, and filter empty values
-		// Handles both comma-separated string and array inputs
-		let processedTags: string[] = [];
-		if (tags) {
-			if (typeof tags === "string") {
-				processedTags = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
-			} else if (Array.isArray(tags)) {
-				processedTags = tags.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim())).filter(Boolean);
-			}
+		const ctx = await getSessionContext();
+		if (!ctx) {
+			return unauthorized();
 		}
 
-		// Validate project data with processed tags
-		// Note: Images should be uploaded separately and linked to the project after creation
-		const validation = validateProjectData({
-			title,
-			description,
-			tags: processedTags.length > 0 ? processedTags : undefined,
-		});
-		if (!validation.valid) {
-			return badRequest(validation.error || "Invalid project data");
+		const body = await request.json();
+		const { title, description, tags, topics } = body;
+
+		if (!title || typeof title !== "string" || title.trim().length === 0) {
+			return badRequest("title is required");
 		}
 
-		const project = await createProject(session.user.id, {
-			title: title.trim(),
-			description: description.trim(),
-			tags: processedTags.length > 0 ? processedTags : undefined,
+		if (!description || typeof description !== "string") {
+			return badRequest("description is required");
+		}
+
+		const project = await prisma.project.create({
+			data: {
+				ownerId: ctx.activeOwnerId,
+				title: title.trim(),
+				description: description.trim(),
+				tags: Array.isArray(tags) ? tags : [],
+				topics: Array.isArray(topics) ? topics : [],
+			},
 		});
 
-		return NextResponse.json(project, { status: 201 });
+		return success(
+			{
+				project: {
+					id: project.id,
+					ownerId: project.ownerId,
+					title: project.title,
+					description: project.description,
+					tags: project.tags,
+					topics: project.topics,
+					createdAt: project.createdAt,
+					updatedAt: project.updatedAt,
+				},
+			},
+			201
+		);
 	} catch (error) {
-		console.error("Error creating project:", error);
-		return badRequest("Failed to create project");
+		console.error("POST /api/projects error:", error);
+		return serverError();
 	}
 }
 
+/**
+ * GET /api/projects
+ * List projects with optional filters
+ * 
+ * Query: ?ownerId=...&orgId=...&userId=...
+ */
+export async function GET(request: Request) {
+	try {
+		const url = new URL(request.url);
+		const ownerId = url.searchParams.get("ownerId");
+		const orgId = url.searchParams.get("orgId");
+		const userId = url.searchParams.get("userId");
+
+		const projects = await prisma.project.findMany({
+			where: {
+				...(ownerId ? { ownerId } : {}),
+				...(orgId ? { owner: { orgId } } : {}),
+				...(userId ? { owner: { userId } } : {}),
+			},
+			include: {
+				owner: {
+					select: {
+						id: true,
+						type: true,
+						userId: true,
+						orgId: true,
+						user: {
+							select: {
+								id: true,
+								username: true,
+								displayName: true,
+							},
+						},
+						org: {
+							select: {
+								id: true,
+								slug: true,
+								name: true,
+							},
+						},
+					},
+				},
+			},
+			orderBy: { createdAt: "desc" },
+			take: 50,
+		});
+
+		return success({
+			projects: projects.map((p) => ({
+				id: p.id,
+				ownerId: p.ownerId,
+				title: p.title,
+				description: p.description,
+				tags: p.tags,
+				topics: p.topics,
+				createdAt: p.createdAt,
+				updatedAt: p.updatedAt,
+				owner: {
+					id: p.owner.id,
+					type: p.owner.type,
+					user: p.owner.user
+						? {
+								id: p.owner.user.id,
+								username: p.owner.user.username,
+								displayName: p.owner.user.displayName,
+						  }
+						: null,
+					org: p.owner.org
+						? {
+								id: p.owner.org.id,
+								slug: p.owner.org.slug,
+								name: p.owner.org.name,
+						  }
+						: null,
+				},
+			})),
+		});
+	} catch (error) {
+		console.error("GET /api/projects error:", error);
+		return serverError();
+	}
+}

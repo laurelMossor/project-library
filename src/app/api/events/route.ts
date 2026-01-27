@@ -1,119 +1,166 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { createEvent, GetAllEventsOptions, getAllEvents } from "@/lib/utils/server/event";
-import { unauthorized, badRequest } from "@/lib/utils/errors";
-import { validateEventData } from "@/lib/validations";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { prisma } from "@/lib/utils/server/prisma";
+import { getSessionContext } from "@/lib/utils/server/session";
+import { success, unauthorized, badRequest, serverError } from "@/lib/utils/server/api-response";
 
-function parseNumber(value: unknown): number | null {
-	if (typeof value === "number" && Number.isFinite(value)) {
-		return value;
-	}
-	if (typeof value === "string") {
-		const parsed = Number(value);
-		return Number.isFinite(parsed) ? parsed : null;
-	}
-	return null;
-}
-
-// GET /api/events - list events with optional search/pagination
-export async function GET(request: Request) {
-	// Rate limiting: 60 requests per minute per IP for search endpoints
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`search-events:${clientId}`, {
-		maxRequests: 60,
-		windowMs: 60 * 1000, // 1 minute
-	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
-
-	const { searchParams } = new URL(request.url);
-	const search = searchParams.get("search") || undefined;
-	const limit = parseNumber(searchParams.get("limit"));
-	const offset = parseNumber(searchParams.get("offset"));
-
-	// Enforce max limit to prevent abuse (max 100 items per request)
-	const MAX_LIMIT = 100;
-	const enforcedLimit = typeof limit === "number" && limit > 0 
-		? Math.min(limit, MAX_LIMIT) 
-		: undefined;
-
-	try {
-		const options: GetAllEventsOptions = {
-			search,
-			limit: enforcedLimit,
-			offset: typeof offset === "number" && offset >= 0 ? offset : undefined,
-		};
-		const events = await getAllEvents(options);
-		return NextResponse.json(events);
-	} catch (error) {
-		console.error("Error fetching events:", error);
-		return badRequest("Failed to fetch events");
-	}
-}
-
-// POST /api/events - create a new event
+/**
+ * POST /api/events
+ * Create an event attributed to activeOwnerId
+ * 
+ * Body: { title: string, description: string, eventDateTime: string, location: string, latitude?: number, longitude?: number, tags?: string[], topics?: string[] }
+ */
 export async function POST(request: Request) {
-	const session = await auth();
-
-	if (!session?.user?.id) {
-		return unauthorized();
-	}
-
-	const data = await request.json();
-	const parsedLatitude = parseNumber(data?.latitude);
-	const parsedLongitude = parseNumber(data?.longitude);
-	const dateTime = data?.dateTime ? new Date(data.dateTime) : null;
-
-	if (!dateTime) {
-		return badRequest("Event date is required");
-	}
-
-	const validation = validateEventData({
-		title: data?.title,
-		description: data?.description,
-		dateTime,
-		location: data?.location,
-		latitude: parsedLatitude ?? undefined,
-		longitude: parsedLongitude ?? undefined,
-		tags: Array.isArray(data?.tags) ? data.tags : undefined,
-		// Note: Images should be uploaded separately and linked to the event after creation
-	});
-
-	if (!validation.valid) {
-		return badRequest(validation.error || "Invalid event data");
-	}
-
 	try {
-		const trimmedTitle = (data.title as string).trim();
-		const trimmedDescription = (data.description as string).trim();
-		const trimmedLocation = (data.location as string).trim();
-		const tags =
-			Array.isArray(data.tags) && data.tags.length > 0
-				? data.tags
-						.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
-						.filter((tag: string) => tag.length > 0)
-				: undefined;
+		const ctx = await getSessionContext();
+		if (!ctx) {
+			return unauthorized();
+		}
 
-		const event = await createEvent(session.user.id, {
-			title: trimmedTitle,
-			description: trimmedDescription,
-			dateTime,
-			location: trimmedLocation,
-			latitude: parsedLatitude ?? null,
-			longitude: parsedLongitude ?? null,
-			tags,
+		const body = await request.json();
+		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = body;
+
+		if (!title || typeof title !== "string" || title.trim().length === 0) {
+			return badRequest("title is required");
+		}
+
+		if (!description || typeof description !== "string") {
+			return badRequest("description is required");
+		}
+
+		if (!eventDateTime) {
+			return badRequest("eventDateTime is required");
+		}
+
+		if (!location || typeof location !== "string") {
+			return badRequest("location is required");
+		}
+
+		const parsedDateTime = new Date(eventDateTime);
+		if (isNaN(parsedDateTime.getTime())) {
+			return badRequest("eventDateTime must be a valid date");
+		}
+
+		const event = await prisma.event.create({
+			data: {
+				ownerId: ctx.activeOwnerId,
+				title: title.trim(),
+				description: description.trim(),
+				eventDateTime: parsedDateTime,
+				location: location.trim(),
+				latitude: latitude ?? null,
+				longitude: longitude ?? null,
+				tags: Array.isArray(tags) ? tags : [],
+				topics: Array.isArray(topics) ? topics : [],
+			},
 		});
 
-		return NextResponse.json(event, { status: 201 });
+		return success(
+			{
+				event: {
+					id: event.id,
+					ownerId: event.ownerId,
+					title: event.title,
+					description: event.description,
+					eventDateTime: event.eventDateTime,
+					location: event.location,
+					latitude: event.latitude,
+					longitude: event.longitude,
+					tags: event.tags,
+					topics: event.topics,
+					createdAt: event.createdAt,
+					updatedAt: event.updatedAt,
+				},
+			},
+			201
+		);
 	} catch (error) {
-		console.error("Error creating event:", error);
-		return badRequest("Failed to create event");
+		console.error("POST /api/events error:", error);
+		return serverError();
 	}
 }
 
+/**
+ * GET /api/events
+ * List events with optional filters
+ * 
+ * Query: ?ownerId=...&orgId=...&userId=...
+ */
+export async function GET(request: Request) {
+	try {
+		const url = new URL(request.url);
+		const ownerId = url.searchParams.get("ownerId");
+		const orgId = url.searchParams.get("orgId");
+		const userId = url.searchParams.get("userId");
+
+		const events = await prisma.event.findMany({
+			where: {
+				...(ownerId ? { ownerId } : {}),
+				...(orgId ? { owner: { orgId } } : {}),
+				...(userId ? { owner: { userId } } : {}),
+			},
+			include: {
+				owner: {
+					select: {
+						id: true,
+						type: true,
+						userId: true,
+						orgId: true,
+						user: {
+							select: {
+								id: true,
+								username: true,
+								displayName: true,
+							},
+						},
+						org: {
+							select: {
+								id: true,
+								slug: true,
+								name: true,
+							},
+						},
+					},
+				},
+			},
+			orderBy: { eventDateTime: "asc" },
+			take: 50,
+		});
+
+		return success({
+			events: events.map((e) => ({
+				id: e.id,
+				ownerId: e.ownerId,
+				title: e.title,
+				description: e.description,
+				eventDateTime: e.eventDateTime,
+				location: e.location,
+				latitude: e.latitude,
+				longitude: e.longitude,
+				tags: e.tags,
+				topics: e.topics,
+				createdAt: e.createdAt,
+				updatedAt: e.updatedAt,
+				owner: {
+					id: e.owner.id,
+					type: e.owner.type,
+					user: e.owner.user
+						? {
+								id: e.owner.user.id,
+								username: e.owner.user.username,
+								displayName: e.owner.user.displayName,
+						  }
+						: null,
+					org: e.owner.org
+						? {
+								id: e.owner.org.id,
+								slug: e.owner.org.slug,
+								name: e.owner.org.name,
+						  }
+						: null,
+				},
+			})),
+		});
+	} catch (error) {
+		console.error("GET /api/events error:", error);
+		return serverError();
+	}
+}
