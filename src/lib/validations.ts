@@ -228,7 +228,7 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		return { valid: false, error: "Event description must be 5000 characters or less" };
 	}
 
-	if (!isValidFutureDate(data.dateTime)) {
+	if (!isValidFutureDate(data.eventDateTime)) {
 		return { valid: false, error: "Event date must be in the future" };
 	}
 
@@ -297,7 +297,7 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		}
 	}
 
-	if (data.dateTime !== undefined && !isValidFutureDate(data.dateTime)) {
+	if (data.eventDateTime !== undefined && !isValidFutureDate(data.eventDateTime)) {
 		return { valid: false, error: "Event date must be in the future" };
 	}
 

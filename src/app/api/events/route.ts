@@ -104,11 +104,9 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, description, dateTime, eventDateTime, location, latitude, longitude, tags, topics } = data;
+		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = data;
 
-		// Support both dateTime (old) and eventDateTime (new) field names
-		const eventDate = eventDateTime || dateTime;
-		const parsedDateTime = eventDate ? new Date(eventDate) : null;
+		const parsedDateTime = eventDateTime ? new Date(eventDateTime) : null;
 
 		if (!parsedDateTime || isNaN(parsedDateTime.getTime())) {
 			return badRequest("Event date is required and must be valid");
@@ -136,7 +134,7 @@ export async function POST(request: Request) {
 		const validation = validateEventData({
 			title,
 			description,
-			dateTime: parsedDateTime,
+			eventDateTime: parsedDateTime,
 			location,
 			latitude: parsedLatitude ?? undefined,
 			longitude: parsedLongitude ?? undefined,

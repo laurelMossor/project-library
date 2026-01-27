@@ -1,6 +1,7 @@
 // ⚠️ SERVER-ONLY: Reusable field selection objects for Prisma queries
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
+import { Prisma } from "@prisma/client";
 import { publicUserFields } from "./user";
 
 /**
@@ -137,4 +138,17 @@ export const eventWithOwnerFields = {
 		},
 	},
 } as const;
+
+// ========================
+// Prisma-derived types (schema as source of truth)
+// ========================
+
+/** Owner shape as returned by projectWithOwnerFields/eventWithOwnerFields queries */
+export type OwnerFromQuery = Prisma.OwnerGetPayload<typeof projectWithOwnerFields.owner>;
+
+/** Project shape as returned by projectWithOwnerFields query (without images/type - those are added separately) */
+export type ProjectFromQuery = Prisma.ProjectGetPayload<{ select: typeof projectWithOwnerFields }>;
+
+/** Event shape as returned by eventWithOwnerFields query (without images/type - those are added separately) */
+export type EventFromQuery = Prisma.EventGetPayload<{ select: typeof eventWithOwnerFields }>;
 

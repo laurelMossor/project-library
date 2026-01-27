@@ -4,11 +4,20 @@
 import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
-import { eventWithOwnerFields } from "./fields";
+import { eventWithOwnerFields, EventFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
-import type { OwnerView } from "@/lib/utils/owner";
+import type { ImageItem } from "@/lib/types/image";
+
+/** Transform Prisma query result to EventItem */
+function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
+	return {
+		...event,
+		type: COLLECTION_ITEM_TYPES.EVENT,
+		images,
+	};
+}
 
 export async function getEventById(id: string): Promise<EventItem | null> {
 	const event = await prisma.event.findUnique({
@@ -17,16 +26,8 @@ export async function getEventById(id: string): Promise<EventItem | null> {
 	});
 	if (!event) return null;
 	
-	// Load images via ImageAttachment
 	const images = await getImagesForTarget("EVENT", id);
-	
-	// Add type field and images for TypeScript discrimination
-	return {
-		...event,
-		owner: event.owner as unknown as OwnerView,
-		type: COLLECTION_ITEM_TYPES.EVENT,
-		images,
-	};
+	return toEventItem(event, images);
 }
 
 export interface GetAllEventsOptions {
@@ -59,16 +60,7 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 	
-	// Attach images to events
-	return events.map((e) => {
-		const images = imagesMap.get(e.id) || [];
-		return {
-			...e,
-			owner: e.owner as unknown as OwnerView,
-			type: COLLECTION_ITEM_TYPES.EVENT,
-			images,
-		};
-	});
+	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
 }
 
 // Fetch all events by a specific owner
@@ -83,16 +75,7 @@ export async function getEventsByOwner(ownerId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 	
-	// Attach images to events
-	return events.map((e) => {
-		const images = imagesMap.get(e.id) || [];
-		return {
-			...e,
-			owner: e.owner as OwnerView,
-			type: COLLECTION_ITEM_TYPES.EVENT,
-			images,
-		};
-	});
+	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
 }
 
 // Fetch all events by a specific user (via their personal owner)
@@ -120,16 +103,9 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 		},
 		select: eventWithOwnerFields,
 	});
-	// Load images via ImageAttachment
-	const images = await getImagesForTarget("EVENT", event.id);
 	
-	// Add type field and images for TypeScript discrimination
-	return {
-		...event,
-		owner: event.owner as unknown as OwnerView,
-		type: COLLECTION_ITEM_TYPES.EVENT,
-		images,
-	};
+	// New event has no images yet
+	return toEventItem(event, []);
 }
 
 export async function updateEvent(id: string, data: EventUpdateInput): Promise<EventItem> {
@@ -171,16 +147,8 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 		select: eventWithOwnerFields,
 	});
 	
-	// Load images via ImageAttachment
 	const images = await getImagesForTarget("EVENT", event.id);
-	
-	// Add type field and images for TypeScript discrimination
-	return {
-		...event,
-		owner: event.owner as unknown as OwnerView,
-		type: COLLECTION_ITEM_TYPES.EVENT,
-		images,
-	};
+	return toEventItem(event, images);
 }
 
 export async function deleteEvent(id: string): Promise<EventItem> {
@@ -217,12 +185,6 @@ export async function deleteEvent(id: string): Promise<EventItem> {
 		select: eventWithOwnerFields,
 	});
 	
-	// Note: Images already deleted above, so we don't need to load them
-	// Add type field for TypeScript discrimination
-	return {
-		...deletedEvent,
-		owner: deletedEvent.owner as unknown as OwnerView,
-		type: COLLECTION_ITEM_TYPES.EVENT,
-		images: [],
-	};
+	// Images already deleted above
+	return toEventItem(deletedEvent, []);
 }

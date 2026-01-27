@@ -13,7 +13,7 @@ export interface ProfileData {
 
 export interface User {
 	id: string;
-	actorId: string;
+	ownerId: string | null; // Personal owner id (null until created)
 	email: string;
 	passwordHash: string;
 	username: string;
@@ -34,7 +34,7 @@ export interface User {
 // Public user profile (excludes sensitive data like email and passwordHash)
 export interface PublicUser {
 	id: string;
-	actorId: string;
+	ownerId: string | null;
 	username: string;
 	firstName: string | null;
 	middleName: string | null;

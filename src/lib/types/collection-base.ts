@@ -1,4 +1,4 @@
-import type { OwnerView } from "../utils/owner";
+import type { PublicOwner } from "../utils/owner";
 
 /**
  * Base interface for all collection items (projects, events, etc.)
@@ -30,7 +30,7 @@ export interface BaseCollectionItem {
 	description: string;
 	tags: string[];
 	topics: string[];
-	owner: OwnerView;
+	owner: PublicOwner;
 	createdAt: Date;
 	updatedAt: Date;
 	type: CollectionItemType;

@@ -85,11 +85,9 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, description, dateTime, eventDateTime, location, latitude, longitude, tags, topics } = data;
+		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = data;
 
-		// Support both dateTime (old) and eventDateTime (new) field names
-		const eventDate = eventDateTime || dateTime;
-		const parsedDateTime = eventDate ? new Date(eventDate) : undefined;
+		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
 		const parsedLongitude = longitude !== undefined ? parseNumber(longitude) : undefined;
 
@@ -112,7 +110,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		const validation = validateEventUpdateData({
 			title,
 			description,
-			dateTime: parsedDateTime,
+			eventDateTime: parsedDateTime,
 			location,
 			latitude: parsedLatitude ?? undefined,
 			longitude: parsedLongitude ?? undefined,
