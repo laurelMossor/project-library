@@ -36,33 +36,39 @@ enum ArtifactType extends CollectionType {
   IMAGE
 }
 
-// Note: Each User and User + Org combo has a unique Owner identity, with the User-first attribution pattern
+model User {
+  id          String   @id @default(cuid())
+  ownerId     String   @unique // References Owner.id (the user's personal Owner)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-model Owner {
-  id        String    @id @default(cuid())
-  userId    String    // References User.id
-  orgId     String?   // References Org.id (null for personal Owner)
-  type      OwnerType
-  createdAt DateTime  @default(now())
+  // Relationships
+  owner      Owner @relation("UserOwner", fields: [ownerId], references: [id], onDelete: Cascade) // The unique, personal owner profile (the one referenced by ownerId - orgId is null)
+  owners     Owner[] @relation("UserOwners")  // All Owners this user has (personal + org-based) - inverse of Owner.user
+  adminOf        Org[]
+  orgMemberships Org[]
+  following   Follow[] @relation("Following")   // Outgoing: I follow others
+  followers   Follow[] @relation("Followers")  // Incoming: others follow me
 
-  // Relations
-  user User @relation("UserOwners", fields: [userId], references: [id], onDelete: Cascade)
-  org  Org? @relation("OrgOwners", fields: [orgId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  username     String   @unique
 
-  // Ownership
-  projects         Project[]
-  events           Event[]
-  posts            Post[]
-  images           Image[] // uploaded files (metadata)
-  
-  // Messaging
-  sentMessages     Message[] @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
+  firstName    String?
+  middleName   String?
+  lastName     String?
+  displayName  String?  // Preferred display name (overrides firstName + lastName)
 
-  status           OwnerStatus @default(ACTIVE)
+  // Profile
+  headline     String?
+  bio          String?
+  interests    String[] @default([])
+  location     String?
+  isPublic     Boolean  @default(true)
+  avatarImageId String?
+  avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
-  @@unique([userId, orgId]) // Allows one personal Owner (orgId=null) + multiple org Owners per user
-  @@map("owners")
+  @@map("users")
 }
 
 model Follow {
@@ -84,46 +90,37 @@ model Follow {
 }
 
 // ========================
-// Users + Orgs
+// Owners + Orgs
 // ========================
 
-model User {
-  id          String   @id @default(cuid())
-  ownerId     String   @unique // References Owner.id (the user's personal Owner)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+// Note: Each User and User + Org combo has a unique Owner identity, with the User-first attribution pattern
 
-  // User Owner (the one referenced by ownerId - orgId is null)
-  userOwner   Owner @relation("UserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+model Owner {
+  id        String    @id @default(cuid())
+  isOrg     Boolean   @default(false)
+  userId    String    // References User.id
+  orgId     String?   // References Org.id (null for personal Owner)
+  type      OwnerType
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user      User @relation("UserOwners", fields: [userId], references: [id], onDelete: Cascade)
+  org       Org? @relation("OrgOwners", fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Ownership
+  projects         Project[]
+  events           Event[]
+  posts            Post[]
+  images           Image[] // uploaded files (metadata)
   
-  // All Owners this user has (personal + org-based) - inverse of Owner.user
-  allOwners Owner[] @relation("UserOwners")
+  // Messaging
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
 
-  // Outgoing: I follow others
-  following Follow[] @relation("Following")
-  // Incoming: others follow me
-  followers Follow[] @relation("Followers")
+  status           OwnerStatus @default(ACTIVE)
 
-  email        String   @unique
-  passwordHash String
-  username     String   @unique
-
-  firstName    String?
-  middleName   String?
-  lastName     String?
-  displayName  String?  // Preferred display name (overrides firstName + lastName)
-
-  // Profile
-  headline     String?
-  bio          String?
-  interests    String[] @default([])
-  location     String?
-  isPublic     Boolean  @default(true)
-  avatarImageId String?
-  avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
-  orgMemberships Org[]
-
-  @@map("users")
+  @@unique([userId, orgId]) // Allows one personal Owner (orgId=null) + multiple org Owners per user
+  @@map("owners")
 }
 
 model Org {
@@ -156,16 +153,12 @@ model Org {
   avatarImageId String?
   avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
   
-  // All Owners for this org (users acting on behalf of this org) - inverse of Owner.org
-  admins        Owner[] @relation("OrgOwners")
-  
-  // Outgoing: I follow others
-  following     Follow[] @relation("Following")
-  // Incoming: others follow me
-  followers     Follow[] @relation("Followers")
-
+  // Relationships
+  owner         Owner @relation(fields: [owner], references: [id], onDelete: Cascade) // owner has superadmin role for Org
+  owners        Owner[] @relation("OrgOwners")   // All Owners for this org (users acting on behalf of this org) - inverse of Owner.org
+  following     Follow[] @relation("Following")   // Outgoing: I follow others
+  followers     Follow[] @relation("Followers")   // Incoming: others follow me
   members       OrgMember[]
-  userOwner     User @relation(fields: [user], references: [id], onDelete: Cascade) // userOwner has superadmin role for Org
 
   @@map("orgs")
 }
@@ -176,16 +169,16 @@ model OrgMember {
   role      OrgRole  @default(MEMBER)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  org Org @relative(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User @relation("UserOwners", fields: [userId], references: [id], onDelete: Cascade)
+  org        Org @relative(fields: [orgId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, userId])
+  @@unique([orgId, ownerId])
   @@index([orgId, role])
   @@map("org_members")
 }
 
 // ========================
-// Content attributed to an Owner (User or Org-User)
+// Content attributed to an Owner (User or Org Admin)
 // ========================
 
 model Project {
