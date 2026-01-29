@@ -42,7 +42,7 @@ npm run db:migrate:deploy
    ```
 
 ### Step 3: Deploy Application
-3. Deploy your application (Vercel, Railway, etc.)
+3. Deploy your application (Vercel)
    - Your app code will be deployed
    - **But the database schema won't be updated yet**
 
@@ -103,11 +103,6 @@ Add to `package.json`:
   }
 }
 ```
-
-### Railway / Other Platforms
-Similar approach - add `prisma migrate deploy` to your build script.
-
-**Warning**: Be careful with automated migrations. It's often safer to run them manually so you can verify they succeed before deploying.
 
 ## Resolving Failed Migrations
 
