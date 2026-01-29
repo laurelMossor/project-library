@@ -150,3 +150,114 @@ export async function markMessageRead(messageId: string): Promise<void> {
 		data: { readAt: new Date() },
 	});
 }
+
+/**
+ * Conversation with another user
+ */
+export interface Conversation {
+	otherUser: {
+		id: string;
+		username: string;
+		firstName: string | null;
+		middleName: string | null;
+		lastName: string | null;
+	};
+	lastMessage: {
+		id: string;
+		senderId: string;
+		content: string;
+		createdAt: Date;
+	} | null;
+}
+
+/**
+ * Get all conversations for a user (grouped by other participant)
+ */
+export async function getConversations(userId: string): Promise<Conversation[]> {
+	// First, get the user's personal owner ID
+	const personalOwner = await prisma.owner.findFirst({
+		where: { userId, orgId: null },
+		select: { id: true },
+	});
+
+	if (!personalOwner) {
+		return [];
+	}
+
+	const ownerId = personalOwner.id;
+
+	// Get all messages where user is sender or receiver
+	const messages = await prisma.message.findMany({
+		where: {
+			OR: [
+				{ senderId: ownerId },
+				{ receiverId: ownerId },
+			],
+		},
+		include: {
+			sender: {
+				select: {
+					id: true,
+					user: {
+						select: {
+							id: true,
+							username: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+						},
+					},
+				},
+			},
+			receiver: {
+				select: {
+					id: true,
+					user: {
+						select: {
+							id: true,
+							username: true,
+							firstName: true,
+							middleName: true,
+							lastName: true,
+						},
+					},
+				},
+			},
+		},
+		orderBy: { createdAt: "desc" },
+	});
+
+	// Group messages by conversation partner
+	const conversationMap = new Map<string, Conversation>();
+
+	for (const msg of messages) {
+		const isReceived = msg.receiverId === ownerId;
+		const otherOwner = isReceived ? msg.sender : msg.receiver;
+		const otherUser = otherOwner?.user;
+
+		if (!otherUser) continue;
+
+		// Use the other user's ID as the conversation key
+		const convKey = otherUser.id;
+
+		if (!conversationMap.has(convKey)) {
+			conversationMap.set(convKey, {
+				otherUser: {
+					id: otherUser.id,
+					username: otherUser.username,
+					firstName: otherUser.firstName,
+					middleName: otherUser.middleName,
+					lastName: otherUser.lastName,
+				},
+				lastMessage: {
+					id: msg.id,
+					senderId: msg.senderId,
+					content: msg.content,
+					createdAt: msg.createdAt,
+				},
+			});
+		}
+	}
+
+	return Array.from(conversationMap.values());
+}

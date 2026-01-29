@@ -10,7 +10,7 @@ import { Tooltip } from "../tooltip/Tooltip";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
 import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE, MESSAGES } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
-import { API_ME_ACTOR } from "@/lib/const/routes";
+import { API_ME_OWNER } from "@/lib/const/routes";
 import { NewItemModal } from "./NewItemModal";
 
 interface NavigationIconsProps {
@@ -33,8 +33,8 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 
 	useEffect(() => {
 		if (isLoggedIn) {
-			// Fetch active actor to determine which profile to link to
-			fetch(API_ME_ACTOR)
+			// Fetch active owner to determine which profile to link to
+			fetch(API_ME_OWNER)
 				.then((res) => {
 					if (res.ok) {
 						return res.json();
@@ -88,7 +88,7 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 			setProfileLink(undefined);
 			setUsername(undefined);
 		}
-	}, [isLoggedIn, activeSession?.user?.activeOrgId]);
+	}, [isLoggedIn, activeSession?.user?.activeOwnerId]);
 
 	return (
 		<nav className="flex items-center gap-4">
@@ -142,7 +142,7 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 				</Tooltip>
 			)}
 
-			{/* Profile icon - links to active actor's profile (user or org) */}
+			{/* Profile icon - links to active owner's profile (user or org) */}
 			{isLoggedIn && profileLink && (
 				<Tooltip text={profileTooltip}>
 					<Link
@@ -161,6 +161,3 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 		</nav>
 	);
 }
-
-
-

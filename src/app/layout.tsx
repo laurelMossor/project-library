@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
 import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
-import { OrgActorBanner } from "@/lib/components/layout/OrgActorBanner";
+import { OrgOwnerBanner } from "@/lib/components/layout/OrgOwnerBanner";
 import { Footer } from "@/lib/components/footer/Footer";
 
 export const metadata: Metadata = {
@@ -32,8 +32,8 @@ export default async function RootLayout({
 						{/* Navigation bar */}
 						<NavigationBar session={session} />
 
-						{/* Org Actor Banner - shows when user is acting as org */}
-						<OrgActorBanner />
+						{/* Org Owner Banner - shows when user is acting as org */}
+						<OrgOwnerBanner />
 
 						{/* Main content area - no sidebar */}
 						<main className="flex-1">
@@ -46,4 +46,3 @@ export default async function RootLayout({
 		</html>
 	);
 }
-

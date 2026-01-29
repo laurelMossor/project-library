@@ -204,3 +204,41 @@ export async function getOwnerOrgRole(ownerId: string): Promise<OrgRole | null> 
 	});
 	return membership?.role ?? null;
 }
+
+/**
+ * Get the active owner ID for a user (personal owner if no org selected)
+ * This is typically their personal owner ID unless they've selected an org
+ */
+export async function getOwnerIdForUser(userId: string, activeOwnerId?: string | null): Promise<string | null> {
+	// If user has an active owner set, verify it belongs to them
+	if (activeOwnerId) {
+		const isValid = await ownerBelongsToUser(activeOwnerId, userId);
+		if (isValid) return activeOwnerId;
+	}
+	
+	// Fall back to personal owner
+	const personalOwner = await getPersonalOwner(userId);
+	return personalOwner?.id ?? null;
+}
+
+/**
+ * Check if an owner owns a specific project
+ */
+export async function ownerOwnsProject(ownerId: string, projectId: string): Promise<boolean> {
+	const project = await prisma.project.findFirst({
+		where: { id: projectId, ownerId },
+		select: { id: true },
+	});
+	return project !== null;
+}
+
+/**
+ * Check if an owner owns a specific event
+ */
+export async function ownerOwnsEvent(ownerId: string, eventId: string): Promise<boolean> {
+	const event = await prisma.event.findFirst({
+		where: { id: eventId, ownerId },
+		select: { id: true },
+	});
+	return event !== null;
+}

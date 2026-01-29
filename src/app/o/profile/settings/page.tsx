@@ -3,7 +3,7 @@
  * 
  * This is the org's settings page at /o/profile/settings.
  * - Protected route (requires authentication)
- * - Allows switching between user and org actors
+ * - Allows switching between user and org owners
  * - Links to edit pages
  */
 "use client";
@@ -15,12 +15,13 @@ import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { Button } from "@/lib/components/ui/Button";
 import { AdminManagement } from "@/lib/components/org/AdminManagement";
-import { LOGIN_WITH_CALLBACK, HOME, API_ME_ORGS, ORG_PROFILE_SETTINGS, API_ME_ACTOR, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, ORG_PROFILE_EDIT } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, HOME, API_ME_ORGS, ORG_PROFILE_SETTINGS, API_ME_OWNER, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, ORG_PROFILE_EDIT } from "@/lib/const/routes";
 
 interface Org {
 	id: string;
 	name: string;
 	slug: string;
+	ownerId: string;
 }
 
 export default function OrgSettingsPage() {
@@ -58,15 +59,15 @@ export default function OrgSettingsPage() {
 			});
 	}, [session, router]);
 
-	const handleSwitchToOrg = async (orgId: string) => {
+	const handleSwitchToOrg = async (orgOwnerId: string) => {
 		setSwitching(true);
 		setError("");
 
 		try {
-			const res = await fetch(API_ME_ACTOR, {
+			const res = await fetch(API_ME_OWNER, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ orgId }),
+				body: JSON.stringify({ ownerId: orgOwnerId }),
 			});
 
 			if (!res.ok) {
@@ -76,9 +77,8 @@ export default function OrgSettingsPage() {
 				return;
 			}
 
-			// Update session with new activeOrgId
-			// This triggers the JWT callback with trigger === "update"
-			await updateSession({ activeOrgId: orgId });
+			// Update session with new activeOwnerId
+			await updateSession({ activeOwnerId: orgOwnerId });
 			
 			// Redirect to org profile
 			router.push(PRIVATE_ORG_PAGE);
@@ -93,10 +93,10 @@ export default function OrgSettingsPage() {
 		setError("");
 
 		try {
-			const res = await fetch(API_ME_ACTOR, {
+			const res = await fetch(API_ME_OWNER, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ orgId: null }),
+				body: JSON.stringify({ ownerId: null }),
 			});
 
 			if (!res.ok) {
@@ -106,9 +106,8 @@ export default function OrgSettingsPage() {
 				return;
 			}
 
-			// Update session to clear activeOrgId
-			// This triggers the JWT callback with trigger === "update"
-			await updateSession({ activeOrgId: null });
+			// Update session to clear activeOwnerId (reverts to personal owner)
+			await updateSession({ activeOwnerId: null });
 			
 			// Redirect to user profile
 			router.push(PRIVATE_USER_PAGE);
@@ -126,7 +125,9 @@ export default function OrgSettingsPage() {
 		);
 	}
 
-	const activeOrgId = session?.user?.activeOrgId;
+	const activeOwnerId = session?.user?.activeOwnerId;
+	// Find the active org by matching ownerId
+	const activeOrg = orgs.find(org => org.ownerId === activeOwnerId);
 
 	return (
 		<CenteredLayout maxWidth="2xl">
@@ -142,8 +143,8 @@ export default function OrgSettingsPage() {
 			)}
 
 			<div className="bg-white border rounded-lg p-6 mb-6">
-				<h2 className="text-xl font-semibold mb-4">Current Actor</h2>
-				{activeOrgId ? (
+				<h2 className="text-xl font-semibold mb-4">Current Owner</h2>
+				{activeOrg ? (
 					<div className="space-y-3">
 						<p className="text-sm text-gray-600">You are currently acting as an organization.</p>
 						<Button
@@ -177,13 +178,13 @@ export default function OrgSettingsPage() {
 									<p className="text-sm text-gray-500">@{org.slug}</p>
 								</div>
 								<Button
-									onClick={() => handleSwitchToOrg(org.id)}
-									disabled={switching || activeOrgId === org.id}
+									onClick={() => handleSwitchToOrg(org.ownerId)}
+									disabled={switching || activeOwnerId === org.ownerId}
 									loading={switching}
 									variant="secondary"
 									size="sm"
 								>
-									{activeOrgId === org.id ? "Active" : "Switch To"}
+									{activeOwnerId === org.ownerId ? "Active" : "Switch To"}
 								</Button>
 							</div>
 						))}
@@ -191,9 +192,9 @@ export default function OrgSettingsPage() {
 				)}
 			</div>
 
-			{activeOrgId && (
+			{activeOrg && (
 				<div className="mb-6">
-					<AdminManagement orgId={activeOrgId} />
+					<AdminManagement orgId={activeOrg.id} />
 				</div>
 			)}
 
@@ -206,7 +207,7 @@ export default function OrgSettingsPage() {
 					<ButtonLink href={USER_PROFILE_EDIT} variant="secondary" fullWidth>
 						Edit User Profile
 					</ButtonLink>
-					{activeOrgId && (
+					{activeOrg && (
 						<>
 							<ButtonLink href={PRIVATE_ORG_PAGE} variant="secondary" fullWidth>
 								Org Profile

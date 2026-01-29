@@ -46,14 +46,14 @@ export function EditEventForm({ event }: Props) {
 
 	// Initialize datetime from event if editing
 	useEffect(() => {
-		if (event?.dateTime) {
-			const eventDate = new Date(event.dateTime);
+		if (event?.eventDateTime) {
+			const eventDate = new Date(event.eventDateTime);
 			const localDateTime = new Date(eventDate.getTime() - eventDate.getTimezoneOffset() * 60000)
 				.toISOString()
 				.slice(0, 16);
 			setDateTime(localDateTime);
 		}
-	}, [event?.dateTime]);
+	}, [event?.eventDateTime]);
 
 	const minDateTime = new Date().toISOString().slice(0, 16);
 

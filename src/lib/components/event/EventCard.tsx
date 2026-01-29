@@ -15,14 +15,14 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
 import { EVENT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerUsername } from "@/lib/utils/owner";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle } from "@/lib/utils/owner";
 
 /** @deprecated Use CollectionCard instead */
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
 	const detailUrl = EVENT_DETAIL(event.id);
 	const ownerUser = getOwnerUser(event.owner);
 	const ownerDisplayName = getOwnerDisplayName(event.owner);
-	const ownerUsername = getOwnerUsername(event.owner);
+	const ownerUsername = getOwnerHandle(event.owner);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
@@ -45,7 +45,7 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 
 			{/* Event-specific info */}
 			<div className="mb-2 text-sm text-gray-600">
-				<p className="font-medium">📅 {formatDateTime(event.dateTime)}</p>
+				<p className="font-medium">📅 {formatDateTime(event.eventDateTime)}</p>
 				<p className="text-xs">📍 {event.location}</p>
 			</div>
 

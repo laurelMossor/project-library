@@ -68,7 +68,7 @@ export const API_AUTH_SIGNUP = "/api/auth/signup";
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
 export const API_ME_ORG = "/api/me/org"; // GET/PUT current active org profile
 export const API_ME_ORGS = "/api/me/orgs"; // GET user's orgs
-export const API_ME_ACTOR = "/api/me/actor"; // GET current actor, PUT to switch actor
+export const API_ME_OWNER = "/api/me/owner"; // GET current owner, PUT to switch owner
 
 // Public User API Routes
 export const API_USER_PROJECTS = (username: string) => `/api/users/${username}/projects`;

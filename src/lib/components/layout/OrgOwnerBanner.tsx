@@ -4,24 +4,24 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { API_ME_ACTOR, API_ME_ORG } from "@/lib/const/routes";
+import { API_ME_OWNER, API_ME_ORG } from "@/lib/const/routes";
 
 /**
- * OrgActorBanner
+ * OrgOwnerBanner
  * Displays a banner when user is acting as an org
  * Shows "Acting as [Org Name]" with option to switch back to user
  */
-export function OrgActorBanner() {
+export function OrgOwnerBanner() {
 	const { data: session, update: updateSession } = useSession();
 	const router = useRouter();
 	const [orgName, setOrgName] = useState<string | null>(null);
 	const [switching, setSwitching] = useState(false);
 
-	const activeOrgId = session?.user?.activeOrgId;
+	const activeOwnerId = session?.user?.activeOwnerId;
 
-	// Fetch org name when activeOrgId changes
+	// Fetch org name when activeOwnerId changes
 	useEffect(() => {
-		if (!activeOrgId) {
+		if (!activeOwnerId) {
 			setOrgName(null);
 			return;
 		}
@@ -41,9 +41,9 @@ export function OrgActorBanner() {
 			.catch(() => {
 				// Silently fail - banner just won't show org name
 			});
-	}, [activeOrgId]);
+	}, [activeOwnerId]);
 
-	if (!activeOrgId || !orgName) {
+	if (!activeOwnerId || !orgName) {
 		return null;
 	}
 
@@ -51,16 +51,15 @@ export function OrgActorBanner() {
 		setSwitching(true);
 
 		try {
-			const res = await fetch(API_ME_ACTOR, {
+			const res = await fetch(API_ME_OWNER, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ orgId: null }),
+				body: JSON.stringify({ ownerId: null }),
 			});
 
 			if (res.ok) {
-				// Update session to clear activeOrgId
-				// This triggers the JWT callback with trigger === "update"
-				await updateSession({ activeOrgId: null });
+				// Update session to clear activeOwnerId
+				await updateSession({ activeOwnerId: null });
 				router.push("/u/profile");
 			}
 		} catch (err) {

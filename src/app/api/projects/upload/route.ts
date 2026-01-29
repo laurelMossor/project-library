@@ -5,7 +5,7 @@ import { uploadImage } from "@/lib/utils/server/storage";
 import { prisma } from "@/lib/utils/server/prisma";
 import { ImageItem } from "@/lib/types/image";
 import { imageFields } from "@/lib/utils/server/fields";
-import { getActorIdForUser, actorOwnsProject, actorOwnsEvent } from "@/lib/utils/server/actor";
+import { getOwnerIdForUser, ownerOwnsProject, ownerOwnsEvent } from "@/lib/utils/server/owner";
 import { attachImage } from "@/lib/utils/server/image-attachment";
 import { checkRateLimit } from "@/lib/utils/server/rate-limit";
 
@@ -78,10 +78,10 @@ export async function POST(request: Request) {
 			return badRequest("File size too large. Maximum size is 5MB");
 		}
 
-		// Verify the project/event exists and user owns it before uploading (via Actor)
-		const actorId = await getActorIdForUser(session.user.id);
-		if (!actorId) {
-			return unauthorized("User not found or has no actor");
+		// Verify the project/event exists and user owns it (via Owner)
+		const ownerId = await getOwnerIdForUser(session.user.id, session.user.activeOwnerId);
+		if (!ownerId) {
+			return unauthorized("User not found or has no owner");
 		}
 
 		if (projectId) {
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 			if (!project) {
 				return badRequest("Project not found");
 			}
-			if (!(await actorOwnsProject(actorId, projectId))) {
+			if (!(await ownerOwnsProject(ownerId, projectId))) {
 				return unauthorized("You can only add images to your own projects");
 			}
 		}
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 			if (!event) {
 				return badRequest("Event not found");
 			}
-			if (!(await actorOwnsEvent(actorId, eventId))) {
+			if (!(await ownerOwnsEvent(ownerId, eventId))) {
 				return unauthorized("You can only add images to your own events");
 			}
 		}
@@ -147,12 +147,13 @@ export async function POST(request: Request) {
 
 		// Create Image record (no direct projectId/eventId - use ImageAttachment)
 		// Explicitly set fields to prevent mass assignment
+		// Note: uploadedById should be the owner ID, not user ID
 		const createdImage = await prisma.image.create({
 			data: {
 				url: result.imageUrl,
 				path: result.path,
 				altText: altText && typeof altText === "string" ? altText.trim().slice(0, 500) || null : null,
-				uploadedById: session.user.id, // Derived from auth, not client input
+				uploadedById: ownerId, // Owner ID from auth
 			},
 			select: imageFields,
 		});
@@ -196,4 +197,3 @@ export async function POST(request: Request) {
 		return badRequest("Failed to upload image");
 	}
 }
-

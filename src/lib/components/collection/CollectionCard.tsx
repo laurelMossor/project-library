@@ -17,7 +17,7 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
 import { EVENT_DETAIL, PROJECT_DETAIL, PUBLIC_USER_PAGE } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerUsername } from "@/lib/utils/owner";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle } from "@/lib/utils/owner";
 
 type CollectionCardProps = {
 	item: CollectionItem;
@@ -27,12 +27,12 @@ type CollectionCardProps = {
 export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 	const isEventItem = isEvent(item);
 	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : PROJECT_DETAIL(item.id);
-	const displayDate = isEventItem ? item.dateTime : item.createdAt;
+	const displayDate = isEventItem ? item.eventDateTime : item.createdAt;
 	
-	// Extract owner info from Actor structure
+	// Extract owner info from Owner structure
 	const ownerUser = getOwnerUser(item.owner);
 	const ownerDisplayName = getOwnerDisplayName(item.owner);
-	const ownerUsername = getOwnerUsername(item.owner);
+	const ownerUsername = getOwnerHandle(item.owner);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
@@ -56,7 +56,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			{/* Event-specific info (only for events) */}
 			{isEventItem && (
 				<div className="mb-2 text-sm text-gray-600">
-					<p className="font-medium">📅 {formatDateTime(item.dateTime)}</p>
+					<p className="font-medium">📅 {formatDateTime(item.eventDateTime)}</p>
 					<p className="text-xs">📍 {item.location}</p>
 				</div>
 			)}

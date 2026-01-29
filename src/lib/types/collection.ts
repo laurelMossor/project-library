@@ -46,7 +46,7 @@ export function getCollectionItemType(item: CollectionItem): CollectionItemType 
 }
 
 export function getCollectionItemDate(item: CollectionItem): Date {
-	const dateValue = isEvent(item) ? item.dateTime : item.createdAt;
+	const dateValue = isEvent(item) ? item.eventDateTime : item.createdAt;
 	// Handle both Date objects and date strings from API
 	if (dateValue instanceof Date) {
 		return dateValue;

@@ -1,11 +1,10 @@
 /* eslint-disable no-console */
 /**
- * Seed script for v2 schema
+ * Seed script for v3 schema (Owner-centric model)
  * 
  * IMPORTANT: Before running this script:
- * 1. Make sure schema.prisma is set to v2
- * 2. Run: npx prisma generate
- * 3. Ensure DATABASE_URL in .env.development (for dev) or .env.production (for prod) points to your database
+ * 1. Make sure schema.prisma is current and you've run: npx prisma generate
+ * 2. Ensure DATABASE_URL in .env.development (for dev) or .env.production (for prod) points to your database
  * 
  * This script loads environment files in the same order as Next.js:
  * 1. .env (base config - includes AUTH_SECRET)
@@ -13,7 +12,6 @@
  * 3. .env.local (local overrides, if exists)
  */
 // CRITICAL: Load env files BEFORE importing Prisma client
-// The Prisma client reads DATABASE_URL at import time, so we must set it first
 import { config } from "dotenv";
 import { existsSync } from "fs";
 import { resolve } from "path";
@@ -21,14 +19,12 @@ import { resolve } from "path";
 const isDev = process.env.NODE_ENV !== "production";
 
 // Load environment files in Next.js order (later overrides earlier)
-// 1. Base .env (contains AUTH_SECRET and shared config)
 const envPath = resolve(process.cwd(), ".env");
 if (existsSync(envPath)) {
   config({ path: envPath });
   console.log("📁 Loaded .env (base config)");
 }
 
-// 2. Environment-specific file (.env.development or .env.production)
 const envSpecificPath = resolve(
   process.cwd(),
   isDev ? ".env.development" : ".env.production"
@@ -40,29 +36,35 @@ if (existsSync(envSpecificPath)) {
   console.warn(`⚠️  ${isDev ? ".env.development" : ".env.production"} not found`);
 }
 
-// 3. .env.local (local overrides, highest priority)
 const envLocalPath = resolve(process.cwd(), ".env.local");
 if (existsSync(envLocalPath)) {
   config({ path: envLocalPath, override: true });
   console.log("📁 Loaded .env.local (local overrides)");
 }
 
-// Warn if using production database in dev
 if (isDev && process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")) {
   console.warn("⚠️  WARNING: DATABASE_URL doesn't point to localhost!");
   console.warn(`   Current DATABASE_URL: ${process.env.DATABASE_URL}`);
   console.warn("   Make sure .env.development has DATABASE_URL set to local database");
 }
 
-import { PrismaClient, ActorType, OrgRole, AttachmentType } from "@prisma/client";
+import { PrismaClient, OwnerType, OrgRole, ArtifactType } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
-// Create a fresh Prisma client for seeding (ensures it uses the correct DATABASE_URL from env files)
-// This avoids issues with the shared singleton client that might have been created with wrong env vars
+/**
+ * Generate a cuid-like ID for database records
+ */
+function generateId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = crypto.randomBytes(12).toString("base64url").slice(0, 16);
+  return `c${timestamp}${random}`.slice(0, 25);
+}
+
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   const envFile = isDev ? ".env.development" : ".env.production";
@@ -80,20 +82,10 @@ const prisma = new PrismaClient({
 
 /**
  * Construct Supabase public URLs for seed images.
- * Uses NEXT_PUBLIC_SUPABASE_URL from environment (same as the app).
- * 
- * Local vs Remote:
- * - Local dev: .env.local can omit NEXT_PUBLIC_SUPABASE_URL (uses placeholder)
- * - Production: .env has NEXT_PUBLIC_SUPABASE_URL pointing to your Supabase project
- * 
- * Bucket name: "uploads" (matches the app's storage configuration)
- * URL format: ${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/uploads/examples/${path}
  */
 const getSupabasePublicUrl = (storagePath: string): string => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) {
-    // Don't use placeholder URLs - they cause issues in production
-    // Instead, throw an error so the user knows to set the env var
     throw new Error(
       "NEXT_PUBLIC_SUPABASE_URL is not set. " +
       "Please set it in .env or .env.local to generate correct image URLs for seed data. " +
@@ -103,10 +95,6 @@ const getSupabasePublicUrl = (storagePath: string): string => {
   return `${supabaseUrl}/storage/v1/object/public/uploads/examples/${storagePath}`;
 };
 
-/**
- * Paths to your existing JSON files.
- * (These correspond to the uploaded files you showed.)
- */
 const DATA_DIR = path.join(process.cwd(), "prisma", "seed-data");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
 const PROJECTS_PATH = path.join(DATA_DIR, "projects.json");
@@ -130,7 +118,7 @@ type SeedProjectJson = {
   tags: string[];
   ownerId: number; // 1-based index into users.json
   createdAt?: string;
-  hasEntries?: boolean; // legacy; we use it to create descendant posts
+  hasEntries?: boolean;
   imageFilenames?: string[];
 };
 
@@ -161,7 +149,6 @@ function splitName(full: string): { firstName?: string; middleName?: string; las
   if (parts.length === 0) return {};
   if (parts.length === 1) return { firstName: parts[0] };
   if (parts.length === 2) return { firstName: parts[0], lastName: parts[1] };
-  // 3+ parts: first, middle (everything in between), last
   return {
     firstName: parts[0],
     middleName: parts.slice(1, -1).join(" "),
@@ -179,119 +166,83 @@ function userIndexToKey(ownerId: number): number {
   return ownerId - 1;
 }
 
+// Store created entities for reference
+type CreatedUser = {
+  id: string;
+  personalOwnerId: string;
+};
+
 async function main() {
   console.log("🌱 Seeding...");
 
-  // ---- Load JSON
   const usersJson = loadJson<SeedUserJson[]>(USERS_PATH);
   const projectsJson = loadJson<SeedProjectJson[]>(PROJECTS_PATH);
   const eventsJson = loadJson<SeedEventJson[]>(EVENTS_PATH);
   const imagesJson = loadJson<SeedImageJson[]>(IMAGES_PATH);
 
-  // ---- Start clean (dev only)
-  // Order matters due to FKs.
-  // Use try-catch to handle cases where tables don't exist yet (fresh database)
+  // Clear tables (order matters due to FKs)
   console.log("🧹 Clearing tables...");
-  try {
-    await prisma.imageAttachment.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e; // P2021 = table doesn't exist
-  }
-  try {
-    await prisma.follow.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.orgRoleLabel.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.orgMember.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.message.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.post.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.event.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.project.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.org.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.user.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.image.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
-  }
-  try {
-    await prisma.actor.deleteMany();
-  } catch (e: any) {
-    if (e.code !== 'P2021') throw e;
+  const tablesToClear = [
+    "imageAttachment",
+    "follow",
+    "orgMember",
+    "message",
+    "post",
+    "event",
+    "project",
+    "image",
+    "org",
+    "owner",
+    "user",
+  ] as const;
+
+  for (const table of tablesToClear) {
+    try {
+      await (prisma[table] as { deleteMany: () => Promise<unknown> }).deleteMany();
+    } catch (e: unknown) {
+      const error = e as { code?: string };
+      if (error.code !== "P2021") throw e;
+    }
   }
 
-  // ---- Create Users + Actors
-  console.log("👤 Creating users + actors...");
-  const users = [];
-  const userActorsByIdx: string[] = [];
+  // ---- Create Users + Personal Owners (atomically using raw SQL)
+  console.log("👤 Creating users + personal owners...");
+  const createdUsers: CreatedUser[] = [];
 
   for (const u of usersJson) {
-    const actor = await prisma.actor.create({
-      data: { type: ActorType.USER },
-    });
-
     const { firstName, middleName, lastName } = splitName(u.name);
     const passwordHash = await bcrypt.hash(u.password, 10);
+    const userId = generateId();
+    const ownerId = generateId();
+    const now = new Date();
 
-    const user = await prisma.user.create({
-      data: {
-        actorId: actor.id,
-        email: u.email.toLowerCase(),
-        username: u.username,
-        passwordHash,
-        firstName,
-        middleName,
-        lastName,
-        headline: u.headline ?? null,
-        bio: u.bio ?? null,
-        interests: u.interests ?? [],
-        location: u.location ?? null,
-      },
+    // Use raw SQL to insert both User and Owner atomically
+    // This handles the circular reference (User.ownerId <-> Owner.userId)
+    await prisma.$transaction(async (tx) => {
+      // Insert Owner first (references userId)
+      await tx.$executeRaw`
+        INSERT INTO owners (id, "userId", "orgId", type, status, "createdAt")
+        VALUES (${ownerId}, ${userId}, NULL, 'USER', 'ACTIVE', ${now})
+      `;
+
+      // Insert User (references ownerId)
+      await tx.$executeRaw`
+        INSERT INTO users (id, "ownerId", email, "passwordHash", username, "firstName", "middleName", "lastName", "displayName", headline, bio, interests, location, "isPublic", "avatarImageId", "createdAt", "updatedAt")
+        VALUES (${userId}, ${ownerId}, ${u.email.toLowerCase()}, ${passwordHash}, ${u.username}, ${firstName ?? null}, ${middleName ?? null}, ${lastName ?? null}, NULL, ${u.headline ?? null}, ${u.bio ?? null}, ${u.interests ?? []}::text[], ${u.location ?? null}, true, NULL, ${now}, ${now})
+      `;
     });
 
-    users.push(user);
-    userActorsByIdx.push(actor.id);
+    createdUsers.push({
+      id: userId,
+      personalOwnerId: ownerId,
+    });
   }
 
-  // ---- Create Images
+  // ---- Create Images (uploadedBy is now an Owner)
   console.log("🖼️ Creating images...");
   const imagesByFilename = new Map<string, { id: string }>();
 
-  // Pick an uploader (first user) for all seed images (simple + consistent)
-  const defaultUploader = users[0];
+  const defaultUploader = createdUsers[0];
   if (!defaultUploader) throw new Error("No users created; cannot seed images.");
 
   for (const img of imagesJson) {
@@ -303,7 +254,7 @@ async function main() {
         url,
         path: storagePath,
         altText: img.altText ?? null,
-        uploadedById: defaultUploader.id,
+        uploadedById: defaultUploader.personalOwnerId, // Owner ID, not User ID
       },
       select: { id: true },
     });
@@ -311,18 +262,18 @@ async function main() {
     imagesByFilename.set(img.filename, created);
   }
 
-  // ---- Set some User avatars (optional, but nice for UI)
+  // ---- Set User avatars
   console.log("🧷 Setting user avatars...");
   const avatarPool = Array.from(imagesByFilename.values()).map((v) => v.id);
-  for (let i = 0; i < users.length; i++) {
+  for (let i = 0; i < createdUsers.length; i++) {
     const avatarId = avatarPool[i % avatarPool.length];
     await prisma.user.update({
-      where: { id: users[i].id },
+      where: { id: createdUsers[i].id },
       data: { avatarImageId: avatarId },
     });
   }
 
-  // ---- Create Orgs + Org Actors
+  // ---- Create Orgs + Org Owners + Memberships
   console.log("🏢 Creating orgs + memberships...");
   const orgDefs = [
     {
@@ -331,7 +282,6 @@ async function main() {
       headline: "Hands-on learning, shared tools, good people.",
       bio: "A community org for woodworking, textiles, and skill shares.",
       location: "Portland, OR",
-      // owner/admin from seed users: Alice + George for example
       ownerUserIdx: 1,
       adminUserIdxs: [4],
     },
@@ -346,107 +296,157 @@ async function main() {
     },
   ] as const;
 
-  const orgs: { id: string; actorId: string; slug: string }[] = [];
+  type CreatedOrg = {
+    id: string;
+    slug: string;
+    primaryOwnerId: string; // The org-based Owner for the primary owner user
+  };
+  const createdOrgs: CreatedOrg[] = [];
 
   for (let i = 0; i < orgDefs.length; i++) {
     const def = orgDefs[i];
+    const primaryUserIdx = def.ownerUserIdx;
+    const primaryUser = createdUsers[primaryUserIdx];
+    if (!primaryUser) throw new Error(`Owner user index ${primaryUserIdx} out of range`);
 
-    const actor = await prisma.actor.create({
-      data: { type: ActorType.ORG },
-    });
-
+    // Create the org first (with primary owner's personal owner as temporary owner)
     const org = await prisma.org.create({
       data: {
-        actorId: actor.id,
         name: def.name,
         slug: def.slug,
         headline: def.headline,
         bio: def.bio,
         interests: [],
         location: def.location,
-        // org avatar
-        avatarImageId: avatarPool[(i + users.length) % avatarPool.length],
+        createdByUserId: primaryUser.id,
+        ownerId: primaryUser.personalOwnerId, // Will update after creating org-based owner
+        avatarImageId: avatarPool[(i + createdUsers.length) % avatarPool.length],
       },
-      select: { id: true, actorId: true, slug: true },
     });
 
-    orgs.push(org);
+    // Create org-based Owner for the primary owner user ("wearing org hat")
+    const orgBasedOwner = await prisma.owner.create({
+      data: {
+        userId: primaryUser.id,
+        orgId: org.id,
+        type: OwnerType.ORG,
+      },
+    });
 
-    // Memberships
-    const ownerUser = users[def.ownerUserIdx];
-    if (ownerUser) {
-      await prisma.orgMember.create({
-        data: { orgId: org.id, userId: ownerUser.id, role: OrgRole.OWNER },
-      });
-    }
+    // Update org to point to the org-based owner
+    await prisma.org.update({
+      where: { id: org.id },
+      data: { ownerId: orgBasedOwner.id },
+    });
 
+    // Create OrgMember for primary owner (links to org-based Owner)
+    await prisma.orgMember.create({
+      data: {
+        orgId: org.id,
+        ownerId: orgBasedOwner.id,
+        role: OrgRole.OWNER,
+      },
+    });
+
+    createdOrgs.push({
+      id: org.id,
+      slug: org.slug,
+      primaryOwnerId: orgBasedOwner.id,
+    });
+
+    // Create admin memberships
     for (const adminIdx of def.adminUserIdxs) {
-      const adminUser = users[adminIdx];
+      const adminUser = createdUsers[adminIdx];
       if (!adminUser) continue;
-      await prisma.orgMember.upsert({
-        where: { orgId_userId: { orgId: org.id, userId: adminUser.id } },
-        update: { role: OrgRole.ADMIN },
-        create: { orgId: org.id, userId: adminUser.id, role: OrgRole.ADMIN },
+
+      // Create org-based Owner for admin
+      const adminOrgOwner = await prisma.owner.create({
+        data: {
+          userId: adminUser.id,
+          orgId: org.id,
+          type: OwnerType.ORG,
+        },
+      });
+
+      await prisma.orgMember.create({
+        data: {
+          orgId: org.id,
+          ownerId: adminOrgOwner.id,
+          role: OrgRole.ADMIN,
+        },
       });
     }
 
-    // Add everyone else as MEMBER for nicer demo browsing
-    for (const u of users) {
-      await prisma.orgMember.upsert({
-        where: { orgId_userId: { orgId: org.id, userId: u.id } },
-        update: {},
-        create: { orgId: org.id, userId: u.id, role: OrgRole.MEMBER },
+    // Add remaining users as MEMBER
+    for (const u of createdUsers) {
+      // Skip if already added as owner or admin
+      const existingMembership = await prisma.orgMember.findFirst({
+        where: {
+          orgId: org.id,
+          owner: { userId: u.id },
+        },
+      });
+      if (existingMembership) continue;
+
+      // Create org-based Owner for member
+      const memberOrgOwner = await prisma.owner.create({
+        data: {
+          userId: u.id,
+          orgId: org.id,
+          type: OwnerType.ORG,
+        },
+      });
+
+      await prisma.orgMember.create({
+        data: {
+          orgId: org.id,
+          ownerId: memberOrgOwner.id,
+          role: OrgRole.MEMBER,
+        },
       });
     }
-
-    // Optional: role label customization
-    await prisma.orgRoleLabel.createMany({
-      data: [
-        { orgId: org.id, role: OrgRole.FOLLOWER, label: "Followers" },
-        { orgId: org.id, role: OrgRole.MEMBER, label: "Members" },
-      ],
-      skipDuplicates: true,
-    });
   }
 
-  // ---- Create Follows (User↔User, User↔Org, Org↔Org)
+  // ---- Create Follows (Owner follows Owner)
   console.log("🧲 Creating follows...");
-  const allActorIds = {
-    users: userActorsByIdx,
-    orgs: orgs.map((o) => o.actorId),
-  };
+  const personalOwnerIds = createdUsers.map((u) => u.personalOwnerId);
+  const orgOwnerIds = createdOrgs.map((o) => o.primaryOwnerId);
 
-  const followPairs: Array<{ followerId: string; followingId: string }> = [];
+  const followPairs: Array<{ followerOwnerId: string; followingOwnerId: string }> = [];
 
-  // Users follow other users (simple ring)
-  for (let i = 0; i < allActorIds.users.length; i++) {
-    const follower = allActorIds.users[i];
-    const following = allActorIds.users[(i + 1) % allActorIds.users.length];
-    followPairs.push({ followerId: follower, followingId: following });
+  // Users follow other users (ring pattern)
+  for (let i = 0; i < personalOwnerIds.length; i++) {
+    const follower = personalOwnerIds[i];
+    const following = personalOwnerIds[(i + 1) % personalOwnerIds.length];
+    if (follower !== following) {
+      followPairs.push({ followerOwnerId: follower, followingOwnerId: following });
+    }
   }
 
   // Users follow orgs
-  for (let i = 0; i < allActorIds.users.length; i++) {
-    const follower = allActorIds.users[i];
-    const followingOrg = allActorIds.orgs[i % allActorIds.orgs.length];
-    followPairs.push({ followerId: follower, followingId: followingOrg });
+  for (let i = 0; i < personalOwnerIds.length; i++) {
+    const follower = personalOwnerIds[i];
+    const followingOrg = orgOwnerIds[i % orgOwnerIds.length];
+    if (follower !== followingOrg) {
+      followPairs.push({ followerOwnerId: follower, followingOwnerId: followingOrg });
+    }
   }
 
-  // Orgs follow a couple users + org↔org
-  if (allActorIds.orgs.length >= 2) {
-    followPairs.push({ followerId: allActorIds.orgs[0], followingId: allActorIds.orgs[1] });
-    followPairs.push({ followerId: allActorIds.orgs[1], followingId: allActorIds.orgs[0] });
-  }
-  if (allActorIds.users.length >= 2 && allActorIds.orgs.length >= 1) {
-    followPairs.push({ followerId: allActorIds.orgs[0], followingId: allActorIds.users[2 % allActorIds.users.length] });
-    followPairs.push({ followerId: allActorIds.orgs[0], followingId: allActorIds.users[4 % allActorIds.users.length] });
+  // Orgs follow each other
+  if (orgOwnerIds.length >= 2) {
+    followPairs.push({ followerOwnerId: orgOwnerIds[0], followingOwnerId: orgOwnerIds[1] });
+    followPairs.push({ followerOwnerId: orgOwnerIds[1], followingOwnerId: orgOwnerIds[0] });
   }
 
   for (const f of followPairs) {
-    // Skip self-follow and duplicates safely
-    if (f.followerId === f.followingId) continue;
+    if (f.followerOwnerId === f.followingOwnerId) continue;
     await prisma.follow.upsert({
-      where: { followerId_followingId: { followerId: f.followerId, followingId: f.followingId } },
+      where: {
+        followerOwnerId_followingOwnerId: {
+          followerOwnerId: f.followerOwnerId,
+          followingOwnerId: f.followingOwnerId,
+        },
+      },
       update: {},
       create: f,
     });
@@ -454,27 +454,26 @@ async function main() {
 
   // ---- Create Projects
   console.log("🧰 Creating projects...");
-  const createdProjects: { id: string; ownerActorId: string; title: string }[] = [];
+  const createdProjects: { id: string; ownerId: string; title: string }[] = [];
 
   for (const p of projectsJson) {
-    const ownerActorId = userActorsByIdx[userIndexToKey(p.ownerId)];
-    if (!ownerActorId) throw new Error(`Project ownerId ${p.ownerId} out of range.`);
+    const userIdx = userIndexToKey(p.ownerId);
+    const ownerUser = createdUsers[userIdx];
+    if (!ownerUser) throw new Error(`Project ownerId ${p.ownerId} out of range.`);
 
     const created = await prisma.project.create({
       data: {
-        ownerActorId,
+        ownerId: ownerUser.personalOwnerId,
         title: p.title,
         description: p.description,
         tags: p.tags ?? [],
-        // Note: createdAt cannot be set directly unless you remove @default(now()) behavior via raw SQL.
-        // If you want exact createdAt seeding, do it with a SQL migration or a raw update after create.
       },
-      select: { id: true, ownerActorId: true, title: true },
+      select: { id: true, ownerId: true, title: true },
     });
 
     createdProjects.push(created);
 
-    // Attach images (project gallery)
+    // Attach images
     const imageFilenames = p.imageFilenames ?? [];
     for (let i = 0; i < imageFilenames.length; i++) {
       const img = imagesByFilename.get(imageFilenames[i]);
@@ -483,24 +482,24 @@ async function main() {
       await prisma.imageAttachment.create({
         data: {
           imageId: img.id,
-          type: AttachmentType.PROJECT,
+          type: ArtifactType.PROJECT,
           targetId: created.id,
           sortOrder: i,
         },
       });
     }
 
-    // Descendant posts under project
+    // Create posts under project
     const count = p.hasEntries ? 3 : 1;
     for (let i = 0; i < count; i++) {
       await prisma.post.create({
         data: {
-          ownerActorId,
+          ownerId: ownerUser.personalOwnerId,
           projectId: created.id,
           title: i === 0 ? "Project update" : `Update #${i + 1}`,
           content:
             i === 0
-              ? `Progress log for "${p.title}". What I did today, what I learned, and what’s next.`
+              ? `Progress log for "${p.title}". What I did today, what I learned, and what's next.`
               : `More notes for "${p.title}": experiments, tweaks, and next steps.`,
         },
       });
@@ -509,75 +508,76 @@ async function main() {
 
   // ---- Create Events
   console.log("📅 Creating events...");
-  const createdEvents: { id: string; ownerActorId: string; title: string }[] = [];
+  const createdEvents: { id: string; ownerId: string; title: string }[] = [];
 
   for (const e of eventsJson) {
-    const ownerActorId = userActorsByIdx[userIndexToKey(e.ownerId)];
-    if (!ownerActorId) throw new Error(`Event ownerId ${e.ownerId} out of range.`);
+    const userIdx = userIndexToKey(e.ownerId);
+    const ownerUser = createdUsers[userIdx];
+    if (!ownerUser) throw new Error(`Event ownerId ${e.ownerId} out of range.`);
 
     const created = await prisma.event.create({
       data: {
-        ownerActorId,
+        ownerId: ownerUser.personalOwnerId,
         title: e.title,
         description: e.description,
-        dateTime: new Date(e.dateTime),
+        eventDateTime: new Date(e.dateTime), // Changed from dateTime
         location: e.location,
         latitude: e.latitude ?? null,
         longitude: e.longitude ?? null,
         tags: e.tags ?? [],
       },
-      select: { id: true, ownerActorId: true, title: true },
+      select: { id: true, ownerId: true, title: true },
     });
 
     createdEvents.push(created);
 
-    // Descendant post under event (announcement)
+    // Event announcement post
     await prisma.post.create({
       data: {
-        ownerActorId,
+        ownerId: ownerUser.personalOwnerId,
         eventId: created.id,
         title: "Event update",
-        content: `Reminder + details for "${e.title}". What to bring, who it’s for, and how to join.`,
+        content: `Reminder + details for "${e.title}". What to bring, who it's for, and how to join.`,
       },
     });
   }
 
-  // ---- Create Standalone Posts (feeds)
+  // ---- Create Standalone Posts
   console.log("📝 Creating standalone posts...");
-  // One per user
-  for (let i = 0; i < userActorsByIdx.length; i++) {
+  for (const u of createdUsers) {
     await prisma.post.create({
       data: {
-        ownerActorId: userActorsByIdx[i],
+        ownerId: u.personalOwnerId,
         title: "What I'm working on",
         content: "A quick standalone post — ideas, inspiration, and what I'm building this week.",
       },
     });
   }
-  // One per org
-  for (let i = 0; i < orgs.length; i++) {
+
+  // Org posts
+  for (const org of createdOrgs) {
     await prisma.post.create({
       data: {
-        ownerActorId: orgs[i].actorId,
+        ownerId: org.primaryOwnerId,
         title: "Org bulletin",
-        content: "Announcements, calls for help, and what we’re building together.",
+        content: "Announcements, calls for help, and what we're building together.",
       },
     });
   }
 
-  // ---- Create a few Messages (optional demo)
+  // ---- Create Messages (between Owners)
   console.log("💬 Creating messages...");
-  if (users.length >= 2) {
+  if (createdUsers.length >= 2) {
     await prisma.message.createMany({
       data: [
         {
-          senderId: users[0].id,
-          receiverId: users[1].id,
+          senderId: createdUsers[0].personalOwnerId,
+          receiverId: createdUsers[1].personalOwnerId,
           content: "Hey! Saw your project — want to trade notes sometime this week?",
         },
         {
-          senderId: users[1].id,
-          receiverId: users[0].id,
+          senderId: createdUsers[1].personalOwnerId,
+          receiverId: createdUsers[0].personalOwnerId,
           content: "Yeah totally. Also: your photos are rad. How did you approach the pattern?",
         },
       ],
@@ -591,7 +591,7 @@ main()
   .catch((e) => {
     console.error("❌ Seed failed:", e);
     console.error("\n💡 Troubleshooting:");
-    console.error("   1. Make sure schema.prisma is v2 and you've run: npx prisma generate");
+    console.error("   1. Make sure schema.prisma is current and you've run: npx prisma generate");
     const envFile = isDev ? ".env.development" : ".env.production";
     console.error(`   2. Check that DATABASE_URL in ${envFile} points to your database`);
     if (isDev) {

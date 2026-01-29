@@ -1,7 +1,7 @@
 /**
- * ActorProfileHeader - Works for both User and Org actors
+ * OwnerProfileHeader - Works for both User and Org profile owners
  * 
- * This component handles profile headers for both User and Org actors.
+ * This component handles profile headers for both User and Org profiles.
  * - When viewing own profile: Shows "Edit Profile" (different routes for USER vs ORG), "New Project", "New Event"
  * - When viewing other's profile: 
  *   - For USER: Shows "Send Message" and "Follow" buttons
@@ -10,35 +10,37 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Actor } from "@/lib/types/actor";
-import { ActorProfileDisplay } from "./ActorProfileDisplay";
+import { ProfileOwner, getProfileOwnerOwnerId } from "@/lib/types/profile-owner";
+import { OwnerProfileDisplay } from "./OwnerProfileDisplay";
 import { ButtonLink } from "../ui/ButtonLink";
 import { Button } from "../ui/Button";
 import { Session } from "next-auth";
 import { PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE, PROJECT_NEW, EVENT_NEW, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 
-type ActorProfileHeaderProps = {
-	actor: Actor;
+type OwnerProfileHeaderProps = {
+	owner: ProfileOwner;
 	isOwnProfile: boolean;
 	session: Session | null;
 	currentUserId?: string | null;
 };
 
-export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId }: ActorProfileHeaderProps) {
+export function OwnerProfileHeader({ owner, isOwnProfile, session, currentUserId }: OwnerProfileHeaderProps) {
 	const loggedIn = hasSession(session);
 	const [isFollowing, setIsFollowing] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isToggling, setIsToggling] = useState(false);
 
-	// Check if user is following this actor
+	const ownerId = getProfileOwnerOwnerId(owner);
+
+	// Check if user is following this owner
 	useEffect(() => {
 		if (!loggedIn || isOwnProfile) {
 			setIsLoading(false);
 			return;
 		}
 
-		fetch(`/api/actors/${actor.data.actorId}/follow`)
+		fetch(`/api/owners/${ownerId}/follow`)
 			.then((res) => res.json())
 			.then((data) => {
 				setIsFollowing(data.isFollowing || false);
@@ -47,7 +49,7 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 			.catch(() => {
 				setIsLoading(false);
 			});
-	}, [actor.data.actorId, loggedIn, isOwnProfile]);
+	}, [ownerId, loggedIn, isOwnProfile]);
 
 	const handleFollowToggle = async () => {
 		if (isToggling) return;
@@ -56,7 +58,7 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 		const method = isFollowing ? "DELETE" : "POST";
 		
 		try {
-			const res = await fetch(`/api/actors/${actor.data.actorId}/follow`, {
+			const res = await fetch(`/api/owners/${ownerId}/follow`, {
 				method,
 			});
 
@@ -72,14 +74,14 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 
 	return (
 		<div className="flex flex-col md:flex-row gap-8 mb-8">
-			<ActorProfileDisplay actor={actor} />
+			<OwnerProfileDisplay owner={owner} />
 
 			{/* Right: Action Buttons */}
 			<div className="flex flex-col gap-3">
 				{isOwnProfile ? (
 					<>
 						{/* Edit Profile button - different routes for USER vs ORG */}
-						<ButtonLink href={actor.type === "USER" ? PRIVATE_USER_PAGE : PRIVATE_ORG_PAGE} fullWidth>
+						<ButtonLink href={owner.type === "USER" ? PRIVATE_USER_PAGE : PRIVATE_ORG_PAGE} fullWidth>
 							Edit Profile
 						</ButtonLink>
 						<ButtonLink href={PROJECT_NEW} fullWidth>
@@ -93,9 +95,9 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 					/* Viewing someone else's profile */
 					loggedIn && !isLoading && (
 						<>
-							{actor.type === "USER" && (
+							{owner.type === "USER" && (
 								/* For users: show message button */
-								<ButtonLink href={MESSAGE_CONVERSATION(actor.data.id)} fullWidth>
+								<ButtonLink href={MESSAGE_CONVERSATION(owner.data.id)} fullWidth>
 									Send Message
 								</ButtonLink>
 							)}
@@ -115,4 +117,3 @@ export function ActorProfileHeader({ actor, isOwnProfile, session, currentUserId
 		</div>
 	);
 }
-

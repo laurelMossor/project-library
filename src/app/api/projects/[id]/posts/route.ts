@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { getProjectById } from "@/lib/utils/server/project";
 import { getPostsForProject, createPost } from "@/lib/utils/server/post";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { getActorIdForUser, actorOwnsProject } from "@/lib/utils/server/actor";
+import { getOwnerIdForUser, ownerOwnsProject } from "@/lib/utils/server/owner";
 
 // GET /api/projects/[id]/posts - Get all posts for a project
 // Public endpoint (anyone can view project posts)
@@ -41,14 +41,14 @@ export async function POST(
 	const { id } = await params;
 
 	try {
-		// Verify project exists and user owns it (via Actor)
+		// Verify project exists and user owns it (via Owner)
 		const project = await getProjectById(id);
 		if (!project) {
 			return notFound("Project not found");
 		}
 
-		const actorId = await getActorIdForUser(session.user.id);
-		if (!actorId || !(await actorOwnsProject(actorId, id))) {
+		const ownerId = await getOwnerIdForUser(session.user.id, session.user.activeOwnerId);
+		if (!ownerId || !(await ownerOwnsProject(ownerId, id))) {
 			return NextResponse.json(
 				{ error: "Only the project owner can create posts" },
 				{ status: 403 }
@@ -83,4 +83,3 @@ export async function POST(
 		return serverError("Failed to create post");
 	}
 }
-

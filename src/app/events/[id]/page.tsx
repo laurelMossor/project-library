@@ -9,7 +9,7 @@ import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { PUBLIC_USER_PAGE, MESSAGE_CONVERSATION, EVENT_EDIT, COLLECTIONS, HOME } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerUsername, getOwnerId } from "@/lib/utils/owner";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, getOwnerId } from "@/lib/utils/owner";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -24,12 +24,12 @@ export default async function EventDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	// Extract owner info from Actor structure
+	// Extract owner info from Owner structure
 	const ownerUser = getOwnerUser(event.owner);
 	const ownerDisplayName = getOwnerDisplayName(event.owner);
-	const ownerUsername = getOwnerUsername(event.owner);
+	const ownerUsername = getOwnerHandle(event.owner);
 	const ownerId = getOwnerId(event.owner);
-	const isOwner = session?.user?.id === ownerId;
+	const isOwner = session?.user?.id === ownerUser?.id;
 
 	return (
 		<main className="flex min-h-screen items-center justify-center bg-slate-50 py-8 px-4">
@@ -37,7 +37,7 @@ export default async function EventDetailPage({ params }: Props) {
 				<div className="space-y-2">
 					<p className="text-xs uppercase tracking-wider text-gray-500">Event</p>
 					<h1 className="text-3xl font-bold">{event.title}</h1>
-					<p className="text-sm text-gray-600">{formatDateTime(event.dateTime)}</p>
+					<p className="text-sm text-gray-600">{formatDateTime(event.eventDateTime)}</p>
 				</div>
 
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -22,10 +22,10 @@ export default async function ProjectDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	// Check if current user is the project owner (via Actor)
+	// Check if current user is the project owner (via Owner)
 	const ownerUser = getOwnerUser(project.owner);
 	const ownerId = getOwnerId(project.owner);
-	const isOwner = session?.user?.id === ownerId;
+	const isOwner = session?.user?.id === ownerUser?.id;
 
 	return (
 		<CenteredLayout maxWidth="2xl">

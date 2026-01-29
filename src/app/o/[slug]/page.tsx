@@ -12,14 +12,14 @@
 import { getOrgBySlug } from "@/lib/utils/server/org";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
-import { getProjectsByActor } from "@/lib/utils/server/project";
-import { getEventsByActor } from "@/lib/utils/server/event";
+import { getProjectsByOwner } from "@/lib/utils/server/project";
+import { getEventsByOwner } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
-import { ActorProfileHeader } from "@/lib/components/actor/ActorProfileHeader";
+import { OwnerProfileHeader } from "@/lib/components/owner/OwnerProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { Actor } from "@/lib/types/actor";
+import { ProfileOwner } from "@/lib/types/profile-owner";
 import { getUserOrgRole } from "@/lib/utils/server/org";
-import { FollowersList, FollowingList } from "@/lib/components/actor/FollowersList";
+import { FollowersList, FollowingList } from "@/lib/components/owner/FollowersList";
 
 type Props = {
 	params: Promise<{ slug: string }>;
@@ -39,16 +39,16 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 	if (session?.user?.id) {
 		const role = await getUserOrgRole(session.user.id, org.id);
 		// Consider OWNER, ADMIN, and MEMBER as "own profile" for editing purposes
-		isOwnProfile = role !== null && role !== "FOLLOWER";
+		isOwnProfile = role !== null;
 	}
 
-	// Create Actor type for the org
-	const actor: Actor = { type: "ORG", data: org };
+	// Create ProfileOwner type for the org
+	const profileOwner: ProfileOwner = { type: "ORG", data: org };
 
-	// Fetch org's projects and events
+	// Fetch org's projects and events using org's primary owner
 	const [projects, events] = await Promise.all([
-		getProjectsByActor(org.actorId),
-		getEventsByActor(org.actorId),
+		getProjectsByOwner(org.ownerId),
+		getEventsByOwner(org.ownerId),
 	]);
 
 	// Combine into collection items
@@ -56,8 +56,8 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 
 	return (
 		<CenteredLayout maxWidth="6xl">
-			<ActorProfileHeader 
-				actor={actor} 
+			<OwnerProfileHeader 
+				owner={profileOwner} 
 				isOwnProfile={isOwnProfile} 
 				session={session}
 				currentUserId={session?.user?.id || null}
@@ -65,8 +65,8 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 
 			{/* Followers and Following */}
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-				<FollowersList actorId={org.actorId} title="Followers" />
-				<FollowingList actorId={org.actorId} title="Following" />
+				<FollowersList ownerId={org.ownerId} title="Followers" />
+				<FollowingList ownerId={org.ownerId} title="Following" />
 			</div>
 
 			{/* Org's Collection Section */}
@@ -79,4 +79,3 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 		</CenteredLayout>
 	);
 }
-

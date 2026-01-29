@@ -15,7 +15,7 @@ import { formatDateTime } from "../../utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
 import { PROJECT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "../../const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerUsername } from "../../utils/owner";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle } from "../../utils/owner";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
@@ -29,7 +29,7 @@ const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem, truncate?: boolean }) => {
 	const ownerUser = getOwnerUser(project.owner);
 	const ownerDisplayName = getOwnerDisplayName(project.owner);
-	const ownerUsername = getOwnerUsername(project.owner);
+	const ownerUsername = getOwnerHandle(project.owner);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">

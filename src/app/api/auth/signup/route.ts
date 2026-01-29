@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { OwnerType, OwnerStatus } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
+import { createUserWithOwner } from "@/lib/utils/server/user";
 import { badRequest, serverError } from "@/lib/utils/errors";
 import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
@@ -59,41 +59,18 @@ export async function POST(request: Request) {
 		// Hash password
 		const passwordHash = await bcrypt.hash(password, 10);
 
-		// Create user and personal owner in a transaction
-		const result = await prisma.$transaction(async (tx) => {
-			// Create user first (without ownerId)
-			const user = await tx.user.create({
-				data: {
-					email: normalizedEmail,
-					passwordHash,
-					username,
-				},
-			});
-
-			// Create personal owner for the user
-			const owner = await tx.owner.create({
-				data: {
-					userId: user.id,
-					type: OwnerType.USER,
-					status: OwnerStatus.ACTIVE,
-					// orgId is null for personal owner
-				},
-			});
-
-			// Update user with ownerId (personal owner reference)
-			await tx.user.update({
-				where: { id: user.id },
-				data: { ownerId: owner.id },
-			});
-
-			return { user, owner };
+		// Create user and personal owner atomically
+		const { userId, ownerId } = await createUserWithOwner({
+			email: normalizedEmail,
+			passwordHash,
+			username,
 		});
 
 		return NextResponse.json(
 			{
-				id: result.user.id,
-				email: result.user.email,
-				ownerId: result.owner.id,
+				id: userId,
+				email: normalizedEmail,
+				ownerId,
 			},
 			{ status: 201 }
 		);

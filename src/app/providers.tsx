@@ -1,7 +1,7 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
-import { ActorProvider } from "@/lib/contexts/ActorContext";
+import { OwnerProvider } from "@/lib/contexts/OwnerContext";
 import { Session } from "next-auth";
 
 interface ProvidersProps {
@@ -12,10 +12,9 @@ interface ProvidersProps {
 export function Providers({ children, session }: ProvidersProps) {
 	return (
 		<SessionProvider session={session}>
-			<ActorProvider session={session}>
+			<OwnerProvider session={session}>
 				{children}
-			</ActorProvider>
+			</OwnerProvider>
 		</SessionProvider>
 	);
 }
-

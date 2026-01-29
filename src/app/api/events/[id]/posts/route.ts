@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { getEventById } from "@/lib/utils/server/event";
 import { getPostsForEvent, createPost } from "@/lib/utils/server/post";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { getActorIdForUser, actorOwnsEvent } from "@/lib/utils/server/actor";
+import { getOwnerIdForUser, ownerOwnsEvent } from "@/lib/utils/server/owner";
 
 // GET /api/events/[id]/posts - Get all posts for an event
 // Public endpoint (anyone can view event posts)
@@ -41,14 +41,14 @@ export async function POST(
 	const { id } = await params;
 
 	try {
-		// Verify event exists and user owns it (via Actor)
+		// Verify event exists and user owns it (via Owner)
 		const event = await getEventById(id);
 		if (!event) {
 			return notFound("Event not found");
 		}
 
-		const actorId = await getActorIdForUser(session.user.id);
-		if (!actorId || !(await actorOwnsEvent(actorId, id))) {
+		const ownerId = await getOwnerIdForUser(session.user.id, session.user.activeOwnerId);
+		if (!ownerId || !(await ownerOwnsEvent(ownerId, id))) {
 			return NextResponse.json(
 				{ error: "Only the event owner can create posts" },
 				{ status: 403 }
@@ -83,4 +83,3 @@ export async function POST(
 		return serverError("Failed to create post");
 	}
 }
-

@@ -1,7 +1,7 @@
 // Public org profile (excludes sensitive data)
 export interface PublicOrg {
 	id: string;
-	actorId: string;
+	ownerId: string; // Primary owner (org-based Owner)
 	name: string;
 	slug: string;
 	headline: string | null;

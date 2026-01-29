@@ -1,26 +1,25 @@
-import { Actor, getActorDisplayName, getActorHeadline, getActorLocation, getActorBio, getActorInterests } from "@/lib/types/actor";
+import { ProfileOwner, getProfileOwnerDisplayName, getProfileOwnerHeadline, getProfileOwnerLocation, getProfileOwnerBio, getProfileOwnerInterests } from "@/lib/types/profile-owner";
 import { Tag } from "../tag";
 
-type ActorProfileDisplayProps = {
-	actor: Actor;
+type OwnerProfileDisplayProps = {
+	owner: ProfileOwner;
 };
 
-export function ActorProfileDisplay({ actor }: ActorProfileDisplayProps) {
-	const displayName = getActorDisplayName(actor);
-	const headline = getActorHeadline(actor);
-	const location = getActorLocation(actor);
-	const bio = getActorBio(actor);
-	const interests = getActorInterests(actor);
+export function OwnerProfileDisplay({ owner }: OwnerProfileDisplayProps) {
+	const displayName = getProfileOwnerDisplayName(owner);
+	const headline = getProfileOwnerHeadline(owner);
+	const location = getProfileOwnerLocation(owner);
+	const bio = getProfileOwnerBio(owner);
+	const interests = getProfileOwnerInterests(owner);
 
 	return (
 		<div className="flex-1">
 			<h1 className="text-3xl font-bold">{displayName}</h1>
 			{headline && <p className="text-lg mt-1">{headline}</p>}
 			{location && <p className="text-sm text-gray-500 mt-1">{location}</p>}
-			{/* TODO: Add Types for Org and User and create tag w/ details */}
-			{actor.type === "ORG" && (
+			{owner.type === "ORG" && (
 				<p className="text-sm text-gray-400 mt-1">
-					{actor.data.isPublic ? "Public" : "Private"}
+					{owner.data.isPublic ? "Public" : "Private"}
 				</p>
 			)}
 
@@ -44,4 +43,3 @@ export function ActorProfileDisplay({ actor }: ActorProfileDisplayProps) {
 		</div>
 	);
 }
-

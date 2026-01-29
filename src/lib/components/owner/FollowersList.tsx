@@ -2,20 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Actor } from "@/lib/types/actor";
-import { getActorDisplayName } from "@/lib/types/actor";
 import { PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
 
 type FollowersListProps = {
-	actorId: string;
+	ownerId: string;
 	title?: string;
 };
 
-type ActorListItem = {
+type OwnerListItem = {
 	type: "USER" | "ORG";
 	data: {
 		id: string;
-		actorId: string;
+		ownerId: string;
 		username?: string;
 		slug?: string;
 		name?: string;
@@ -25,14 +23,13 @@ type ActorListItem = {
 		avatarImageId?: string | null;
 	};
 };
-// TODO: Clean up this component and make it more reusable
 
-export function FollowersList({ actorId, title = "Followers" }: FollowersListProps) {
-	const [followers, setFollowers] = useState<ActorListItem[]>([]);
+export function FollowersList({ ownerId, title = "Followers" }: FollowersListProps) {
+	const [followers, setFollowers] = useState<OwnerListItem[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		fetch(`/api/actors/${actorId}/followers`)
+		fetch(`/api/owners/${ownerId}/followers`)
 			.then((res) => res.json())
 			.then((data) => {
 				setFollowers(data.followers || []);
@@ -41,7 +38,7 @@ export function FollowersList({ actorId, title = "Followers" }: FollowersListPro
 			.catch(() => {
 				setLoading(false);
 			});
-	}, [actorId]);
+	}, [ownerId]);
 
 	if (loading) {
 		return (
@@ -69,7 +66,7 @@ export function FollowersList({ actorId, title = "Followers" }: FollowersListPro
 
 						return (
 							<Link
-								key={follower.data.actorId}
+								key={follower.data.ownerId}
 								href={href}
 								className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
 							>
@@ -95,12 +92,12 @@ export function FollowersList({ actorId, title = "Followers" }: FollowersListPro
 	);
 }
 
-export function FollowingList({ actorId, title = "Following" }: FollowersListProps) {
-	const [following, setFollowing] = useState<ActorListItem[]>([]);
+export function FollowingList({ ownerId, title = "Following" }: FollowersListProps) {
+	const [following, setFollowing] = useState<OwnerListItem[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		fetch(`/api/actors/${actorId}/following`)
+		fetch(`/api/owners/${ownerId}/following`)
 			.then((res) => res.json())
 			.then((data) => {
 				setFollowing(data.following || []);
@@ -109,7 +106,7 @@ export function FollowingList({ actorId, title = "Following" }: FollowersListPro
 			.catch(() => {
 				setLoading(false);
 			});
-	}, [actorId]);
+	}, [ownerId]);
 
 	if (loading) {
 		return (
@@ -137,7 +134,7 @@ export function FollowingList({ actorId, title = "Following" }: FollowersListPro
 
 						return (
 							<Link
-								key={followed.data.actorId}
+								key={followed.data.ownerId}
 								href={href}
 								className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
 							>
