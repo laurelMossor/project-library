@@ -44,6 +44,7 @@ export async function getOrgById(id: string) {
 }
 
 // Get all orgs that a user is a member of (via their org-based owners)
+// Returns org data with the user's ownerId for that org (needed for switching)
 export async function getOrgsForUser(userId: string) {
 	// Find all org-based owners for this user
 	const orgOwners = await prisma.owner.findMany({
@@ -58,7 +59,10 @@ export async function getOrgsForUser(userId: string) {
 	
 	return orgOwners
 		.filter((owner) => owner.org !== null)
-		.map((owner) => owner.org!);
+		.map((owner) => ({
+			...owner.org!,
+			ownerId: owner.id, // The user's org-type owner ID for switching
+		}));
 }
 
 // Get org member role for a user

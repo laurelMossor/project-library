@@ -19,10 +19,10 @@ export async function POST(request: Request) {
 		}
 
 		const body = await request.json();
-		const { receiverOwnerId, content } = body;
+		const { receiverId, content } = body;
 
-		if (!receiverOwnerId || typeof receiverOwnerId !== "string") {
-			return badRequest("receiverOwnerId is required");
+		if (!receiverId || typeof receiverId !== "string") {
+			return badRequest("receiverId is required");
 		}
 
 		// Validate content
@@ -32,13 +32,13 @@ export async function POST(request: Request) {
 		}
 
 		// Can't message yourself
-		if (receiverOwnerId === ctx.activeOwnerId) {
+		if (receiverId === ctx.activeOwnerId) {
 			return badRequest("Cannot send a message to yourself");
 		}
 
 		// Verify receiver exists
 		const receiver = await prisma.owner.findUnique({
-			where: { id: receiverOwnerId },
+			where: { id: receiverId },
 			select: { id: true, orgId: true },
 		});
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 		const message = await prisma.message.create({
 			data: {
 				senderId: ctx.activeOwnerId,
-				receiverId: receiverOwnerId,
+				receiverId: receiverId,
 				content: content.trim(),
 				senderOrgId,
 				receiverOrgId,
