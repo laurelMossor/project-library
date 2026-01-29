@@ -34,3 +34,4 @@ public/uploads/
 .env.development
 .env.production
 .env.local
+archive/
