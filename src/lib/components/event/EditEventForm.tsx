@@ -36,7 +36,7 @@ export function EditEventForm({ event }: Props) {
 
 	const [title, setTitle] = useState(event?.title || "");
 	const [description, setDescription] = useState(event?.description || "");
-	const [dateTime, setDateTime] = useState("");
+	const [eventDateTime, setEventDateTime] = useState("");
 	const [location, setLocation] = useState(event?.location || "");
 	const [latitude, setLatitude] = useState<number | null>(event?.latitude ?? null);
 	const [longitude, setLongitude] = useState<number | null>(event?.longitude ?? null);
@@ -51,7 +51,7 @@ export function EditEventForm({ event }: Props) {
 			const localDateTime = new Date(eventDate.getTime() - eventDate.getTimezoneOffset() * 60000)
 				.toISOString()
 				.slice(0, 16);
-			setDateTime(localDateTime);
+			setEventDateTime(localDateTime);
 		}
 	}, [event?.eventDateTime]);
 
@@ -109,13 +109,13 @@ export function EditEventForm({ event }: Props) {
 			return;
 		}
 
-		if (!dateTime) {
+		if (!eventDateTime) {
 			setError("Event date and time are required");
 			setSubmitting(false);
 			return;
 		}
 
-		const scheduledDate = new Date(dateTime);
+		const scheduledDate = new Date(eventDateTime);
 		if (Number.isNaN(scheduledDate.getTime())) {
 			setError("Invalid date");
 			setSubmitting(false);
@@ -145,7 +145,7 @@ export function EditEventForm({ event }: Props) {
 				await updateEvent(event.id, {
 					title: trimmedTitle,
 					description: trimmedDescription,
-					dateTime: scheduledDate,
+					eventDateTime: scheduledDate,
 					location: trimmedLocation,
 					latitude: parsedLatitude,
 					longitude: parsedLongitude,
@@ -161,7 +161,7 @@ export function EditEventForm({ event }: Props) {
 					body: JSON.stringify({
 						title: trimmedTitle,
 						description: trimmedDescription,
-						dateTime: scheduledDate.toISOString(),
+						eventDateTime: scheduledDate.toISOString(),
 						location: trimmedLocation,
 						latitude: parsedLatitude,
 						longitude: parsedLongitude,
@@ -221,12 +221,12 @@ export function EditEventForm({ event }: Props) {
 					/>
 				</FormField>
 
-				<FormField label="Date & Time" htmlFor="datetime" required>
+				<FormField label="Date & Time" htmlFor="eventDateTime" required>
 					<FormInput
-						id="datetime"
+						id="eventDateTime"
 						type="datetime-local"
-						value={dateTime}
-						onChange={(event) => setDateTime(event.target.value)}
+						value={eventDateTime}
+						onChange={(event) => setEventDateTime(event.target.value)}
 						min={minDateTime}
 						required
 					/>

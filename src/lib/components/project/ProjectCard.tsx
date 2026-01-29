@@ -15,7 +15,7 @@ import { formatDateTime } from "../../utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
 import { PROJECT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "../../const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerHandle } from "../../utils/owner";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, isOrgOwner } from "../../utils/owner";
 
 const TitleHeaderLink = ({ project }: { project: ProjectItem }) => {
 	return (
@@ -49,7 +49,8 @@ export const ProjectCard = ({ project, truncate = true }: { project: ProjectItem
 			<div className="flex flex-row items-center gap-2 mb-2">
 				{ownerUsername && (
 					<Link 
-						href={project.owner.type === "USER" ? PUBLIC_USER_PAGE(ownerUsername) : PUBLIC_ORG_PAGE(ownerUsername)}
+					// TODO: There should be a better way to handle this.
+					href={isOrgOwner(project.owner) ? PUBLIC_ORG_PAGE(ownerUsername) : PUBLIC_USER_PAGE(ownerUsername)}
 						className="text-sm text-rich-brown hover:underline"
 					>
 						{ownerDisplayName}

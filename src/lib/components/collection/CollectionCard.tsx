@@ -16,8 +16,8 @@ import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
-import { EVENT_DETAIL, PROJECT_DETAIL, PUBLIC_USER_PAGE } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerHandle } from "@/lib/utils/owner";
+import { EVENT_DETAIL, PROJECT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, isOrgOwner } from "@/lib/utils/owner";
 
 type CollectionCardProps = {
 	item: CollectionItem;
@@ -65,7 +65,8 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			{ownerUsername && (
 				<div className="flex flex-row items-center gap-2 mb-2">
 					<Link 
-						href={PUBLIC_USER_PAGE(ownerUsername)}
+					// TODO: There should be a better way to handle this.
+						href={isOrgOwner(item.owner) ? PUBLIC_ORG_PAGE(ownerUsername) : PUBLIC_USER_PAGE(ownerUsername)}
 						className="text-sm text-rich-brown hover:underline"
 					>
 						{ownerDisplayName}

@@ -48,7 +48,7 @@ export async function updateEvent(
 	data: {
 		title?: string;
 		description?: string;
-		dateTime?: Date;
+		eventDateTime?: Date;
 		location?: string;
 		latitude?: number | null;
 		longitude?: number | null;
@@ -60,7 +60,7 @@ export async function updateEvent(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
 			...data,
-			dateTime: data.dateTime?.toISOString(),
+			eventDateTime: data.eventDateTime?.toISOString(),
 		}),
 	});
 

@@ -15,7 +15,7 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
 import { EVENT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerHandle } from "@/lib/utils/owner";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, isOrgOwner } from "@/lib/utils/owner";
 
 /** @deprecated Use CollectionCard instead */
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
@@ -53,7 +53,8 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 			<div className="flex flex-row items-center gap-2 mb-2">
 				{ownerUsername && (
 					<Link 
-						href={event.owner.type === "USER" ? PUBLIC_USER_PAGE(ownerUsername) : PUBLIC_ORG_PAGE(ownerUsername)}
+					// TODO: There should be a better way to handle this.
+						href={isOrgOwner(event.owner) ? PUBLIC_ORG_PAGE(ownerUsername) : PUBLIC_USER_PAGE(ownerUsername)}
 						className="text-sm text-rich-brown hover:underline"
 					>
 						{ownerDisplayName}
