@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Wed 01/28/2026 19:20 PST
+Fixed database seeding for v0.3 schema migration. Created migration `20260129030218_make_circular_fks_deferrable` to make User ↔ Owner circular FK constraints `DEFERRABLE INITIALLY DEFERRED`, enabling atomic creation of both records in a single transaction. Updated `seed.ts` and `createUserWithOwner()` in `user.ts` to work with deferred constraints. Made Supabase optional for local development - seed now uses local static files from `/public/static/examples/` when `NEXT_PUBLIC_SUPABASE_URL` isn't set, falling back to `/static/examples/filename.png` URLs that Next.js serves directly. Cleaned up verbose debug logging from seed file. Ready to run `npx prisma generate && npm run db:seed:dev` to complete seeding.
+
 #### Entry: Wed 01/28/2026 18:09 PST
 Eliminated type casting in server utilities by deriving types from Prisma schema. Added `OwnerFromQuery`, `ProjectFromQuery`, and `EventFromQuery` types to `fields.ts` using Prisma's `GetPayload` utility, making the schema the source of truth. Created `toProjectItem()` and `toEventItem()` transform functions that convert Prisma results to client types without `as unknown as` casts. Updated `PublicOwner` type to use `OwnerType` enum from Prisma instead of literal strings. Fixed outdated `PublicUser` type by replacing `actorId` with `ownerId` to match current schema. Added `isUserOwner()` and `isOrgOwner()` type guard helpers and `PublicOrg` type export. Removed backward compatibility for deprecated `dateTime` field in events API (now strictly `eventDateTime`). Refactored `getOwnerId()` to return `owner.id` directly, added `getOwnerHandle()` and `getOwnerEntityId()` for specific lookups. 70 TypeScript errors remain in seed file (29) and frontend components (41) pending refactor.
 

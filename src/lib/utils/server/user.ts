@@ -140,14 +140,15 @@ export async function createUserWithOwner(data: {
 
 	// Use a transaction with raw SQL to insert both records atomically
 	// This bypasses Prisma's TypeScript constraints for the circular reference
+	// Constraints are DEFERRABLE INITIALLY DEFERRED, so they're deferred by default in transactions
 	await prisma.$transaction(async (tx) => {
-		// Insert Owner first (references userId)
+		// Insert Owner first (references userId - validated at end of transaction)
 		await tx.$executeRaw`
 			INSERT INTO owners (id, "userId", "orgId", type, status, "createdAt")
 			VALUES (${ownerId}, ${userId}, NULL, 'USER', 'ACTIVE', ${now})
 		`;
 
-		// Insert User (references ownerId)
+		// Insert User (references ownerId - validated at end of transaction)
 		await tx.$executeRaw`
 			INSERT INTO users (id, "ownerId", email, "passwordHash", username, "firstName", "middleName", "lastName", "displayName", headline, bio, interests, location, "isPublic", "avatarImageId", "createdAt", "updatedAt")
 			VALUES (${userId}, ${ownerId}, ${data.email}, ${data.passwordHash}, ${data.username}, ${data.firstName ?? null}, ${data.middleName ?? null}, ${data.lastName ?? null}, NULL, NULL, NULL, ARRAY[]::text[], NULL, true, NULL, ${now}, ${now})

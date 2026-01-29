@@ -22,7 +22,6 @@ const isDev = process.env.NODE_ENV !== "production";
 const envPath = resolve(process.cwd(), ".env");
 if (existsSync(envPath)) {
   config({ path: envPath });
-  console.log("📁 Loaded .env (base config)");
 }
 
 const envSpecificPath = resolve(
@@ -31,7 +30,6 @@ const envSpecificPath = resolve(
 );
 if (existsSync(envSpecificPath)) {
   config({ path: envSpecificPath, override: true });
-  console.log(`📁 Loaded ${isDev ? ".env.development" : ".env.production"} (${isDev ? "local" : "remote"} database)`);
 } else {
   console.warn(`⚠️  ${isDev ? ".env.development" : ".env.production"} not found`);
 }
@@ -39,13 +37,10 @@ if (existsSync(envSpecificPath)) {
 const envLocalPath = resolve(process.cwd(), ".env.local");
 if (existsSync(envLocalPath)) {
   config({ path: envLocalPath, override: true });
-  console.log("📁 Loaded .env.local (local overrides)");
 }
 
 if (isDev && process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")) {
-  console.warn("⚠️  WARNING: DATABASE_URL doesn't point to localhost!");
-  console.warn(`   Current DATABASE_URL: ${process.env.DATABASE_URL}`);
-  console.warn("   Make sure .env.development has DATABASE_URL set to local database");
+  console.warn("⚠️  WARNING: DATABASE_URL doesn't point to localhost in dev mode");
 }
 
 import { PrismaClient, OwnerType, OrgRole, ArtifactType } from "@prisma/client";
@@ -81,18 +76,26 @@ const prisma = new PrismaClient({
 });
 
 /**
- * Construct Supabase public URLs for seed images.
+ * Construct URLs for seed images.
+ * - Local dev: Uses local static files from /public/static/examples/
+ * - Production: Uses Supabase storage URLs
  */
-const getSupabasePublicUrl = (storagePath: string): string => {
+const getImageUrl = (filename: string): string => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  
+  if (isDev && !supabaseUrl) {
+    // For local development, use local static files served by Next.js
+    return `/static/examples/${filename}`;
+  }
+  
   if (!supabaseUrl) {
     throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL is not set. " +
-      "Please set it in .env or .env.local to generate correct image URLs for seed data. " +
-      "Example: NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co"
+      `NEXT_PUBLIC_SUPABASE_URL is not set. ` +
+      `Please set it in .env.production for seed data.`
     );
   }
-  return `${supabaseUrl}/storage/v1/object/public/uploads/examples/${storagePath}`;
+  
+  return `${supabaseUrl}/storage/v1/object/public/uploads/examples/${filename}`;
 };
 
 const DATA_DIR = path.join(process.cwd(), "prisma", "seed-data");
@@ -218,14 +221,15 @@ async function main() {
 
     // Use raw SQL to insert both User and Owner atomically
     // This handles the circular reference (User.ownerId <-> Owner.userId)
+    // Constraints are DEFERRABLE INITIALLY DEFERRED, so they're deferred by default in transactions
     await prisma.$transaction(async (tx) => {
-      // Insert Owner first (references userId)
+      // Insert Owner first (references userId - validated at end of transaction)
       await tx.$executeRaw`
         INSERT INTO owners (id, "userId", "orgId", type, status, "createdAt")
         VALUES (${ownerId}, ${userId}, NULL, 'USER', 'ACTIVE', ${now})
       `;
 
-      // Insert User (references ownerId)
+      // Insert User (references ownerId - validated at end of transaction)
       await tx.$executeRaw`
         INSERT INTO users (id, "ownerId", email, "passwordHash", username, "firstName", "middleName", "lastName", "displayName", headline, bio, interests, location, "isPublic", "avatarImageId", "createdAt", "updatedAt")
         VALUES (${userId}, ${ownerId}, ${u.email.toLowerCase()}, ${passwordHash}, ${u.username}, ${firstName ?? null}, ${middleName ?? null}, ${lastName ?? null}, NULL, ${u.headline ?? null}, ${u.bio ?? null}, ${u.interests ?? []}::text[], ${u.location ?? null}, true, NULL, ${now}, ${now})
@@ -247,7 +251,7 @@ async function main() {
 
   for (const img of imagesJson) {
     const storagePath = img.filename;
-    const url = getSupabasePublicUrl(storagePath);
+    const url = getImageUrl(storagePath);
 
     const created = await prisma.image.create({
       data: {

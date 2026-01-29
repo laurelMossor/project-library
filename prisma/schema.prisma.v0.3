@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========================
+// Enums
+// ========================
+
+enum OwnerType {
+  USER
+  ORG
+}
+
+enum OwnerStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// Used for ImageAttachment target typing.
+enum ArtifactType {
+  PROJECT
+  EVENT
+  POST
+  IMAGE
+  MESSAGE
+}
+
+// ========================
+// Users (base type)
+// ========================
+//
+model User {
+  id        String   @id @default(cuid())
+  ownerId   String   @unique // References Owner.id (personal Owner)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email        String @unique
+  passwordHash String
+  username     String @unique
+
+  firstName   String?
+  middleName  String?
+  lastName    String?
+  displayName String?
+
+  // Profile
+  headline     String?
+  bio          String?
+  interests    String[] @default([])
+  location     String?
+  isPublic     Boolean  @default(true)
+  avatarImageId String?
+  avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
+  // Relationships
+  userOwner      Owner        @relation("UserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owners         Owner[]
+  createdOrgs    Org[]        @relation("OrgCreatedBy")
+
+  @@map("users")
+}
+
+// ========================
+// Owners + Orgs
+// ========================
+//
+// User-first attribution:
+// - Every Owner always points back to a responsible `userId`.
+// - Personal Owner: `orgId` is null and `type` is USER.
+// - Org Owner ("wearing an org hat"): `orgId` is set and `type` is ORG.
+//
+// Important Postgres note:
+// - `@@unique([userId, orgId])` does NOT prevent multiple (userId, NULL) rows.
+//   If you need "exactly one personal owner per user", add a partial unique index in SQL:
+//     CREATE UNIQUE INDEX owners_one_personal_per_user ON owners("userId") WHERE "orgId" IS NULL;
+
+model Owner {
+  id        String      @id @default(cuid())
+  userId    String
+  orgId     String?
+  type      OwnerType
+  status    OwnerStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+
+  // Relations
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Org?  @relation("OrgOwners", fields: [orgId], references: [id], onDelete: Cascade)
+  // Backref from User.userOwner (personal owner)
+  userOwner User? @relation("UserOwner")
+  // Primary owner for org(s)
+  primaryOrgs Org[] @relation("OrgPrimaryOwner")
+
+  // Social graph
+  following Follow[] @relation("OwnerFollowing")
+  followers Follow[] @relation("OwnerFollowers")
+
+  // Content attribution
+  projects Project[]
+  events   Event[]
+  posts    Post[]
+  images   Image[]
+
+  // Messaging
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  // Org membership tie (for org-based owners)
+  orgMembership OrgMember?
+
+  @@unique([userId, orgId])
+  @@index([userId])
+  @@index([orgId])
+  @@map("owners")
+}
+
+model Org {
+  id              String   @id @default(cuid())
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  name String
+  slug String @unique
+
+  headline  String?
+  bio       String?
+  interests String[] @default([])
+  location  String?
+  isPublic  Boolean  @default(true)
+
+  // Address fields
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  zip          String?
+
+  // Taxonomy (lightweight MVP)
+  parentTopic String?
+  tags        String[] @default([])
+  topics      Topic[]
+
+  avatarImageId String?
+  avatarImage   Image?  @relation("OrgAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
+  // Relationships
+  createdByUser User       @relation("OrgCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  ownerId   String // default is createdbyuser
+  owner         Owner @relation("OrgPrimaryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owners        Owner[] @relation("OrgOwners")
+  members       OrgMember[]
+
+  @@index([ownerId])
+  @@map("orgs")
+}
+
+// Membership & role live on the join.
+// `ownerId` connects membership to the user's org-based Owner identity ("hat").
+model OrgMember {
+  id        String  @id @default(cuid())
+  orgId     String
+  ownerId   String  @unique
+  role      OrgRole @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, role])
+  @@map("org_members")
+}
+
+// ========================
+// Social graph (Owner follows Owner)
+// ========================
+
+model Follow {
+  id               String   @id @default(cuid())
+  followerOwnerId  String
+  followingOwnerId String
+  createdAt        DateTime @default(now())
+
+  follower  Owner @relation("OwnerFollowing", fields: [followerOwnerId], references: [id], onDelete: Cascade)
+  following Owner @relation("OwnerFollowers", fields: [followingOwnerId], references: [id], onDelete: Cascade)
+
+  @@unique([followerOwnerId, followingOwnerId])
+  @@index([followerOwnerId])
+  @@index([followingOwnerId])
+  @@map("follows")
+}
+
+// ========================
+// Content attributed to an Owner
+// ========================
+
+model Project {
+  id          String   @id @default(cuid())
+  ownerId     String
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner  Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts  Post[]
+
+  tags   String[] @default([])
+  topics String[] @default([])
+
+  @@index([ownerId, createdAt])
+  @@map("projects")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  title       String
+  description String
+  eventDateTime    DateTime
+  location    String
+  latitude    Float?
+  longitude   Float?
+
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts Post[]
+
+  tags   String[] @default([])
+  topics String[] @default([])
+
+  @@index([ownerId, createdAt])
+  @@map("events")
+}
+
+// Standalone posts (projectId/eventId both null) and child posts (exactly one parent).
+// Enforce "projectId and eventId not both set" via a DB CHECK constraint in a migration (Prisma can't express it).
+model Post {
+  id        String   @id @default(cuid())
+  ownerId   String
+  projectId String?
+  eventId   String?
+
+  title   String?
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner   Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  event   Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  tags   String[] @default([])
+  topics String[] @default([])
+
+  @@index([ownerId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([eventId, createdAt])
+  @@map("posts")
+}
+
+// ========================
+// Messaging (Owner -> Owner)
+// ========================
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  senderId  String
+  receiverId String
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  // Optional denormalization for org inbox queries
+  senderOrgId   String?
+  receiverOrgId String?
+
+  sender   Owner @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver Owner @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([senderOrgId])
+  @@index([receiverOrgId])
+  @@map("messages")
+}
+
+// ========================
+// Images + Attachments
+// ========================
+
+model Image {
+  id             String   @id @default(cuid())
+  url            String
+  path           String
+  altText        String?
+  uploadedById   String
+  createdAt      DateTime @default(now())
+
+  uploadedBy      Owner @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  // Used for Project/Event/Post galleries (and any other attachable targets you add later)
+  attachments  ImageAttachment[]
+
+  // Backrefs for avatars
+  userAvatarFor User[] @relation("UserAvatar")
+  orgAvatarFor  Org[]  @relation("OrgAvatar")
+
+  @@index([uploadedById])
+  @@map("images")
+}
+
+model ImageAttachment {
+  id        String      @id @default(cuid())
+  imageId   String
+  type      ArtifactType
+  targetId  String
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  image     Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([type, targetId])
+  @@index([imageId])
+  @@map("image_attachments")
+}
+
+// Lightweight taxonomy table (can evolve later).
+// The Org <-> Topic relation is an implicit many-to-many join table.
+model Topic {
+  id        String   @id
+  label     String
+  parentId  String?
+  synonyms  String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgs Org[]
+
+  @@map("topics")
+}
