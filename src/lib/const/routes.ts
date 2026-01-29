@@ -94,7 +94,7 @@ export const API_ORGS = "/api/orgs";
 
 // Message API Routes
 export const API_MESSAGES = "/api/messages";
-export const API_MESSAGE = (userId: string) => `/api/messages/${userId}`;
+export const API_MESSAGE = (ownerId: string) => `/api/messages/conversation/${ownerId}`;
 
 // ============================================================================
 // Other Pages

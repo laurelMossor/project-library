@@ -9,42 +9,81 @@ type FollowersListProps = {
 	title?: string;
 };
 
-type OwnerListItem = {
+// Matches the API response structure from /api/owners/[ownerId]/followers
+type FollowerItem = {
+	ownerId: string;
 	type: "USER" | "ORG";
-	data: {
+	followedAt: string;
+	user: {
 		id: string;
-		ownerId: string;
-		username?: string;
-		slug?: string;
-		name?: string;
-		displayName?: string | null;
-		firstName?: string | null;
-		lastName?: string | null;
-		avatarImageId?: string | null;
-	};
+		username: string;
+		displayName: string | null;
+		firstName: string | null;
+		lastName: string | null;
+		avatarImageId: string | null;
+	} | null;
+	org: {
+		id: string;
+		slug: string;
+		name: string;
+		avatarImageId: string | null;
+	} | null;
 };
 
 export function FollowersList({ ownerId, title = "Followers" }: FollowersListProps) {
-	const [followers, setFollowers] = useState<OwnerListItem[]>([]);
+	const [followers, setFollowers] = useState<FollowerItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		fetch(`/api/owners/${ownerId}/followers`)
-			.then((res) => res.json())
-			.then((data) => {
-				setFollowers(data.followers || []);
+		const fetchFollowers = async () => {
+			try {
+				const res = await fetch(`/api/owners/${ownerId}/followers`);
+				
+				if (!res.ok) {
+					const errorText = await res.text();
+					console.error(`[FollowersList] API error ${res.status}:`, errorText);
+					setError(`Failed to load ${title.toLowerCase()}`);
+					setLoading(false);
+					return;
+				}
+
+				const data = await res.json();
+				console.log("[FollowersList] API response:", data);
+				
+				if (!data.followers || !Array.isArray(data.followers)) {
+					console.error("[FollowersList] Invalid response structure:", data);
+					setError("Invalid data format");
+					setLoading(false);
+					return;
+				}
+
+				setFollowers(data.followers);
 				setLoading(false);
-			})
-			.catch(() => {
+			} catch (err) {
+				console.error("[FollowersList] Fetch error:", err);
+				setError("Failed to load followers");
 				setLoading(false);
-			});
-	}, [ownerId]);
+			}
+		};
+
+		fetchFollowers();
+	}, [ownerId, title]);
 
 	if (loading) {
 		return (
 			<div className="bg-white border rounded-lg p-6">
 				<h2 className="text-xl font-semibold mb-4">{title}</h2>
 				<p className="text-gray-500">Loading...</p>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="bg-white border rounded-lg p-6">
+				<h2 className="text-xl font-semibold mb-4">{title}</h2>
+				<p className="text-red-500">{error}</p>
 			</div>
 		);
 	}
@@ -57,31 +96,35 @@ export function FollowersList({ ownerId, title = "Followers" }: FollowersListPro
 			) : (
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 					{followers.map((follower) => {
-						const displayName = follower.type === "USER"
-							? follower.data.displayName || `${follower.data.firstName || ""} ${follower.data.lastName || ""}`.trim() || follower.data.username
-							: follower.data.name;
-						const href = follower.type === "USER"
-							? PUBLIC_USER_PAGE(follower.data.username!)
-							: PUBLIC_ORG_PAGE(follower.data.slug!);
+						const isUser = follower.type === "USER" && follower.user;
+						const isOrg = follower.type === "ORG" && follower.org;
+						
+						const displayName = isUser
+							? follower.user!.displayName || `${follower.user!.firstName || ""} ${follower.user!.lastName || ""}`.trim() || follower.user!.username
+							: isOrg
+							? follower.org!.name
+							: "Unknown";
+						
+						const href = isUser
+							? PUBLIC_USER_PAGE(follower.user!.username)
+							: isOrg
+							? PUBLIC_ORG_PAGE(follower.org!.slug)
+							: "#";
+
+						const avatarImageId = isUser ? follower.user!.avatarImageId : isOrg ? follower.org!.avatarImageId : null;
 
 						return (
 							<Link
-								key={follower.data.ownerId}
+								key={follower.ownerId}
 								href={href}
 								className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
 							>
-								{follower.data.avatarImageId ? (
-									<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-										<span className="text-sm">Avatar</span>
-									</div>
-								) : (
-									<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-										<span className="text-sm">{displayName?.[0]?.toUpperCase() || "?"}</span>
-									</div>
-								)}
+								<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+									<span className="text-sm">{displayName?.[0]?.toUpperCase() || "?"}</span>
+								</div>
 								<div>
 									<p className="font-medium">{displayName}</p>
-									<p className="text-sm text-gray-500">{follower.type === "USER" ? "User" : "Organization"}</p>
+									<p className="text-sm text-gray-500">{isUser ? "User" : isOrg ? "Organization" : "Unknown"}</p>
 								</div>
 							</Link>
 						);
@@ -93,19 +136,43 @@ export function FollowersList({ ownerId, title = "Followers" }: FollowersListPro
 }
 
 export function FollowingList({ ownerId, title = "Following" }: FollowersListProps) {
-	const [following, setFollowing] = useState<OwnerListItem[]>([]);
+	const [following, setFollowing] = useState<FollowerItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		fetch(`/api/owners/${ownerId}/following`)
-			.then((res) => res.json())
-			.then((data) => {
-				setFollowing(data.following || []);
+		const fetchFollowing = async () => {
+			try {
+				const res = await fetch(`/api/owners/${ownerId}/following`);
+				
+				if (!res.ok) {
+					const errorText = await res.text();
+					console.error(`[FollowingList] API error ${res.status}:`, errorText);
+					setError("Failed to load following");
+					setLoading(false);
+					return;
+				}
+
+				const data = await res.json();
+				console.log("[FollowingList] API response:", data);
+				
+				if (!data.following || !Array.isArray(data.following)) {
+					console.error("[FollowingList] Invalid response structure:", data);
+					setError("Invalid data format");
+					setLoading(false);
+					return;
+				}
+
+				setFollowing(data.following);
 				setLoading(false);
-			})
-			.catch(() => {
+			} catch (err) {
+				console.error("[FollowingList] Fetch error:", err);
+				setError("Failed to load following");
 				setLoading(false);
-			});
+			}
+		};
+
+		fetchFollowing();
 	}, [ownerId]);
 
 	if (loading) {
@@ -113,6 +180,15 @@ export function FollowingList({ ownerId, title = "Following" }: FollowersListPro
 			<div className="bg-white border rounded-lg p-6">
 				<h2 className="text-xl font-semibold mb-4">{title}</h2>
 				<p className="text-gray-500">Loading...</p>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="bg-white border rounded-lg p-6">
+				<h2 className="text-xl font-semibold mb-4">{title}</h2>
+				<p className="text-red-500">{error}</p>
 			</div>
 		);
 	}
@@ -125,31 +201,33 @@ export function FollowingList({ ownerId, title = "Following" }: FollowersListPro
 			) : (
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 					{following.map((followed) => {
-						const displayName = followed.type === "USER"
-							? followed.data.displayName || `${followed.data.firstName || ""} ${followed.data.lastName || ""}`.trim() || followed.data.username
-							: followed.data.name;
-						const href = followed.type === "USER"
-							? PUBLIC_USER_PAGE(followed.data.username!)
-							: PUBLIC_ORG_PAGE(followed.data.slug!);
+						const isUser = followed.type === "USER" && followed.user;
+						const isOrg = followed.type === "ORG" && followed.org;
+						
+						const displayName = isUser
+							? followed.user!.displayName || `${followed.user!.firstName || ""} ${followed.user!.lastName || ""}`.trim() || followed.user!.username
+							: isOrg
+							? followed.org!.name
+							: "Unknown";
+						
+						const href = isUser
+							? PUBLIC_USER_PAGE(followed.user!.username)
+							: isOrg
+							? PUBLIC_ORG_PAGE(followed.org!.slug)
+							: "#";
 
 						return (
 							<Link
-								key={followed.data.ownerId}
+								key={followed.ownerId}
 								href={href}
 								className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
 							>
-								{followed.data.avatarImageId ? (
-									<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-										<span className="text-sm">Avatar</span>
-									</div>
-								) : (
-									<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-										<span className="text-sm">{displayName?.[0]?.toUpperCase() || "?"}</span>
-									</div>
-								)}
+								<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+									<span className="text-sm">{displayName?.[0]?.toUpperCase() || "?"}</span>
+								</div>
 								<div>
 									<p className="font-medium">{displayName}</p>
-									<p className="text-sm text-gray-500">{followed.type === "USER" ? "User" : "Organization"}</p>
+									<p className="text-sm text-gray-500">{isUser ? "User" : isOrg ? "Organization" : "Unknown"}</p>
 								</div>
 							</Link>
 						);

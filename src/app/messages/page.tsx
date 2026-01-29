@@ -45,8 +45,8 @@ export default async function MessagesPage() {
 					<div className="space-y-2">
 						{conversations.map((conversation) => (
 							<Link
-								key={conversation.otherUser.id}
-								href={MESSAGE_CONVERSATION(conversation.otherUser.id)}
+								key={conversation.otherOwnerId}
+								href={MESSAGE_CONVERSATION(conversation.otherOwnerId)}
 								className="block border rounded p-4 hover:bg-gray-50 transition-colors"
 							>
 								<div className="flex items-start justify-between">

@@ -33,7 +33,7 @@ export function UserProfileHeader({ user, isOwnProfile, session }: UserProfileHe
 					</>
 				) : (
 					loggedIn && (
-						<ButtonLink href={MESSAGE_CONVERSATION(user.id)} fullWidth>
+						<ButtonLink href={MESSAGE_CONVERSATION(user.ownerId)} fullWidth>
 							Send Message
 						</ButtonLink>
 					)

@@ -155,6 +155,7 @@ export async function markMessageRead(messageId: string): Promise<void> {
  * Conversation with another user
  */
 export interface Conversation {
+	otherOwnerId: string; // The owner ID to use for messaging
 	otherUser: {
 		id: string;
 		username: string;
@@ -235,13 +236,14 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
 		const otherOwner = isReceived ? msg.sender : msg.receiver;
 		const otherUser = otherOwner?.user;
 
-		if (!otherUser) continue;
+		if (!otherUser || !otherOwner) continue;
 
-		// Use the other user's ID as the conversation key
-		const convKey = otherUser.id;
+		// Use the other owner's ID as the conversation key
+		const convKey = otherOwner.id;
 
 		if (!conversationMap.has(convKey)) {
 			conversationMap.set(convKey, {
+				otherOwnerId: otherOwner.id,
 				otherUser: {
 					id: otherUser.id,
 					username: otherUser.username,

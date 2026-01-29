@@ -97,7 +97,7 @@ export function OwnerProfileHeader({ owner, isOwnProfile, session, currentUserId
 						<>
 							{owner.type === "USER" && (
 								/* For users: show message button */
-								<ButtonLink href={MESSAGE_CONVERSATION(owner.data.id)} fullWidth>
+								<ButtonLink href={MESSAGE_CONVERSATION(ownerId)} fullWidth>
 									Send Message
 								</ButtonLink>
 							)}
