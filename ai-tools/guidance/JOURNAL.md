@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Wed 01/28/2026 20:58 PST
+Reset production Supabase database for v0.3 schema deployment. Dropped and recreated public schema via `prisma db execute` to resolve migration conflict where `OrgRole` type already existed from partial prior attempt. Successfully applied both migrations (`v03_schema_init` and `make_circular_fks_deferrable`) and ran seed script. Production database now has fresh schema with seed data (users, orgs, projects, events, posts, messages, follows).
+
 #### Entry: Wed 01/28/2026 19:20 PST
 Fixed database seeding for v0.3 schema migration. Created migration `20260129030218_make_circular_fks_deferrable` to make User ↔ Owner circular FK constraints `DEFERRABLE INITIALLY DEFERRED`, enabling atomic creation of both records in a single transaction. Updated `seed.ts` and `createUserWithOwner()` in `user.ts` to work with deferred constraints. Made Supabase optional for local development - seed now uses local static files from `/public/static/examples/` when `NEXT_PUBLIC_SUPABASE_URL` isn't set, falling back to `/static/examples/filename.png` URLs that Next.js serves directly. Cleaned up verbose debug logging from seed file. Ready to run `npx prisma generate && npm run db:seed:dev` to complete seeding.
 
