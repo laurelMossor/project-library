@@ -13,7 +13,7 @@ export interface ProfileData {
 
 export interface User {
 	id: string;
-	ownerId: string | null; // Personal owner id (null until created)
+	ownerId: string | null; // Personal owner id (null until created) TODO: find a way to set the ownerId on user creation
 	email: string;
 	passwordHash: string;
 	username: string;

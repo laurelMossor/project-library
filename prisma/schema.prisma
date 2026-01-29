@@ -27,7 +27,6 @@ enum OrgRole {
 }
 
 // Used for ImageAttachment target typing.
-// (If you later allow attachments on more models, extend this enum.)
 enum ArtifactType {
   PROJECT
   EVENT
