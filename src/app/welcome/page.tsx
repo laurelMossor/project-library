@@ -3,8 +3,9 @@ import Image from "next/image";
 const LANDING_IMAGES_BASE = "/static/assets/images/PL_landing_surfaces_1";
 const LANDING_IMAGES = [
 	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-1.png`,
-	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-2.png`,
+
 	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-3.png`,
+    `${LANDING_IMAGES_BASE}/PL_landing_surfaces-2.png`,
 	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-4.png`,
 ];
 

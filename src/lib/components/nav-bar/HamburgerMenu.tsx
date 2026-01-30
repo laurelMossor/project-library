@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
 	HamburgerIcon,
-	AboutIcon,
 	CollectionsIcon,
 	UserHomeIcon,
 	MessageIcon,
 	PencilIcon,
 	LoginIcon,
 	LogoutIcon,
+	SettingsIcon,
 } from "../icons/icons";
 import { AboutModal } from "../AboutModal";
 import { NewItemModal } from "./NewItemModal";
@@ -21,6 +21,8 @@ import {
 	MESSAGES,
 	PUBLIC_USER_PAGE,
 	PUBLIC_ORG_PAGE,
+	USER_PROFILE_SETTINGS,
+	ORG_PROFILE_SETTINGS,
 	LOGIN_WITH_CALLBACK,
 } from "@/lib/const/routes";
 import { API_ME_OWNER } from "@/lib/const/routes";
@@ -39,11 +41,23 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const isLoggedIn = hasSession(activeSession);
 
 	const [isOpen, setIsOpen] = useState(false);
+	const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
+	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const [profileLink, setProfileLink] = useState<string | undefined>(undefined);
 	const [profileLabel, setProfileLabel] = useState<string>("Profile");
+	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
 	const [username, setUsername] = useState<string | undefined>(undefined);
+
+	useLayoutEffect(() => {
+		if (!isOpen || !buttonRef.current || typeof window === "undefined") return;
+		const rect = buttonRef.current.getBoundingClientRect();
+		setDropdownPosition({
+			top: rect.bottom + 4,
+			right: window.innerWidth - rect.right,
+		});
+	}, [isOpen]);
 
 	useEffect(() => {
 		if (isLoggedIn) {
@@ -53,6 +67,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					if (data?.type === "ORG") {
 						setProfileLink(PUBLIC_ORG_PAGE(data.data.slug));
 						setProfileLabel(`${data.data.name} Profile`);
+						setSettingsLink(ORG_PROFILE_SETTINGS);
 						fetch("/api/me/user")
 							.then((r) => (r.ok ? r.json() : null))
 							.then((user) => user?.username && setUsername(user.username))
@@ -60,6 +75,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					} else if (data?.type === "USER") {
 						setProfileLink(PUBLIC_USER_PAGE(data.data.username));
 						setProfileLabel("Profile");
+						setSettingsLink(USER_PROFILE_SETTINGS);
 						setUsername(data.data.username);
 					} else {
 						fetch("/api/me/user")
@@ -68,6 +84,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 								if (user?.username) {
 									setProfileLink(PUBLIC_USER_PAGE(user.username));
 									setProfileLabel("Profile");
+									setSettingsLink(USER_PROFILE_SETTINGS);
 									setUsername(user.username);
 								}
 							})
@@ -77,11 +94,15 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 				.catch(() => {});
 		} else {
 			setProfileLink(undefined);
+			setSettingsLink(undefined);
 			setUsername(undefined);
 		}
 	}, [isLoggedIn, activeSession?.user?.activeOwnerId]);
 
-	const closeMenu = () => setIsOpen(false);
+	const closeMenu = () => {
+		setIsOpen(false);
+		setDropdownPosition(null);
+	};
 
 	const handleAbout = () => {
 		closeMenu();
@@ -111,6 +132,13 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		}
 	};
 
+	const handleSettings = () => {
+		closeMenu();
+		if (!isLoggedIn || !settingsLink) {
+			router.push(LOGIN_WITH_CALLBACK(USER_PROFILE_SETTINGS));
+		}
+	};
+
 	const handleLogout = async () => {
 		closeMenu();
 		await signOut({ callbackUrl: COLLECTIONS });
@@ -127,6 +155,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	return (
 		<nav className="relative flex items-center">
 			<button
+				ref={buttonRef}
 				onClick={() => setIsOpen((o) => !o)}
 				className="p-2 hover:opacity-80 rounded transition-opacity"
 				aria-label="Menu"
@@ -142,21 +171,17 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 						aria-hidden="true"
 						onClick={closeMenu}
 					/>
+					{dropdownPosition && (
 					<div
-						className="fixed right-6 top-[100px] z-50 min-w-[220px] rounded-lg border border-rich-brown bg-grey-white shadow-lg py-2"
+						className="z-50 min-w-[220px] rounded-lg border border-rich-brown bg-grey-white shadow-lg py-2"
+						style={{
+							position: "fixed",
+							top: dropdownPosition.top,
+							right: dropdownPosition.right,
+						}}
 						role="menu"
 					>
-						{/* About */}
-						<button
-							onClick={handleAbout}
-							className={linkClass}
-							role="menuitem"
-						>
-							<AboutIcon className={iconClass} />
-							<span>About</span>
-						</button>
-
-						{/* Collections */}
+						{/* Explore (Collections) */}
 						<Link
 							href={COLLECTIONS}
 							onClick={closeMenu}
@@ -164,40 +189,18 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							role="menuitem"
 						>
 							<CollectionsIcon className={iconClass} />
-							<span>Collections</span>
+							<span>Explore</span>
 						</Link>
 
-						{/* Create New */}
+						{/* Post (Create New) */}
 						<button
 							onClick={handleCreateNew}
 							className={linkClass}
 							role="menuitem"
 						>
 							<PencilIcon className={iconClass} />
-							<span>Create New</span>
+							<span>Post</span>
 						</button>
-
-						{/* Messages */}
-						{isLoggedIn ? (
-							<Link
-								href={MESSAGES}
-								onClick={closeMenu}
-								className={linkClass}
-								role="menuitem"
-							>
-								<MessageIcon className={iconClass} />
-								<span>Messages</span>
-							</Link>
-						) : (
-							<button
-								onClick={handleMessages}
-								className={linkClass}
-								role="menuitem"
-							>
-								<MessageIcon className={iconClass} />
-								<span>Messages</span>
-							</button>
-						)}
 
 						{/* Profile */}
 						{profileLink ? (
@@ -231,6 +234,50 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							</button>
 						)}
 
+						{/* Messages */}
+						{isLoggedIn ? (
+							<Link
+								href={MESSAGES}
+								onClick={closeMenu}
+								className={linkClass}
+								role="menuitem"
+							>
+								<MessageIcon className={iconClass} />
+								<span>Messages</span>
+							</Link>
+						) : (
+							<button
+								onClick={handleMessages}
+								className={linkClass}
+								role="menuitem"
+							>
+								<MessageIcon className={iconClass} />
+								<span>Messages</span>
+							</button>
+						)}
+
+						{/* Settings */}
+						{settingsLink ? (
+							<Link
+								href={settingsLink}
+								onClick={closeMenu}
+								className={linkClass}
+								role="menuitem"
+							>
+								<SettingsIcon className={iconClass} />
+								<span>Settings</span>
+							</Link>
+						) : (
+							<button
+								onClick={handleSettings}
+								className={linkClass}
+								role="menuitem"
+							>
+								<SettingsIcon className={iconClass} />
+								<span>Settings</span>
+							</button>
+						)}
+
 						<div className="my-1 border-t border-soft-grey" />
 
 						{/* Log In / Log Out - always visible */}
@@ -254,6 +301,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							</button>
 						)}
 					</div>
+					)}
 				</>
 			)}
 

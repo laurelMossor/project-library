@@ -8,7 +8,7 @@ interface AnimatedProjectLibraryLogoProps {
 	className?: string;
 }
 
-export function AnimatedProjectLibraryLogo({ height = 160, width = 350, className = "max-h-[175px] max-w-full w-auto h-auto object-contain" }: AnimatedProjectLibraryLogoProps) {
+export function AnimatedProjectLibraryLogo({ height = 160, width = 350, className = "max-h-[160px] max-w-full w-auto h-auto object-contain" }: AnimatedProjectLibraryLogoProps) {
 
 	return (
 		<Link href={COLLECTIONS} className="hover:opacity-80 transition-opacity flex items-center min-w-0 shrink">

@@ -25,16 +25,11 @@ export const PRIVATE_ORG_PAGE = "/o/profile";
 export const ORG_PROFILE_SETTINGS = "/o/profile/settings";
 export const ORG_PROFILE_EDIT = "/o/profile/edit";
 export const ORG_NEW = "/orgs/new";
-// ORG_COLLECTIONS removed - collections are shown inline on public profile
 
-// ============================================================================
-// Collections Routes
-// ============================================================================
+export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 
-// ============================================================================
-// Project Routes
-// ============================================================================
+
 export const PROJECTS = "/projects";
 export const PROJECT_NEW = "/projects/new";
 export const PROJECT_DETAIL = (id: string) => `/projects/${id}`;
