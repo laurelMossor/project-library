@@ -14,7 +14,7 @@ export function NavigationBar({ session }: NavigationBarProps) {
 				<AnimatedProjectLibraryLogo />
 				<HamburgerMenu session={session} />
 			</div>
-			<div className="text-rich-brown text-xs italic">Inspiring off-screen action and in-person connection</div>
+			<div className="text-rich-brown px-3 text-sm italic">Inspiring off-screen action and in-person connection</div>
 		</header>
 	);
 }
