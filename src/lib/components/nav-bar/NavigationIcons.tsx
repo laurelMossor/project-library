@@ -28,8 +28,14 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 	const [username, setUsername] = useState<string | undefined>(undefined);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-	const isMobile = useIsMobile();
+	const [isMobile, setIsMobile] = useState(false); // Start with false to match SSR
+	const isMobileHook = useIsMobile();
 	const navIconStyles = isMobile ? "w-5 h-5" : "w-6 h-6";
+
+	// Update isMobile after mount to avoid hydration mismatch
+	useEffect(() => {
+		setIsMobile(isMobileHook);
+	}, [isMobileHook]);
 
 	useEffect(() => {
 		if (isLoggedIn) {
