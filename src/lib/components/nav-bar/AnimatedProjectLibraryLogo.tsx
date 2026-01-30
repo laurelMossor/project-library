@@ -13,7 +13,7 @@ export function AnimatedProjectLibraryLogo({ height = 120, width = 240, classNam
 	return (
 		<Link href={COLLECTIONS} className="hover:opacity-80 transition-opacity flex items-center">
 			<Image
-				src={'/static/images/Project_Library_Animated_Logo.gif'}
+				src={'/static/assets/images/Project_Library_Animated_Logo.gif'}
 				alt="Project Library"
 				width={width}
 				height={height}
