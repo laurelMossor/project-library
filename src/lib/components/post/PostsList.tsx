@@ -5,11 +5,71 @@ import { PostItem } from "@/lib/types/post";
 import { CollectionType } from "@/lib/types/collection";
 import { getPosts } from "@/lib/utils/post-client";
 import { formatDateTime } from "@/lib/utils/datetime";
-import { OwnerAvatar } from "../user/OwnerAvatar";
-import { getOwnerDisplayName, getOwnerHandle, isOrgOwner, PublicOwner } from "@/lib/utils/owner";
 import { AtSignIcon } from "../icons/icons";
 import Link from "next/link";
 import { PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
+
+// Minimal owner type for posts - only includes fields returned by API
+type PostOwnerUser = {
+	id: string;
+	username: string;
+	displayName: string | null;
+	firstName: string | null;
+	lastName: string | null;
+};
+
+type PostOwnerOrg = {
+	id: string;
+	name: string;
+	slug: string;
+};
+
+type PostOwner = {
+	id: string;
+	type: "USER" | "ORG";
+	user: PostOwnerUser | null;
+	org: PostOwnerOrg | null;
+};
+
+function getPostOwnerDisplayName(owner: PostOwner): string {
+	if (owner.type === "USER" && owner.user) {
+		return owner.user.displayName || 
+			[owner.user.firstName, owner.user.lastName].filter(Boolean).join(" ") || 
+			owner.user.username;
+	}
+	if (owner.type === "ORG" && owner.org) {
+		return owner.org.name;
+	}
+	return "Unknown";
+}
+
+function getPostOwnerHandle(owner: PostOwner): string | null {
+	if (owner.type === "USER" && owner.user) {
+		return owner.user.username;
+	}
+	if (owner.type === "ORG" && owner.org) {
+		return owner.org.slug;
+	}
+	return null;
+}
+
+function getPostOwnerInitials(owner: PostOwner): string {
+	if (owner.type === "ORG" && owner.org) {
+		const words = owner.org.name.trim().split(/\s+/);
+		if (words.length >= 2) {
+			return (words[0][0] + words[1][0]).toUpperCase();
+		}
+		return owner.org.name.substring(0, 2).toUpperCase();
+	}
+	if (owner.type === "USER" && owner.user) {
+		if (owner.user.firstName && owner.user.lastName) {
+			return (owner.user.firstName[0] + owner.user.lastName[0]).toUpperCase();
+		}
+		if (owner.user.firstName) return owner.user.firstName[0].toUpperCase();
+		return owner.user.username[0].toUpperCase();
+	}
+	return "?";
+}
 
 type PostsListProps = {
 	collectionId: string;
@@ -63,27 +123,44 @@ export function PostsList({
 			)}
 			<div className="space-y-4">
 				{displayPosts.map((post) => {
-					// Convert post.owner to PublicOwner format if it exists
-					const owner: PublicOwner | null = post.owner ? {
+					// Build owner from post data
+					const owner: PostOwner | null = post.owner ? {
 						id: post.owner.id,
-						type: post.owner.type as "USER" | "ORG",
-						user: post.owner.user || null,
-						org: post.owner.org || null,
+						type: post.owner.type,
+						user: post.owner.user ? {
+							id: post.owner.user.id,
+							username: post.owner.user.username,
+							displayName: post.owner.user.displayName,
+							firstName: post.owner.user.firstName,
+							lastName: post.owner.user.lastName,
+						} : null,
+						org: post.owner.org ? {
+							id: post.owner.org.id,
+							name: post.owner.org.name,
+							slug: post.owner.org.slug,
+						} : null,
 					} : null;
 
-					const ownerDisplayName = owner ? getOwnerDisplayName(owner) : null;
-					const ownerHandle = owner ? getOwnerHandle(owner) : null;
-					const isOrg = owner ? isOrgOwner(owner) : false;
+					const ownerDisplayName = owner ? getPostOwnerDisplayName(owner) : null;
+					const ownerHandle = owner ? getPostOwnerHandle(owner) : null;
+					const isOrg = owner?.type === "ORG";
 					const ownerHref = owner && ownerHandle
 						? (isOrg ? PUBLIC_ORG_PAGE(ownerHandle) : PUBLIC_USER_PAGE(ownerHandle))
 						: "#";
+					const initials = owner ? getPostOwnerInitials(owner) : "?";
 
 					return (
 						<div key={post.id} className="border-l-2 border-soft-grey pl-4 py-2">
 							{/* Owner attribution */}
 							{owner && ownerDisplayName && (
 								<div className="flex items-center gap-2 mb-2">
-									<OwnerAvatar owner={owner} size="sm" />
+									{/* Inline avatar for posts */}
+									<Link 
+										href={ownerHref}
+										className="w-8 h-8 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity text-xs text-gray-600 font-medium"
+									>
+										{initials}
+									</Link>
 									<div className="flex items-center gap-1">
 										{isOrg && (
 											<AtSignIcon className="w-3 h-3 text-gray-500" />
