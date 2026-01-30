@@ -12,14 +12,15 @@
 import { getOrgBySlug } from "@/lib/utils/server/org";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
-import { getProjectsByOwner } from "@/lib/utils/server/project";
-import { getEventsByOwner } from "@/lib/utils/server/event";
+import { getProjectsByOrg } from "@/lib/utils/server/project";
+import { getEventsByOrg } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
 import { OwnerProfileHeader } from "@/lib/components/owner/OwnerProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfileOwner } from "@/lib/types/profile-owner";
 import { getUserOrgRole } from "@/lib/utils/server/org";
-import { FollowersList, FollowingList } from "@/lib/components/owner/FollowersList";
+import { FollowStats } from "@/lib/components/owner/FollowStats";
+import { ORG_CONNECTIONS } from "@/lib/const/routes";
 
 type Props = {
 	params: Promise<{ slug: string }>;
@@ -45,10 +46,10 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 	// Create ProfileOwner type for the org
 	const profileOwner: ProfileOwner = { type: "ORG", data: org };
 
-	// Fetch org's projects and events using org's primary owner
+	// Fetch org's projects and events across all owners posting on behalf of this org
 	const [projects, events] = await Promise.all([
-		getProjectsByOwner(org.ownerId),
-		getEventsByOwner(org.ownerId),
+		getProjectsByOrg(org.id),
+		getEventsByOrg(org.id),
 	]);
 
 	// Combine into collection items
@@ -63,10 +64,9 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 				currentUserId={session?.user?.id || null}
 			/>
 
-			{/* Followers and Following */}
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-				<FollowersList ownerId={org.ownerId} title="Followers" />
-				<FollowingList ownerId={org.ownerId} title="Following" />
+			{/* Followers and Following stats */}
+			<div className="mb-6">
+				<FollowStats ownerId={org.ownerId} connectionsHref={ORG_CONNECTIONS(slug)} />
 			</div>
 
 			{/* Org's Collection Section */}

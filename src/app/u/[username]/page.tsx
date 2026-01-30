@@ -17,7 +17,8 @@ import { getEventsByUser } from "@/lib/utils/server/event";
 import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
 import { UserProfileHeader } from "@/lib/components/user/UserProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { FollowersList, FollowingList } from "@/lib/components/owner/FollowersList";
+import { FollowStats } from "@/lib/components/owner/FollowStats";
+import { USER_CONNECTIONS } from "@/lib/const/routes";
 
 type Props = {
 	params: Promise<{ username: string }>;
@@ -48,10 +49,9 @@ export default async function PublicProfilePage({ params }: Props) {
 		<CenteredLayout maxWidth="6xl">
 			<UserProfileHeader user={user} isOwnProfile={isOwnProfile} session={session} />
 
-			{/* Followers and Following */}
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-				<FollowersList ownerId={user.ownerId} title="Followers" />
-				<FollowingList ownerId={user.ownerId} title="Following" />
+			{/* Followers and Following stats */}
+			<div className="mb-6">
+				<FollowStats ownerId={user.ownerId} connectionsHref={USER_CONNECTIONS(username)} />
 			</div>
 
 			{/* User's Collection Section */}

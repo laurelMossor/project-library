@@ -74,12 +74,21 @@ export function OwnerProfileHeader({ owner, isOwnProfile, session, currentUserId
 
 	return (
 		<div className="flex flex-col md:flex-row gap-8 mb-8">
-			<OwnerProfileDisplay owner={owner} />
+			{/* Left: Profile Display - takes up remaining space */}
+			<div className="flex-1">
+				<OwnerProfileDisplay owner={owner} />
+			</div>
 
-			{/* Right: Action Buttons */}
-			<div className="flex flex-col gap-3">
+			{/* Right: Action Buttons - constrained width */}
+			<div className="w-full md:w-1/4 md:min-w-[200px] md:max-w-[280px] flex flex-col gap-3">
 				{isOwnProfile ? (
 					<>
+						{/* Admin Tools heading for orgs */}
+						{owner.type === "ORG" && (
+							<h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">
+								Admin Tools
+							</h3>
+						)}
 						{/* Edit Profile button - different routes for USER vs ORG */}
 						<ButtonLink href={owner.type === "USER" ? PRIVATE_USER_PAGE : PRIVATE_ORG_PAGE} fullWidth>
 							Edit Profile

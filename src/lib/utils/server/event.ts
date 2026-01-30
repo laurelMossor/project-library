@@ -89,6 +89,26 @@ export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	return getEventsByOwner(personalOwner.id);
 }
 
+// Fetch all events for an org (across all owners with that orgId)
+// This collects events from any owner posting on behalf of the org
+export async function getEventsByOrg(orgId: string): Promise<EventItem[]> {
+	const events = await prisma.event.findMany({
+		where: {
+			owner: {
+				orgId: orgId,
+			},
+		},
+		select: eventWithOwnerFields,
+		orderBy: { createdAt: "desc" },
+	});
+	
+	// Batch load images for all events
+	const eventIds = events.map(e => e.id);
+	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
+	
+	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
+}
+
 export async function createEvent(ownerId: string, data: EventCreateInput): Promise<EventItem> {
 	const event = await prisma.event.create({
 		data: {

@@ -89,6 +89,26 @@ export async function getProjectsByUser(userId: string): Promise<ProjectItem[]> 
 	return getProjectsByOwner(personalOwner.id);
 }
 
+// Fetch all projects for an org (across all owners with that orgId)
+// This collects projects from any owner posting on behalf of the org
+export async function getProjectsByOrg(orgId: string): Promise<ProjectItem[]> {
+	const projects = await prisma.project.findMany({
+		where: {
+			owner: {
+				orgId: orgId,
+			},
+		},
+		select: projectWithOwnerFields,
+		orderBy: { createdAt: "desc" },
+	});
+	
+	// Batch load images for all projects
+	const projectIds = projects.map(p => p.id);
+	const imagesMap = await getImagesForTargetsBatch("PROJECT", projectIds);
+	
+	return projects.map((p) => toProjectItem(p, imagesMap.get(p.id) || []));
+}
+
 // Create a new project for an owner
 // Tags are optional - if not provided or empty, defaults appropriately
 // Images should be uploaded separately and linked to the project via ImageAttachment

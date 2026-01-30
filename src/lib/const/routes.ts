@@ -15,12 +15,14 @@ export const PRIVATE_USER_PAGE = "/u/profile";
 export const USER_PROFILE_SETTINGS = "/u/profile/settings";
 export const USER_PROFILE_EDIT = "/u/profile/edit";
 export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
+export const USER_CONNECTIONS = (username: string) => `/u/${username}/connections`;
 // USER_COLLECTIONS removed - collections are shown inline on public profile
 
 // ============================================================================
 // Org & Profile Routes
 // ============================================================================
 export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
+export const ORG_CONNECTIONS = (slug: string) => `/o/${slug}/connections`;
 export const PRIVATE_ORG_PAGE = "/o/profile";
 export const ORG_PROFILE_SETTINGS = "/o/profile/settings";
 export const ORG_PROFILE_EDIT = "/o/profile/edit";
