@@ -146,7 +146,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 						className="fixed right-6 top-[100px] z-50 min-w-[220px] rounded-lg border border-rich-brown bg-grey-white shadow-lg py-2"
 						role="menu"
 					>
-						{/* About - always visible */}
+						{/* About */}
 						<button
 							onClick={handleAbout}
 							className={linkClass}
@@ -156,7 +156,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							<span>About</span>
 						</button>
 
-						{/* Collections - always visible */}
+						{/* Collections */}
 						<Link
 							href={COLLECTIONS}
 							onClick={closeMenu}
@@ -167,7 +167,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							<span>Collections</span>
 						</Link>
 
-						{/* Create New - always visible; session decides navigate vs modal */}
+						{/* Create New */}
 						<button
 							onClick={handleCreateNew}
 							className={linkClass}
@@ -177,7 +177,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							<span>Create New</span>
 						</button>
 
-						{/* Messages - always visible; session decides navigate vs login callback */}
+						{/* Messages */}
 						{isLoggedIn ? (
 							<Link
 								href={MESSAGES}
@@ -199,7 +199,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							</button>
 						)}
 
-						{/* Profile - always visible; session decides link vs login callback */}
+						{/* Profile */}
 						{profileLink ? (
 							<Link
 								href={profileLink}
