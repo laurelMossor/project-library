@@ -77,6 +77,7 @@ export default function CollectionsPage() {
 	return (
 		<PageLayout>
 			<CollectionPage
+				title="Explore"
 				filteredItems={filteredItems}
 				loading={loading}
 				error={error}

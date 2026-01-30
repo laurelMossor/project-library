@@ -21,6 +21,7 @@ import {
 	MESSAGES,
 	PUBLIC_USER_PAGE,
 	PUBLIC_ORG_PAGE,
+	PRIVATE_USER_PAGE,
 	USER_PROFILE_SETTINGS,
 	ORG_PROFILE_SETTINGS,
 	LOGIN_WITH_CALLBACK,
@@ -128,7 +129,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const handleProfile = () => {
 		closeMenu();
 		if (!isLoggedIn) {
-			router.push(LOGIN_WITH_CALLBACK(COLLECTIONS));
+			router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 		}
 	};
 
@@ -202,26 +203,16 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 							<span>Post</span>
 						</button>
 
-						{/* Profile */}
-						{profileLink ? (
+						{/* Home (Profile) */}
+						{isLoggedIn ? (
 							<Link
-								href={profileLink}
+								href={PRIVATE_USER_PAGE}
 								onClick={closeMenu}
 								className={linkClass}
 								role="menuitem"
 							>
 								<UserHomeIcon className={iconClass} />
-								<span>{profileLabel}</span>
-							</Link>
-						) : isLoggedIn ? (
-							<Link
-								href={COLLECTIONS}
-								onClick={closeMenu}
-								className={linkClass}
-								role="menuitem"
-							>
-								<UserHomeIcon className={iconClass} />
-								<span>Profile</span>
+								<span>Home</span>
 							</Link>
 						) : (
 							<button
@@ -230,7 +221,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 								role="menuitem"
 							>
 								<UserHomeIcon className={iconClass} />
-								<span>Profile</span>
+								<span>Home</span>
 							</button>
 						)}
 
