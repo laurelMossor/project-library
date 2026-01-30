@@ -7,7 +7,7 @@ import { DeleteProjectButton } from "@/lib/components/project/DeleteProjectButto
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { PROJECT_POST_NEW, PROJECT_EDIT, MESSAGE_CONVERSATION, COLLECTIONS, HOME } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerId } from "@/lib/utils/owner";
+import { getOwnerUser, getOwnerId, isOrgOwner } from "@/lib/utils/owner";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -23,8 +23,12 @@ export default async function ProjectDetailPage({ params }: Props) {
 	}
 
 	// Check if current user is the project owner (via Owner)
+	// For org owners, check if user owns the org, not just the personal owner
 	const ownerUser = getOwnerUser(project.owner);
 	const ownerId = getOwnerId(project.owner);
+	const isOrg = isOrgOwner(project.owner);
+	// For ownership check: if it's an org owner, we'd need to check org membership
+	// For now, check if it's the user's personal owner
 	const isOwner = session?.user?.id === ownerUser?.id;
 
 	return (
@@ -41,6 +45,7 @@ export default async function ProjectDetailPage({ params }: Props) {
 						</ButtonLink>
 					</>
 				)}
+				{/* Message Owner button: use the ownerId (which will be org ownerId if it's an org) */}
 				{session && !isOwner && ownerId && (
 					<ButtonLink href={MESSAGE_CONVERSATION(ownerId)}>
 						Message Owner

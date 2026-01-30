@@ -7,7 +7,7 @@
  * This component will be removed in a future version.
  */
 import Link from "next/link";
-import { ProfilePicPlaceholder } from "../user/ProfilePicPlaceholder";
+import { OwnerAvatar } from "../user/OwnerAvatar";
 import { EventItem } from "@/lib/types/event";
 import { Tags } from "../tag";
 import { truncateText } from "@/lib/utils/text";
@@ -15,21 +15,22 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
 import { EVENT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, isOrgOwner } from "@/lib/utils/owner";
+import { getOwnerDisplayName, getOwnerHandle, isOrgOwner } from "@/lib/utils/owner";
+import { AtSignIcon } from "../icons/icons";
 
 /** @deprecated Use CollectionCard instead */
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
 	const detailUrl = EVENT_DETAIL(event.id);
-	const ownerUser = getOwnerUser(event.owner);
 	const ownerDisplayName = getOwnerDisplayName(event.owner);
 	const ownerUsername = getOwnerHandle(event.owner);
+	const isOrg = isOrgOwner(event.owner);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
 			{/* Type badge and header */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					{ownerUser && <ProfilePicPlaceholder owner={ownerUser} />}
+					<OwnerAvatar owner={event.owner} size="md" />
 					<div className="flex-1 min-w-0">
 						<Link href={detailUrl}>
 							<h2 className="text-xl font-semibold mb-2 hover:underline">{event.title}</h2>
@@ -52,17 +53,16 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 			{/* Owner and date */}
 			<div className="flex flex-row items-center gap-2 mb-2">
 				{ownerUsername && (
-					<Link 
-					// TODO: There should be a better way to handle this.
-						href={isOrgOwner(event.owner) ? PUBLIC_ORG_PAGE(ownerUsername) : PUBLIC_USER_PAGE(ownerUsername)}
-						className="text-sm text-rich-brown hover:underline"
-					>
-						{ownerDisplayName}
-					</Link>
+					<div className="flex items-center gap-1">
+						<AtSignIcon className="w-3 h-3 text-gray-500" />
+						<Link 
+							href={isOrg ? PUBLIC_ORG_PAGE(ownerUsername) : PUBLIC_USER_PAGE(ownerUsername)}
+							className="text-sm text-rich-brown hover:underline"
+						>
+							{ownerDisplayName}
+						</Link>
+					</div>
 				)}
-				<p className="text-xs text-warm-grey">
-					Event
-				</p>
 			</div>
 
 			{/* Images */}

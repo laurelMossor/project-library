@@ -15,7 +15,12 @@ export interface PostItem {
 	createdAt: Date;
 	updatedAt: Date;
 	// Relations (optional, loaded when needed)
-	owner?: { user?: { id: string; username: string; firstName: string | null; lastName: string | null } | null; org?: { id: string; name: string; slug: string } | null } | null;
+	owner?: {
+		id: string;
+		type: "USER" | "ORG";
+		user?: { id: string; username: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null } | null;
+		org?: { id: string; name: string; slug: string; avatarImageId: string | null } | null;
+	} | null;
 	project?: { id: string; title: string } | null;
 	event?: { id: string; title: string } | null;
 }

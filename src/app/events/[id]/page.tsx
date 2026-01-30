@@ -8,8 +8,10 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
-import { PUBLIC_USER_PAGE, MESSAGE_CONVERSATION, EVENT_EDIT, COLLECTIONS, HOME } from "@/lib/const/routes";
-import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, getOwnerId } from "@/lib/utils/owner";
+import { PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, MESSAGE_CONVERSATION, EVENT_EDIT, COLLECTIONS, HOME } from "@/lib/const/routes";
+import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, getOwnerId, isOrgOwner } from "@/lib/utils/owner";
+import { OwnerAvatar } from "@/lib/components/user/OwnerAvatar";
+import { AtSignIcon } from "@/lib/components/icons/icons";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -29,6 +31,7 @@ export default async function EventDetailPage({ params }: Props) {
 	const ownerDisplayName = getOwnerDisplayName(event.owner);
 	const ownerUsername = getOwnerHandle(event.owner);
 	const ownerId = getOwnerId(event.owner);
+	const isOrg = isOrgOwner(event.owner);
 	const isOwner = session?.user?.id === ownerUser?.id;
 
 	return (
@@ -42,17 +45,26 @@ export default async function EventDetailPage({ params }: Props) {
 
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					{ownerUsername && (
-						<div>
-							<Link
-								href={PUBLIC_USER_PAGE(ownerUsername)}
-								className="text-base font-semibold text-black hover:underline"
-							>
-								{ownerDisplayName}
-							</Link>
-							<p className="text-xs text-gray-500">@{ownerUsername}</p>
+						<div className="flex items-center gap-3">
+							<OwnerAvatar owner={event.owner} size="md" />
+							<div>
+								<div className="flex items-center gap-1">
+									{isOrg && (
+										<AtSignIcon className="w-4 h-4 text-gray-500" />
+									)}
+									<Link
+										href={isOrg ? PUBLIC_ORG_PAGE(ownerUsername) : PUBLIC_USER_PAGE(ownerUsername)}
+										className="text-base font-semibold text-black hover:underline"
+									>
+										{ownerDisplayName}
+									</Link>
+								</div>
+								<p className="text-xs text-gray-500">@{ownerUsername}</p>
+							</div>
 						</div>
 					)}
 					<div className="flex flex-wrap gap-3">
+						{/* Message Owner button: use the ownerId (which will be org ownerId if it's an org) */}
 						{session && !isOwner && ownerId && (
 							<ButtonLink href={MESSAGE_CONVERSATION(ownerId)} size="sm">
 								Message owner

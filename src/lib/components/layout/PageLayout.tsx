@@ -7,7 +7,7 @@ type PageLayoutProps = {
 
 export function PageLayout({ children, className = "" }: PageLayoutProps) {
 	return (
-		<main className={`flex min-h-screen flex-col px-6 py-4 ${className}`.trim()}>
+		<main className={`flex min-h-screen flex-col px-8 py-4 ${className}`.trim()}>
 			{children}
 		</main>
 	);
