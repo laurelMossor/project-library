@@ -1,6 +1,6 @@
 import { Session } from "next-auth";
 import { AnimatedProjectLibraryLogo } from "./AnimatedProjectLibraryLogo";
-import { NavigationIcons } from "./NavigationIcons";
+import { HamburgerMenu } from "./HamburgerMenu";
 
 interface NavigationBarProps {
 	session: Session | null;
@@ -12,7 +12,7 @@ export function NavigationBar({ session }: NavigationBarProps) {
 			<div className="flex items-center justify-between gap-4 p-1">
 
 				<AnimatedProjectLibraryLogo />
-				<NavigationIcons session={session} />
+				<HamburgerMenu session={session} />
 			</div>
 			<div className="text-rich-brown text-xs italic">Inspiring off-screen action and in-person connection</div>
 		</header>
