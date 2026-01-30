@@ -74,9 +74,6 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 							{ownerDisplayName}
 						</Link>
 					</div>
-					<p className="text-xs text-warm-grey">
-						{isEventItem ? "Event" : formatDateTime(displayDate)}
-					</p>
 				</div>
 			)}
 

@@ -1,3 +1,0 @@
-There are a few issues with how posts by orgs are being treated now, after the schema update. When an Owner is posting an Artifact, it will always check if the owner is an Org, first and foremost. That will determine the avatar image and the user name/attribution. Additionally, add a smaller version of the AtSignIcon in front of the attribution line. Clicking on the "Message Owner" button from the full page project screen should go to a message with the Org, not the originating user owner.  Make sure the Org avatar shows in the full page profject, post and event, as well.  The org avatar placeholder can act much the same, but use more letters for the icon, just a smaller font.
-
-Go ahead. 
