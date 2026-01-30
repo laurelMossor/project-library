@@ -162,7 +162,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 				aria-label="Menu"
 				aria-expanded={isOpen}
 			>
-				<HamburgerIcon className={iconClass} />
+				<HamburgerIcon className={'w-8 h-8 shrink-0'} />
 			</button>
 
 			{isOpen && (
