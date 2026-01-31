@@ -21,7 +21,6 @@ const CTAButton = ({ href, label, icon }: { href: string, label: string, icon?: 
     )
 }
 
-
 export const CreationCTA = ({ collectionTypeFilter }: { collectionTypeFilter: FilterCollectionType }) => {
     const showProjectCTA = collectionTypeFilter === "all" || collectionTypeFilter === COLLECTION_TYPES.PROJECT;
     const showEventCTA = collectionTypeFilter === "all" || collectionTypeFilter === COLLECTION_TYPES.EVENT;
