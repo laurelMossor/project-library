@@ -44,8 +44,10 @@
 	
 	/* Secondary Colors */
 	--color-whale-blue: #477998;
+	--color-alice-blue: #D6E3EB;
 	--color-alert-red: #F64740;
 	--color-old-rose: #D496A7;
+	--color-soft-blush: #EDD4DA;
 }
 
 /*
@@ -76,8 +78,10 @@
 	--color-soft-grey: #CED0CE;
 	/* Secondary Colors */
 	--color-whale-blue: #477998;
+	--color-alice-blue: #D6E3EB;
 	--color-alert-red: #F64740;
 	--color-old-rose: #D496A7;
+	--color-soft-blush: #EDD4DA;
 }
 
 /* body {

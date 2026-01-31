@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Fri 01/30/2026 19:53 PST
+Extracted view toggle buttons into reusable component. Created `ViewToggle.tsx` in `src/lib/components/filter-sort/` containing Grid, List, and Map view buttons previously inline in `FilterBoard`. Added `ViewToggleButton` component following the same pattern as `CollectionTypeButton` from `CollectionTypeBadge.tsx` - uses consistent styling with `bg-moss-green`/`bg-misty-forest` colors, uppercase text, bold font, and hover shadow effects. Updated `FilterBoard` to import and use the new `ViewToggle` component, improving code organization and reusability.
+
 #### Entry: Wed 01/28/2026 20:58 PST
 Reset production Supabase database for v0.3 schema deployment. Dropped and recreated public schema via `prisma db execute` to resolve migration conflict where `OrgRole` type already existed from partial prior attempt. Successfully applied both migrations (`v03_schema_init` and `make_circular_fks_deferrable`) and ran seed script. Production database now has fresh schema with seed data (users, orgs, projects, events, posts, messages, follows).
 

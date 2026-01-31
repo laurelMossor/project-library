@@ -4,7 +4,7 @@ export const CollectionTypeBadge = ({ title }: { title: string }) => {
     const textSize = "text-xs";
     
     return (
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-1 mb-1">
             <span className={`${textSize} font-bold px-2 py-1 rounded bg-moss-green text-grey-white uppercase`}>
                 {title}
             </span>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FilterCollectionType, SortType, ViewType } from "@/lib/hooks/useFilter";
 import { CollectionTitle } from "../collection/CollectionTitle";
 import { CollectionTypeFilters } from "./CollectionTypeFilters";
+import { ViewToggle } from "./ViewToggle";
 
 type FilterBoardProps = {
 	title: string;
@@ -73,41 +74,18 @@ export function FilterBoard({
 				</select>
 
 				{/* View toggle */}
-				<div className="flex gap-2 ml-auto">
-					<button
-						onClick={() => onViewChange("grid")}
-						className={`px-3 py-1 text-sm border rounded transition ${
-							view === "grid" ? "bg-black text-white" : "bg-white"
-						}`}
-					>
-						Grid
-					</button>
-					<button
-						onClick={() => onViewChange("list")}
-						className={`px-3 py-1 text-sm border rounded transition ${
-							view === "list" ? "bg-black text-white" : "bg-white"
-						}`}
-					>
-						List
-					</button>
-					{hasLocationData && (
-						<button
-							onClick={() => onViewChange("map")}
-							className={`px-3 py-1 text-sm border rounded transition ${
-								view === "map" ? "bg-black text-white" : "bg-white"
-							}`}
-						>
-							Map
-						</button>
-					)}
-				</div>
+				<ViewToggle
+					view={view}
+					onViewChange={onViewChange}
+					hasLocationData={hasLocationData}
+				/>
 			</div>
 
 			{/* Tag filter */}
 			<div className="mb-4">
 				<div className="flex flex-wrap items-center gap-2 mb-2">
 					<label htmlFor="tag-filter" className="text-sm font-medium text-gray-700">
-						Filter by Tags:
+						What interests you?
 					</label>
 					<input
 						id="tag-filter"
