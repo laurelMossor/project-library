@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FilterCollectionType, SortType, ViewType } from "@/lib/hooks/useFilter";
 import { CollectionTitle } from "../collection/CollectionTitle";
+import { CollectionTypeFilters } from "./CollectionTypeFilters";
 
 type FilterBoardProps = {
 	title: string;
@@ -49,45 +50,17 @@ export function FilterBoard({
 
 	return (
 		<div className="mb-8">
-			<CollectionTitle title={title} />
-			{/* Filter tabs, sort, and view toggle */}
+			{/* Title and collection type filters */}
+			<div className="flex items-center justify-between mb-4">
+				<CollectionTitle title={title} />
+				<CollectionTypeFilters
+					collectionTypeFilter={collectionTypeFilter}
+					onCollectionTypeChange={onCollectionTypeChange}
+				/>
+			</div>
 
-
+			{/* Sort and view toggle */}
 			<div className="flex flex-wrap items-center gap-4 mb-4">
-				{/* Filter tabs */}
-				<div className="flex gap-2 border-b">
-					<button
-						onClick={() => onCollectionTypeChange("all")}
-						className={`px-4 py-2 font-medium transition ${
-							collectionTypeFilter === "all"
-								? "border-b-2 border-black text-black"
-								: "text-gray-600 hover:text-black"
-						}`}
-					>
-						All
-					</button>
-					<button
-						onClick={() => onCollectionTypeChange("project")}
-						className={`px-4 py-2 font-medium transition ${
-							collectionTypeFilter === "project"
-								? "border-b-2 border-black text-black"
-								: "text-gray-600 hover:text-black"
-						}`}
-					>
-						Projects
-					</button>
-					<button
-						onClick={() => onCollectionTypeChange("event")}
-						className={`px-4 py-2 font-medium transition ${
-							collectionTypeFilter === "event"
-								? "border-b-2 border-black text-black"
-								: "text-gray-600 hover:text-black"
-						}`}
-					>
-						Events
-					</button>
-				</div>
-
 				{/* Sort dropdown */}
 				<select
 					value={sort}
