@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS, ORG_PROFILE_EDIT, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
 
-// Note: In Next.js 16, middleware.ts is deprecated in favor of proxy.ts
-// This file replaces the old middleware.ts pattern
+// Next.js 16: proxy.ts replaces the deprecated middleware.ts
+// Keep this lightweight - only handle redirects, rewrites, and headers
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -18,6 +18,18 @@ const protectedRoutes = [
 	MESSAGES,
 ];
 
+// Session cookie names used by Auth.js / NextAuth
+const SESSION_COOKIE_NAMES = [
+	"authjs.session-token",
+	"__Secure-authjs.session-token",
+	"next-auth.session-token",
+	"__Secure-next-auth.session-token",
+];
+
+function hasSessionCookie(req: NextRequest): boolean {
+	return SESSION_COOKIE_NAMES.some((name) => req.cookies.has(name));
+}
+
 export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
 
@@ -26,19 +38,8 @@ export default function proxy(req: NextRequest) {
 		pathname.startsWith(route)
 	);
 
-	// Check for session cookie (NextAuth v5 uses these cookie names)
-	// Also check for any cookie that might be a session cookie
-	const sessionCookie = req.cookies.get("authjs.session-token") ||
-		req.cookies.get("__Secure-authjs.session-token") ||
-		req.cookies.get("next-auth.session-token") ||
-		req.cookies.get("__Secure-next-auth.session-token") ||
-		// Check for any cookie containing "session" or "auth" in the name
-		Array.from(req.cookies.getAll()).some(cookie => 
-			cookie.name.includes("session") || cookie.name.includes("auth")
-		);
-
 	// If protected and no session cookie, redirect to login
-	if (isProtected && !sessionCookie) {
+	if (isProtected && !hasSessionCookie(req)) {
 		const loginUrl = new URL(LOGIN, req.url);
 		loginUrl.searchParams.set("callbackUrl", pathname);
 		return NextResponse.redirect(loginUrl);

@@ -1,5 +1,8 @@
 "use client";
 
+import { PROJECT_NEW } from "@/lib/const/routes";
+
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -15,11 +18,12 @@ const IMAGE_NAMES = ["FIND", "DISCOVER", "BUILD", "CONTRIBUTE"] as const;
 //   "/explore?type=event&view=map" - events in map view
 //   "/explore?tags=woodworking,crafts" - filtered by tags
 //   "/about" - any other page
+
 const IMAGE_PATHS: Record<typeof IMAGE_NAMES[number], string> = {
-	FIND: "/explore",
+	FIND: "/explore?type=event&sort=newest&view=map&tags=improv",
 	DISCOVER: "/explore?sort=newest",
-	BUILD: "/explore?type=project",
-	CONTRIBUTE: "/explore?type=event",
+	BUILD: "/explore?type=project&sort=oldest",
+	CONTRIBUTE: PROJECT_NEW,
 };
 
 const getRandomElement = <T,>(array: readonly T[]): T => {
@@ -41,7 +45,6 @@ function RotatingImage({ imageName, altText, href }: RotatingImageProps) {
 		getImagePath(imageName, "A")
 	);
 	const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
 	useEffect(() => {
 		const scheduleNextRotation = () => {
 			// Get random pause duration (2, 3, or 4 seconds)
@@ -70,7 +73,7 @@ function RotatingImage({ imageName, altText, href }: RotatingImageProps) {
 	}, [imageName]);
 
 	return (
-		<Link href={href} className="min-w-0 block">
+		<Link className="min-w-0 block" href={href}>
 			<div className="pt-4 px-4">
 				<Image
 					src={currentSrc}
