@@ -1,4 +1,4 @@
-import { BaseCollectionItem } from "./collection-base";
+import { BaseCollectionItem } from "./collection-item";
 import { ImageItem } from "./image";
 import type { PostItem } from "./post";
 

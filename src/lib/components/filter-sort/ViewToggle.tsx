@@ -13,7 +13,7 @@ export const ViewToggleButton = ({ label, value, selected, onClick }: ViewToggle
 	return (
 		<button
 			onClick={() => onClick(value)}
-			className={`text-sm font-bold px-2 py-1 rounded ${bgColor} ${textColor} cursor-pointer transition-shadow hover:shadow-[0_0_12px_rgba(0,0,0,0.25)]`}
+			className={`text-sm font-bold px-2 py-1 rounded ${bgColor} ${textColor} cursor-pointer transition-shadow hover:shadow-glow-sm`}
 			style={{ WebkitAppearance: "none", appearance: "none", border: "none", margin: 0 }}
 		>
 			{label}

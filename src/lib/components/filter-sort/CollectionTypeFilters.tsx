@@ -1,4 +1,4 @@
-import { FilterCollectionType } from "@/lib/hooks/useFilter";
+import { FilterCollectionType } from "@/lib/types/collection";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { CollectionTypeButton } from "../tag/CollectionTypeBadge";
 

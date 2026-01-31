@@ -1,8 +1,9 @@
 import { FilterBoard } from "../filter-sort/FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
 import { PaginationControls } from "./PaginationControls";
-import { CollectionItem } from "@/lib/types/collection";
-import { FilterCollectionType, SortType, ViewType } from "@/lib/hooks/useFilter";
+import { EmptyState } from "./EmptyState";
+import { CollectionItem, FilterCollectionType } from "@/lib/types/collection";
+import { SortType, ViewType } from "@/lib/hooks/useFilter";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { SearchBar } from "../search/SearchBar";
 
@@ -24,6 +25,7 @@ type CollectionPageProps = {
 	availableTags: string[];
 	title?: string;
 	itemsPerPage?: number;
+	showCreateLinks?: boolean;
 };
 
 export function CollectionPage({
@@ -44,6 +46,7 @@ export function CollectionPage({
 	availableTags,
 	title = "Collections",
 	itemsPerPage = 12,
+	showCreateLinks = true,
 }: CollectionPageProps) {
 	// Use pagination hook to slice items for current page
 	const {
@@ -90,13 +93,11 @@ export function CollectionPage({
 
 			{/* Empty state */}
 			{!loading && !error && filteredItems.length === 0 && (
-				<div className="text-center py-12">
-					<p>
-						{search
-							? `No ${collectionTypeFilter === "all" ? "items" : collectionTypeFilter} found matching your search.`
-							: `No ${collectionTypeFilter === "all" ? "collections" : collectionTypeFilter} yet. Be the first to create one!`}
-					</p>
-				</div>
+				<EmptyState
+					collectionTypeFilter={collectionTypeFilter}
+					search={search}
+					showCreateLinks={showCreateLinks}
+				/>
 			)}
 
 			{/* Content display */}

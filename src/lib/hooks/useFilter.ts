@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { CollectionItem, CollectionType } from "@/lib/types/collection";
+import { CollectionItem, FilterCollectionType } from "@/lib/types/collection";
 import { filterCollectionItems, sortCollectionItemsByDate, filterCollectionItemsByTags } from "@/lib/utils/collection";
 
-export type FilterCollectionType = CollectionType | "all";
 export type SortType = "newest" | "oldest" | "relevance";
 export type ViewType = "grid" | "list" | "map";
 

@@ -1,9 +1,9 @@
-import { BaseCollectionItem } from "./collection-base";
+import { BaseCollectionItem } from "./collection-item";
 import { ProjectItem } from "./project";
 import { EventItem } from "./event";
 
 // Re-export BaseCollectionItem for convenience
-export type { BaseCollectionItem } from "./collection-base";
+export type { BaseCollectionItem } from "./collection-item";
 
 /**
  * Collection type constants - all valid collection types
@@ -21,6 +21,8 @@ export type CollectionType = typeof COLLECTION_TYPES[keyof typeof COLLECTION_TYP
  * New collection types should extend BaseCollectionItem and be added here
  */
 export type CollectionItem = ProjectItem | EventItem;
+
+export type FilterCollectionType = CollectionType | "all";
 
 /**
  * Type guard for ProjectItem - uses discriminator field for type safety

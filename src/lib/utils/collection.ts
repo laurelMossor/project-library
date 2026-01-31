@@ -1,6 +1,6 @@
 import { CollectionItem, isEvent, isProject, getCollectionItemType, getCollectionItemDate } from "../types/collection";
 
-import { FilterCollectionType } from "../hooks/useFilter";
+import { FilterCollectionType } from "../types/collection";
 
 export const itemHasCollectionType = (item: CollectionItem) => isProject(item) || isEvent(item);
 

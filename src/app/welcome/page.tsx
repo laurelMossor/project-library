@@ -24,7 +24,7 @@ export default function WelcomePage() {
                             alt={`Project Library landing surface ${i + 1}`}
                             width={600}
                             height={600}
-                            className="w-full h-auto object-contain rounded shadow-[0_0_15px_rgba(0,0,0,0.12)] hover:shadow-[0_0_28px_rgba(0,0,0,0.22)] transition-shadow"
+                            className="w-full h-auto object-contain rounded shadow-glow hover:shadow-glow-lg transition-shadow"
 					    />
                     </div>
 
