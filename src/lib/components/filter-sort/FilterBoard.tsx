@@ -34,7 +34,7 @@ export function FilterBoard({
 	const [tagInput, setTagInput] = useState("");
 
 	const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-		if (e.key === "Enter" && tagInput.trim()) {
+		if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
 			e.preventDefault();
 			const tag = tagInput.trim();
 			// Only add if not already selected
@@ -93,7 +93,7 @@ export function FilterBoard({
 						value={tagInput}
 						onChange={(e) => setTagInput(e.target.value)}
 						onKeyDown={handleTagInputKeyDown}
-						placeholder="Type a tag and press Enter"
+						placeholder="Enter a keyword, tag, or topic"
 						className="border p-2 rounded text-sm flex-1 max-w-xs"
 					/>
 				</div>

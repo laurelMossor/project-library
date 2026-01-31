@@ -98,3 +98,4 @@ export const FEEDBACK_SURVEY = "https://docs.google.com/forms/d/e/1FAIpQLScQeZne
 export const BUG_REPORT_FORM = "https://docs.google.com/forms/d/e/1FAIpQLScfIyo6yd_EvuJw4xJH-FFBgNid73QIGkAWaxUHVnSpgPbE4Q/viewform?usp=dialog";
 export const GITHUB_REPO = "https://github.com/laurelMossor/project-library";
 export const INSTAGRAM = "https://instagram.com/laurelmossor";
+export const ACCOUNT_INTEREST_SURVEY = "https://forms.gle/t1qhihX7Zi99ikaB9";
