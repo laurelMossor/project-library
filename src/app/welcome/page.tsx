@@ -1,11 +1,26 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const IMAGE_VERSIONS = ["A", "B", "C", "D"] as const;
 const PAUSE_DURATIONS = [5, 7, 9] as const;
 const IMAGE_NAMES = ["FIND", "DISCOVER", "BUILD", "CONTRIBUTE"] as const;
+
+// Placeholder paths - customize these to your desired destinations
+// Supports any route, with optional query params for pre-filtered explore views
+// Examples:
+//   "/explore?type=project&sort=newest" - projects, newest first
+//   "/explore?type=event&view=map" - events in map view
+//   "/explore?tags=woodworking,crafts" - filtered by tags
+//   "/about" - any other page
+const IMAGE_PATHS: Record<typeof IMAGE_NAMES[number], string> = {
+	FIND: "/explore",
+	DISCOVER: "/explore?sort=newest",
+	BUILD: "/explore?type=project",
+	CONTRIBUTE: "/explore?type=event",
+};
 
 const getRandomElement = <T,>(array: readonly T[]): T => {
 	return array[Math.floor(Math.random() * array.length)];
@@ -16,11 +31,12 @@ const getImagePath = (name: string, version: string): string => {
 };
 
 interface RotatingImageProps {
-	imageName: string;
+	imageName: typeof IMAGE_NAMES[number];
 	altText: string;
+	href: string;
 }
 
-function RotatingImage({ imageName, altText }: RotatingImageProps) {
+function RotatingImage({ imageName, altText, href }: RotatingImageProps) {
 	const [currentSrc, setCurrentSrc] = useState<string>(
 		getImagePath(imageName, "A")
 	);
@@ -54,17 +70,17 @@ function RotatingImage({ imageName, altText }: RotatingImageProps) {
 	}, [imageName]);
 
 	return (
-		<div className="min-w-0">
+		<Link href={href} className="min-w-0 block">
 			<div className="pt-4 px-4">
 				<Image
 					src={currentSrc}
 					alt={altText}
 					width={600}
 					height={600}
-					className="w-full h-auto object-contain rounded shadow-glow hover:shadow-glow-lg transition-shadow"
+					className="w-full h-auto object-contain rounded shadow-glow hover:shadow-glow-lg transition-shadow cursor-pointer"
 				/>
 			</div>
-		</div>
+		</Link>
 	);
 }
 
@@ -76,6 +92,7 @@ export default function WelcomePage() {
 					key={name}
 					imageName={name}
 					altText={`Project Library landing surface ${i + 1}`}
+					href={IMAGE_PATHS[name]}
 				/>
 			))}
 		</div>

@@ -14,28 +14,28 @@ export const COLLECTION_TYPES = {
 	POST: "post",
 } as const;
 
+export const FILTER_COLLECTION_TYPES = {
+	ALL: "all",
+	PROJECT: COLLECTION_TYPES.PROJECT,
+	EVENT: COLLECTION_TYPES.EVENT,
+	POST: COLLECTION_TYPES.POST,
+} as const;
+
 export type CollectionType = typeof COLLECTION_TYPES[keyof typeof COLLECTION_TYPES];
 
-/**
- * Union type for all collection items
- * New collection types should extend BaseCollectionItem and be added here
- */
+export type FilterCollectionType = (typeof FILTER_COLLECTION_TYPES)[keyof typeof FILTER_COLLECTION_TYPES];
+
 export type CollectionItem = ProjectItem | EventItem;
 
-export type FilterCollectionType = CollectionType | "all";
-
-/**
- * Type guard for ProjectItem - uses discriminator field for type safety
- */
 export function isProject(item: CollectionItem): item is ProjectItem {
-	return item.type === "project";
+	return item.type === COLLECTION_TYPES.PROJECT;
 }
 
 /**
  * Type guard for EventItem - uses discriminator field for type safety
  */
 export function isEvent(item: CollectionItem): item is EventItem {
-	return item.type === "event";
+	return item.type === COLLECTION_TYPES.EVENT;
 }
 
 /**

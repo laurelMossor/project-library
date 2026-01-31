@@ -5,11 +5,20 @@ import { filterCollectionItems, sortCollectionItemsByDate, filterCollectionItems
 export type SortType = "newest" | "oldest" | "relevance";
 export type ViewType = "grid" | "list" | "map";
 
-export function useFilter(items: CollectionItem[]) {
-	const [collectionTypeFilter, setCollectionTypeFilter] = useState<FilterCollectionType>("all");
-	const [sort, setSort] = useState<SortType>("newest");
-	const [view, setView] = useState<ViewType>("grid");
-	const [selectedTags, setSelectedTags] = useState<string[]>([]);
+export interface FilterInitialValues {
+	collectionType?: FilterCollectionType;
+	sort?: SortType;
+	view?: ViewType;
+	tags?: string[];
+}
+
+export function useFilter(items: CollectionItem[], initialValues?: FilterInitialValues) {
+	const [collectionTypeFilter, setCollectionTypeFilter] = useState<FilterCollectionType>(
+		initialValues?.collectionType ?? "all"
+	);
+	const [sort, setSort] = useState<SortType>(initialValues?.sort ?? "newest");
+	const [view, setView] = useState<ViewType>(initialValues?.view ?? "grid");
+	const [selectedTags, setSelectedTags] = useState<string[]>(initialValues?.tags ?? []);
 
 	const filteredItems = useMemo(() => {
 		let filtered = filterCollectionItems(items, collectionTypeFilter);

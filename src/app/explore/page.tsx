@@ -7,15 +7,18 @@ import { fetchEvents } from "@/lib/utils/event-client";
 import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
 import { useFilter } from "@/lib/hooks/useFilter";
+import { useFilterParams } from "@/lib/hooks/useFilterParams";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 export default function CollectionsPage() {
+	const { initialFilters, initialSearch } = useFilterParams();
+
 	const [projects, setProjects] = useState<ProjectItem[]>([]);
 	const [events, setEvents] = useState<EventItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
-	const [search, setSearch] = useState("");
+	const [search, setSearch] = useState(initialSearch);
 
 	// Combine all items for filtering
 	const allItems: CollectionItem[] = useMemo(() => [...projects, ...events], [projects, events]);
@@ -32,7 +35,7 @@ export default function CollectionsPage() {
 		selectedTags,
 		setSelectedTags,
 		availableTags,
-	} = useFilter(allItems);
+	} = useFilter(allItems, initialFilters);
 
 	// Check if any events have location data for map view
 	const hasLocationData = useMemo(
