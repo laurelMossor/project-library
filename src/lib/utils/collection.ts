@@ -1,5 +1,7 @@
 import { CollectionItem, isEvent, isProject, getCollectionItemType, getCollectionItemDate } from "../types/collection";
 
+import { FilterCollectionType } from "../hooks/useFilter";
+
 export const itemHasCollectionType = (item: CollectionItem) => isProject(item) || isEvent(item);
 
 /**
@@ -64,17 +66,12 @@ export function filterCollectionItemsByTags(
  */
 export function filterCollectionItems(
 	items: CollectionItem[],
-	filter: "all" | "projects" | "events"
+	collectionTypeFilter: FilterCollectionType
 ): CollectionItem[] {
-	if (filter === "all") {
+	if (collectionTypeFilter === "all") {
 		return items;
 	}
 	
-	return items.filter((item) => {
-		if (filter === "projects") {
-			return !isEvent(item);
-		}
-		return isEvent(item);
-	});
+	return items.filter((item) => item.type === collectionTypeFilter);
 }
 

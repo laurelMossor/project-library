@@ -5,7 +5,7 @@ import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/err
 import { validateProjectUpdateData } from "@/lib/validations";
 import { projectWithOwnerFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
-import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: Params) {
 
 		const projectItem = {
 			...project,
-			type: COLLECTION_ITEM_TYPES.PROJECT,
+			type: COLLECTION_TYPES.PROJECT,
 			images,
 		};
 
@@ -118,7 +118,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
 		const projectItem = {
 			...project,
-			type: COLLECTION_ITEM_TYPES.PROJECT,
+			type: COLLECTION_TYPES.PROJECT,
 			images,
 		};
 

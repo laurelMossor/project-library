@@ -11,7 +11,7 @@
 import Link from "next/link";
 import { CollectionItem, isEvent } from "@/lib/types/collection";
 import { OwnerAvatar } from "../user/OwnerAvatar";
-import { Tags } from "../tag";
+import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";

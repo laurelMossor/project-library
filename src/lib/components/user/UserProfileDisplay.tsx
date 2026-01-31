@@ -1,5 +1,5 @@
 import { PublicUser, getUserDisplayName } from "@/lib/types/user";
-import { Tag } from "../tag";
+import { Tag } from "../tag/Tag";
 
 type UserProfileDisplayProps = {
 	user: PublicUser;

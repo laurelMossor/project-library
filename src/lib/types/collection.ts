@@ -22,8 +22,6 @@ export type CollectionType = typeof COLLECTION_TYPES[keyof typeof COLLECTION_TYP
  */
 export type CollectionItem = ProjectItem | EventItem;
 
-export type CollectionItemType = "project" | "event";
-
 /**
  * Type guard for ProjectItem - uses discriminator field for type safety
  */
@@ -41,7 +39,7 @@ export function isEvent(item: CollectionItem): item is EventItem {
 /**
  * Get the collection item type using the discriminator field
  */
-export function getCollectionItemType(item: CollectionItem): CollectionItemType {
+export function getCollectionItemType(item: CollectionItem): CollectionType {
 	return item.type;
 }
 

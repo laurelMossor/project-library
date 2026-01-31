@@ -6,7 +6,7 @@ import { validateEventData } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { eventWithOwnerFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 		// Transform to include type and images
 		const eventsWithImages = events.map((e) => ({
 			...e,
-			type: COLLECTION_ITEM_TYPES.EVENT,
+			type: COLLECTION_TYPES.EVENT,
 			images: imagesMap.get(e.id) || [],
 		}));
 
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 		// Return with type and empty images (new event has no images yet)
 		const eventItem = {
 			...event,
-			type: COLLECTION_ITEM_TYPES.EVENT,
+			type: COLLECTION_TYPES.EVENT,
 			images: [],
 		};
 

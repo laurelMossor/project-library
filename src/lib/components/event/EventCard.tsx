@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { OwnerAvatar } from "../user/OwnerAvatar";
 import { EventItem } from "@/lib/types/event";
-import { Tags } from "../tag";
+import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";

@@ -1,5 +1,5 @@
 import { ProfileOwner, getProfileOwnerDisplayName, getProfileOwnerHeadline, getProfileOwnerLocation, getProfileOwnerBio, getProfileOwnerInterests } from "@/lib/types/profile-owner";
-import { Tag } from "../tag";
+import { Tag } from "../tag/Tag";
 
 type OwnerProfileDisplayProps = {
 	owner: ProfileOwner;

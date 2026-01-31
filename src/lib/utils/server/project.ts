@@ -6,14 +6,14 @@ import { ProjectData, ProjectItem, ProjectUpdateInput } from "../../types/projec
 import { projectWithOwnerFields, ProjectFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
-import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 
 /** Transform Prisma query result to ProjectItem */
 function toProjectItem(project: ProjectFromQuery, images: ImageItem[]): ProjectItem {
 	return {
 		...project,
-		type: COLLECTION_ITEM_TYPES.PROJECT,
+		type: COLLECTION_TYPES.PROJECT,
 		images,
 	};
 }

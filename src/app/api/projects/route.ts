@@ -6,7 +6,7 @@ import { validateProjectData } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { projectWithOwnerFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 		// Transform to include type and images
 		const projectsWithImages = projects.map((p) => ({
 			...p,
-			type: COLLECTION_ITEM_TYPES.PROJECT,
+			type: COLLECTION_TYPES.PROJECT,
 			images: imagesMap.get(p.id) || [],
 		}));
 
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
 		// Return with type and empty images (new project has no images yet)
 		const projectItem = {
 			...project,
-			type: COLLECTION_ITEM_TYPES.PROJECT,
+			type: COLLECTION_TYPES.PROJECT,
 			images: [],
 		};
 

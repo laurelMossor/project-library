@@ -1,19 +1,19 @@
 import { useMemo, useState } from "react";
-import { CollectionItem } from "@/lib/types/collection";
+import { CollectionItem, CollectionType } from "@/lib/types/collection";
 import { filterCollectionItems, sortCollectionItemsByDate, filterCollectionItemsByTags } from "@/lib/utils/collection";
 
-export type FilterType = "all" | "projects" | "events";
+export type FilterCollectionType = CollectionType | "all";
 export type SortType = "newest" | "oldest" | "relevance";
 export type ViewType = "grid" | "list" | "map";
 
 export function useFilter(items: CollectionItem[]) {
-	const [filter, setFilter] = useState<FilterType>("all");
+	const [collectionTypeFilter, setCollectionTypeFilter] = useState<FilterCollectionType>("all");
 	const [sort, setSort] = useState<SortType>("newest");
 	const [view, setView] = useState<ViewType>("grid");
 	const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
 	const filteredItems = useMemo(() => {
-		let filtered = filterCollectionItems(items, filter);
+		let filtered = filterCollectionItems(items, collectionTypeFilter);
 		
 		// Filter by tags if any are selected
 		if (selectedTags.length > 0) {
@@ -26,7 +26,7 @@ export function useFilter(items: CollectionItem[]) {
 		}
 		
 		return filtered;
-	}, [items, filter, sort, selectedTags]);
+	}, [items, collectionTypeFilter, sort, selectedTags]);
 
 	// Extract all unique tags from items
 	const availableTags = useMemo(() => {
@@ -39,8 +39,8 @@ export function useFilter(items: CollectionItem[]) {
 
 	return {
 		filteredItems,
-		filter,
-		setFilter,
+		collectionTypeFilter,
+		setCollectionTypeFilter,
 		sort,
 		setSort,
 		view,

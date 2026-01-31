@@ -2,9 +2,8 @@ import { FilterBoard } from "../filter-sort/FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
 import { PaginationControls } from "./PaginationControls";
 import { CollectionItem } from "@/lib/types/collection";
-import { FilterType, SortType, ViewType } from "@/lib/hooks/useFilter";
+import { FilterCollectionType, SortType, ViewType } from "@/lib/hooks/useFilter";
 import { usePagination } from "@/lib/hooks/usePagination";
-import { BetaTag } from "../tag/betaTag";
 import { SearchBar } from "../search/SearchBar";
 
 type CollectionPageProps = {
@@ -13,8 +12,8 @@ type CollectionPageProps = {
 	error: string;
 	search: string;
 	onSearchChange: (value: string) => void;
-	filter: FilterType;
-	onFilterChange: (filter: FilterType) => void;
+	collectionTypeFilter: FilterCollectionType;
+	onCollectionTypeChange: (collectionType: FilterCollectionType) => void;
 	sort: SortType;
 	onSortChange: (sort: SortType) => void;
 	view: ViewType;
@@ -33,8 +32,8 @@ export function CollectionPage({
 	error,
 	search,
 	onSearchChange,
-	filter,
-	onFilterChange,
+	collectionTypeFilter,
+	onCollectionTypeChange,
 	sort,
 	onSortChange,
 	view,
@@ -61,15 +60,10 @@ export function CollectionPage({
 		<div className="max-w-6xl mx-auto w-full">
 			<SearchBar searchValue={search} onSearchChange={onSearchChange} />
 
-				<div className="flex gap-2">
-					<h1 className="text-3xl font-bold mb-4">{title}</h1>
-					<BetaTag />
-				</div>
-
 				<FilterBoard
-					search={search}
-					filter={filter}
-					onFilterChange={onFilterChange}
+					title={title}
+					collectionTypeFilter={collectionTypeFilter}
+					onCollectionTypeChange={onCollectionTypeChange}
 					sort={sort}
 					onSortChange={onSortChange}
 					view={view}
@@ -99,8 +93,8 @@ export function CollectionPage({
 				<div className="text-center py-12">
 					<p>
 						{search
-							? `No ${filter === "all" ? "items" : filter} found matching your search.`
-							: `No ${filter === "all" ? "collections" : filter} yet. Be the first to create one!`}
+							? `No ${collectionTypeFilter === "all" ? "items" : collectionTypeFilter} found matching your search.`
+							: `No ${collectionTypeFilter === "all" ? "collections" : collectionTypeFilter} yet. Be the first to create one!`}
 					</p>
 				</div>
 			)}

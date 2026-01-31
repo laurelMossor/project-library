@@ -7,14 +7,14 @@ import type { Prisma } from "@prisma/client";
 import { eventWithOwnerFields, EventFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
-import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 
 /** Transform Prisma query result to EventItem */
 function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
 	return {
 		...event,
-		type: COLLECTION_ITEM_TYPES.EVENT,
+		type: COLLECTION_TYPES.EVENT,
 		images,
 	};
 }

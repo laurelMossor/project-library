@@ -5,7 +5,7 @@ import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/err
 import { validateEventUpdateData } from "@/lib/validations";
 import { eventWithOwnerFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
-import { COLLECTION_ITEM_TYPES } from "@/lib/types/collection-base";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: Params) {
 
 		const eventItem = {
 			...event,
-			type: COLLECTION_ITEM_TYPES.EVENT,
+			type: COLLECTION_TYPES.EVENT,
 			images,
 		};
 
@@ -141,7 +141,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
 		const eventItem = {
 			...event,
-			type: COLLECTION_ITEM_TYPES.EVENT,
+			type: COLLECTION_TYPES.EVENT,
 			images,
 		};
 

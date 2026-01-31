@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { FilterType, SortType, ViewType } from "@/lib/hooks/useFilter";
-import { SearchBar } from "../search/SearchBar";
+import { FilterCollectionType, SortType, ViewType } from "@/lib/hooks/useFilter";
+import { CollectionTitle } from "../collection/CollectionTitle";
 
 type FilterBoardProps = {
-	search: string;
-	filter: FilterType;
-	onFilterChange: (filter: FilterType) => void;
+	title: string;
+	collectionTypeFilter: FilterCollectionType;
+	onCollectionTypeChange: (collectionType: FilterCollectionType) => void;
 	sort: SortType;
 	onSortChange: (sort: SortType) => void;
 	view: ViewType;
@@ -17,9 +17,9 @@ type FilterBoardProps = {
 };
 
 export function FilterBoard({
-	search,
-	filter,
-	onFilterChange,
+	title,
+	collectionTypeFilter,
+	onCollectionTypeChange,
 	sort,
 	onSortChange,
 	view,
@@ -49,16 +49,17 @@ export function FilterBoard({
 
 	return (
 		<div className="mb-8">
-			{/* Search bar */}
-
+			<CollectionTitle title={title} />
 			{/* Filter tabs, sort, and view toggle */}
+
+
 			<div className="flex flex-wrap items-center gap-4 mb-4">
 				{/* Filter tabs */}
 				<div className="flex gap-2 border-b">
 					<button
-						onClick={() => onFilterChange("all")}
+						onClick={() => onCollectionTypeChange("all")}
 						className={`px-4 py-2 font-medium transition ${
-							filter === "all"
+							collectionTypeFilter === "all"
 								? "border-b-2 border-black text-black"
 								: "text-gray-600 hover:text-black"
 						}`}
@@ -66,9 +67,9 @@ export function FilterBoard({
 						All
 					</button>
 					<button
-						onClick={() => onFilterChange("projects")}
+						onClick={() => onCollectionTypeChange("project")}
 						className={`px-4 py-2 font-medium transition ${
-							filter === "projects"
+							collectionTypeFilter === "project"
 								? "border-b-2 border-black text-black"
 								: "text-gray-600 hover:text-black"
 						}`}
@@ -76,9 +77,9 @@ export function FilterBoard({
 						Projects
 					</button>
 					<button
-						onClick={() => onFilterChange("events")}
+						onClick={() => onCollectionTypeChange("event")}
 						className={`px-4 py-2 font-medium transition ${
-							filter === "events"
+							collectionTypeFilter === "event"
 								? "border-b-2 border-black text-black"
 								: "text-gray-600 hover:text-black"
 						}`}

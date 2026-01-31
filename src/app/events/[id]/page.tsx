@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EventMap } from "@/lib/components/map/EventMap";
-import { Tags } from "@/lib/components/tag";
+import { Tags } from "@/lib/components/tag/Tag";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 import { PostsList } from "@/lib/components/post/PostsList";

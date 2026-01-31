@@ -1,5 +1,5 @@
 import type { PublicOwner } from "../utils/owner";
-
+import { COLLECTION_TYPES } from "./collection";
 /**
  * Base interface for all collection items (projects, events, etc.)
  * Defines the common structure that all collection types must implement.
@@ -17,12 +17,7 @@ import type { PublicOwner } from "../utils/owner";
  * Note: In v0.3, owner is an Owner (can be personal or org-based)
  */
 
-export const COLLECTION_ITEM_TYPES = {
-	PROJECT: "project",
-	EVENT: "event",
-} as const;
-
-export type CollectionItemType = typeof COLLECTION_ITEM_TYPES[keyof typeof COLLECTION_ITEM_TYPES];
+export type CollectionItemType = (typeof COLLECTION_TYPES)[keyof typeof COLLECTION_TYPES];
 export interface BaseCollectionItem {
 	id: string;
 	ownerId: string;

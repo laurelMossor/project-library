@@ -23,8 +23,8 @@ export default function CollectionsPage() {
 	// Use filter hook for filtering, sorting, and view state
 	const { 
 		filteredItems, 
-		filter, 
-		setFilter, 
+		collectionTypeFilter, 
+		setCollectionTypeFilter, 
 		sort, 
 		setSort, 
 		view, 
@@ -83,8 +83,8 @@ export default function CollectionsPage() {
 				error={error}
 				search={search}
 				onSearchChange={setSearch}
-				filter={filter}
-				onFilterChange={setFilter}
+				collectionTypeFilter={collectionTypeFilter}
+				onCollectionTypeChange={setCollectionTypeFilter}
 				sort={sort}
 				onSortChange={setSort}
 				view={view}
