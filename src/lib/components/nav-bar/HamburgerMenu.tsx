@@ -25,6 +25,7 @@ import {
 	USER_PROFILE_SETTINGS,
 	ORG_PROFILE_SETTINGS,
 	LOGIN_WITH_CALLBACK,
+	EXPLORE,
 } from "@/lib/const/routes";
 import { API_ME_OWNER } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
@@ -115,7 +116,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		if (isLoggedIn) {
 			setIsNewItemModalOpen(true);
 		} else {
-			router.push(LOGIN_WITH_CALLBACK(typeof window !== "undefined" ? window.location.pathname : COLLECTIONS));
+			router.push(LOGIN_WITH_CALLBACK(typeof window !== "undefined" ? window.location.pathname : EXPLORE));
 		}
 	};
 
@@ -142,17 +143,19 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 	const handleLogout = async () => {
 		closeMenu();
-		await signOut({ callbackUrl: COLLECTIONS });
+		await signOut({ callbackUrl: EXPLORE });
 	};
 
 	const handleLogin = () => {
 		closeMenu();
-		router.push(LOGIN_WITH_CALLBACK(COLLECTIONS));
+		router.push(LOGIN_WITH_CALLBACK(EXPLORE));
 	};
 
 	const linkClass =
 		"flex items-center gap-3 w-full px-4 py-3 text-left text-rich-brown hover:bg-soft-grey rounded transition-colors";
 
+
+	// TODO: Make a component for each menu item, taking in icon, route and text
 	return (
 		<nav className="relative flex items-center">
 			<button
@@ -184,7 +187,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					>
 						{/* Explore (Collections) */}
 						<Link
-							href={COLLECTIONS}
+							href={EXPLORE}
 							onClick={closeMenu}
 							className={linkClass}
 							role="menuitem"

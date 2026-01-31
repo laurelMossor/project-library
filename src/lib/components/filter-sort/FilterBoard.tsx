@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { FilterType, SortType, ViewType } from "@/lib/hooks/useFilter";
+import { SearchBar } from "../search/SearchBar";
 
 type FilterBoardProps = {
 	search: string;
-	onSearchChange: (value: string) => void;
 	filter: FilterType;
 	onFilterChange: (filter: FilterType) => void;
 	sort: SortType;
@@ -18,7 +18,6 @@ type FilterBoardProps = {
 
 export function FilterBoard({
 	search,
-	onSearchChange,
 	filter,
 	onFilterChange,
 	sort,
@@ -51,15 +50,6 @@ export function FilterBoard({
 	return (
 		<div className="mb-8">
 			{/* Search bar */}
-			<div className="mb-4">
-				<input
-					type="text"
-					placeholder="Search projects and events..."
-					value={search}
-					onChange={(e) => onSearchChange(e.target.value)}
-					className="w-full max-w-md border p-2 rounded"
-				/>
-			</div>
 
 			{/* Filter tabs, sort, and view toggle */}
 			<div className="flex flex-wrap items-center gap-4 mb-4">

@@ -1,10 +1,11 @@
-import { FilterBoard } from "./FilterBoard";
+import { FilterBoard } from "../filter-sort/FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
 import { PaginationControls } from "./PaginationControls";
 import { CollectionItem } from "@/lib/types/collection";
 import { FilterType, SortType, ViewType } from "@/lib/hooks/useFilter";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { BetaTag } from "../tag/betaTag";
+import { SearchBar } from "../search/SearchBar";
 
 type CollectionPageProps = {
 	filteredItems: CollectionItem[];
@@ -58,8 +59,8 @@ export function CollectionPage({
 
 	return (
 		<div className="max-w-6xl mx-auto w-full">
-			{/* Header */}
-			<div className="mb-8">
+			<SearchBar searchValue={search} onSearchChange={onSearchChange} />
+
 				<div className="flex gap-2">
 					<h1 className="text-3xl font-bold mb-4">{title}</h1>
 					<BetaTag />
@@ -67,7 +68,6 @@ export function CollectionPage({
 
 				<FilterBoard
 					search={search}
-					onSearchChange={onSearchChange}
 					filter={filter}
 					onFilterChange={onFilterChange}
 					sort={sort}
@@ -79,7 +79,6 @@ export function CollectionPage({
 					onTagsChange={onTagsChange}
 					availableTags={availableTags}
 				/>
-			</div>
 
 			{/* Loading state */}
 			{loading && (

@@ -29,7 +29,7 @@ export const ORG_NEW = "/orgs/new";
 
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
-
+export const EXPLORE = "/explore";
 
 export const PROJECTS = "/projects";
 export const PROJECT_NEW = "/projects/new";

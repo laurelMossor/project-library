@@ -1,14 +1,18 @@
 import Image from "next/image";
 
-const LANDING_IMAGES_BASE = "/static/assets/images/PL_landing_surfaces_1";
+const LANDING_IMAGES_BASE = "/static/assets/images/PL_landing_surfaces_A";
 const LANDING_IMAGES = [
-	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-1.png`,
-
-	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-3.png`,
-    `${LANDING_IMAGES_BASE}/PL_landing_surfaces-2.png`,
-	`${LANDING_IMAGES_BASE}/PL_landing_surfaces-4.png`,
+    `${LANDING_IMAGES_BASE}/FIND_A.png`,
+	`${LANDING_IMAGES_BASE}/DISCOVER_A.png`,
+	`${LANDING_IMAGES_BASE}/BUILD_A.png`,
+	`${LANDING_IMAGES_BASE}/CONTRIBUTE_A.png`,
 ];
 
+// create a groups of all the versions of a single surface
+// create a component that renders one from each group
+
+// alt text
+// src
 export default function WelcomePage() {
 	return (
 		<div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 lg:gap-6 max-w-[min(100%,612px)] md:max-w-[min(100%,800px)] lg:max-w-[min(100%,1024px)] xl:max-w-[min(100%,1200px)] mx-auto px-4">

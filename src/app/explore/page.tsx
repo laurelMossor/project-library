@@ -1,7 +1,5 @@
 "use client";
 
-// CURRENTLY DEPRECATED - USE EXPLORE PAGE INSTEAD
-
 import { useState, useEffect, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
 import { fetchProjects } from "@/lib/utils/project-client";
