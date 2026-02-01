@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -29,6 +29,7 @@ import {
 import { API_ME_OWNER } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { MenuItem } from "./MenuItem";
+import { DropdownMenu, dropdownMenuStyles } from "../../ui/DropdownMenu";
 
 
 interface HamburgerMenuProps {
@@ -44,23 +45,12 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const isLoggedIn = hasSession(activeSession);
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
-	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const [profileLink, setProfileLink] = useState<string | undefined>(undefined);
 	const [profileLabel, setProfileLabel] = useState<string>("Profile");
 	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
 	const [username, setUsername] = useState<string>('');
-
-	useLayoutEffect(() => {
-		if (!isOpen || !buttonRef.current || typeof window === "undefined") return;
-		const rect = buttonRef.current.getBoundingClientRect();
-		setDropdownPosition({
-			top: rect.bottom + 4,
-			right: window.innerWidth - rect.right,
-		});
-	}, [isOpen]);
 
 	useEffect(() => {
 		if (isLoggedIn) {
@@ -103,7 +93,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 	const closeMenu = () => {
 		setIsOpen(false);
-		setDropdownPosition(null);
 	};
 
 	const handleAbout = () => {
@@ -154,92 +143,68 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 	return (
 		<nav className="relative flex items-center">
-			<button
-				ref={buttonRef}
-				onClick={() => setIsOpen((o) => !o)}
-				className="p-2 hover:opacity-80 rounded transition-opacity"
-				aria-label="Menu"
-				aria-expanded={isOpen}
+			<DropdownMenu
+				isOpen={isOpen}
+				onClose={() => setIsOpen((o) => !o)}
+				trigger={<HamburgerIcon className="w-8 h-8 shrink-0" />}
+				triggerAriaLabel="Menu"
 			>
-				<HamburgerIcon className={'w-8 h-8 shrink-0'} />
-			</button>
+				<MenuItem
+					icon={<CollectionsIcon className={iconClass} />}
+					label="Explore"
+					href={EXPLORE}
+					closeMenu={closeMenu}
+				/>
 
-			{isOpen && (
-				<>
-					<div
-						className="fixed inset-0 z-40"
-						aria-hidden="true"
-						onClick={closeMenu}
+				<MenuItem
+					icon={<PencilIcon className={iconClass} />}
+					label="Post"
+					onClick={handleCreateNew}
+					closeMenu={closeMenu}
+				/>
+
+				<MenuItem
+					icon={<UserHomeIcon className={iconClass} />}
+					label="Profile"
+					href={isLoggedIn ? PUBLIC_USER_PAGE(username) : undefined}
+					onClick={!isLoggedIn ? handleProfile : undefined}
+					closeMenu={closeMenu}
+				/>
+
+				<MenuItem
+					icon={<MessageIcon className={iconClass} />}
+					label="Messages"
+					href={isLoggedIn ? MESSAGES : undefined}
+					onClick={!isLoggedIn ? handleMessages : undefined}
+					closeMenu={closeMenu}
+				/>
+
+				<MenuItem
+					icon={<SettingsIcon className={iconClass} />}
+					label="Settings"
+					href={settingsLink}
+					onClick={!settingsLink ? handleSettings : undefined}
+					closeMenu={closeMenu}
+				/>
+
+				<div className={dropdownMenuStyles.divider} />
+
+				{isLoggedIn ? (
+					<MenuItem
+						icon={<LogoutIcon className={iconClass} />}
+						label="Log Out"
+						onClick={handleLogout}
+						closeMenu={closeMenu}
 					/>
-					{dropdownPosition && (
-					<div
-						className="z-50 min-w-[220px] rounded-lg border border-rich-brown bg-grey-white shadow-lg py-2"
-						style={{
-							position: "fixed",
-							top: dropdownPosition.top,
-							right: dropdownPosition.right,
-						}}
-						role="menu"
-					>
-						<MenuItem
-							icon={<CollectionsIcon className={iconClass} />}
-							label="Explore"
-							href={EXPLORE}
-							closeMenu={closeMenu}
-						/>
-
-						<MenuItem
-							icon={<PencilIcon className={iconClass} />}
-							label="Post"
-							onClick={handleCreateNew}
-							closeMenu={closeMenu}
-						/>
-
-						<MenuItem
-							icon={<UserHomeIcon className={iconClass} />}
-							label="Profile"
-							href={isLoggedIn ? PUBLIC_USER_PAGE(username) : undefined}
-							onClick={!isLoggedIn ? handleProfile : undefined}
-							closeMenu={closeMenu}
-						/>
-
-						<MenuItem
-							icon={<MessageIcon className={iconClass} />}
-							label="Messages"
-							href={isLoggedIn ? MESSAGES : undefined}
-							onClick={!isLoggedIn ? handleMessages : undefined}
-							closeMenu={closeMenu}
-						/>
-
-						<MenuItem
-							icon={<SettingsIcon className={iconClass} />}
-							label="Settings"
-							href={settingsLink}
-							onClick={!settingsLink ? handleSettings : undefined}
-							closeMenu={closeMenu}
-						/>
-
-						<div className="my-1 border-t border-soft-grey" />
-
-						{isLoggedIn ? (
-							<MenuItem
-								icon={<LogoutIcon className={iconClass} />}
-								label="Log Out"
-								onClick={handleLogout}
-								closeMenu={closeMenu}
-							/>
-						) : (
-							<MenuItem
-								icon={<LoginIcon className={iconClass} />}
-								label="Log In"
-								onClick={handleLogin}
-								closeMenu={closeMenu}
-							/>
-						)}
-					</div>
-					)}
-				</>
-			)}
+				) : (
+					<MenuItem
+						icon={<LoginIcon className={iconClass} />}
+						label="Log In"
+						onClick={handleLogin}
+						closeMenu={closeMenu}
+					/>
+				)}
+			</DropdownMenu>
 			{/* About modal not in use right now */}
 			<AboutModal
 				isOpen={isAboutModalOpen}

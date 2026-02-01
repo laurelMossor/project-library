@@ -2,11 +2,10 @@ import { getUserDisplayName, PublicUser } from "@/lib/types/user";
 import { UserProfileDisplay } from "./UserProfileDisplay";
 import { ButtonLink } from "../ui/ButtonLink";
 import { Session } from "next-auth";
-import { PRIVATE_USER_PAGE, PROJECT_NEW, EVENT_NEW, MESSAGE_CONVERSATION, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
-import { GearsIcon } from "../icons/icons";
-import { TransparentCTAButton } from "../collection/CreationCTA";
 import { HeadingTitle } from "../text/HeadingTitle";
+import { ProfileOptionsMenu } from "./ProfileOptionsMenu";
 
 type UserProfileHeaderProps = {
 	user: PublicUser;
@@ -21,18 +20,7 @@ export function UserProfileHeader({ user, isOwnProfile, session }: UserProfileHe
 			<div className="flex flex-row items-center justify-between gap-3">
 				<HeadingTitle title={getUserDisplayName(user)} />
 				{isOwnProfile ? (
-					// <>
-					// 	<ButtonLink href={PRIVATE_USER_PAGE} fullWidth>
-					// 		Edit Profile
-					// 	</ButtonLink>
-					// 	<ButtonLink href={PROJECT_NEW} fullWidth>
-					// 		New Project
-					// 	</ButtonLink>
-					// 	<ButtonLink href={EVENT_NEW} fullWidth>
-					// 		New Event
-					// 	</ButtonLink>
-					// </>
-					<TransparentCTAButton href={USER_PROFILE_SETTINGS} label="Options" icon={<GearsIcon className="w-6 h-6 shrink-0" />} />
+					<ProfileOptionsMenu />
 				) : (
 					loggedIn && (
 						<ButtonLink href={MESSAGE_CONVERSATION(user.ownerId)} fullWidth>
