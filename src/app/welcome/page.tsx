@@ -1,9 +1,7 @@
-"use client";
-
-import { RotatingLandingImages } from "@/lib/components/images/RotatingLandingImages";
+import { StaticLandingImages } from "@/lib/components/images/StaticLandingImages";
 
 export default function WelcomePage() {
 	return (
-		<RotatingLandingImages />
+		<StaticLandingImages />
 	);
 }
