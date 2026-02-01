@@ -1,7 +1,7 @@
 /**
  * ORG PROFILE SETTINGS PAGE
  * 
- * This is the org's settings page at /o/profile/settings.
+ * This is the org's settings page at /o/profile.
  * - Protected route (requires authentication)
  * - Allows switching between user and org owners
  * - Links to edit pages
@@ -34,7 +34,7 @@ export default function OrgSettingsPage() {
 
 	useEffect(() => {
 		if (!session?.user?.id) {
-			router.push(LOGIN_WITH_CALLBACK("/o/profile/settings"));
+			router.push(LOGIN_WITH_CALLBACK("/o/profile"));
 			return;
 		}
 

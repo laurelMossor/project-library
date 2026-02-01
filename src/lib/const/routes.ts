@@ -12,8 +12,8 @@ export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUr
 // User & Profile Routes
 // ============================================================================
 export const PRIVATE_USER_PAGE = "/u/profile";
-export const USER_PROFILE_SETTINGS = "/u/profile/settings";
-export const USER_PROFILE_EDIT = "/u/profile/edit";
+export const USER_PROFILE_SETTINGS = "/u/profile/"; 
+export const USER_PROFILE_EDIT = "/u/profile#profile-section"; 
 export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
 export const USER_CONNECTIONS = (username: string) => `/u/${username}/connections`;
 
@@ -23,8 +23,8 @@ export const USER_CONNECTIONS = (username: string) => `/u/${username}/connection
 export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
 export const ORG_CONNECTIONS = (slug: string) => `/o/${slug}/connections`;
 export const PRIVATE_ORG_PAGE = "/o/profile";
-export const ORG_PROFILE_SETTINGS = "/o/profile/settings";
-export const ORG_PROFILE_EDIT = "/o/profile/edit";
+export const ORG_PROFILE_SETTINGS = "/o/profile"; 
+export const ORG_PROFILE_EDIT = "/o/profile#profile-section"; 
 export const ORG_NEW = "/orgs/new";
 
 export const WELCOME_PAGE = "/welcome";

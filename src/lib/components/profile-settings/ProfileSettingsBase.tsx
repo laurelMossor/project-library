@@ -5,7 +5,8 @@ import Link from "next/link";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { Button } from "@/lib/components/ui/Button";
 import { ORG_NEW, BUG_REPORT_FORM, HOME, COLLECTIONS } from "@/lib/const/routes";
-import { PeopleGroupIcon } from "@/lib/components/icons/icons";
+import { PeopleGroupIcon, PencilIcon } from "@/lib/components/icons/icons";
+import { transparentCTAStyles } from "../collection/CreationCTA";
 import { SettingsSection } from "./SettingsSection";
 import { DisabledSettingsButton } from "./DisabledSettingsButton";
 import { LineDivider } from "../layout/LineDivider";
@@ -107,17 +108,25 @@ export function ProfileSettingsBase({
 
 			{/* Profile Information Section */}
 			<SettingsSection>
-				<div ref={profileSectionRef}>
-					<h2 className="text-xl font-semibold mb-4">{profileSectionTitle}</h2>
+				<div id="profile-section" ref={profileSectionRef}>
+					<div className="flex items-center justify-between mb-4">
+						<h2 className="text-xl font-semibold">{profileSectionTitle}</h2>
+						{onEditClick && !isEditing && (
+							<button
+								onClick={handleEditClick}
+								className={transparentCTAStyles.container}
+								aria-label="Edit profile"
+							>
+								<span className={transparentCTAStyles.iconWrapper}>
+									<PencilIcon className="w-5 h-5" />
+								</span>
+								<span className={transparentCTAStyles.label}>Edit</span>
+							</button>
+						)}
+					</div>
 					{profileContent}
 				</div>
 			</SettingsSection>
-
-			{/* Footer Links */}
-			<div className="flex gap-4 justify-center">
-				<Link href={HOME} className="text-sm underline text-gray-600">Home</Link>
-				<Link href={COLLECTIONS} className="text-sm underline text-gray-600">Collections</Link>
-			</div>
 		</>
 	);
 }

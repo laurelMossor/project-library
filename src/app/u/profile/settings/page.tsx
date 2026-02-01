@@ -1,7 +1,7 @@
 /**
  * USER PROFILE SETTINGS PAGE
  * 
- * This is the user's settings page at /u/profile/settings.
+ * This is the user's settings page at /u/profile.
  * - Protected route (requires authentication)
  * - Allows switching between user and org owners
  * - Links to edit pages for both user and org

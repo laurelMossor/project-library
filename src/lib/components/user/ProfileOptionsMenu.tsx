@@ -4,7 +4,8 @@ import { useState } from "react";
 import { DropdownMenu, dropdownMenuStyles } from "../ui/DropdownMenu";
 import { MenuItem } from "../nav-bar/hamburger/MenuItem";
 import { GearsIcon, PencilIcon, CalendarIcon, UserHomeIcon } from "../icons/icons";
-import { PRIVATE_USER_PAGE, PROJECT_NEW, EVENT_NEW, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
+import { PROJECT_NEW, EVENT_NEW, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
+import { transparentCTAStyles } from "../collection/CreationCTA";
 
 const iconClass = "w-6 h-6 shrink-0";
 
@@ -20,18 +21,20 @@ export function ProfileOptionsMenu() {
 			isOpen={isOpen}
 			onClose={() => setIsOpen((o) => !o)}
 			trigger={
-				<span className="flex items-center gap-2">
-					<GearsIcon className="w-6 h-6 shrink-0" />
-					<span>Options</span>
-				</span>
+				<>
+					<span className={transparentCTAStyles.iconWrapper}>
+						<GearsIcon className="w-6 h-6 shrink-0" />
+					</span>
+					<span className={transparentCTAStyles.label}>Options</span>
+				</>
 			}
-			triggerClassName="flex items-center gap-2 px-3 py-2 text-rich-brown hover:opacity-80 rounded transition-opacity"
+			triggerClassName={transparentCTAStyles.container}
 			triggerAriaLabel="Profile options"
 		>
 			<MenuItem
 				icon={<UserHomeIcon className={iconClass} />}
 				label="Edit Profile"
-				href={PRIVATE_USER_PAGE}
+				href={`${USER_PROFILE_SETTINGS}#profile-section`}
 				closeMenu={closeMenu}
 			/>
 
