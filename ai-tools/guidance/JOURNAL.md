@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Sat 01/31/2026 22:34 PST
+Refactored user profile settings page (`/u/profile`) with cohesive settings layout. Created "User Settings" section with View Public Profile, Edit Profile (triggers inline editing), and disabled/mocked buttons for upcoming features (Privacy Settings, Change Password, Delete Account, Manage Followers, Manage Orgs) with "Coming Soon" badges. Added "Org Settings" section with Create Organization button and org list showing View/Switch To buttons for each org. Simplified `EditableProfile` component to support controlled editing state via props, enabling the Edit Profile button to trigger inline editing and scroll to the Profile Information section. Created shared profile settings component library in `src/lib/components/profile-settings/` with `ProfileSettingsBase`, `SettingsSection`, `DisabledSettingsButton`, `LineDivider`, and `OrgSwitcher` components. Refactored both `/u/profile` and `/o/profile` pages to use shared components, ensuring consistent design and functionality between user and org profile settings. The `OrgSwitcher` component includes "Switch to User Profile" option when viewing org profiles.
+
 #### Entry: Fri 01/30/2026 19:53 PST
 Extracted view toggle buttons into reusable component. Created `ViewToggle.tsx` in `src/lib/components/filter-sort/` containing Grid, List, and Map view buttons previously inline in `FilterBoard`. Added `ViewToggleButton` component following the same pattern as `CollectionTypeButton` from `CollectionTypeBadge.tsx` - uses consistent styling with `bg-moss-green`/`bg-misty-forest` colors, uppercase text, bold font, and hover shadow effects. Updated `FilterBoard` to import and use the new `ViewToggle` component, improving code organization and reusability.
 
