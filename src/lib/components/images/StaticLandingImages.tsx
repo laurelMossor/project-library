@@ -6,7 +6,7 @@ const LANDING_IMAGES = [
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-1.png",
 		alt: "Find",
-		href: "/explore?type=event&sort=newest&view=map&tags=improv",
+		href: "/explore?sort=newest&tags=improv",
 	},
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-2.png",
