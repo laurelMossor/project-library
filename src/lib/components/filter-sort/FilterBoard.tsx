@@ -53,8 +53,7 @@ export function FilterBoard({
 	return (
 		<div className="mb-8">
 			{/* Title and collection type filters */}
-			<div className="flex items-center justify-between mb-4">
-				<CollectionTitle title={title} />
+			<div className="flex items-center justify-end mb-4">
 				<CollectionTypeFilters
 					collectionTypeFilter={collectionTypeFilter}
 					onCollectionTypeChange={onCollectionTypeChange}
@@ -67,7 +66,7 @@ export function FilterBoard({
 				<select
 					value={sort}
 					onChange={(e) => onSortChange(e.target.value as SortType)}
-					className="border p-2 rounded text-sm"
+					className="border border-rich-brown bg-warm-grey p-2 text-grey-white rounded text-sm font-semibold"
 				>
 					<option value="newest">Newest First</option>
 					<option value="oldest">Oldest First</option>

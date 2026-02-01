@@ -3,8 +3,8 @@
 export const SearchBar = ({ searchValue, onSearchChange }: { searchValue: string; onSearchChange: (value: string) => void }) => {
 
     return (
-        <div className="mb-4 flex justify-end">
-            <div className="relative w-full max-w-md">
+        <div className="flex justify-end">
+            <div className="relative w-full">
                 <input
                     type="text"
                     placeholder="Search projects and events..."

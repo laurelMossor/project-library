@@ -57,7 +57,7 @@ export default async function PublicProfilePage({ params }: Props) {
 			{/* User's Collection Section */}
 			<UserCollectionSection 
 				items={collectionItems} 
-				title={`${username}'s Collection`}
+				title={'History'}
 				emptyMessage={`${username} hasn't created any projects or events yet.`}
 				showCreateLinks={false}
 			/>
