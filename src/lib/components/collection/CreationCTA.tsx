@@ -3,7 +3,7 @@ import { COLLECTION_TYPES, FilterCollectionType } from "@/lib/types/collection"
 import Link from "next/link"
 import { CalendarIcon, PencilIcon } from "../icons/icons"
 
-const CTAButton = ({ href, label, icon }: { href: string, label: string, icon?: React.ReactNode }) => {
+export const TransparentCTAButton = ({ href, label, icon }: { href: string, label: string, icon?: React.ReactNode }) => {
     const styling = "px-2 py-2  text-rich-brown ";
 
     return (
@@ -27,14 +27,14 @@ export const CreationCTA = ({ collectionTypeFilter }: { collectionTypeFilter: Fi
     return (
         <div className="flex justify-center gap-4">  
             {showProjectCTA && (
-                <CTAButton 
+                <TransparentCTAButton 
                     href={PROJECT_NEW} 
                     label="New Project" 
                     icon={<PencilIcon 
                         className="w-4" />} />
             )}
             {showEventCTA && (
-                <CTAButton 
+                <TransparentCTAButton 
                     href={EVENT_NEW} 
                     label="New Event" 
                     icon={<CalendarIcon

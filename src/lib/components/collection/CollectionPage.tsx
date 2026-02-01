@@ -6,7 +6,7 @@ import { CollectionItem, FilterCollectionType } from "@/lib/types/collection";
 import { SortType, ViewType } from "@/lib/hooks/useFilter";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { SearchBar } from "../search/SearchBar";
-import { CollectionTitle } from "./CollectionTitle";
+import { HeadingTitle } from "../text/HeadingTitle";
 
 type CollectionPageProps = {
 	filteredItems: CollectionItem[];
@@ -63,7 +63,7 @@ export function CollectionPage({
 	return (
 		<div className="max-w-6xl mx-auto w-full">
 			<div className="flex items-center justify-between gap-4 mb-4">
-				<CollectionTitle title={title} />
+				<HeadingTitle title={title} />
 				<div className="flex-1 max-w-lg">
 					<SearchBar searchValue={search} onSearchChange={onSearchChange} />
 				</div>

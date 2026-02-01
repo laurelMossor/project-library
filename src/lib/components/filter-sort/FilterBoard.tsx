@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SortType, ViewType } from "@/lib/hooks/useFilter";
 import { FilterCollectionType } from "@/lib/types/collection";
-import { CollectionTitle } from "../collection/CollectionTitle";
+import { HeadingTitle } from "../text/HeadingTitle";
 import { CollectionTypeFilters } from "./CollectionTypeFilters";
 import { ViewToggle } from "./ViewToggle";
 

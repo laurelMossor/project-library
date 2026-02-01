@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -13,9 +12,9 @@ import {
 	LoginIcon,
 	LogoutIcon,
 	SettingsIcon,
-} from "../icons/icons";
-import { AboutModal } from "../AboutModal";
-import { NewItemModal } from "./NewItemModal";
+} from "../../icons/icons";
+import { AboutModal } from "../../AboutModal";
+import { NewItemModal } from "../NewItemModal";
 import {
 	COLLECTIONS,
 	MESSAGES,
@@ -29,12 +28,14 @@ import {
 } from "@/lib/const/routes";
 import { API_ME_OWNER } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
+import { MenuItem } from "./MenuItem";
 
-const iconClass = "w-6 h-6 shrink-0";
 
 interface HamburgerMenuProps {
 	session: ReturnType<typeof useSession>["data"] | null;
 }
+
+const iconClass = "w-6 h-6 shrink-0";
 
 export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const { data: session } = useSession();
@@ -50,7 +51,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [profileLink, setProfileLink] = useState<string | undefined>(undefined);
 	const [profileLabel, setProfileLabel] = useState<string>("Profile");
 	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
-	const [username, setUsername] = useState<string | undefined>(undefined);
+	const [username, setUsername] = useState<string>('');
 
 	useLayoutEffect(() => {
 		if (!isOpen || !buttonRef.current || typeof window === "undefined") return;
@@ -97,7 +98,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		} else {
 			setProfileLink(undefined);
 			setSettingsLink(undefined);
-			setUsername(undefined);
 		}
 	}, [isLoggedIn, activeSession?.user?.activeOwnerId]);
 
@@ -151,11 +151,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		router.push(LOGIN_WITH_CALLBACK(EXPLORE));
 	};
 
-	const linkClass =
-		"flex items-center gap-3 w-full px-4 py-3 text-left text-rich-brown hover:bg-soft-grey rounded transition-colors";
 
-
-	// TODO: Make a component for each menu item, taking in icon, route and text
 	return (
 		<nav className="relative flex items-center">
 			<button
@@ -185,120 +181,66 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 						}}
 						role="menu"
 					>
-						{/* Explore (Collections) */}
-						<Link
+						<MenuItem
+							icon={<CollectionsIcon className={iconClass} />}
+							label="Explore"
 							href={EXPLORE}
-							onClick={closeMenu}
-							className={linkClass}
-							role="menuitem"
-						>
-							<CollectionsIcon className={iconClass} />
-							<span>Explore</span>
-						</Link>
+							closeMenu={closeMenu}
+						/>
 
-						{/* Post (Create New) */}
-						<button
+						<MenuItem
+							icon={<PencilIcon className={iconClass} />}
+							label="Post"
 							onClick={handleCreateNew}
-							className={linkClass}
-							role="menuitem"
-						>
-							<PencilIcon className={iconClass} />
-							<span>Post</span>
-						</button>
+							closeMenu={closeMenu}
+						/>
 
-						{/* Home (Profile) */}
-						{isLoggedIn ? (
-							<Link
-								href={PRIVATE_USER_PAGE}
-								onClick={closeMenu}
-								className={linkClass}
-								role="menuitem"
-							>
-								<UserHomeIcon className={iconClass} />
-								<span>Home</span>
-							</Link>
-						) : (
-							<button
-								onClick={handleProfile}
-								className={linkClass}
-								role="menuitem"
-							>
-								<UserHomeIcon className={iconClass} />
-								<span>Home</span>
-							</button>
-						)}
+						<MenuItem
+							icon={<UserHomeIcon className={iconClass} />}
+							label="Profile"
+							href={isLoggedIn ? PUBLIC_USER_PAGE(username) : undefined}
+							onClick={!isLoggedIn ? handleProfile : undefined}
+							closeMenu={closeMenu}
+						/>
 
-						{/* Messages */}
-						{isLoggedIn ? (
-							<Link
-								href={MESSAGES}
-								onClick={closeMenu}
-								className={linkClass}
-								role="menuitem"
-							>
-								<MessageIcon className={iconClass} />
-								<span>Messages</span>
-							</Link>
-						) : (
-							<button
-								onClick={handleMessages}
-								className={linkClass}
-								role="menuitem"
-							>
-								<MessageIcon className={iconClass} />
-								<span>Messages</span>
-							</button>
-						)}
+						<MenuItem
+							icon={<MessageIcon className={iconClass} />}
+							label="Messages"
+							href={isLoggedIn ? MESSAGES : undefined}
+							onClick={!isLoggedIn ? handleMessages : undefined}
+							closeMenu={closeMenu}
+						/>
 
-						{/* Settings */}
-						{settingsLink ? (
-							<Link
-								href={settingsLink}
-								onClick={closeMenu}
-								className={linkClass}
-								role="menuitem"
-							>
-								<SettingsIcon className={iconClass} />
-								<span>Settings</span>
-							</Link>
-						) : (
-							<button
-								onClick={handleSettings}
-								className={linkClass}
-								role="menuitem"
-							>
-								<SettingsIcon className={iconClass} />
-								<span>Settings</span>
-							</button>
-						)}
+						<MenuItem
+							icon={<SettingsIcon className={iconClass} />}
+							label="Settings"
+							href={settingsLink}
+							onClick={!settingsLink ? handleSettings : undefined}
+							closeMenu={closeMenu}
+						/>
 
 						<div className="my-1 border-t border-soft-grey" />
 
-						{/* Log In / Log Out - always visible */}
 						{isLoggedIn ? (
-							<button
+							<MenuItem
+								icon={<LogoutIcon className={iconClass} />}
+								label="Log Out"
 								onClick={handleLogout}
-								className={linkClass}
-								role="menuitem"
-							>
-								<LogoutIcon className={iconClass} />
-								<span>Log Out</span>
-							</button>
+								closeMenu={closeMenu}
+							/>
 						) : (
-							<button
+							<MenuItem
+								icon={<LoginIcon className={iconClass} />}
+								label="Log In"
 								onClick={handleLogin}
-								className={linkClass}
-								role="menuitem"
-							>
-								<LoginIcon className={iconClass} />
-								<span>Log In</span>
-							</button>
+								closeMenu={closeMenu}
+							/>
 						)}
 					</div>
 					)}
 				</>
 			)}
-
+			{/* About modal not in use right now */}
 			<AboutModal
 				isOpen={isAboutModalOpen}
 				onClose={() => setIsAboutModalOpen(false)}

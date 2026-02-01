@@ -1,6 +1,6 @@
 import { Session } from "next-auth";
 import { AnimatedProjectLibraryLogo } from "./AnimatedProjectLibraryLogo";
-import { HamburgerMenu } from "./HamburgerMenu";
+import { HamburgerMenu } from "./hamburger/HamburgerMenu";
 
 interface NavigationBarProps {
 	session: Session | null;
