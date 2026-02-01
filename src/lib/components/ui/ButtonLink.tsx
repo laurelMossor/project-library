@@ -8,6 +8,7 @@ type ButtonLinkProps = ComponentProps<typeof Link> & {
 	fullWidth?: boolean;
 };
 
+// TODO: Refactor these into theme styles or remove
 export function ButtonLink({
 	variant = "primary",
 	size = "md",

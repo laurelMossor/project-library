@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PublicUser } from "@/lib/types/user";
 import { Button } from "@/lib/components/ui/Button";
@@ -8,13 +8,25 @@ import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const
 
 type EditableProfileProps = {
 	user: PublicUser;
+	isEditing?: boolean;
+	onEditingChange?: (isEditing: boolean) => void;
 };
 
-export function EditableProfile({ user: initialUser }: EditableProfileProps) {
+export function EditableProfile({ user: initialUser, isEditing: controlledIsEditing, onEditingChange }: EditableProfileProps) {
 	const router = useRouter();
-	const [isEditing, setIsEditing] = useState(false);
+	const [internalIsEditing, setInternalIsEditing] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
+
+	// Use controlled state if provided, otherwise use internal state
+	const isEditing = controlledIsEditing !== undefined ? controlledIsEditing : internalIsEditing;
+	const setIsEditing = (value: boolean) => {
+		if (onEditingChange) {
+			onEditingChange(value);
+		} else {
+			setInternalIsEditing(value);
+		}
+	};
 
 	const [firstName, setFirstName] = useState(initialUser.firstName || "");
 	const [middleName, setMiddleName] = useState(initialUser.middleName || "");
@@ -23,6 +35,20 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 	const [bio, setBio] = useState(initialUser.bio || "");
 	const [interests, setInterests] = useState(initialUser.interests?.join(", ") || "");
 	const [location, setLocation] = useState(initialUser.location || "");
+
+	// Reset form when editing starts
+	useEffect(() => {
+		if (isEditing) {
+			setFirstName(initialUser.firstName || "");
+			setMiddleName(initialUser.middleName || "");
+			setLastName(initialUser.lastName || "");
+			setHeadline(initialUser.headline || "");
+			setBio(initialUser.bio || "");
+			setInterests(initialUser.interests?.join(", ") || "");
+			setLocation(initialUser.location || "");
+			setError("");
+		}
+	}, [isEditing, initialUser]);
 
 	const handleSave = async () => {
 		setSaving(true);
@@ -59,13 +85,6 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 	};
 
 	const handleCancel = () => {
-		setFirstName(initialUser.firstName || "");
-		setMiddleName(initialUser.middleName || "");
-		setLastName(initialUser.lastName || "");
-		setHeadline(initialUser.headline || "");
-		setBio(initialUser.bio || "");
-		setInterests(initialUser.interests?.join(", ") || "");
-		setLocation(initialUser.location || "");
 		setIsEditing(false);
 		setError("");
 	};
@@ -203,12 +222,6 @@ export function EditableProfile({ user: initialUser }: EditableProfileProps) {
 				<span className="text-sm text-gray-500">Location:</span>
 				<p>{initialUser.location || "Not set"}</p>
 			</div>
-			<button
-				onClick={() => setIsEditing(true)}
-				className="text-sm underline"
-			>
-				Edit
-			</button>
 		</div>
 	);
 }
