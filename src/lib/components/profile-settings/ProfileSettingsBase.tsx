@@ -1,22 +1,21 @@
 "use client";
 
 import { useRef, ReactNode } from "react";
-import Link from "next/link";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { Button } from "@/lib/components/ui/Button";
-import { ORG_NEW, BUG_REPORT_FORM, HOME, COLLECTIONS } from "@/lib/const/routes";
-import { PeopleGroupIcon, PencilIcon } from "@/lib/components/icons/icons";
+import { BUG_REPORT_FORM } from "@/lib/const/routes";
+import { PencilIcon } from "@/lib/components/icons/icons";
 import { transparentCTAStyles } from "../collection/CreationCTA";
 import { SettingsSection } from "./SettingsSection";
 import { DisabledSettingsButton } from "./DisabledSettingsButton";
-import { LineDivider } from "../layout/LineDivider";
-import { OrgSwitcher, OrgItem } from "./OrgSwitcher";
+import { UserOrgSettings } from "./UserOrgSettings";
+import { OrgItem } from "./OrgSwitcher";
 
 type OwnerType = "user" | "org";
 
 type ProfileSettingsBaseProps = {
 	ownerType: OwnerType;
-	orgs: OrgItem[];
+	orgs?: OrgItem[];
 	// Settings section configuration
 	settingsTitle: string;
 	viewPublicProfileHref: string;
@@ -92,17 +91,8 @@ export function ProfileSettingsBase({
 
 					{additionalSettingsButtons}
 
-					{/* Org Settings Section */}
-					<LineDivider />
-					<h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-						<PeopleGroupIcon className="w-6 h-6 shrink-0" /> Org Settings
-					</h2>
-					<div className="flex flex-col gap-3">
-						<ButtonLink href={ORG_NEW} variant="secondary" fullWidth>
-							Create a Group, Organization, or Public Entity
-						</ButtonLink>
-						<OrgSwitcher orgs={orgs} showSwitchToUser={ownerType === "org"} />
-					</div>
+					{/* Org Settings Section - only show for user profiles */}
+					{ownerType === "user" && <UserOrgSettings orgs={orgs} />}
 				</div>
 			</SettingsSection>
 

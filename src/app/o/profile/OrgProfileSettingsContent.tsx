@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { ProfileSettingsBase, OrgItem } from "@/lib/components/profile-settings";
-import { OwnerProfileDisplay } from "@/lib/components/owner/OwnerProfileDisplay";
-import { ProfileOwner } from "@/lib/types/profile-owner";
+import { EditableOrgProfile } from "@/lib/components/org/EditableOrgProfile";
+import { PublicOrg } from "@/lib/types/org";
 import { PUBLIC_ORG_PAGE } from "@/lib/const/routes";
 
 // Org-specific disabled buttons
@@ -14,13 +15,15 @@ const ORG_DISABLED_BUTTONS = [
 ];
 
 type OrgProfileSettingsContentProps = {
-	org: ProfileOwner;
+	org: PublicOrg;
 	orgs: OrgItem[];
 };
 
 export function OrgProfileSettingsContent({ org, orgs }: OrgProfileSettingsContentProps) {
+	const [isEditing, setIsEditing] = useState(false);
+
 	// Get the slug from the org data
-	const slug = org.type === "ORG" ? org.data.slug : "";
+	const slug = org.slug || "";
 
 	return (
 		<ProfileSettingsBase
@@ -29,7 +32,15 @@ export function OrgProfileSettingsContent({ org, orgs }: OrgProfileSettingsConte
 			settingsTitle="Org Settings"
 			viewPublicProfileHref={PUBLIC_ORG_PAGE(slug)}
 			disabledButtons={ORG_DISABLED_BUTTONS}
-			profileContent={<OwnerProfileDisplay owner={org} />}
+			onEditClick={() => setIsEditing(true)}
+			isEditing={isEditing}
+			profileContent={
+				<EditableOrgProfile 
+					org={org} 
+					isEditing={isEditing}
+					onEditingChange={setIsEditing}
+				/>
+			}
 		/>
 	);
 }

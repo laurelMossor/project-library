@@ -15,7 +15,7 @@ export type OrgItem = {
 };
 
 type OrgSwitcherProps = {
-	orgs: OrgItem[];
+	orgs?: OrgItem[] | null;
 	showSwitchToUser?: boolean;
 };
 
@@ -27,6 +27,10 @@ export function OrgSwitcher({ orgs, showSwitchToUser = false }: OrgSwitcherProps
 	const router = useRouter();
 	const [switching, setSwitching] = useState(false);
 	const [error, setError] = useState("");
+
+	// if (!orgs) {
+	// 	let orgs: OrgItem[] = [];
+	// }
 
 	const activeOwnerId = session?.user?.activeOwnerId;
 
@@ -88,7 +92,7 @@ export function OrgSwitcher({ orgs, showSwitchToUser = false }: OrgSwitcherProps
 		}
 	};
 
-	if (orgs.length === 0) {
+	if (!orgs) {
 		return (
 			<p className="text-sm text-gray-500 italic">You don&apos;t belong to any organizations yet.</p>
 		);

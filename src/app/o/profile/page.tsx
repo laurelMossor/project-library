@@ -13,8 +13,9 @@ import { auth } from "@/lib/auth";
 import { getOrgById, getUserOrgRole, getOrgsForUser } from "@/lib/utils/server/org";
 import { getOwnerById } from "@/lib/utils/server/owner";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS, HOME, COLLECTIONS } from "@/lib/const/routes";
 import { ProfileOwner } from "@/lib/types/profile-owner";
 import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
 import { OrgProfileSettingsContent } from "./OrgProfileSettingsContent";
@@ -68,7 +69,12 @@ export default async function OrgProfilePage() {
 				<p className="text-gray-600">Manage {org.name}&apos;s profile information and settings</p>
 			</div>
 
-			<OrgProfileSettingsContent org={profileOwner} orgs={orgs} />
+			<OrgProfileSettingsContent org={org} orgs={orgs} />
+
+			<div className="flex gap-4 justify-center">
+				<Link href={HOME} className="text-sm underline text-gray-600">Home</Link>
+				<Link href={COLLECTIONS} className="text-sm underline text-gray-600">Collections</Link>
+			</div>
 		</CenteredLayout>
 	);
 }
