@@ -5,44 +5,47 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { DropdownMenu, dropdownMenuStyles } from "../ui/DropdownMenu";
 import { MenuItem } from "../nav-bar/hamburger/MenuItem";
-import { GearsIcon, PencilIcon, CalendarIcon, UserHomeIcon } from "../icons/icons";
-import { PROJECT_NEW, EVENT_NEW, USER_PROFILE_SETTINGS, API_ME_OWNER, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { GearsIcon, PencilIcon, CalendarIcon, UserHomeIcon, PeopleGroupIcon } from "../icons/icons";
+import { PROJECT_NEW, EVENT_NEW, ORG_PROFILE_SETTINGS, API_ME_OWNER, PRIVATE_ORG_PAGE } from "@/lib/const/routes";
 import { transparentCTAStyles } from "../collection/CreationCTA";
 
 const iconClass = "w-6 h-6 shrink-0";
 
+type OrgProfileOptionsMenuProps = {
+	isActingAsThisOrg?: boolean;
+	orgOwnerId?: string;
+};
+
 /**
- * Options menu for user public profile page (u/[username])
- * Automatically detects if user is acting as org via session
- * - If acting as org: Shows only "Switch to User Profile" option
- * - If acting as user: Shows full options (Edit, New Project, New Event, Settings)
+ * Options menu for org public profile page (o/[slug])
+ * - When acting as this org: Shows full options (Edit, New Project, New Event, Settings)
+ * - When NOT acting as this org (but is admin): Shows only "Switch to Org Profile"
  */
-export function ProfileOptionsMenu() {
+export function OrgProfileOptionsMenu({ isActingAsThisOrg = false, orgOwnerId }: OrgProfileOptionsMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [switching, setSwitching] = useState(false);
 	const router = useRouter();
-	const { data: session, update: updateSession } = useSession();
-	
-	// Check if acting as org from session (has activeOwnerId set)
-	const isActingAsOrg = Boolean(session?.user?.activeOwnerId);
+	const { update: updateSession } = useSession();
 
 	const closeMenu = () => {
 		setIsOpen(false);
 	};
 
-	const handleSwitchToUser = async () => {
+	const handleSwitchToOrg = async () => {
+		if (!orgOwnerId) return;
+		
 		setSwitching(true);
 		try {
 			const res = await fetch(API_ME_OWNER, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerId: null }),
+				body: JSON.stringify({ ownerId: orgOwnerId }),
 			});
 
 			if (res.ok) {
-				await updateSession({ activeOwnerId: null });
+				await updateSession({ activeOwnerId: orgOwnerId });
 				closeMenu();
-				router.push(PRIVATE_USER_PAGE);
+				router.push(PRIVATE_ORG_PAGE);
 			}
 		} catch (err) {
 			// Silently fail
@@ -51,8 +54,8 @@ export function ProfileOptionsMenu() {
 		}
 	};
 
-	// When acting as org, only show switch back option
-	if (isActingAsOrg) {
+	// When NOT acting as this org, show only "Switch to Org Profile" option
+	if (!isActingAsThisOrg) {
 		return (
 			<DropdownMenu
 				isOpen={isOpen}
@@ -66,18 +69,19 @@ export function ProfileOptionsMenu() {
 					</>
 				}
 				triggerClassName={transparentCTAStyles.container}
-				triggerAriaLabel="Profile options"
+				triggerAriaLabel="Org profile options"
 			>
 				<MenuItem
-					icon={<UserHomeIcon className={iconClass} />}
-					label={switching ? "Switching..." : "Switch to User Profile"}
-					onClick={handleSwitchToUser}
+					icon={<PeopleGroupIcon className={iconClass} />}
+					label={switching ? "Switching..." : "Switch to Org Profile"}
+					onClick={handleSwitchToOrg}
 					closeMenu={() => {}}
 				/>
 			</DropdownMenu>
 		);
 	}
 
+	// When acting as this org, show full options menu
 	return (
 		<DropdownMenu
 			isOpen={isOpen}
@@ -91,12 +95,12 @@ export function ProfileOptionsMenu() {
 				</>
 			}
 			triggerClassName={transparentCTAStyles.container}
-			triggerAriaLabel="Profile options"
+			triggerAriaLabel="Org profile options"
 		>
 			<MenuItem
 				icon={<UserHomeIcon className={iconClass} />}
 				label="Edit Profile"
-				href={`${USER_PROFILE_SETTINGS}#profile-section`}
+				href={`${ORG_PROFILE_SETTINGS}#profile-section`}
 				closeMenu={closeMenu}
 			/>
 
@@ -119,7 +123,7 @@ export function ProfileOptionsMenu() {
 			<MenuItem
 				icon={<GearsIcon className={iconClass} />}
 				label="Settings"
-				href={USER_PROFILE_SETTINGS}
+				href={ORG_PROFILE_SETTINGS}
 				closeMenu={closeMenu}
 			/>
 		</DropdownMenu>

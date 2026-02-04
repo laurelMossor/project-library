@@ -37,10 +37,15 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 
 	// Check if viewing own org (user is a member with appropriate role)
 	let isOwnProfile = false;
+	let isActingAsThisOrg = false;
 	if (session?.user?.id) {
 		const role = await getUserOrgRole(session.user.id, org.id);
 		// Consider OWNER, ADMIN, and MEMBER as "own profile" for editing purposes
 		isOwnProfile = role !== null;
+		
+		// Check if currently acting as this specific org
+		// activeOwnerId points to the org's ownerId when acting as org
+		isActingAsThisOrg = session.user.activeOwnerId === org.ownerId;
 	}
 
 	// Create ProfileOwner type for the org
@@ -60,6 +65,7 @@ export default async function PublicOrgProfilePage({ params }: Props) {
 			<OwnerProfileHeader 
 				owner={profileOwner} 
 				isOwnProfile={isOwnProfile} 
+				isActingAsThisOrg={isActingAsThisOrg}
 				session={session}
 				currentUserId={session?.user?.id || null}
 			/>

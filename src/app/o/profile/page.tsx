@@ -15,10 +15,12 @@ import { getOwnerById } from "@/lib/utils/server/owner";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS, HOME, COLLECTIONS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE, HOME, COLLECTIONS } from "@/lib/const/routes";
 import { ProfileOwner } from "@/lib/types/profile-owner";
 import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
 import { OrgProfileSettingsContent } from "./OrgProfileSettingsContent";
+import { ActingAsOrgTooltip } from "@/lib/components/layout/ActingAsOrgTooltip";
+import { Suspense } from "react";
 
 export default async function OrgProfilePage() {
 	const session = await auth();
@@ -30,15 +32,15 @@ export default async function OrgProfilePage() {
 	// Check if user has activeOwnerId in session that points to an org
 	const activeOwnerId = session.user.activeOwnerId;
 	if (!activeOwnerId) {
-		// No active owner, redirect to settings to select one
-		redirect(ORG_PROFILE_SETTINGS);
+		// No active owner, redirect to user profile
+		redirect(PRIVATE_USER_PAGE);
 	}
 
 	// Get the owner and check if it's an org-based owner
 	const activeOwner = await getOwnerById(activeOwnerId);
 	if (!activeOwner || !activeOwner.orgId) {
-		// Not an org owner, redirect to settings
-		redirect(ORG_PROFILE_SETTINGS);
+		// Not an org owner, redirect to user profile
+		redirect(PRIVATE_USER_PAGE);
 	}
 
 	// Get org details and user's orgs in parallel
@@ -48,15 +50,15 @@ export default async function OrgProfilePage() {
 	]);
 
 	if (!org) {
-		// Org doesn't exist, redirect to settings
-		redirect(ORG_PROFILE_SETTINGS);
+		// Org doesn't exist, redirect to user profile
+		redirect(PRIVATE_USER_PAGE);
 	}
 
 	// Verify user has permission to act as this org
 	const role = await getUserOrgRole(session.user.id, org.id);
 	if (!role) {
-		// User lost permission, redirect to settings
-		redirect(ORG_PROFILE_SETTINGS);
+		// User lost permission, redirect to user profile
+		redirect(PRIVATE_USER_PAGE);
 	}
 
 	// Create ProfileOwner type for the org
@@ -64,6 +66,11 @@ export default async function OrgProfilePage() {
 
 	return (
 		<CenteredLayout maxWidth="2xl">
+			{/* Tooltip shown when redirected from user profile */}
+			<Suspense fallback={null}>
+				<ActingAsOrgTooltip />
+			</Suspense>
+
 			<div className="mb-8">
 				<HeadingTitle title="Org Profile" />
 				<p className="text-gray-600">Manage {org.name}&apos;s profile information and settings</p>

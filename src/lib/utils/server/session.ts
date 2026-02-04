@@ -106,3 +106,61 @@ export async function canSetActiveOwner(userId: string, ownerId: string): Promis
 export function isActingAsOrg(owner: OwnerWithRelations): boolean {
 	return owner.type === OwnerType.ORG && owner.orgId !== null;
 }
+
+// ========================
+// Profile Edit Permissions
+// ========================
+
+export type ProfileEditCheck = {
+	canEdit: boolean;
+	reason?: "not_authenticated" | "acting_as_org" | "not_owner" | "not_org_member";
+	activeOrgSlug?: string;
+};
+
+/**
+ * Check if the current session can edit a user profile
+ * Returns canEdit: false with reason if acting as org (should redirect to org profile)
+ */
+export async function canEditUserProfile(userId: string): Promise<ProfileEditCheck> {
+	const context = await getSessionContext();
+	
+	if (!context) {
+		return { canEdit: false, reason: "not_authenticated" };
+	}
+	
+	// Check if user owns this profile
+	if (context.userId !== userId) {
+		return { canEdit: false, reason: "not_owner" };
+	}
+	
+	// Check if acting as org - if so, they should edit org profile instead
+	if (isActingAsOrg(context.activeOwner)) {
+		const orgSlug = context.activeOwner.org?.slug;
+		return { 
+			canEdit: false, 
+			reason: "acting_as_org",
+			activeOrgSlug: orgSlug || undefined,
+		};
+	}
+	
+	return { canEdit: true };
+}
+
+/**
+ * Check if the current session can edit an org profile
+ * Returns canEdit: true if user is a member of the org and acting as that org
+ */
+export async function canEditOrgProfile(orgId: string): Promise<ProfileEditCheck> {
+	const context = await getSessionContext();
+	
+	if (!context) {
+		return { canEdit: false, reason: "not_authenticated" };
+	}
+	
+	// Check if acting as this specific org
+	if (!isActingAsOrg(context.activeOwner) || context.activeOwner.orgId !== orgId) {
+		return { canEdit: false, reason: "not_org_member" };
+	}
+	
+	return { canEdit: true };
+}

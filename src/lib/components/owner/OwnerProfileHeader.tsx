@@ -1,31 +1,31 @@
 /**
- * OwnerProfileHeader - Works for both User and Org profile owners
+ * OwnerProfileHeader - Header component for Org public profiles
  * 
- * This component handles profile headers for both User and Org profiles.
- * - When viewing own profile: Shows "Edit Profile" (different routes for USER vs ORG), "New Project", "New Event"
- * - When viewing other's profile: 
- *   - For USER: Shows "Send Message" and "Follow" buttons
- *   - For ORG: Shows "Follow" button
+ * Used on /o/[slug] pages. User profiles use UserProfileHeader instead.
+ * - When viewing own org profile: Shows OrgProfileOptionsMenu
+ *   - If acting as this org: full options (Edit, New Project, New Event, Settings)
+ *   - If not acting as this org: "Switch to Org Profile" option
+ * - When viewing another org's profile: Shows "Follow" button
  */
 "use client";
 
 import { useState, useEffect } from "react";
 import { ProfileOwner, getProfileOwnerOwnerId } from "@/lib/types/profile-owner";
 import { OwnerProfileDisplay } from "./OwnerProfileDisplay";
-import { ButtonLink } from "../ui/ButtonLink";
 import { Button } from "../ui/Button";
 import { Session } from "next-auth";
-import { PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE, PROJECT_NEW, EVENT_NEW, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
+import { OrgProfileOptionsMenu } from "../org/OrgProfileOptionsMenu";
 
 type OwnerProfileHeaderProps = {
 	owner: ProfileOwner;
 	isOwnProfile: boolean;
+	isActingAsThisOrg?: boolean;
 	session: Session | null;
 	currentUserId?: string | null;
 };
 
-export function OwnerProfileHeader({ owner, isOwnProfile, session, currentUserId }: OwnerProfileHeaderProps) {
+export function OwnerProfileHeader({ owner, isOwnProfile, isActingAsThisOrg = false, session, currentUserId }: OwnerProfileHeaderProps) {
 	const loggedIn = hasSession(session);
 	const [isFollowing, setIsFollowing] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
@@ -82,44 +82,19 @@ export function OwnerProfileHeader({ owner, isOwnProfile, session, currentUserId
 			{/* Right: Action Buttons - constrained width */}
 			<div className="w-full md:w-1/4 md:min-w-[200px] md:max-w-[280px] flex flex-col gap-3">
 				{isOwnProfile ? (
-					<>
-						{/* Admin Tools heading for orgs */}
-						{owner.type === "ORG" && (
-							<h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1">
-								Admin Tools
-							</h3>
-						)}
-						{/* Edit Profile button - different routes for USER vs ORG */}
-						<ButtonLink href={owner.type === "USER" ? PRIVATE_USER_PAGE : PRIVATE_ORG_PAGE} fullWidth>
-							Edit Profile
-						</ButtonLink>
-						<ButtonLink href={PROJECT_NEW} fullWidth>
-							New Project
-						</ButtonLink>
-						<ButtonLink href={EVENT_NEW} fullWidth>
-							New Event
-						</ButtonLink>
-					</>
+					/* Viewing own org profile - show Options menu */
+					<OrgProfileOptionsMenu isActingAsThisOrg={isActingAsThisOrg} orgOwnerId={ownerId} />
 				) : (
-					/* Viewing someone else's profile */
+					/* Viewing another org's profile - show Follow button */
 					loggedIn && !isLoading && (
-						<>
-							{owner.type === "USER" && (
-								/* For users: show message button */
-								<ButtonLink href={MESSAGE_CONVERSATION(ownerId)} fullWidth>
-									Send Message
-								</ButtonLink>
-							)}
-							{/* Follow button for both users and orgs */}
-							<Button
-								fullWidth
-								variant={isFollowing ? "secondary" : "primary"}
-								onClick={handleFollowToggle}
-								disabled={isToggling}
-							>
-								{isToggling ? "..." : isFollowing ? "Unfollow" : "Follow"}
-							</Button>
-						</>
+						<Button
+							fullWidth
+							variant={isFollowing ? "secondary" : "primary"}
+							onClick={handleFollowToggle}
+							disabled={isToggling}
+						>
+							{isToggling ? "..." : isFollowing ? "Unfollow" : "Follow"}
+						</Button>
 					)
 				)}
 			</div>

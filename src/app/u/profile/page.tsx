@@ -6,6 +6,7 @@
  * - Used for viewing profile information and quick actions
  * - Does NOT display collections (projects/events)
  * - Links to settings and edit pages
+ * - Redirects to org profile if user is acting as an org
  * 
  * For the public profile view with collections, see: /u/[username]
  */
@@ -15,9 +16,10 @@ import { getOrgsForUser } from "@/lib/utils/server/org";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { LOGIN_WITH_CALLBACK, HOME, COLLECTIONS, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, HOME, COLLECTIONS, PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE } from "@/lib/const/routes";
 import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
 import { ProfileSettingsContent } from "./ProfileSettingsContent";
+import { canEditUserProfile } from "@/lib/utils/server/session";
 
 export default async function UserProfilePage() {
 	// Verify session
@@ -28,6 +30,14 @@ export default async function UserProfilePage() {
 	}
 
 	const userId = session.user.id;
+	
+	// Check if user can edit their profile (not acting as org)
+	const editCheck = await canEditUserProfile(userId);
+	if (!editCheck.canEdit && editCheck.reason === "acting_as_org") {
+		// Redirect to org profile with a message param to show the tooltip
+		redirect(`${PRIVATE_ORG_PAGE}?from=user_profile&org=${editCheck.activeOrgSlug || ""}`);
+	}
+	
 	const [user, orgs] = await Promise.all([
 		getUserById(userId),
 		getOrgsForUser(userId),
