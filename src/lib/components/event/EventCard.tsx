@@ -7,7 +7,7 @@
  * This component will be removed in a future version.
  */
 import Link from "next/link";
-import { OwnerAvatar } from "../user/OwnerAvatar";
+import { OwnerAvatar } from "../owner/OwnerAvatar";
 import { EventItem } from "@/lib/types/event";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";

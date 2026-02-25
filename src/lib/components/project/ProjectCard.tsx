@@ -8,7 +8,7 @@
  */
 import { ProjectItem } from "../../types/project";
 import Link from "next/link";
-import { OwnerAvatar } from "../user/OwnerAvatar";
+import { OwnerAvatar } from "../owner/OwnerAvatar";
 import { Tag, Tags } from "../tag/Tag";
 import { truncateText } from "../../utils/text";
 import { formatDateTime } from "../../utils/datetime";

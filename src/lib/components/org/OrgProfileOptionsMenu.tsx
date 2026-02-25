@@ -21,11 +21,23 @@ type OrgProfileOptionsMenuProps = {
  * - When acting as this org: Shows full options (Edit, New Project, New Event, Settings)
  * - When NOT acting as this org (but is admin): Shows only "Switch to Org Profile"
  */
-export function OrgProfileOptionsMenu({ isActingAsThisOrg = false, orgOwnerId }: OrgProfileOptionsMenuProps) {
+export function OrgProfileOptionsMenu({ isActingAsThisOrg: serverIsActingAsThisOrg = false, orgOwnerId }: OrgProfileOptionsMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [switching, setSwitching] = useState(false);
 	const router = useRouter();
-	const { update: updateSession } = useSession();
+	const { data: session, update: updateSession } = useSession();
+	
+	// Check client-side session to ensure we have the most up-to-date state
+	// This handles cases where the session updates client-side after switching
+	// Priority: client session check > server prop
+	let isActingAsThisOrg = serverIsActingAsThisOrg;
+	
+	if (orgOwnerId && session?.user) {
+		// Client session is available - use it as source of truth
+		// activeOwnerId can be a string (acting as org) or null (acting as user)
+		const activeOwnerId = session.user.activeOwnerId;
+		isActingAsThisOrg = activeOwnerId !== null && activeOwnerId !== undefined && activeOwnerId === orgOwnerId;
+	}
 
 	const closeMenu = () => {
 		setIsOpen(false);
@@ -45,7 +57,8 @@ export function OrgProfileOptionsMenu({ isActingAsThisOrg = false, orgOwnerId }:
 			if (res.ok) {
 				await updateSession({ activeOwnerId: orgOwnerId });
 				closeMenu();
-				router.push(PRIVATE_ORG_PAGE);
+				// Refresh the page to update the server-side props
+				router.refresh();
 			}
 		} catch (err) {
 			// Silently fail

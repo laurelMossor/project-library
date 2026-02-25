@@ -10,7 +10,7 @@ import { PostsList } from "@/lib/components/post/PostsList";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, MESSAGE_CONVERSATION, EVENT_EDIT, COLLECTIONS, HOME } from "@/lib/const/routes";
 import { getOwnerUser, getOwnerDisplayName, getOwnerHandle, getOwnerId, isOrgOwner } from "@/lib/utils/owner";
-import { OwnerAvatar } from "@/lib/components/user/OwnerAvatar";
+import { OwnerAvatar } from "@/lib/components/owner/OwnerAvatar";
 import { AtSignIcon } from "@/lib/components/icons/icons";
 
 type Props = {

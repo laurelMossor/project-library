@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { Button } from "@/lib/components/ui/Button";
-import { PUBLIC_ORG_PAGE, API_ME_OWNER, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { OrgCard } from "@/lib/components/cards/OrgCard";
+import { API_ME_OWNER, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 
 export type OrgItem = {
 	id: string;
 	name: string;
 	slug: string;
 	ownerId: string;
+	avatarImageId?: string | null;
 };
 
 type OrgSwitcherProps = {
@@ -27,10 +28,6 @@ export function OrgSwitcher({ orgs, showSwitchToUser = false }: OrgSwitcherProps
 	const router = useRouter();
 	const [switching, setSwitching] = useState(false);
 	const [error, setError] = useState("");
-
-	// if (!orgs) {
-	// 	let orgs: OrgItem[] = [];
-	// }
 
 	const activeOwnerId = session?.user?.activeOwnerId;
 
@@ -109,35 +106,32 @@ export function OrgSwitcher({ orgs, showSwitchToUser = false }: OrgSwitcherProps
 				</div>
 			)}
 			<div className="space-y-2">
-				{orgs.map((org) => (
-					<div
-						key={org.id}
-						className="flex items-center justify-between p-3 border rounded"
-					>
-						<div>
-							<p className="font-medium">{org.name}</p>
-							<p className="text-sm text-gray-500">@{org.slug}</p>
-						</div>
-						<div className="flex gap-2">
-							<ButtonLink
-								href={PUBLIC_ORG_PAGE(org.slug)}
-								variant="tertiary"
-								size="sm"
-							>
-								View
-							</ButtonLink>
-							<Button
-								onClick={() => handleSwitchToOrg(org.ownerId)}
-								disabled={switching || activeOwnerId === org.ownerId}
-								loading={switching}
-								variant="secondary"
-								size="sm"
-							>
-								{activeOwnerId === org.ownerId ? "Active" : "Switch To"}
-							</Button>
-						</div>
-					</div>
-				))}
+				{orgs.map((org) => {
+					const isActive = activeOwnerId === org.ownerId;
+					return (
+						<OrgCard
+							key={org.id}
+							org={{
+								id: org.id,
+								name: org.name,
+								slug: org.slug,
+								avatarImageId: org.avatarImageId ?? null,
+							}}
+							badge={isActive ? "Active" : undefined}
+							actions={
+								<Button
+									onClick={() => handleSwitchToOrg(org.ownerId)}
+									disabled={switching || isActive}
+									loading={switching}
+									variant="secondary"
+									size="sm"
+								>
+									{isActive ? "Active" : "Switch To"}
+								</Button>
+							}
+						/>
+					);
+				})}
 			</div>
 			{showSwitchToUser && activeOwnerId && (
 				<div className="mt-4 pt-4 border-t">

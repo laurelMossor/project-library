@@ -19,7 +19,7 @@ const maxWidthClasses = {
 
 export function CenteredLayout({ children, className = "", maxWidth = "2xl" }: CenteredLayoutProps) {
 	return (
-		<main className={`flex min-h-screen flex-col items-center justify-center p-8 ${className}`.trim()}>
+		<main className={`flex min-h-screen flex-col items-center p-8 ${className}`.trim()}>
 			<div className={`w-full ${maxWidthClasses[maxWidth]} ${className}`.trim()}>
 				{children}
 			</div>

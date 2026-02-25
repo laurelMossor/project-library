@@ -1,0 +1,50 @@
+"use client";
+
+import { Button } from "@/lib/components/ui/Button";
+import { UserCard } from "@/lib/components/cards/UserCard";
+import { CardUser } from "@/lib/types/card";
+
+// Re-export CardUser as ConnectionUser for backward compatibility
+export type ConnectionUser = CardUser;
+
+type ConnectionListItemProps = {
+	user: CardUser;
+	role?: string;
+	onRemove?: () => void;
+	removing?: boolean;
+	showRemoveButton?: boolean;
+	removeButtonLabel?: string;
+};
+
+/**
+ * ConnectionListItem - Wrapper around UserCard for managing connections
+ * Adds remove button functionality for admin management, etc.
+ */
+export function ConnectionListItem({
+	user,
+	role,
+	onRemove,
+	removing = false,
+	showRemoveButton = true,
+	removeButtonLabel = "Remove",
+}: ConnectionListItemProps) {
+	const removeAction = showRemoveButton && onRemove ? (
+		<Button
+			onClick={onRemove}
+			disabled={removing}
+			loading={removing}
+			variant="danger"
+			size="sm"
+		>
+			{removeButtonLabel}
+		</Button>
+	) : null;
+
+	return (
+		<UserCard
+			user={user}
+			badge={role}
+			actions={removeAction}
+		/>
+	);
+}

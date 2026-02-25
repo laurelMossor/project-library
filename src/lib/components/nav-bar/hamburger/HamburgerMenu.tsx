@@ -165,8 +165,8 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 				<MenuItem
 					icon={<UserHomeIcon className={iconClass} />}
-					label="Profile"
-					href={isLoggedIn ? PUBLIC_USER_PAGE(username) : undefined}
+					label={profileLabel}
+					href={isLoggedIn ? profileLink : undefined}
 					onClick={!isLoggedIn ? handleProfile : undefined}
 					closeMenu={closeMenu}
 				/>
