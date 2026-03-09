@@ -40,7 +40,7 @@ export function OwnerProfileHeader({ owner, isOwnProfile, isActingAsThisOrg = fa
 			return;
 		}
 
-		fetch(`/api/owners/${ownerId}/follow`)
+		fetch(`/api/follows/${ownerId}`)
 			.then((res) => res.json())
 			.then((data) => {
 				setIsFollowing(data.isFollowing || false);
@@ -55,15 +55,18 @@ export function OwnerProfileHeader({ owner, isOwnProfile, isActingAsThisOrg = fa
 		if (isToggling) return;
 
 		setIsToggling(true);
-		const method = isFollowing ? "DELETE" : "POST";
 		
 		try {
-			const res = await fetch(`/api/owners/${ownerId}/follow`, {
-				method,
-			});
-
-			if (res.ok) {
-				setIsFollowing(!isFollowing);
+			if (isFollowing) {
+				const res = await fetch(`/api/follows/${ownerId}`, { method: "DELETE" });
+				if (res.ok) setIsFollowing(false);
+			} else {
+				const res = await fetch("/api/follows", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ followingOwnerId: ownerId }),
+				});
+				if (res.ok) setIsFollowing(true);
 			}
 		} catch (error) {
 			console.error("Failed to toggle follow:", error);

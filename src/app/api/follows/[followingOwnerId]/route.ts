@@ -6,6 +6,37 @@ import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
 type Params = { params: Promise<{ followingOwnerId: string }> };
 
 /**
+ * GET /api/follows/:followingOwnerId
+ * Check if the active owner follows this owner
+ * Protected endpoint
+ * Returns: { isFollowing: boolean }
+ */
+export async function GET(request: Request, { params }: Params) {
+	try {
+		const ctx = await getSessionContext();
+		if (!ctx) {
+			return unauthorized();
+		}
+
+		const { followingOwnerId } = await params;
+
+		const follow = await prisma.follow.findUnique({
+			where: {
+				followerOwnerId_followingOwnerId: {
+					followerOwnerId: ctx.activeOwnerId,
+					followingOwnerId,
+				},
+			},
+		});
+
+		return NextResponse.json({ isFollowing: !!follow });
+	} catch (error) {
+		console.error("GET /api/follows/:followingOwnerId error:", error);
+		return serverError();
+	}
+}
+
+/**
  * DELETE /api/follows/:followingOwnerId
  * Unfollow an owner as the active owner
  * Protected endpoint
