@@ -31,28 +31,7 @@ o/
 
 ------------------------------------------------
 
-Conceptual Schema Tree
-=======================================
-
-Actor
-├─ User
-│  ├─ avatarImage → Image
-│  ├─ sentMessages → Message → received by User
-│  └─ OrgMember → Org
-│
-├─ Org
-│  ├─ avatarImage → Image
-│  └─ OrgMember → User
-│
-├─ Project
-│  └─ Post            (project updates)
-│
-├─ Event
-│  └─ Post            (event updates / announcements)
-│
-└─ Post               (standalone feed post)
-
-------------------------------------------------
+Org is being refactored into Page
 
 Social Graph (Followers)
 ------------------------
@@ -61,15 +40,15 @@ Actor
 └─ followed by ← Actor
 
 • User → User
-• User → Org
-• Org  → User
-• Org  → Org
+• User → Page
+• Page  → User
+• Page  → Page
 
 ------------------------------------------------
 
-Org Membership & Roles
+Page Membership & Roles
 ----------------------
-Org
+Page
 └─ OrgMember
    ├─ User
    └─ role (OWNER | ADMIN | MEMBER | FOLLOWER)
