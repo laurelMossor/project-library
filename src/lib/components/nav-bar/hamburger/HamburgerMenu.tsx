@@ -24,7 +24,7 @@ import {
 	USER_PROFILE_SETTINGS,
 	ORG_PROFILE_SETTINGS,
 	LOGIN_WITH_CALLBACK,
-	EXPLORE,
+	EXPLORE_PAGE,
 } from "@/lib/const/routes";
 import { API_ME_OWNER } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
@@ -105,7 +105,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		if (isLoggedIn) {
 			setIsNewItemModalOpen(true);
 		} else {
-			router.push(LOGIN_WITH_CALLBACK(typeof window !== "undefined" ? window.location.pathname : EXPLORE));
+			router.push(LOGIN_WITH_CALLBACK(typeof window !== "undefined" ? window.location.pathname : EXPLORE_PAGE));
 		}
 	};
 
@@ -132,12 +132,12 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 	const handleLogout = async () => {
 		closeMenu();
-		await signOut({ callbackUrl: EXPLORE });
+		await signOut({ callbackUrl: EXPLORE_PAGE });
 	};
 
 	const handleLogin = () => {
 		closeMenu();
-		router.push(LOGIN_WITH_CALLBACK(EXPLORE));
+		router.push(LOGIN_WITH_CALLBACK(EXPLORE_PAGE));
 	};
 
 
@@ -152,7 +152,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 				<MenuItem
 					icon={<CollectionsIcon className={iconClass} />}
 					label="Explore"
-					href={EXPLORE}
+					href={EXPLORE_PAGE}
 					closeMenu={closeMenu}
 				/>
 
