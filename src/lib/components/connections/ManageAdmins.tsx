@@ -3,24 +3,23 @@
 import { ManageConnections, ConnectionItem } from "./ManageConnections";
 
 type ManageAdminsProps = {
-	orgId: string;
+	pageId: string;
 };
 
 /**
- * ManageAdmins - Specific implementation for managing org admins
- * Only org OWNERs can add/remove admins
- * OWNERs cannot be removed (only ADMINs can be removed)
+ * ManageAdmins - Specific implementation for managing page admins
+ * Only page ADMINs can add/remove other admins
  */
-export function ManageAdmins({ orgId }: ManageAdminsProps) {
-	// Owners cannot be removed from the admin list
+export function ManageAdmins({ pageId }: ManageAdminsProps) {
+	// Creators/primary admins should not be removable
 	const canRemove = (item: ConnectionItem) => {
 		return item.role !== "OWNER";
 	};
 
 	return (
 		<ManageConnections
-			targetType="org"
-			targetId={orgId}
+			targetType="page"
+			targetId={pageId}
 			connectionType="admins"
 			title="Manage Admins"
 			emptyMessage="No admins yet."
@@ -29,9 +28,9 @@ export function ManageAdmins({ orgId }: ManageAdminsProps) {
 			removeButtonLabel="Remove Admin"
 			showRemoveButton={true}
 			canRemove={canRemove}
-			listEndpoint={`/api/orgs/${orgId}/admins`}
-			addEndpoint={`/api/orgs/${orgId}/admins`}
-			removeEndpoint={(memberId) => `/api/orgs/${orgId}/admins/${memberId}`}
+			listEndpoint={`/api/pages/${pageId}/admins`}
+			addEndpoint={`/api/pages/${pageId}/admins`}
+			removeEndpoint={(memberId) => `/api/pages/${pageId}/admins/${memberId}`}
 		/>
 	);
 }

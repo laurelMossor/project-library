@@ -19,14 +19,14 @@ import {
 	COLLECTIONS,
 	MESSAGES,
 	PUBLIC_USER_PAGE,
-	PUBLIC_ORG_PAGE,
+	PUBLIC_PAGE,
 	PRIVATE_USER_PAGE,
 	USER_PROFILE_SETTINGS,
-	ORG_PROFILE_SETTINGS,
+	PAGE_PROFILE_SETTINGS,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
 } from "@/lib/const/routes";
-import { API_ME_OWNER } from "@/lib/const/routes";
+import { API_ME_PAGE } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { MenuItem } from "./MenuItem";
 import { DropdownMenu, dropdownMenuStyles } from "../../ui/DropdownMenu";
@@ -54,42 +54,44 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 	useEffect(() => {
 		if (isLoggedIn) {
-			fetch(API_ME_OWNER)
-				.then((res) => (res.ok ? res.json() : null))
-				.then((data) => {
-					if (data?.type === "ORG") {
-						setProfileLink(PUBLIC_ORG_PAGE(data.data.slug));
-						setProfileLabel(`${data.data.name} Profile`);
-						setSettingsLink(ORG_PROFILE_SETTINGS);
-						fetch("/api/me/user")
-							.then((r) => (r.ok ? r.json() : null))
-							.then((user) => user?.username && setUsername(user.username))
-							.catch(() => {});
-					} else if (data?.type === "USER") {
-						setProfileLink(PUBLIC_USER_PAGE(data.data.username));
-						setProfileLabel("Profile");
-						setSettingsLink(USER_PROFILE_SETTINGS);
-						setUsername(data.data.username);
-					} else {
-						fetch("/api/me/user")
-							.then((r) => (r.ok ? r.json() : null))
-							.then((user) => {
-								if (user?.username) {
-									setProfileLink(PUBLIC_USER_PAGE(user.username));
-									setProfileLabel("Profile");
-									setSettingsLink(USER_PROFILE_SETTINGS);
-									setUsername(user.username);
-								}
-							})
-							.catch(() => {});
-					}
-				})
-				.catch(() => {});
+			const activePageId = activeSession?.user?.activePageId;
+			if (activePageId) {
+				// Fetch active page info
+				fetch(API_ME_PAGE)
+					.then((res) => (res.ok ? res.json() : null))
+					.then((data) => {
+						if (data?.slug) {
+							setProfileLink(PUBLIC_PAGE(data.slug));
+							setProfileLabel(`${data.name} Profile`);
+							setSettingsLink(PAGE_PROFILE_SETTINGS);
+						}
+					})
+					.catch(() => {});
+
+				// Still get username
+				fetch("/api/me/user")
+					.then((r) => (r.ok ? r.json() : null))
+					.then((user) => user?.username && setUsername(user.username))
+					.catch(() => {});
+			} else {
+				// Link to user's public profile
+				fetch("/api/me/user")
+					.then((r) => (r.ok ? r.json() : null))
+					.then((user) => {
+						if (user?.username) {
+							setProfileLink(PUBLIC_USER_PAGE(user.username));
+							setProfileLabel("Profile");
+							setSettingsLink(USER_PROFILE_SETTINGS);
+							setUsername(user.username);
+						}
+					})
+					.catch(() => {});
+			}
 		} else {
 			setProfileLink(undefined);
 			setSettingsLink(undefined);
 		}
-	}, [isLoggedIn, activeSession?.user?.activeOwnerId]);
+	}, [isLoggedIn, activeSession?.user?.activePageId]);
 
 	const closeMenu = () => {
 		setIsOpen(false);

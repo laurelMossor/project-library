@@ -24,7 +24,7 @@ export async function DELETE(request: Request, { params }: Params) {
 			where: { id },
 			include: {
 				image: {
-					select: { uploadedById: true },
+					select: { uploadedByUserId: true },
 				},
 			},
 		});
@@ -34,7 +34,7 @@ export async function DELETE(request: Request, { params }: Params) {
 		}
 
 		// Verify ownership via the image
-		if (attachment.image.uploadedById !== ctx.activeOwnerId) {
+		if (attachment.image.uploadedByUserId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "You can only remove your own image attachments" },
 				{ status: 403 }

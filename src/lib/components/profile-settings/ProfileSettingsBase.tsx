@@ -8,14 +8,14 @@ import { PencilIcon } from "@/lib/components/icons/icons";
 import { transparentCTAStyles } from "../collection/CreationCTA";
 import { SettingsSection } from "./SettingsSection";
 import { DisabledSettingsButton } from "./DisabledSettingsButton";
-import { UserOrgSettings } from "./UserOrgSettings";
-import { OrgItem } from "./OrgSwitcher";
+import { UserPageSettings } from "./UserPageSettings";
+import { PageItem } from "./PageSwitcher";
 
-type OwnerType = "user" | "org";
+type ProfileType = "user" | "page";
 
 type ProfileSettingsBaseProps = {
-	ownerType: OwnerType;
-	orgs?: OrgItem[];
+	profileType: ProfileType;
+	pages?: PageItem[];
 	// Settings section configuration
 	settingsTitle: string;
 	viewPublicProfileHref: string;
@@ -33,11 +33,11 @@ type ProfileSettingsBaseProps = {
 };
 
 /**
- * Shared base component for profile settings pages (user and org)
+ * Shared base component for profile settings pages (user and page)
  */
 export function ProfileSettingsBase({
-	ownerType,
-	orgs,
+	profileType,
+	pages,
 	settingsTitle,
 	viewPublicProfileHref,
 	viewPublicProfileLabel = "View Public Profile",
@@ -91,8 +91,8 @@ export function ProfileSettingsBase({
 
 					{additionalSettingsButtons}
 
-					{/* Org Settings Section - only show for user profiles */}
-					{ownerType === "user" && <UserOrgSettings orgs={orgs} />}
+					{/* Page Settings Section - only show for user profiles */}
+					{profileType === "user" && <UserPageSettings pages={pages} />}
 				</div>
 			</SettingsSection>
 

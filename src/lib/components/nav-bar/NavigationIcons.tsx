@@ -10,9 +10,9 @@ import { AboutIcon, CollectionsIcon, UserHomeIcon, MessageIcon, PencilIcon } fro
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 import { Tooltip } from "../tooltip/Tooltip";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
-import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE, PRIVATE_USER_PAGE, PRIVATE_ORG_PAGE, MESSAGES } from "@/lib/const/routes";
+import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_PAGE, PRIVATE_USER_PAGE, MESSAGES } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
-import { API_ME_OWNER } from "@/lib/const/routes";
+import { API_ME_PAGE } from "@/lib/const/routes";
 import { NewItemModal } from "./NewItemModal";
 
 interface NavigationIconsProps {
@@ -41,62 +41,47 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 
 	useEffect(() => {
 		if (isLoggedIn) {
-			// Fetch active owner to determine which profile to link to
-			fetch(API_ME_OWNER)
-				.then((res) => {
-					if (res.ok) {
-						return res.json();
-					}
-					return null;
-				})
-				.then((data) => {
-					if (data && data.type === "ORG") {
-						// Link to org's public profile
-						setProfileLink(PUBLIC_ORG_PAGE(data.data.slug));
-						setProfileTooltip(`${data.data.name} Profile`);
-						// Still get username for AboutModal (fetch user profile)
-						fetch("/api/me/user")
-							.then((res) => res.ok ? res.json() : null)
-							.then((user) => {
-								if (user?.username) {
-									setUsername(user.username);
-								}
-							})
-							.catch(() => {});
-					} else if (data && data.type === "USER") {
-						// Link to user's public profile
-						setProfileLink(PUBLIC_USER_PAGE(data.data.username));
-						setProfileTooltip("Profile Page");
-						setUsername(data.data.username);
-					} else {
-						// Fallback: try to get user profile
-						fetch("/api/me/user")
-							.then((res) => {
-								if (res.ok) {
-									return res.json();
-								}
-								return null;
-							})
-							.then((user) => {
-								if (user?.username) {
-									setProfileLink(PUBLIC_USER_PAGE(user.username));
-									setProfileTooltip("Profile Page");
-									setUsername(user.username);
-								}
-							})
-							.catch(() => {
-								// Silently fail
-							});
-					}
-				})
-				.catch(() => {
-					// Silently fail - profile link won't show
-				});
+			// Check if user has an active page
+			const activePageId = activeSession?.user?.activePageId;
+			if (activePageId) {
+				// Fetch active page info
+				fetch(API_ME_PAGE)
+					.then((res) => res.ok ? res.json() : null)
+					.then((data) => {
+						if (data?.slug) {
+							setProfileLink(PUBLIC_PAGE(data.slug));
+							setProfileTooltip(`${data.name} Profile`);
+						}
+					})
+					.catch(() => {});
+
+				// Still get username
+				fetch("/api/me/user")
+					.then((res) => res.ok ? res.json() : null)
+					.then((user) => {
+						if (user?.username) {
+							setUsername(user.username);
+						}
+					})
+					.catch(() => {});
+			} else {
+				// Link to user's public profile
+				fetch("/api/me/user")
+					.then((res) => res.ok ? res.json() : null)
+					.then((user) => {
+						if (user?.username) {
+							setProfileLink(PUBLIC_USER_PAGE(user.username));
+							setProfileTooltip("Profile Page");
+							setUsername(user.username);
+						}
+					})
+					.catch(() => {});
+			}
 		} else {
 			setProfileLink(undefined);
 			setUsername(undefined);
 		}
-	}, [isLoggedIn, activeSession?.user?.activeOwnerId]);
+	}, [isLoggedIn, activeSession?.user?.activePageId]);
 
 	return (
 		<nav className="flex items-center gap-4">
@@ -123,7 +108,7 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 				</Link>
 			</Tooltip>
 
-			{/* Pencil icon - opens modal for new project/event */}
+			{/* Pencil icon - opens modal for new event */}
 			{isLoggedIn && (
 				<Tooltip text="Create New">
 					<button
@@ -150,7 +135,7 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 				</Tooltip>
 			)}
 
-			{/* Profile icon - links to active owner's profile (user or org) */}
+			{/* Profile icon - links to active profile (user or page) */}
 			{isLoggedIn && profileLink && (
 				<Tooltip text={profileTooltip}>
 					<Link

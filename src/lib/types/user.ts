@@ -13,7 +13,6 @@ export interface ProfileData {
 
 export interface User {
 	id: string;
-	ownerId: string; // Personal owner id (always set - created atomically with user)
 	email: string;
 	passwordHash: string;
 	username: string;
@@ -34,7 +33,6 @@ export interface User {
 // Public user profile (excludes sensitive data like email and passwordHash)
 export interface PublicUser {
 	id: string;
-	ownerId: string;
 	username: string;
 	firstName: string | null;
 	middleName: string | null;
@@ -54,13 +52,13 @@ export function getUserDisplayName(user: { displayName?: string | null; firstNam
 	if (user.displayName) {
 		return user.displayName;
 	}
-	
+
 	// Second priority: firstName + lastName (excludes middleName)
 	const nameParts = [user.firstName, user.lastName].filter(Boolean);
 	if (nameParts.length > 0) {
 		return nameParts.join(' ');
 	}
-	
+
 	// Fallback: username
 	return user.username;
 }

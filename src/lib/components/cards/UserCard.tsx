@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
-import { OwnerAvatar } from "@/lib/components/owner/OwnerAvatar";
+import { EntityAvatar } from "@/lib/components/owner/EntityAvatar";
 import { CardUser, getCardUserDisplayName } from "@/lib/types/card";
 import { PUBLIC_USER_PAGE } from "@/lib/const/routes";
 
@@ -21,7 +21,7 @@ type UserCardProps = {
 
 /**
  * UserCard - Reusable card for displaying a user in a list
- * Matches the OrgSwitcher list item style
+ * Matches the PageSwitcher list item style
  */
 export function UserCard({
 	user,
@@ -36,7 +36,7 @@ export function UserCard({
 	return (
 		<div className="flex items-center justify-between p-3 border rounded">
 			<div className="flex items-center gap-3">
-				<OwnerAvatar user={user} size={avatarSize} asLink={avatarAsLink} />
+				<EntityAvatar user={user} size={avatarSize} asLink={avatarAsLink} />
 				<div>
 					<p className="font-medium">{displayName}</p>
 					<p className="text-sm text-gray-500">@{user.username}</p>

@@ -48,15 +48,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 		signIn: LOGIN,
 	},
 	callbacks: {
-		// Include user.id and activeOwnerId in the session so we can use it in server components
+		// Include user.id and activePageId in the session so we can use it in server components
 		async session({ session, token }) {
 			try {
 				if (token?.sub) {
 					session.user.id = token.sub;
 				}
-				// Include activeOwnerId from token if present
-				if (token?.activeOwnerId) {
-					session.user.activeOwnerId = token.activeOwnerId;
+				// Include activePageId from token if present
+				if (token?.activePageId) {
+					session.user.activePageId = token.activePageId;
 				}
 				return session;
 			} catch (error) {
@@ -68,15 +68,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 			// On sign in, set user id
 			if (user) {
 				token.sub = user.id as string;
-				// Clear activeOwnerId on new sign in
-				token.activeOwnerId = user.id as string;
+				// Users don't default to a page on sign in
+				token.activePageId = undefined;
 			}
-			// Allow updating activeOwnerId via session update (from API routes)
-			if (trigger === "update" && sessionData?.activeOwnerId !== undefined) {
-				token.activeOwnerId = sessionData.activeOwnerId;
+			// Allow updating activePageId via session update (from API routes)
+			if (trigger === "update" && sessionData?.activePageId !== undefined) {
+				token.activePageId = sessionData.activePageId;
 			}
 			return token;
 		},
 	},
 });
-

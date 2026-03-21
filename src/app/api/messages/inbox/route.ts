@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, serverError } from "@/lib/utils/errors";
+import { getPagesForUser } from "@/lib/utils/server/permission";
+import { publicUserFields } from "@/lib/utils/server/user";
 
 /**
  * GET /api/messages/inbox
- * Get messages received by activeOwnerId
+ * List conversations the user participates in (directly or via page membership)
+ * Returns conversation summaries with last message
  * Protected endpoint
  */
 export async function GET() {
@@ -15,54 +18,83 @@ export async function GET() {
 			return unauthorized();
 		}
 
-		const messages = await prisma.message.findMany({
-			where: { receiverId: ctx.activeOwnerId },
+		// Get page IDs the user has access to
+		const userPages = await getPagesForUser(ctx.userId);
+		const pageIds = userPages.map((p) => p.id);
+
+		// Find all conversations the user participates in
+		// Either directly as a user, or via a page they manage
+		const participantRecords = await prisma.conversationParticipant.findMany({
+			where: {
+				OR: [
+					{ userId: ctx.userId },
+					...(pageIds.length > 0 ? [{ pageId: { in: pageIds } }] : []),
+				],
+			},
+			select: { conversationId: true },
+		});
+
+		const conversationIds = [...new Set(participantRecords.map((p) => p.conversationId))];
+
+		if (conversationIds.length === 0) {
+			return NextResponse.json([]);
+		}
+
+		// Fetch conversations with participants and last message
+		const conversations = await prisma.conversation.findMany({
+			where: { id: { in: conversationIds } },
 			include: {
-				sender: {
-					select: {
-						id: true,
-						type: true,
+				participants: {
+					include: {
 						user: {
-							select: {
-								id: true,
-								username: true,
-								displayName: true,
-								firstName: true,
-								lastName: true,
-								avatarImageId: true,
-							},
+							select: publicUserFields,
 						},
-						org: {
+						page: {
 							select: {
 								id: true,
-								slug: true,
 								name: true,
+								slug: true,
 								avatarImageId: true,
 							},
 						},
 					},
 				},
+				messages: {
+					orderBy: { createdAt: "desc" },
+					take: 1,
+					include: {
+						sender: {
+							select: publicUserFields,
+						},
+					},
+				},
 			},
-			orderBy: { createdAt: "desc" },
+			orderBy: { updatedAt: "desc" },
 			take: 50,
 		});
 
-		const messagesList = messages.map((m) => ({
-			id: m.id,
-			senderId: m.senderId,
-			receiverId: m.receiverId,
-			content: m.content,
-			createdAt: m.createdAt,
-			readAt: m.readAt,
-			sender: {
-				id: m.sender.id,
-				type: m.sender.type,
-				user: m.sender.user,
-				org: m.sender.org,
-			},
+		const conversationSummaries = conversations.map((conv) => ({
+			id: conv.id,
+			updatedAt: conv.updatedAt,
+			participants: conv.participants.map((p) => ({
+				id: p.id,
+				user: p.user,
+				page: p.page,
+			})),
+			lastMessage: conv.messages[0]
+				? {
+						id: conv.messages[0].id,
+						content: conv.messages[0].content,
+						senderId: conv.messages[0].senderId,
+						asPageId: conv.messages[0].asPageId,
+						createdAt: conv.messages[0].createdAt,
+						readAt: conv.messages[0].readAt,
+						sender: conv.messages[0].sender,
+				  }
+				: null,
 		}));
 
-		return NextResponse.json(messagesList);
+		return NextResponse.json(conversationSummaries);
 	} catch (error) {
 		console.error("GET /api/messages/inbox error:", error);
 		return serverError();

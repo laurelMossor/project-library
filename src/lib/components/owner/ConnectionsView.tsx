@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { PUBLIC_USER_PAGE, PUBLIC_ORG_PAGE } from "@/lib/const/routes";
+import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 
 type ConnectionsViewProps = {
-	ownerId: string;
+	entityId: string;
+	entityType: "user" | "page";
 };
 
 type ConnectionItem = {
-	ownerId: string;
-	type: "USER" | "ORG";
+	id: string;
+	type: "USER" | "PAGE";
 	followedAt: string;
 	user: {
 		id: string;
@@ -20,7 +21,7 @@ type ConnectionItem = {
 		lastName: string | null;
 		avatarImageId: string | null;
 	} | null;
-	org: {
+	page: {
 		id: string;
 		slug: string;
 		name: string;
@@ -32,21 +33,23 @@ type Tab = "followers" | "following";
 
 /**
  * ConnectionsView - Shows followers and following in a tabbed view
+ * Works for both user and page entities
  */
-// TODO: Refactor this monstrosity
-export function ConnectionsView({ ownerId }: ConnectionsViewProps) {
+export function ConnectionsView({ entityId, entityType }: ConnectionsViewProps) {
 	const [activeTab, setActiveTab] = useState<Tab>("followers");
 	const [followers, setFollowers] = useState<ConnectionItem[]>([]);
 	const [following, setFollowing] = useState<ConnectionItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
+	const apiBase = entityType === "user" ? "users" : "pages";
+
 	useEffect(() => {
 		const fetchConnections = async () => {
 			try {
 				const [followersRes, followingRes] = await Promise.all([
-					fetch(`/api/owners/${ownerId}/followers`),
-					fetch(`/api/owners/${ownerId}/following`),
+					fetch(`/api/${apiBase}/${entityId}/followers`),
+					fetch(`/api/${apiBase}/${entityId}/following`),
 				]);
 
 				if (followersRes.ok) {
@@ -67,11 +70,11 @@ export function ConnectionsView({ ownerId }: ConnectionsViewProps) {
 		};
 
 		fetchConnections();
-	}, [ownerId]);
+	}, [entityId, apiBase]);
 
 	const currentList = activeTab === "followers" ? followers : following;
-	const emptyMessage = activeTab === "followers" 
-		? "No followers yet." 
+	const emptyMessage = activeTab === "followers"
+		? "No followers yet."
 		: "Not following anyone yet.";
 
 	return (
@@ -112,23 +115,23 @@ export function ConnectionsView({ ownerId }: ConnectionsViewProps) {
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 						{currentList.map((item) => {
 							const isUser = item.type === "USER" && item.user;
-							const isOrg = item.type === "ORG" && item.org;
-							
+							const isPage = item.type === "PAGE" && item.page;
+
 							const displayName = isUser
 								? item.user!.displayName || `${item.user!.firstName || ""} ${item.user!.lastName || ""}`.trim() || item.user!.username
-								: isOrg
-								? item.org!.name
+								: isPage
+								? item.page!.name
 								: "Unknown";
-							
+
 							const href = isUser
 								? PUBLIC_USER_PAGE(item.user!.username)
-								: isOrg
-								? PUBLIC_ORG_PAGE(item.org!.slug)
+								: isPage
+								? PUBLIC_PAGE(item.page!.slug)
 								: "#";
 
 							return (
 								<Link
-									key={item.ownerId}
+									key={item.id}
 									href={href}
 									className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
 								>
@@ -137,7 +140,7 @@ export function ConnectionsView({ ownerId }: ConnectionsViewProps) {
 									</div>
 									<div>
 										<p className="font-medium">{displayName}</p>
-										<p className="text-sm text-gray-500">{isUser ? "User" : isOrg ? "Organization" : "Unknown"}</p>
+										<p className="text-sm text-gray-500">{isUser ? "User" : isPage ? "Page" : "Unknown"}</p>
 									</div>
 								</Link>
 							);

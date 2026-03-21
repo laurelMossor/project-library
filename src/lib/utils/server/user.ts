@@ -2,22 +2,10 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import { randomBytes } from "crypto";
-
-/**
- * Generate a cuid-like ID for database records
- * Format: 25 character string starting with 'c'
- */
-function generateId(): string {
-	const timestamp = Date.now().toString(36);
-	const random = randomBytes(12).toString("base64url").slice(0, 16);
-	return `c${timestamp}${random}`.slice(0, 25);
-}
 
 // Standard fields to select when fetching a user profile
 const personalProfileFields = {
 	id: true,
-	ownerId: true,
 	username: true,
 	email: true,
 	firstName: true,
@@ -35,7 +23,6 @@ const personalProfileFields = {
 // Public fields (excludes sensitive data like email, but includes ID for messaging)
 export const publicUserFields = {
 	id: true,
-	ownerId: true,
 	username: true,
 	firstName: true,
 	middleName: true,
@@ -113,47 +100,28 @@ export async function updateUserProfile(
 	});
 }
 
-// Get owner for a user (personal owner)
-export async function getOwnerForUser(userId: string) {
-	return prisma.owner.findFirst({
-		where: { userId, orgId: null },
-		include: { user: true },
-	});
-}
-
 /**
- * Create a new user with their personal Owner atomically.
- * Uses raw SQL to handle the circular reference (User.ownerId <-> Owner.userId).
- * Both records are created in a single transaction with pre-generated IDs.
+ * Create a new user.
+ * Prisma handles cuid generation for the id field.
  */
-export async function createUserWithOwner(data: {
+export async function createUser(data: {
 	email: string;
 	username: string;
 	passwordHash: string;
 	firstName?: string;
 	middleName?: string;
 	lastName?: string;
-}): Promise<{ userId: string; ownerId: string }> {
-	const userId = generateId();
-	const ownerId = generateId();
-	const now = new Date();
-
-	// Use a transaction with raw SQL to insert both records atomically
-	// This bypasses Prisma's TypeScript constraints for the circular reference
-	// Constraints are DEFERRABLE INITIALLY DEFERRED, so they're deferred by default in transactions
-	await prisma.$transaction(async (tx) => {
-		// Insert Owner first (references userId - validated at end of transaction)
-		await tx.$executeRaw`
-			INSERT INTO owners (id, "userId", "orgId", type, status, "createdAt")
-			VALUES (${ownerId}, ${userId}, NULL, 'USER', 'ACTIVE', ${now})
-		`;
-
-		// Insert User (references ownerId - validated at end of transaction)
-		await tx.$executeRaw`
-			INSERT INTO users (id, "ownerId", email, "passwordHash", username, "firstName", "middleName", "lastName", "displayName", headline, bio, interests, location, "isPublic", "avatarImageId", "createdAt", "updatedAt")
-			VALUES (${userId}, ${ownerId}, ${data.email}, ${data.passwordHash}, ${data.username}, ${data.firstName ?? null}, ${data.middleName ?? null}, ${data.lastName ?? null}, NULL, NULL, NULL, ARRAY[]::text[], NULL, true, NULL, ${now}, ${now})
-		`;
+}): Promise<{ userId: string }> {
+	const user = await prisma.user.create({
+		data: {
+			email: data.email,
+			username: data.username,
+			passwordHash: data.passwordHash,
+			firstName: data.firstName ?? null,
+			middleName: data.middleName ?? null,
+			lastName: data.lastName ?? null,
+		},
+		select: { id: true },
 	});
-
-	return { userId, ownerId };
+	return { userId: user.id };
 }

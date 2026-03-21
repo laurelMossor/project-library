@@ -3,7 +3,7 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateEventUpdateData } from "@/lib/validations";
-import { eventWithOwnerFields } from "@/lib/utils/server/fields";
+import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 
@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: Params) {
 
 		const event = await prisma.event.findUnique({
 			where: { id },
-			select: eventWithOwnerFields,
+			select: eventWithUserFields,
 		});
 
 		if (!event) {
@@ -70,14 +70,14 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Verify event exists and belongs to active owner
 		const existing = await prisma.event.findUnique({
 			where: { id },
-			select: { ownerId: true },
+			select: { userId: true },
 		});
 
 		if (!existing) {
 			return notFound("Event not found");
 		}
 
-		if (existing.ownerId !== ctx.activeOwnerId) {
+		if (existing.userId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "You can only edit your own events" },
 				{ status: 403 }
@@ -133,7 +133,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		const event = await prisma.event.update({
 			where: { id },
 			data: updateData,
-			select: eventWithOwnerFields,
+			select: eventWithUserFields,
 		});
 
 		// Load images
@@ -165,17 +165,17 @@ export async function DELETE(request: Request, { params }: Params) {
 
 		const { id } = await params;
 
-		// Verify event exists and belongs to active owner
+		// Verify event exists and belongs to user
 		const existing = await prisma.event.findUnique({
 			where: { id },
-			select: { ownerId: true },
+			select: { userId: true },
 		});
 
 		if (!existing) {
 			return notFound("Event not found");
 		}
 
-		if (existing.ownerId !== ctx.activeOwnerId) {
+		if (existing.userId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "You can only delete your own events" },
 				{ status: 403 }

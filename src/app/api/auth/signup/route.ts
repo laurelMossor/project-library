@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/utils/server/prisma";
-import { createUserWithOwner } from "@/lib/utils/server/user";
+import { createUser } from "@/lib/utils/server/user";
 import { badRequest, serverError } from "@/lib/utils/errors";
 import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
@@ -59,8 +59,8 @@ export async function POST(request: Request) {
 		// Hash password
 		const passwordHash = await bcrypt.hash(password, 10);
 
-		// Create user and personal owner atomically
-		const { userId, ownerId } = await createUserWithOwner({
+		// Create user
+		const { userId } = await createUser({
 			email: normalizedEmail,
 			passwordHash,
 			username,
@@ -70,7 +70,6 @@ export async function POST(request: Request) {
 			{
 				id: userId,
 				email: normalizedEmail,
-				ownerId,
 			},
 			{ status: 201 }
 		);

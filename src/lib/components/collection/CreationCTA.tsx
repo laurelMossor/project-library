@@ -1,7 +1,7 @@
-import { EVENT_NEW, PROJECT_NEW } from "@/lib/const/routes"
+import { EVENT_NEW } from "@/lib/const/routes"
 import { COLLECTION_TYPES, FilterCollectionType } from "@/lib/types/collection"
 import Link from "next/link"
-import { CalendarIcon, PencilIcon } from "../icons/icons"
+import { CalendarIcon } from "../icons/icons"
 
 export const transparentCTAStyles = {
     container: "flex items-center transition-shadow shadow-glow-sm hover:shadow-glow-lg rounded bg-transparent",
@@ -26,21 +26,13 @@ export const TransparentCTAButton = ({ href, label, icon }: { href: string, labe
 }
 
 export const CreationCTA = ({ collectionTypeFilter }: { collectionTypeFilter: FilterCollectionType }) => {
-    const showProjectCTA = collectionTypeFilter === "all" || collectionTypeFilter === COLLECTION_TYPES.PROJECT;
     const showEventCTA = collectionTypeFilter === "all" || collectionTypeFilter === COLLECTION_TYPES.EVENT;
     return (
-        <div className="flex justify-center gap-4">  
-            {showProjectCTA && (
-                <TransparentCTAButton 
-                    href={PROJECT_NEW} 
-                    label="New Project" 
-                    icon={<PencilIcon 
-                        className="w-4" />} />
-            )}
+        <div className="flex justify-center gap-4">
             {showEventCTA && (
-                <TransparentCTAButton 
-                    href={EVENT_NEW} 
-                    label="New Event" 
+                <TransparentCTAButton
+                    href={EVENT_NEW}
+                    label="New Event"
                     icon={<CalendarIcon
                         className="w-4" />} />
             )}

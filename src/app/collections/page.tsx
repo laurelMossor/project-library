@@ -4,32 +4,29 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
-import { fetchProjects } from "@/lib/utils/project-client";
 import { fetchEvents } from "@/lib/utils/event-client";
-import { ProjectItem } from "@/lib/types/project";
 import { EventItem } from "@/lib/types/event";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 
 export default function CollectionsPage() {
-	const [projects, setProjects] = useState<ProjectItem[]>([]);
 	const [events, setEvents] = useState<EventItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState("");
 
-	// Combine all items for filtering
-	const allItems: CollectionItem[] = useMemo(() => [...projects, ...events], [projects, events]);
+	// All items for filtering (just events now)
+	const allItems: CollectionItem[] = useMemo(() => [...events], [events]);
 
 	// Use filter hook for filtering, sorting, and view state
-	const { 
-		filteredItems, 
-		collectionTypeFilter, 
-		setCollectionTypeFilter, 
-		sort, 
-		setSort, 
-		view, 
+	const {
+		filteredItems,
+		collectionTypeFilter,
+		setCollectionTypeFilter,
+		sort,
+		setSort,
+		view,
 		setView,
 		selectedTags,
 		setSelectedTags,
@@ -63,11 +60,7 @@ export default function CollectionsPage() {
 		setError("");
 
 		try {
-			const [projectsData, eventsData] = await Promise.all([
-				fetchProjects(search || undefined),
-				fetchEvents(search || undefined),
-			]);
-			setProjects(projectsData);
+			const eventsData = await fetchEvents(search || undefined);
 			setEvents(eventsData);
 		} catch (err) {
 			setError("Failed to load collections");
@@ -99,4 +92,3 @@ export default function CollectionsPage() {
 		</PageLayout>
 	);
 }
-

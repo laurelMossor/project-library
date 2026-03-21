@@ -1,5 +1,4 @@
 import { ProfileData } from "./types/user";
-import { ProjectData, ProjectUpdateInput } from "./types/project";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 
 // Validation utilities for user input
@@ -24,7 +23,7 @@ export function validatePassword(password: string): boolean {
 
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
-	
+
 	if (data.firstName !== undefined && data.firstName !== null) {
 		if (typeof data.firstName !== "string") {
 			return { valid: false, error: "First name must be a string" };
@@ -98,103 +97,6 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 	if (data.isPublic !== undefined && data.isPublic !== null) {
 		if (typeof data.isPublic !== "boolean") {
 			return { valid: false, error: "isPublic must be a boolean" };
-		}
-	}
-
-	return { valid: true };
-}
-
-// Project validation utilities
-
-
-export function validateProjectData(data: ProjectData): { valid: boolean; error?: string } {
-	// Validate title: required, 1-200 characters
-	if (!data.title || typeof data.title !== "string") {
-		return { valid: false, error: "Title is required" };
-	}
-	if (data.title.trim().length === 0) {
-		return { valid: false, error: "Title cannot be empty" };
-	}
-	if (data.title.length > 200) {
-		return { valid: false, error: "Title must be 200 characters or less" };
-	}
-
-	// Validate description: required, 1-5000 characters
-	if (!data.description || typeof data.description !== "string") {
-		return { valid: false, error: "Description is required" };
-	}
-	if (data.description.trim().length === 0) {
-		return { valid: false, error: "Description cannot be empty" };
-	}
-	if (data.description.length > 5000) {
-		return { valid: false, error: "Description must be 5000 characters or less" };
-	}
-
-	// Validate tags: optional array, each tag 1-50 chars, max 10 tags
-	if (data.tags !== undefined && data.tags !== null) {
-		if (!Array.isArray(data.tags)) {
-			return { valid: false, error: "Tags must be an array" };
-		}
-		if (data.tags.length > 10) {
-			return { valid: false, error: "Maximum 10 tags allowed" };
-		}
-		// Validate each tag is a non-empty string, 1-50 characters
-		for (const tag of data.tags) {
-			if (typeof tag !== "string") {
-				return { valid: false, error: "Each tag must be a string" };
-			}
-			const trimmedTag = tag.trim();
-			if (trimmedTag.length === 0) {
-				return { valid: false, error: "Tags cannot be empty" };
-			}
-			if (trimmedTag.length > 50) {
-				return { valid: false, error: "Each tag must be 50 characters or less" };
-			}
-		}
-	}
-
-	// Note: Images should be uploaded separately and linked to the project after creation
-
-	return { valid: true };
-}
-
-export function validateProjectUpdateData(data: ProjectUpdateInput): { valid: boolean; error?: string } {
-	if (data.title !== undefined) {
-		if (typeof data.title !== "string" || data.title.trim().length === 0) {
-			return { valid: false, error: "Title must be a non-empty string" };
-		}
-		if (data.title.length > 200) {
-			return { valid: false, error: "Title must be 200 characters or less" };
-		}
-	}
-
-	if (data.description !== undefined) {
-		if (typeof data.description !== "string" || data.description.trim().length === 0) {
-			return { valid: false, error: "Description must be a non-empty string" };
-		}
-		if (data.description.length > 5000) {
-			return { valid: false, error: "Description must be 5000 characters or less" };
-		}
-	}
-
-	if (data.tags !== undefined) {
-		if (!Array.isArray(data.tags)) {
-			return { valid: false, error: "Tags must be an array" };
-		}
-		if (data.tags.length > 10) {
-			return { valid: false, error: "Maximum 10 tags allowed" };
-		}
-		for (const tag of data.tags) {
-			if (typeof tag !== "string") {
-				return { valid: false, error: "Each tag must be a string" };
-			}
-			const trimmedTag = tag.trim();
-			if (trimmedTag.length === 0) {
-				return { valid: false, error: "Tags cannot be empty" };
-			}
-			if (trimmedTag.length > 50) {
-				return { valid: false, error: "Each tag must be 50 characters or less" };
-			}
 		}
 	}
 
@@ -362,9 +264,9 @@ export function validateMessageContent(content: string): { valid: boolean; error
 	return { valid: true };
 }
 
-// Org validation utilities
+// Page validation utilities
 
-export interface OrgCreateData {
+export interface PageCreateData {
 	name: string;
 	slug: string;
 	headline?: string;
@@ -373,16 +275,16 @@ export interface OrgCreateData {
 	location?: string;
 }
 
-export function validateOrgData(data: OrgCreateData): { valid: boolean; error?: string } {
+export function validatePageData(data: PageCreateData): { valid: boolean; error?: string } {
 	// Validate name: required, 1-100 characters
 	if (!data.name || typeof data.name !== "string") {
-		return { valid: false, error: "Organization name is required" };
+		return { valid: false, error: "Page name is required" };
 	}
 	if (data.name.trim().length === 0) {
-		return { valid: false, error: "Organization name cannot be empty" };
+		return { valid: false, error: "Page name cannot be empty" };
 	}
 	if (data.name.length > 100) {
-		return { valid: false, error: "Organization name must be 100 characters or less" };
+		return { valid: false, error: "Page name must be 100 characters or less" };
 	}
 
 	// Validate slug: required, 3-50 characters, alphanumeric and hyphens only
@@ -460,8 +362,8 @@ export function validateOrgData(data: OrgCreateData): { valid: boolean; error?: 
 	return { valid: true };
 }
 
-// Org update validation (for updating existing orgs - excludes name and slug which cannot be changed)
-export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData type
+// Page update validation (for updating existing pages - excludes name and slug which cannot be changed)
+export function validatePageUpdateData(data: {
 	headline?: string | null;
 	bio?: string | null;
 	interests?: string[];
@@ -472,8 +374,8 @@ export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData
 	state?: string | null;
 	zip?: string | null;
 	parentTopic?: string | null;
-	isPublic?: boolean;
 	avatarImageId?: string | null;
+	isOpenToCollaborators?: boolean;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -583,10 +485,10 @@ export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData
 		}
 	}
 
-	// Validate isPublic: optional boolean
-	if (data.isPublic !== undefined && data.isPublic !== null) {
-		if (typeof data.isPublic !== "boolean") {
-			return { valid: false, error: "isPublic must be a boolean" };
+	// Validate isOpenToCollaborators: optional boolean
+	if (data.isOpenToCollaborators !== undefined && data.isOpenToCollaborators !== null) {
+		if (typeof data.isOpenToCollaborators !== "boolean") {
+			return { valid: false, error: "isOpenToCollaborators must be a boolean" };
 		}
 	}
 
@@ -599,4 +501,3 @@ export function validateOrgUpdateData(data: { // TODO: Create ValidOrgUpdateData
 
 	return { valid: true };
 }
-

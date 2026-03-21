@@ -4,7 +4,6 @@
  */
 
 import { getUserDisplayName } from "./user";
-import type { PublicOwner } from "../utils/owner";
 import type { ImageItem } from "./image";
 
 // ============================================================================
@@ -14,7 +13,7 @@ import type { ImageItem } from "./image";
 export type ConnectionType = "admins" | "followers" | "following" | "members";
 
 // ============================================================================
-// User & Org Card Types
+// User & Page Card Types
 // ============================================================================
 
 // Minimal user data for card displays
@@ -27,8 +26,8 @@ export type CardUser = {
 	avatarImageId: string | null;
 };
 
-// Minimal org data for card displays
-export type CardOrg = {
+// Minimal page data for card displays
+export type CardPage = {
 	id: string;
 	name: string;
 	slug: string;
@@ -36,7 +35,7 @@ export type CardOrg = {
 };
 
 // ============================================================================
-// Project & Event Card Types (for CollectionCard)
+// Event Card Types (for CollectionCard)
 // ============================================================================
 
 // Base fields shared by all collection card types
@@ -46,14 +45,10 @@ type CardCollectionBase = {
 	description: string;
 	tags: string[];
 	topics: string[];
-	owner: PublicOwner;
+	user: CardUser;
+	page: CardPage | null;
 	createdAt: Date | string;
 	images: ImageItem[];
-};
-
-// Minimal project data for card displays
-export type CardProject = CardCollectionBase & {
-	type: "project";
 };
 
 // Minimal event data for card displays
@@ -63,17 +58,12 @@ export type CardEvent = CardCollectionBase & {
 	location: string;
 };
 
-// Union type for collection cards
-export type CardCollectionItem = CardProject | CardEvent;
+// Union type for collection cards (just events now)
+export type CardCollectionItem = CardEvent;
 
 // Type guard for card event
 export function isCardEvent(item: CardCollectionItem): item is CardEvent {
 	return item.type === "event";
-}
-
-// Type guard for card project
-export function isCardProject(item: CardCollectionItem): item is CardProject {
-	return item.type === "project";
 }
 
 // ============================================================================
@@ -90,9 +80,9 @@ export function getCardUserDisplayName(user: CardUser): string {
 	});
 }
 
-// Get display name for a card org
-export function getCardOrgDisplayName(org: CardOrg): string {
-	return org.name;
+// Get display name for a card page
+export function getCardPageDisplayName(page: CardPage): string {
+	return page.name;
 }
 
 // Get initials for a card user
@@ -109,9 +99,9 @@ export function getCardUserInitials(user: CardUser): string {
 	return user.username[0].toUpperCase();
 }
 
-// Get initials for a card org
-export function getCardOrgInitials(orgName: string): string {
-	const words = orgName.trim().split(/\s+/);
+// Get initials for a card page
+export function getCardPageInitials(pageName: string): string {
+	const words = pageName.trim().split(/\s+/);
 	if (words.length >= 2) {
 		return (words[0][0] + words[1][0]).toUpperCase();
 	}

@@ -1,4 +1,4 @@
-// Extend NextAuth types to include activeOwnerId in session
+// Extend NextAuth types to include activePageId in session
 import "next-auth";
 import "next-auth/jwt";
 
@@ -7,7 +7,7 @@ declare module "next-auth" {
 		user: {
 			id: string;
 			email: string;
-			activeOwnerId?: string; // ID of Owner user is currently "acting as"
+			activePageId?: string; // ID of Page user is currently working on
 		};
 	}
 }
@@ -15,6 +15,6 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
 	interface JWT {
 		sub: string; // user id
-		activeOwnerId?: string; // ID of Owner user is currently "acting as"
+		activePageId?: string; // ID of Page user is currently working on
 	}
 }

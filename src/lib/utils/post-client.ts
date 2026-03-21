@@ -1,24 +1,19 @@
 /**
  * Client-side utilities for fetching posts
- * Replaces entry-client.ts for v2 schema
  */
 
 import { PostItem } from "../types/post";
-import { CollectionType } from "../types/collection";
 
 /**
- * Fetch posts for a collection (project or event)
+ * Fetch posts for an event
  */
 export async function getPosts(
-	collectionId: string,
-	collectionType: CollectionType
+	eventId: string,
 ): Promise<PostItem[]> {
-	const endpoint = collectionType === "project" 
-		? `/api/projects/${collectionId}/posts`
-		: `/api/events/${collectionId}/posts`;
+	const endpoint = `/api/events/${eventId}/posts`;
 
 	const response = await fetch(endpoint);
-	
+
 	if (!response.ok) {
 		throw new Error(`Failed to fetch posts: ${response.statusText}`);
 	}
@@ -31,7 +26,7 @@ export async function getPosts(
  */
 export async function getPostById(postId: string): Promise<PostItem> {
 	const response = await fetch(`/api/posts/${postId}`);
-	
+
 	if (!response.ok) {
 		throw new Error(`Failed to fetch post: ${response.statusText}`);
 	}
@@ -40,16 +35,13 @@ export async function getPostById(postId: string): Promise<PostItem> {
 }
 
 /**
- * Create a new post
+ * Create a new post for an event
  */
 export async function createPost(
-	collectionId: string,
-	collectionType: CollectionType,
+	eventId: string,
 	data: { title?: string | null; content: string }
 ): Promise<PostItem> {
-	const endpoint = collectionType === "project"
-		? `/api/projects/${collectionId}/posts`
-		: `/api/events/${collectionId}/posts`;
+	const endpoint = `/api/events/${eventId}/posts`;
 
 	const response = await fetch(endpoint, {
 		method: "POST",
@@ -103,4 +95,3 @@ export async function deletePost(postId: string): Promise<void> {
 		throw new Error(error.error || "Failed to delete post");
 	}
 }
-

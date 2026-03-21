@@ -1,10 +1,10 @@
 /**
  * USER PROFILE SETTINGS PAGE
- * 
- * This is the user's settings page at /u/profile.
+ *
+ * This is the user's settings page at /u/profile/settings.
  * - Protected route (requires authentication)
- * - Allows switching between user and org owners
- * - Links to edit pages for both user and org
+ * - Allows switching active page
+ * - Links to edit pages
  */
 "use client";
 
@@ -13,22 +13,20 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { FormLayout } from "@/lib/components/layout/FormLayout";
 import { Button } from "@/lib/components/ui/Button";
-import { LOGIN_WITH_CALLBACK, HOME, API_ME_ORGS, USER_PROFILE_SETTINGS, API_ME_OWNER, PRIVATE_ORG_PAGE, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, ORG_PROFILE_EDIT } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, HOME, API_ME_PAGES, API_ME_PAGE, PRIVATE_PAGE, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, PAGE_PROFILE_EDIT, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
 
-interface Org {
+interface PageInfo {
 	id: string;
 	name: string;
 	slug: string;
-	ownerId: string;
 }
 
 export default function UserSettingsPage() {
 	const { data: session, update: updateSession } = useSession();
 	const router = useRouter();
 	const [loading, setLoading] = useState(true);
-	const [orgs, setOrgs] = useState<Org[]>([]);
+	const [pages, setPages] = useState<PageInfo[]>([]);
 	const [switching, setSwitching] = useState(false);
 	const [error, setError] = useState("");
 
@@ -38,8 +36,8 @@ export default function UserSettingsPage() {
 			return;
 		}
 
-		// Fetch user's orgs
-		fetch(API_ME_ORGS)
+		// Fetch user's pages
+		fetch(API_ME_PAGES)
 			.then((res) => {
 				if (res.status === 401) {
 					router.push(LOGIN_WITH_CALLBACK(USER_PROFILE_SETTINGS));
@@ -49,91 +47,90 @@ export default function UserSettingsPage() {
 			})
 			.then((data) => {
 				if (data && !data.error) {
-					setOrgs(data);
+					setPages(data);
 				}
 				setLoading(false);
 			})
 			.catch(() => {
-				setError("Failed to load organizations");
+				setError("Failed to load pages");
 				setLoading(false);
 			});
 	}, [session, router]);
 
-	const handleSwitchToOrg = async (orgOwnerId: string) => {
+	const handleSwitchToPage = async (pageId: string) => {
 		setSwitching(true);
 		setError("");
 
 		try {
-			const res = await fetch(API_ME_OWNER, {
+			const res = await fetch(API_ME_PAGE, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerId: orgOwnerId }),
+				body: JSON.stringify({ activePageId: pageId }),
 			});
 
 			if (!res.ok) {
 				const data = await res.json();
-				setError(data.error || "Failed to switch to organization");
+				setError(data.error || "Failed to switch to page");
 				setSwitching(false);
 				return;
 			}
 
-			// Update session with new activeOwnerId
-			await updateSession({ activeOwnerId: orgOwnerId });
-			
-			// Redirect to org profile
-			router.push(PRIVATE_ORG_PAGE);
+			// Update session with new activePageId
+			await updateSession({ activePageId: pageId });
+
+			// Redirect to page profile
+			router.push(PRIVATE_PAGE);
 		} catch (err) {
-			setError("Failed to switch to organization");
+			setError("Failed to switch to page");
 			setSwitching(false);
 		}
 	};
 
-	const handleSwitchToUser = async () => {
+	const handleClearActivePage = async () => {
 		setSwitching(true);
 		setError("");
 
 		try {
-			const res = await fetch(API_ME_OWNER, {
+			const res = await fetch(API_ME_PAGE, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerId: null }),
+				body: JSON.stringify({ activePageId: null }),
 			});
 
 			if (!res.ok) {
 				const data = await res.json();
-				setError(data.error || "Failed to switch to user");
+				setError(data.error || "Failed to clear active page");
 				setSwitching(false);
 				return;
 			}
 
-			// Update session to clear activeOwnerId
-			await updateSession({ activeOwnerId: null });
-			
+			// Update session to clear activePageId
+			await updateSession({ activePageId: null });
+
 			// Redirect to user profile
 			router.push(PRIVATE_USER_PAGE);
 		} catch (err) {
-			setError("Failed to switch to user");
+			setError("Failed to clear active page");
 			setSwitching(false);
 		}
 	};
 
 	if (loading) {
 		return (
-			<FormLayout>
+			<CenteredLayout maxWidth="2xl">
 				<div>Loading...</div>
-			</FormLayout>
+			</CenteredLayout>
 		);
 	}
 
-	const activeOwnerId = session?.user?.activeOwnerId;
-	// Find the active org by matching ownerId
-	const activeOrg = orgs.find(org => org.ownerId === activeOwnerId);
+	const activePageId = session?.user?.activePageId;
+	const activePage = pages.find(page => page.id === activePageId);
 
 	return (
 		<CenteredLayout maxWidth="2xl">
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold mb-2">Settings</h1>
-				<p className="text-gray-600">Manage your account settings and switch between user and organization profiles</p>
+				<p className="text-gray-600">Manage your account settings and switch between user and page profiles</p>
 			</div>
 
 			{error && (
@@ -143,12 +140,12 @@ export default function UserSettingsPage() {
 			)}
 
 			<div className="bg-white border rounded-lg p-6 mb-6">
-				<h2 className="text-xl font-semibold mb-4">Current Owner</h2>
-				{activeOrg ? (
+				<h2 className="text-xl font-semibold mb-4">Active Profile</h2>
+				{activePage ? (
 					<div className="space-y-3">
-						<p className="text-sm text-gray-600">You are currently acting as an organization.</p>
+						<p className="text-sm text-gray-600">You are currently acting as a page.</p>
 						<Button
-							onClick={handleSwitchToUser}
+							onClick={handleClearActivePage}
 							disabled={switching}
 							loading={switching}
 							variant="secondary"
@@ -164,26 +161,26 @@ export default function UserSettingsPage() {
 			</div>
 
 			<div className="bg-white border rounded-lg p-6 mb-6">
-				<h2 className="text-xl font-semibold mb-4">Organizations</h2>
-				{orgs.length === 0 ? (
-					<p className="text-sm text-gray-600">You don't belong to any organizations yet.</p>
+				<h2 className="text-xl font-semibold mb-4">Pages</h2>
+				{pages.length === 0 ? (
+					<p className="text-sm text-gray-600">You don&apos;t have any pages yet.</p>
 				) : (
 					<div className="space-y-3">
-						<p className="text-sm text-gray-600 mb-4">Switch to an organization profile to manage it:</p>
-						{orgs.map((org) => (
-							<div key={org.id} className="flex items-center justify-between p-3 border rounded">
+						<p className="text-sm text-gray-600 mb-4">Switch to a page to manage it:</p>
+						{pages.map((page) => (
+							<div key={page.id} className="flex items-center justify-between p-3 border rounded">
 								<div>
-									<p className="font-medium">{org.name}</p>
-									<p className="text-sm text-gray-500">@{org.slug}</p>
+									<p className="font-medium">{page.name}</p>
+									<p className="text-sm text-gray-500">@{page.slug}</p>
 								</div>
 								<Button
-									onClick={() => handleSwitchToOrg(org.ownerId)}
-									disabled={switching || activeOwnerId === org.ownerId}
+									onClick={() => handleSwitchToPage(page.id)}
+									disabled={switching || activePageId === page.id}
 									loading={switching}
 									variant="secondary"
 									size="sm"
 								>
-									{activeOwnerId === org.ownerId ? "Active" : "Switch To"}
+									{activePageId === page.id ? "Active" : "Switch To"}
 								</Button>
 							</div>
 						))}
@@ -200,13 +197,13 @@ export default function UserSettingsPage() {
 					<ButtonLink href={USER_PROFILE_EDIT} variant="secondary" fullWidth>
 						Edit User Profile
 					</ButtonLink>
-					{activeOrg && (
+					{activePage && (
 						<>
-							<ButtonLink href={PRIVATE_ORG_PAGE} variant="secondary" fullWidth>
-								Org Profile
+							<ButtonLink href={PRIVATE_PAGE} variant="secondary" fullWidth>
+								Page Profile
 							</ButtonLink>
-							<ButtonLink href={ORG_PROFILE_EDIT} variant="secondary" fullWidth>
-								Edit Org Profile
+							<ButtonLink href={PAGE_PROFILE_EDIT} variant="secondary" fullWidth>
+								Edit Page Profile
 							</ButtonLink>
 						</>
 					)}

@@ -1,82 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { DropdownMenu, dropdownMenuStyles } from "../ui/DropdownMenu";
 import { MenuItem } from "../nav-bar/hamburger/MenuItem";
-import { GearsIcon, PencilIcon, CalendarIcon, UserHomeIcon } from "../icons/icons";
-import { PROJECT_NEW, EVENT_NEW, USER_PROFILE_SETTINGS, API_ME_OWNER, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { GearsIcon, CalendarIcon, UserHomeIcon } from "../icons/icons";
+import { EVENT_NEW, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
 import { transparentCTAStyles } from "../collection/CreationCTA";
 
 const iconClass = "w-6 h-6 shrink-0";
 
 /**
  * Options menu for user public profile page (u/[username])
- * Automatically detects if user is acting as org via session
- * - If acting as org: Shows only "Switch to User Profile" option
- * - If acting as user: Shows full options (Edit, New Project, New Event, Settings)
+ * Shows full options (Edit, New Event, Settings)
  */
 export function ProfileOptionsMenu() {
 	const [isOpen, setIsOpen] = useState(false);
-	const [switching, setSwitching] = useState(false);
-	const router = useRouter();
-	const { data: session, update: updateSession } = useSession();
-	
-	// Check if acting as org from session (has activeOwnerId set)
-	const isActingAsOrg = Boolean(session?.user?.activeOwnerId);
 
 	const closeMenu = () => {
 		setIsOpen(false);
 	};
-
-	const handleSwitchToUser = async () => {
-		setSwitching(true);
-		try {
-			const res = await fetch(API_ME_OWNER, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ownerId: null }),
-			});
-
-			if (res.ok) {
-				await updateSession({ activeOwnerId: null });
-				closeMenu();
-				router.push(PRIVATE_USER_PAGE);
-			}
-		} catch (err) {
-			// Silently fail
-		} finally {
-			setSwitching(false);
-		}
-	};
-
-	// When acting as org, only show switch back option
-	if (isActingAsOrg) {
-		return (
-			<DropdownMenu
-				isOpen={isOpen}
-				onClose={() => setIsOpen((o) => !o)}
-				trigger={
-					<>
-						<span className={transparentCTAStyles.iconWrapper}>
-							<GearsIcon className="w-6 h-6 shrink-0" />
-						</span>
-						<span className={transparentCTAStyles.label}>Options</span>
-					</>
-				}
-				triggerClassName={transparentCTAStyles.container}
-				triggerAriaLabel="Profile options"
-			>
-				<MenuItem
-					icon={<UserHomeIcon className={iconClass} />}
-					label={switching ? "Switching..." : "Switch to User Profile"}
-					onClick={handleSwitchToUser}
-					closeMenu={() => {}}
-				/>
-			</DropdownMenu>
-		);
-	}
 
 	return (
 		<DropdownMenu
@@ -97,13 +39,6 @@ export function ProfileOptionsMenu() {
 				icon={<UserHomeIcon className={iconClass} />}
 				label="Edit Profile"
 				href={`${USER_PROFILE_SETTINGS}#profile-section`}
-				closeMenu={closeMenu}
-			/>
-
-			<MenuItem
-				icon={<PencilIcon className={iconClass} />}
-				label="New Project"
-				href={PROJECT_NEW}
 				closeMenu={closeMenu}
 			/>
 

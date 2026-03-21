@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PROJECT_NEW } from "@/lib/const/routes";
+import { EVENT_NEW } from "@/lib/const/routes";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -19,8 +19,8 @@ export const IMAGE_NAMES = ["FIND", "DISCOVER", "BUILD", "CONTRIBUTE"] as const;
 export const IMAGE_PATHS: Record<typeof IMAGE_NAMES[number], string> = {
 	FIND: "/explore?type=event&sort=newest&view=map&tags=improv",
 	DISCOVER: "/explore?sort=newest",
-	BUILD: "/explore?type=project&sort=oldest",
-	CONTRIBUTE: PROJECT_NEW,
+	BUILD: "/explore?sort=oldest",
+	CONTRIBUTE: EVENT_NEW,
 };
 
 const getRandomElement = <T,>(array: readonly T[]): T => {

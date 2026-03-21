@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
-import { PROJECT_NEW, EVENT_NEW } from "@/lib/const/routes";
+import { EVENT_NEW } from "@/lib/const/routes";
 
 type UserCollectionSectionProps = {
 	items: CollectionItem[];
@@ -14,10 +14,10 @@ type UserCollectionSectionProps = {
 	showCreateLinks?: boolean;
 };
 
-export function UserCollectionSection({ 
-	items, 
+export function UserCollectionSection({
+	items,
 	title = "Your Collection",
-	emptyMessage = "You haven't created any projects or events yet.",
+	emptyMessage = "You haven't created any events yet.",
 	showCreateLinks = true
 }: UserCollectionSectionProps) {
 	const [search, setSearch] = useState("");
@@ -25,7 +25,7 @@ export function UserCollectionSection({
 	// Filter items by search (client-side filtering for user's own collection)
 	const filteredBySearch = useMemo(() => {
 		if (!search.trim()) return items;
-		
+
 		const searchLower = search.toLowerCase();
 		return items.filter((item) => {
 			return (
@@ -37,13 +37,13 @@ export function UserCollectionSection({
 	}, [items, search]);
 
 	// Use filter hook for filtering, sorting, and view state
-	const { 
-		filteredItems, 
-		collectionTypeFilter, 
-		setCollectionTypeFilter, 
-		sort, 
-		setSort, 
-		view, 
+	const {
+		filteredItems,
+		collectionTypeFilter,
+		setCollectionTypeFilter,
+		sort,
+		setSort,
+		view,
 		setView,
 		selectedTags,
 		setSelectedTags,
@@ -68,7 +68,6 @@ export function UserCollectionSection({
 				<p className="text-gray-500">{emptyMessage}</p>
 				{showCreateLinks && (
 					<div className="mt-4 flex gap-4">
-						<Link href={PROJECT_NEW} className="underline">Create Project</Link>
 						<Link href={EVENT_NEW} className="underline">Create Event</Link>
 					</div>
 				)}
@@ -99,4 +98,3 @@ export function UserCollectionSection({
 		</div>
 	);
 }
-
