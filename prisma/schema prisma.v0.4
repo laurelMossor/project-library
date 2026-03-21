@@ -1,0 +1,404 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========================
+// Enums
+// ========================
+
+enum PageVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum PermissionRole {
+  ADMIN  // full control: edit page, manage permissions, post as page, manage messages
+  EDITOR // can post as page, edit content, view/send page messages
+  MEMBER // basic membership (future use)
+}
+
+enum ResourceType {
+  PAGE
+  EVENT
+}
+
+// Used for ImageAttachment target typing.
+enum AttachmentTarget {
+  PAGE
+  EVENT
+  POST
+  IMAGE
+  MESSAGE
+}
+
+// ========================
+// Users (identity + auth)
+// ========================
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email        String @unique
+  passwordHash String
+  username     String @unique
+
+  firstName   String?
+  middleName  String?
+  lastName    String?
+  displayName String?
+
+  // Profile
+  headline      String?
+  bio           String?
+  interests     String[] @default([])
+  location      String?
+  isPublic      Boolean  @default(true)
+  avatarImageId String?
+  avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
+  // Backrefs (Prisma sugar — actual FKs live on the content tables)
+  posts  Post[]
+  events Event[]
+  images Image[]
+
+  // Pages
+  createdPages Page[]
+
+  // Authorization
+  permissions Permission[]
+
+  // Social
+  following Follow[] @relation("UserFollowing")
+  followers Follow[] @relation("UserFollowers")
+
+  // Messaging
+  sentMessages            Message[]                @relation("SentMessages")
+  conversationMemberships ConversationParticipant[]
+
+  @@map("users")
+}
+
+// ========================
+// Pages (shared resource — replaces Org + Project)
+// ========================
+//
+// A Page is a first-class entity that can:
+// - aggregate posts and events
+// - have collaborators with roles (via Permission)
+// - be followed and discovered
+// - send/receive messages (via ConversationParticipant)
+
+model Page {
+  id              String   @id @default(cuid())
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Identity
+  name String
+  slug String @unique
+
+  headline   String?
+  bio        String?
+  interests  String[] @default([])
+  location   String?
+  visibility PageVisibility @default(PUBLIC)
+
+  // Address (useful for small biz, community spaces)
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  zip          String?
+
+  // Taxonomy
+  parentTopic String?
+  tags        String[] @default([])
+  topics      Topic[]
+
+  // Avatar
+  avatarImageId String?
+  avatarImage   Image? @relation("PageAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
+  // Collaboration
+  isOpenToCollaborators Boolean @default(false)
+
+  // Relations
+  createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  // Content posted "as" this page
+  posts  Post[]
+  events Event[]
+
+  // Social
+  followers Follow[] @relation("PageFollowed")
+
+  // Messaging (Page as conversation participant)
+  conversations ConversationParticipant[]
+
+  @@index([createdByUserId])
+  @@index([createdAt])
+  @@map("pages")
+}
+
+// ========================
+// Permission (authorization framework)
+// ========================
+//
+// Replaces Owner + OrgMember. Explicit user → resource → role mapping.
+// Creating a Page auto-creates Permission(userId, pageId, PAGE, ADMIN).
+//
+// Authorization checks:
+// - "Can user X post as page Y?" → role in [ADMIN, EDITOR]
+// - "Can user X manage page Y?" → role = ADMIN
+//
+// Post permissions are implicit: the author can always manage their own post;
+// if a post is on a Page, ADMIN/EDITOR on that Page can manage it too.
+
+model Permission {
+  id           String         @id @default(cuid())
+  userId       String
+  resourceId   String
+  resourceType ResourceType
+  role         PermissionRole
+  createdAt    DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceId, resourceType])
+  @@index([resourceId, resourceType])
+  @@index([userId])
+  @@map("permissions")
+}
+
+// ========================
+// Posts
+// ========================
+//
+// Posts can be:
+// - standalone (all optional FKs null)
+// - on a Page (pageId set) — user must have ADMIN/EDITOR permission
+// - attached to an Event (eventId set)
+// - an update to another Post (parentPostId set, one level deep)
+//
+// Child posts (updates) store pageId redundantly for query convenience.
+// App enforces: updates cannot themselves have children (no nesting).
+// DB CHECK: parentPostId IS NULL OR eventId IS NULL
+
+model Post {
+  id           String  @id @default(cuid())
+  userId       String
+  pageId       String?
+  eventId      String?
+  parentPostId String?
+
+  title   String?
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page       Page?  @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  event      Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parentPost Post?  @relation("PostUpdates", fields: [parentPostId], references: [id], onDelete: Cascade)
+  updates    Post[] @relation("PostUpdates")
+
+  tags   String[] @default([])
+  topics String[] @default([])
+
+  @@index([userId, createdAt])
+  @@index([pageId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([parentPostId, createdAt])
+  @@map("posts")
+}
+
+// ========================
+// Events
+// ========================
+//
+// Events can be:
+// - standalone (pageId null) — created by a user directly
+// - hosted by a Page (pageId set) — user must have ADMIN/EDITOR permission
+
+model Event {
+  id     String  @id @default(cuid())
+  userId String
+  pageId String?
+
+  title         String
+  description   String
+  eventDateTime DateTime
+  location      String
+  latitude      Float?
+  longitude     Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page  Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  posts Post[]
+
+  tags   String[] @default([])
+  topics String[] @default([])
+
+  @@index([userId, createdAt])
+  @@index([pageId, createdAt])
+  @@map("events")
+}
+
+// ========================
+// Social graph (User follows User or Page)
+// ========================
+//
+// Exactly one of followingUserId / followingPageId is set.
+// Enforce via DB CHECK constraint in migration.
+
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String
+  createdAt  DateTime @default(now())
+
+  followingUserId String?
+  followingPageId String?
+
+  follower      User  @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followingUser User? @relation("UserFollowers", fields: [followingUserId], references: [id], onDelete: Cascade)
+  followingPage Page? @relation("PageFollowed", fields: [followingPageId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingUserId])
+  @@unique([followerId, followingPageId])
+  @@index([followerId])
+  @@index([followingUserId])
+  @@index([followingPageId])
+  @@map("follows")
+}
+
+// ========================
+// Images + Attachments
+// ========================
+
+model Image {
+  id               String   @id @default(cuid())
+  url              String
+  path             String
+  altText          String?
+  uploadedByUserId String
+  createdAt        DateTime @default(now())
+
+  uploadedBy User @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  attachments   ImageAttachment[]
+  userAvatarFor User[] @relation("UserAvatar")
+  pageAvatarFor Page[] @relation("PageAvatar")
+
+  @@index([uploadedByUserId])
+  @@map("images")
+}
+
+model ImageAttachment {
+  id        String          @id @default(cuid())
+  imageId   String
+  type      AttachmentTarget
+  targetId  String
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+
+  image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@index([type, targetId])
+  @@index([imageId])
+  @@map("image_attachments")
+}
+
+// ========================
+// Messaging
+// ========================
+//
+// Conversations have polymorphic participants — either a User or a Page.
+// When a Page is a participant, all ADMIN/EDITOR users on that Page
+// can see and respond in the conversation.
+//
+// Messages always track the sending User (accountability) with an
+// optional asPageId for "sending on behalf of" a Page.
+//
+// Access control ("Can user X see this conversation?"):
+//   1. Direct user participant: conversation_participants.userId = X
+//   2. Page participant: conversation_participants.pageId = P
+//      AND permissions(userId=X, resourceId=P, role in [ADMIN, EDITOR])
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  createdAt      DateTime @default(now())
+
+  // Exactly one set: User participant or Page participant
+  userId String?
+  pageId String?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page         Page?        @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@unique([conversationId, pageId])
+  @@index([userId])
+  @@index([pageId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  content        String
+  senderId       String
+  asPageId       String?
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+// ========================
+// Topics (lightweight taxonomy)
+// ========================
+//
+// Page <-> Topic is an implicit many-to-many join table.
+
+model Topic {
+  id        String   @id
+  label     String
+  parentId  String?
+  synonyms  String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pages Page[]
+
+  @@map("topics")
+}
