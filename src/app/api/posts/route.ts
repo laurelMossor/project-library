@@ -5,6 +5,8 @@ import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { publicUserFields } from "@/lib/utils/server/user";
+import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -86,10 +88,11 @@ const postFields = {
  * Public endpoint
  */
 export async function GET(request: Request) {
-	// Rate limiting: 60 requests per minute per IP
+	// Rate limiting: 200 requests per minute per IP
+	// Higher limit because each collection card may fetch child posts individually
 	const clientId = getClientIdentifier(request);
 	const rateLimit = checkRateLimit(`search-posts:${clientId}`, {
-		maxRequests: 60,
+		maxRequests: 200,
 		windowMs: 60 * 1000,
 	});
 
@@ -105,6 +108,7 @@ export async function GET(request: Request) {
 	const pageId = searchParams.get("pageId") || undefined;
 	const eventId = searchParams.get("eventId") || undefined;
 	const parentPostId = searchParams.get("parentPostId") || undefined;
+	const toplevel = searchParams.get("toplevel"); // "true" to exclude child/event posts
 	const limit = parseNumber(searchParams.get("limit"));
 	const offset = parseNumber(searchParams.get("offset"));
 
@@ -120,6 +124,8 @@ export async function GET(request: Request) {
 				...(pageId ? { pageId } : {}),
 				...(eventId ? { eventId } : {}),
 				...(parentPostId ? { parentPostId } : {}),
+				// When toplevel=true, only return posts without a parent or event
+				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
 			},
 			select: postFields,
 			orderBy: { createdAt: "desc" },
@@ -127,7 +133,18 @@ export async function GET(request: Request) {
 			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
 		});
 
-		return NextResponse.json(posts);
+		// Batch load images
+		const postIds = posts.map((p) => p.id);
+		const imagesMap = await getImagesForTargetsBatch("POST", postIds);
+
+		// Transform to include type and images
+		const postsWithImages = posts.map((p) => ({
+			...p,
+			type: COLLECTION_TYPES.POST,
+			images: imagesMap.get(p.id) || [],
+		}));
+
+		return NextResponse.json(postsWithImages);
 	} catch (error) {
 		console.error("GET /api/posts error:", error);
 		return serverError("Failed to fetch posts");

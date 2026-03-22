@@ -80,18 +80,25 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 				</div>
 			)}
 
-			{/* Images (only for events) */}
-			{isEventItem && item.images && item.images.length > 0 && (
+			{/* Images */}
+			{item.images && item.images.length > 0 && (
 				<div className="mb-4">
 					<ImageCarousel images={item.images} />
 				</div>
 			)}
 
-			{/* Posts (only for events) */}
+			{/* Posts/Updates */}
 			{isEventItem && (
 				<PostsList
 					collectionId={item.id}
 					collectionType="event"
+					showTitle={true}
+				/>
+			)}
+			{isPost(item) && (
+				<PostsList
+					collectionId={item.id}
+					collectionType="post"
 					showTitle={true}
 				/>
 			)}

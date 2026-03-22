@@ -24,14 +24,23 @@ export function FilteredCollection({ items, view }: FilteredCollectionProps) {
 	}
 
 	const truncate = view === "grid";
-	const containerClass = view === "list" 
-		? "space-y-4" 
-		: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+
+	if (view === "list") {
+		return (
+			<div className="space-y-4">
+				{items.map((item) => (
+					<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
+				))}
+			</div>
+		);
+	}
 
 	return (
-		<div className={containerClass}>
+		<div className="columns-1 md:columns-2 lg:columns-3 gap-6">
 			{items.map((item) => (
-				<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
+				<div key={getCollectionItemKey(item)} className="break-inside-avoid mb-6">
+					<CollectionCard item={item} truncate={truncate} />
+				</div>
 			))}
 		</div>
 	);

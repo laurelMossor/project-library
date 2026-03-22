@@ -4,7 +4,7 @@ import { API_POSTS, API_EVENT_POSTS } from "../const/routes";
 /**
  * Fetch posts for an event
  */
-export async function getPosts(eventId: string): Promise<PostItem[]> {
+export async function getEventPosts(eventId: string): Promise<PostItem[]> {
 	const endpoint = API_EVENT_POSTS(eventId);
 	const response = await fetch(endpoint);
 
@@ -16,13 +16,26 @@ export async function getPosts(eventId: string): Promise<PostItem[]> {
 }
 
 /**
+ * Fetch child posts (updates) for a parent post
+ */
+export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
+	const response = await fetch(`${API_POSTS}?parentPostId=${parentPostId}`);
+
+	if (!response.ok) {
+		throw new Error(`Failed to fetch post updates: ${response.statusText}`);
+	}
+
+	return response.json();
+}
+
+/**
  * Fetch all posts with optional search query
  * Client-side utility that calls the /api/posts endpoint
  */
 export async function fetchPosts(search?: string): Promise<PostCollectionItem[]> {
-	const url = search
-		? `${API_POSTS}?search=${encodeURIComponent(search)}`
-		: API_POSTS;
+	const params = new URLSearchParams({ toplevel: "true" });
+	if (search) params.set("search", search);
+	const url = `${API_POSTS}?${params.toString()}`;
 
 	const res = await fetch(url);
 
@@ -30,7 +43,7 @@ export async function fetchPosts(search?: string): Promise<PostCollectionItem[]>
 		throw new Error("Failed to fetch posts");
 	}
 
-	const posts: PostItem[] = await res.json();
+	const posts = await res.json();
 	return posts.map(toPostCollectionItem);
 }
 

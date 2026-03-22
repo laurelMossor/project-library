@@ -1,4 +1,5 @@
 import { BaseCollectionItem } from "./collection-item";
+import { ImageItem } from "./image";
 
 /**
  * Post type - matches Prisma schema v0.4
@@ -69,13 +70,15 @@ export interface PostCollectionItem extends BaseCollectionItem {
 	content: string;
 	eventId: string | null;
 	parentPostId: string | null;
+	images: ImageItem[];
+	posts?: PostItem[];
 	event?: { id: string; title: string } | null;
 }
 
 /**
  * Convert a PostItem (API response) to PostCollectionItem (for collection rendering)
  */
-export function toPostCollectionItem(post: PostItem): PostCollectionItem {
+export function toPostCollectionItem(post: PostItem & { images?: ImageItem[] }): PostCollectionItem {
 	return {
 		id: post.id,
 		userId: post.userId,
@@ -91,6 +94,7 @@ export function toPostCollectionItem(post: PostItem): PostCollectionItem {
 		updatedAt: post.updatedAt,
 		eventId: post.eventId,
 		parentPostId: post.parentPostId,
+		images: post.images || [],
 		event: post.event,
 	};
 }

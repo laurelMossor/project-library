@@ -84,6 +84,7 @@ const getImageUrl = (filename: string): string => {
 
 const DATA_DIR = path.join(process.cwd(), "prisma", "seed-data");
 const USERS_PATH = path.join(DATA_DIR, "users.json");
+const PROJECTS_PATH = path.join(DATA_DIR, "projects.json");
 const EVENTS_PATH = path.join(DATA_DIR, "events.json");
 const IMAGES_PATH = path.join(DATA_DIR, "images.json");
 
@@ -96,6 +97,16 @@ type SeedUserJson = {
   bio?: string;
   interests?: string[];
   location?: string;
+};
+
+type SeedProjectJson = {
+  title: string;
+  description: string;
+  tags: string[];
+  ownerId: number; // 1-based index into users.json
+  createdAt?: string;
+  hasEntries?: boolean;
+  imageFilenames?: string[];
 };
 
 type SeedEventJson = {
@@ -150,6 +161,7 @@ async function main() {
   console.log("🌱 Seeding (v0.4 schema)...");
 
   const usersJson = loadJson<SeedUserJson[]>(USERS_PATH);
+  const projectsJson = loadJson<SeedProjectJson[]>(PROJECTS_PATH);
   const eventsJson = loadJson<SeedEventJson[]>(EVENTS_PATH);
   const imagesJson = loadJson<SeedImageJson[]>(IMAGES_PATH);
 
@@ -413,16 +425,58 @@ async function main() {
     });
   }
 
-  // ---- Create Standalone Posts
-  console.log("📝 Creating standalone posts...");
-  for (const u of createdUsers) {
-    await prisma.post.create({
+  // ---- Create Posts (from projects.json — projects become posts in v0.4)
+  console.log("📝 Creating posts (from projects seed data)...");
+  const createdPosts: { id: string; userId: string; title: string | null }[] = [];
+
+  for (const p of projectsJson) {
+    const userIdx = userIndexToKey(p.ownerId);
+    const user = createdUsers[userIdx];
+    if (!user) throw new Error(`Project ownerId ${p.ownerId} out of range.`);
+
+    const created = await prisma.post.create({
       data: {
-        userId: u.id,
-        title: "What I'm working on",
-        content: "A quick standalone post — ideas, inspiration, and what I'm building this week.",
+        userId: user.id,
+        title: p.title,
+        content: p.description,
+        tags: p.tags ?? [],
       },
+      select: { id: true, userId: true, title: true },
     });
+
+    createdPosts.push(created);
+
+    // Attach images
+    const imageFilenames = p.imageFilenames ?? [];
+    for (let i = 0; i < imageFilenames.length; i++) {
+      const img = imagesByFilename.get(imageFilenames[i]);
+      if (!img) continue;
+
+      await prisma.imageAttachment.create({
+        data: {
+          imageId: img.id,
+          type: AttachmentTarget.POST,
+          targetId: created.id,
+          sortOrder: i,
+        },
+      });
+    }
+
+    // Create child update posts under this post
+    const count = p.hasEntries ? 3 : 1;
+    for (let i = 0; i < count; i++) {
+      await prisma.post.create({
+        data: {
+          userId: user.id,
+          parentPostId: created.id,
+          title: i === 0 ? "Project update" : `Update #${i + 1}`,
+          content:
+            i === 0
+              ? `Progress log for "${p.title}". What I did today, what I learned, and what's next.`
+              : `More notes for "${p.title}": experiments, tweaks, and next steps.`,
+        },
+      });
+    }
   }
 
   // Page posts (user posts "as" the page)
@@ -433,27 +487,6 @@ async function main() {
         pageId: page.id,
         title: "Page bulletin",
         content: "Announcements, calls for help, and what we're building together.",
-      },
-    });
-  }
-
-  // ---- Create a post with an update (parentPostId)
-  console.log("📝 Creating post with update...");
-  if (createdUsers.length > 0) {
-    const parentPost = await prisma.post.create({
-      data: {
-        userId: createdUsers[0].id,
-        title: "My latest project idea",
-        content: "I'm thinking about building a community tool library. Thoughts?",
-      },
-    });
-
-    await prisma.post.create({
-      data: {
-        userId: createdUsers[0].id,
-        parentPostId: parentPost.id,
-        title: "Update on the tool library",
-        content: "Got some great feedback! Going to start with a simple lending system.",
       },
     });
   }

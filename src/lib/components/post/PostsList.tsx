@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PostItem } from "@/lib/types/post";
 import { CollectionType } from "@/lib/types/collection";
-import { getPosts } from "@/lib/utils/post-client";
+import { getEventPosts, getPostUpdates } from "@/lib/utils/post-client";
 import { formatDateTime } from "@/lib/utils/datetime";
 import Link from "next/link";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
@@ -30,7 +30,9 @@ export function PostsList({
 	useEffect(() => {
 		async function loadPosts() {
 			try {
-				const data = await getPosts(collectionId);
+				const data = collectionType === "event"
+					? await getEventPosts(collectionId)
+					: await getPostUpdates(collectionId);
 				setPosts(data);
 			} catch (err) {
 				setError("Failed to load posts");

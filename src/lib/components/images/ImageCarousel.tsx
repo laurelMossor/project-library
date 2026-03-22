@@ -26,12 +26,13 @@ const ImageCarousel = ({ images }: { images: ImageItem[] }) => {
 	return (
 		<div className="relative w-full">
 			{/* Main image container */}
-			<div className="relative w-full h-[500px] bg-gray-100">
+			<div className="relative w-full bg-gray-100">
 				<Image
 					src={images[currentIndex].url}
 					alt={images[currentIndex].altText || `Image ${currentIndex + 1}`}
-					fill
-					style={{ objectFit: 'contain' }}
+					width={800}
+					height={600}
+					style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
 					unoptimized
 				/>
 			</div>
