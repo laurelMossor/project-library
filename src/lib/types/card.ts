@@ -58,12 +58,25 @@ export type CardEvent = CardCollectionBase & {
 	location: string;
 };
 
-// Union type for collection cards (just events now)
-export type CardCollectionItem = CardEvent;
+// Minimal post data for card displays
+export type CardPost = CardCollectionBase & {
+	type: "post";
+	content: string;
+	eventId: string | null;
+	parentPostId: string | null;
+};
+
+// Union type for collection cards
+export type CardCollectionItem = CardEvent | CardPost;
 
 // Type guard for card event
 export function isCardEvent(item: CardCollectionItem): item is CardEvent {
 	return item.type === "event";
+}
+
+// Type guard for card post
+export function isCardPost(item: CardCollectionItem): item is CardPost {
+	return item.type === "post";
 }
 
 // ============================================================================

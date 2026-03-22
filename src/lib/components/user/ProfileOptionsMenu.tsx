@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { DropdownMenu, dropdownMenuStyles } from "../ui/DropdownMenu";
 import { MenuItem } from "../nav-bar/hamburger/MenuItem";
-import { GearsIcon, CalendarIcon, UserHomeIcon } from "../icons/icons";
-import { EVENT_NEW, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
+import { GearsIcon, CalendarIcon, UserHomeIcon, PencilIcon } from "../icons/icons";
+import { EVENT_NEW, POST_NEW, USER_PROFILE_SETTINGS } from "@/lib/const/routes";
 import { transparentCTAStyles } from "../collection/CreationCTA";
 
 const iconClass = "w-6 h-6 shrink-0";
@@ -46,6 +46,13 @@ export function ProfileOptionsMenu() {
 				icon={<CalendarIcon className={iconClass} />}
 				label="New Event"
 				href={EVENT_NEW}
+				closeMenu={closeMenu}
+			/>
+
+			<MenuItem
+				icon={<PencilIcon className={iconClass} />}
+				label="New Post"
+				href={POST_NEW}
 				closeMenu={closeMenu}
 			/>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { EVENT_NEW } from "@/lib/const/routes";
+import { EVENT_NEW, POST_NEW } from "@/lib/const/routes";
 
 interface NewItemModalProps {
 	isOpen: boolean;
@@ -46,6 +46,14 @@ export function NewItemModal({ isOpen, onClose }: NewItemModalProps) {
 					>
 						<h3 className="font-semibold text-lg mb-1">New Event</h3>
 						<p className="text-sm text-warm-grey">Create a new event for workshops, meetups, or gatherings</p>
+					</Link>
+					<Link
+						href={POST_NEW}
+						onClick={onClose}
+						className="block w-full text-left p-4 border rounded hover:bg-gray-50 transition-colors"
+					>
+						<h3 className="font-semibold text-lg mb-1">New Post</h3>
+						<p className="text-sm text-warm-grey">Share an update, thought, or project with the community</p>
 					</Link>
 				</div>
 			</div>

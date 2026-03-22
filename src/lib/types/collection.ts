@@ -1,5 +1,6 @@
 import { BaseCollectionItem } from "./collection-item";
 import { EventItem } from "./event";
+import { PostCollectionItem } from "./post";
 
 // Re-export BaseCollectionItem for convenience
 export type { BaseCollectionItem } from "./collection-item";
@@ -22,13 +23,17 @@ export type CollectionType = typeof COLLECTION_TYPES[keyof typeof COLLECTION_TYP
 
 export type FilterCollectionType = (typeof FILTER_COLLECTION_TYPES)[keyof typeof FILTER_COLLECTION_TYPES];
 
-export type CollectionItem = EventItem;
+export type CollectionItem = EventItem | PostCollectionItem;
 
 /**
  * Type guard for EventItem - uses discriminator field for type safety
  */
 export function isEvent(item: CollectionItem): item is EventItem {
 	return item.type === COLLECTION_TYPES.EVENT;
+}
+
+export function isPost(item: CollectionItem): item is PostCollectionItem {
+	return item.type === COLLECTION_TYPES.POST;
 }
 
 /**
@@ -39,14 +44,15 @@ export function getCollectionItemType(item: CollectionItem): CollectionType {
 }
 
 export function getCollectionItemDate(item: CollectionItem): Date {
-	const dateValue = item.eventDateTime;
-	// Handle both Date objects and date strings from API
-	if (dateValue instanceof Date) {
-		return dateValue;
+	if (isEvent(item)) {
+		const dateValue = item.eventDateTime;
+		if (dateValue instanceof Date) return dateValue;
+		if (typeof dateValue === "string") return new Date(dateValue);
+		return new Date();
 	}
-	if (typeof dateValue === "string") {
-		return new Date(dateValue);
-	}
-	// Fallback (shouldn't happen, but TypeScript needs it)
+	// For posts, use createdAt
+	const dateValue = item.createdAt;
+	if (dateValue instanceof Date) return dateValue;
+	if (typeof dateValue === "string") return new Date(dateValue);
 	return new Date();
 }

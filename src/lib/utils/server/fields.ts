@@ -66,3 +66,48 @@ export const eventWithUserFields = {
 
 /** Event shape as returned by eventWithUserFields query (without images/type - those are added separately) */
 export type EventFromQuery = Prisma.EventGetPayload<{ select: typeof eventWithUserFields }>;
+
+/** Standard fields for Post with user and page info */
+export const postBaseFields = {
+  id: true,
+  userId: true,
+  pageId: true,
+  eventId: true,
+  parentPostId: true,
+  title: true,
+  content: true,
+  tags: true,
+  topics: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export const postWithUserFields = {
+  ...postBaseFields,
+  user: {
+    select: publicUserFields,
+  },
+  page: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      avatarImageId: true,
+    },
+  },
+  event: {
+    select: {
+      id: true,
+      title: true,
+    },
+  },
+  parentPost: {
+    select: {
+      id: true,
+      title: true,
+    },
+  },
+} as const;
+
+/** Post shape as returned by postWithUserFields query */
+export type PostFromQuery = Prisma.PostGetPayload<{ select: typeof postWithUserFields }>;

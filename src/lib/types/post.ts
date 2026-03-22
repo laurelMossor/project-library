@@ -1,3 +1,5 @@
+import { BaseCollectionItem } from "./collection-item";
+
 /**
  * Post type - matches Prisma schema v0.4
  * Can be standalone or attached to Page/Event, or a reply (parentPostId)
@@ -54,4 +56,41 @@ export function isEventPost(post: PostItem): post is PostItem & { eventId: strin
  */
 export function isStandalonePost(post: PostItem): boolean {
 	return post.pageId === null && post.eventId === null && post.parentPostId === null;
+}
+
+/**
+ * Post as a collection item - extends BaseCollectionItem for unified rendering
+ * Maps PostItem fields to BaseCollectionItem pattern:
+ *   title → title (uses content excerpt if null)
+ *   content → description
+ */
+export interface PostCollectionItem extends BaseCollectionItem {
+	type: "post";
+	content: string;
+	eventId: string | null;
+	parentPostId: string | null;
+	event?: { id: string; title: string } | null;
+}
+
+/**
+ * Convert a PostItem (API response) to PostCollectionItem (for collection rendering)
+ */
+export function toPostCollectionItem(post: PostItem): PostCollectionItem {
+	return {
+		id: post.id,
+		userId: post.userId,
+		title: post.title || post.content.substring(0, 80) + (post.content.length > 80 ? "..." : ""),
+		description: post.content,
+		content: post.content,
+		tags: post.tags,
+		topics: post.topics,
+		type: "post",
+		user: post.user!,
+		page: post.page || null,
+		createdAt: post.createdAt,
+		updatedAt: post.updatedAt,
+		eventId: post.eventId,
+		parentPostId: post.parentPostId,
+		event: post.event,
+	};
 }

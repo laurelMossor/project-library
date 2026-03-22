@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
 import { fetchEvents } from "@/lib/utils/event-client";
+import { fetchPosts } from "@/lib/utils/post-client";
 import { EventItem } from "@/lib/types/event";
+import { PostCollectionItem } from "@/lib/types/post";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { useFilterParams } from "@/lib/hooks/useFilterParams";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
@@ -13,12 +15,13 @@ export default function ExplorePage() {
 	const { initialFilters, initialSearch } = useFilterParams();
 
 	const [events, setEvents] = useState<EventItem[]>([]);
+	const [posts, setPosts] = useState<PostCollectionItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState(initialSearch);
 
-	// All items for filtering (just events now)
-	const allItems: CollectionItem[] = useMemo(() => [...events], [events]);
+	// All items for filtering
+	const allItems: CollectionItem[] = useMemo(() => [...events, ...posts], [events, posts]);
 
 	// Use filter hook for filtering, sorting, and view state
 	const {
@@ -61,8 +64,12 @@ export default function ExplorePage() {
 		setError("");
 
 		try {
-			const eventsData = await fetchEvents(search || undefined);
+			const [eventsData, postsData] = await Promise.all([
+				fetchEvents(search || undefined),
+				fetchPosts(search || undefined),
+			]);
 			setEvents(eventsData);
+			setPosts(postsData);
 		} catch (err) {
 			setError("Failed to load collections");
 		} finally {

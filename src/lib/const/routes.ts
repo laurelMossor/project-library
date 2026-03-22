@@ -40,6 +40,13 @@ export const EVENT_DETAIL = (id: string) => `/events/${id}`;
 export const EVENT_EDIT = (id: string) => `/events/${id}/edit`;
 
 // ============================================================================
+// Post Routes
+// ============================================================================
+export const POSTS = "/posts";
+export const POST_NEW = "/posts/new";
+export const POST_DETAIL = (id: string) => `/posts/${id}`;
+
+// ============================================================================
 // Message Routes
 // ============================================================================
 export const MESSAGES = "/messages";
@@ -60,6 +67,10 @@ export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
 export const API_EVENTS = "/api/events";
 export const API_EVENT = (id: string) => `/api/events/${id}`;
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
+
+// Post API Routes
+export const API_POSTS = "/api/posts";
+export const API_POST = (id: string) => `/api/posts/${id}`;
 
 // Page API Routes
 export const API_PAGES = "/api/pages";

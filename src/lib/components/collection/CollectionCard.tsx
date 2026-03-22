@@ -9,14 +9,14 @@
  *   <CollectionCard item={collectionItem} truncate={true} />
  */
 import Link from "next/link";
-import { CollectionItem, isEvent } from "@/lib/types/collection";
+import { CollectionItem, isEvent, isPost } from "@/lib/types/collection";
 import { EntityAvatar } from "../owner/EntityAvatar";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
-import { EVENT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { EVENT_DETAIL, POST_DETAIL, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import { getCardUserDisplayName } from "@/lib/types/card";
 import { AtSignIcon } from "../icons/icons";
 
@@ -27,7 +27,7 @@ type CollectionCardProps = {
 
 export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 	const isEventItem = isEvent(item);
-	const detailUrl = EVENT_DETAIL(item.id);
+	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : POST_DETAIL(item.id);
 
 	// Use page info if available, otherwise user info
 	const displayName = item.page ? item.page.name : getCardUserDisplayName(item.user);
@@ -80,19 +80,21 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 				</div>
 			)}
 
-			{/* Images */}
-			{item.images && item.images.length > 0 && (
+			{/* Images (only for events) */}
+			{isEventItem && item.images && item.images.length > 0 && (
 				<div className="mb-4">
 					<ImageCarousel images={item.images} />
 				</div>
 			)}
 
-			{/* Posts */}
-			<PostsList
-				collectionId={item.id}
-				collectionType="event"
-				showTitle={true}
-			/>
+			{/* Posts (only for events) */}
+			{isEventItem && (
+				<PostsList
+					collectionId={item.id}
+					collectionType="event"
+					showTitle={true}
+				/>
+			)}
 
 			{/* Tags */}
 			<Tags item={item} />

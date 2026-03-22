@@ -1,7 +1,7 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
-import { SessionProvider as AppSessionProvider } from "@/lib/contexts/OwnerContext";
+import { SessionProvider as AppSessionProvider } from "@/lib/contexts/SessionContext";
 import { Session } from "next-auth";
 
 interface ProvidersProps {
