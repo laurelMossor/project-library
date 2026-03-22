@@ -1,8 +1,6 @@
 /**
  * EntityAvatar - Displays avatar for a User or Page
- * Supports two modes:
- * 1. User mode (CardUser)
- * 2. Page mode (CardPage)
+ * Shows the actual avatar image when available, falls back to initials
  */
 import Link from "next/link";
 import { CardUser, CardPage, getCardUserInitials, getCardPageInitials } from "@/lib/types/card";
@@ -37,35 +35,50 @@ export function EntityAvatar(props: EntityAvatarProps) {
 
 	let initials: string;
 	let href: string;
+	let avatarUrl: string | null = null;
 
 	if ("user" in props && props.user) {
 		initials = getCardUserInitials(props.user);
 		href = PUBLIC_USER_PAGE(props.user.username);
+		avatarUrl = props.user.avatarImage?.url ?? null;
 	} else if ("page" in props && props.page) {
 		initials = getCardPageInitials(props.page.name);
 		href = PUBLIC_PAGE(props.page.slug);
+		avatarUrl = props.page.avatarImage?.url ?? null;
 	} else {
 		return null;
 	}
 
 	const sizeClass = sizeClasses[size];
-	const baseClasses = `${sizeClass} rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 ${className}`;
+	const baseClasses = `${sizeClass} rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${className}`;
 	const interactiveClasses = asLink ? "hover:opacity-80 transition-opacity" : "";
+
+	const content = avatarUrl ? (
+		<img
+			src={avatarUrl}
+			alt={initials}
+			className="w-full h-full object-cover"
+		/>
+	) : (
+		<span className="text-gray-600 font-medium">{initials}</span>
+	);
+
+	const bgClass = avatarUrl ? "" : "bg-soft-grey";
 
 	if (asLink) {
 		return (
 			<Link
 				href={href}
-				className={`${baseClasses} ${interactiveClasses}`}
+				className={`${baseClasses} ${bgClass} ${interactiveClasses}`}
 			>
-				<span className="text-gray-600 font-medium">{initials}</span>
+				{content}
 			</Link>
 		);
 	}
 
 	return (
-		<div className={baseClasses}>
-			<span className="text-gray-600 font-medium">{initials}</span>
+		<div className={`${baseClasses} ${bgClass}`}>
+			{content}
 		</div>
 	);
 }

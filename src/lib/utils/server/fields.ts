@@ -56,6 +56,7 @@ export const eventWithUserFields = {
       interests: true,
       location: true,
       avatarImageId: true,
+      avatarImage: { select: { url: true } },
     },
   },
 } as const;
@@ -93,6 +94,7 @@ export const postWithUserFields = {
       name: true,
       slug: true,
       avatarImageId: true,
+      avatarImage: { select: { url: true } },
     },
   },
   event: {

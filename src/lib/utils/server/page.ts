@@ -21,6 +21,7 @@ export const publicPageFields = {
   tags: true,
   isOpenToCollaborators: true,
   avatarImageId: true,
+  avatarImage: { select: { url: true } },
   createdAt: true,
   updatedAt: true,
 } as const;

@@ -17,6 +17,7 @@ export interface PublicPage {
   tags: string[];
   isOpenToCollaborators: boolean;
   avatarImageId: string | null;
+  avatarImage?: { url: string } | null;
   createdAt: Date;
   updatedAt: Date;
 }

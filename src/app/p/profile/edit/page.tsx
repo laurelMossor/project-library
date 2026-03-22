@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { FormLayout } from "@/lib/components/layout/FormLayout";
 import { FormField } from "@/lib/components/forms/FormField";
@@ -9,6 +9,7 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { API_ME_PAGE, LOGIN_WITH_CALLBACK, PRIVATE_PAGE } from "@/lib/const/routes";
+import { useImageUpload } from "@/lib/hooks/useImageUpload";
 
 export default function EditPageProfilePage() {
 	const router = useRouter();
@@ -16,6 +17,7 @@ export default function EditPageProfilePage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
+	const [pageName, setPageName] = useState("");
 	const [headline, setHeadline] = useState("");
 	const [bio, setBio] = useState("");
 	const [interests, setInterests] = useState("");
@@ -26,6 +28,11 @@ export default function EditPageProfilePage() {
 	const [state, setState] = useState("");
 	const [zip, setZip] = useState("");
 	const [parentTopic, setParentTopic] = useState("");
+	const [avatarImageId, setAvatarImageId] = useState<string | null>(null);
+	const [existingAvatarUrl, setExistingAvatarUrl] = useState<string | null>(null);
+
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const { imageFile, imagePreview, error: imageError, handleImageChange, clearImage } = useImageUpload();
 
 	// Load current page profile data
 	useEffect(() => {
@@ -41,6 +48,7 @@ export default function EditPageProfilePage() {
 				if (data && data.error) {
 					setError(data.error);
 				} else if (data) {
+					setPageName(data.name || "");
 					setHeadline(data.headline || "");
 					setBio(data.bio || "");
 					setInterests(data.interests?.join(", ") || "");
@@ -51,6 +59,8 @@ export default function EditPageProfilePage() {
 					setState(data.state || "");
 					setZip(data.zip || "");
 					setParentTopic(data.parentTopic || "");
+					setAvatarImageId(data.avatarImageId || null);
+					setExistingAvatarUrl(data.avatarImage?.url || null);
 				}
 				setLoading(false);
 			})
@@ -64,6 +74,29 @@ export default function EditPageProfilePage() {
 		e.preventDefault();
 		setSaving(true);
 		setError("");
+
+		let newAvatarImageId = avatarImageId;
+
+		// Upload new avatar if selected
+		if (imageFile) {
+			const formData = new FormData();
+			formData.append("file", imageFile);
+
+			const uploadRes = await fetch("/api/upload?folder=avatars", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!uploadRes.ok) {
+				const data = await uploadRes.json().catch(() => ({}));
+				setError(data.error || "Failed to upload avatar");
+				setSaving(false);
+				return;
+			}
+
+			const uploadData = await uploadRes.json();
+			newAvatarImageId = uploadData.id;
+		}
 
 		const res = await fetch(API_ME_PAGE, {
 			method: "PUT",
@@ -79,6 +112,7 @@ export default function EditPageProfilePage() {
 				state: state || null,
 				zip: zip || null,
 				parentTopic: parentTopic || null,
+				avatarImageId: newAvatarImageId,
 			}),
 		});
 
@@ -96,6 +130,14 @@ export default function EditPageProfilePage() {
 		router.push(PRIVATE_PAGE);
 	};
 
+	// Get initials for placeholder
+	const getInitials = () => {
+		const words = pageName.trim().split(/\s+/);
+		if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+		if (words[0]?.length >= 2) return words[0].substring(0, 2).toUpperCase();
+		return "?";
+	};
+
 	if (loading) {
 		return <FormLayout><div>Loading...</div></FormLayout>;
 	}
@@ -106,6 +148,47 @@ export default function EditPageProfilePage() {
 				<h1 className="text-2xl font-bold">Edit Page Profile</h1>
 
 				<FormError error={error} />
+				{imageError && <FormError error={imageError} />}
+
+				{/* Avatar Upload */}
+				<FormField label="Page Photo" htmlFor="avatar">
+					<div className="flex items-center gap-4">
+						<div className="w-20 h-20 rounded-full bg-soft-grey flex items-center justify-center overflow-hidden flex-shrink-0">
+							{imagePreview || existingAvatarUrl ? (
+								<img src={imagePreview || existingAvatarUrl!} alt="Avatar preview" className="w-full h-full object-cover" />
+							) : (
+								<span className="text-gray-600 font-medium text-lg">{getInitials()}</span>
+							)}
+						</div>
+						<div className="flex flex-col gap-2">
+							<input
+								ref={fileInputRef}
+								id="avatar"
+								type="file"
+								accept="image/jpeg,image/png,image/webp"
+								onChange={handleImageChange}
+								className="hidden"
+							/>
+							<button
+								type="button"
+								onClick={() => fileInputRef.current?.click()}
+								className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 transition-colors"
+							>
+								{imagePreview ? "Change Photo" : "Upload Photo"}
+							</button>
+							{imageFile && (
+								<button
+									type="button"
+									onClick={clearImage}
+									className="px-3 py-1.5 text-sm text-red-600 hover:text-red-800 transition-colors"
+								>
+									Remove
+								</button>
+							)}
+							<p className="text-xs text-gray-500">JPEG, PNG, or WebP. Max 5MB.</p>
+						</div>
+					</div>
+				</FormField>
 
 				<FormField label="Headline" htmlFor="headline">
 					<FormInput

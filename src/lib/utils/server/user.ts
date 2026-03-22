@@ -18,6 +18,7 @@ const personalProfileFields = {
 	location: true,
 	isPublic: true,
 	avatarImageId: true,
+	avatarImage: { select: { url: true } },
 } as const;
 
 // Public fields (excludes sensitive data like email, but includes ID for messaging)
@@ -33,6 +34,7 @@ export const publicUserFields = {
 	interests: true,
 	location: true,
 	avatarImageId: true,
+	avatarImage: { select: { url: true } },
 } as const;
 
 // Fetch a user by ID (for authenticated user's own profile)

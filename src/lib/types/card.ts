@@ -24,6 +24,7 @@ export type CardUser = {
 	firstName: string | null;
 	lastName: string | null;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 };
 
 // Minimal page data for card displays
@@ -32,6 +33,7 @@ export type CardPage = {
 	name: string;
 	slug: string;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 };
 
 // ============================================================================

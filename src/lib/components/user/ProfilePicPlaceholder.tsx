@@ -3,23 +3,29 @@ import { PublicUser } from "@/lib/types/user";
 import Link from "next/link";
 import { PUBLIC_USER_PAGE } from "@/lib/const/routes";
 
-export const ProfilePicPlaceholder = ({ 
-	owner, 
-	project 
-}: { 
+export const ProfilePicPlaceholder = ({
+	owner,
+	project
+}: {
 	owner?: PublicUser;
 	project?: { owner: PublicUser };
 }) => {
 	const user = owner || project?.owner;
 	if (!user) return null;
-	
+
 	const initials = getInitials(user);
+	const avatarUrl = (user as PublicUser & { avatarImage?: { url: string } | null }).avatarImage?.url ?? null;
+
 	return (
-		<Link 
+		<Link
 			href={PUBLIC_USER_PAGE(user.username)}
-			className="w-12 h-12 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity"
+			className="w-12 h-12 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity overflow-hidden"
 		>
-			<span className="text-gray-600 font-medium text-sm">{initials}</span>
+			{avatarUrl ? (
+				<img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
+			) : (
+				<span className="text-gray-600 font-medium text-sm">{initials}</span>
+			)}
 		</Link>
 	);
 }

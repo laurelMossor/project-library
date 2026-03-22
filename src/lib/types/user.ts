@@ -43,6 +43,7 @@ export interface PublicUser {
 	interests: string[];
 	location: string | null;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 }
 
 // Helper to get display name from user
