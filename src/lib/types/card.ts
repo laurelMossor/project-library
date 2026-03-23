@@ -4,7 +4,7 @@
  */
 
 import { getUserDisplayName } from "./user";
-import type { PublicOwner } from "../utils/owner";
+import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 import type { ImageItem } from "./image";
 
 // ============================================================================
@@ -14,7 +14,7 @@ import type { ImageItem } from "./image";
 export type ConnectionType = "admins" | "followers" | "following" | "members";
 
 // ============================================================================
-// User & Org Card Types
+// User & Page Card Types
 // ============================================================================
 
 // Minimal user data for card displays
@@ -25,18 +25,20 @@ export type CardUser = {
 	firstName: string | null;
 	lastName: string | null;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 };
 
-// Minimal org data for card displays
-export type CardOrg = {
+// Minimal page data for card displays
+export type CardPage = {
 	id: string;
 	name: string;
 	slug: string;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 };
 
 // ============================================================================
-// Project & Event Card Types (for CollectionCard)
+// Event Card Types (for CollectionCard)
 // ============================================================================
 
 // Base fields shared by all collection card types
@@ -46,14 +48,10 @@ type CardCollectionBase = {
 	description: string;
 	tags: string[];
 	topics: string[];
-	owner: PublicOwner;
+	user: CardUser;
+	page: CardPage | null;
 	createdAt: Date | string;
 	images: ImageItem[];
-};
-
-// Minimal project data for card displays
-export type CardProject = CardCollectionBase & {
-	type: "project";
 };
 
 // Minimal event data for card displays
@@ -63,17 +61,25 @@ export type CardEvent = CardCollectionBase & {
 	location: string;
 };
 
+// Minimal post data for card displays
+export type CardPost = CardCollectionBase & {
+	type: "post";
+	content: string;
+	eventId: string | null;
+	parentPostId: string | null;
+};
+
 // Union type for collection cards
-export type CardCollectionItem = CardProject | CardEvent;
+export type CardCollectionItem = CardEvent | CardPost;
 
 // Type guard for card event
 export function isCardEvent(item: CardCollectionItem): item is CardEvent {
 	return item.type === "event";
 }
 
-// Type guard for card project
-export function isCardProject(item: CardCollectionItem): item is CardProject {
-	return item.type === "project";
+// Type guard for card post
+export function isCardPost(item: CardCollectionItem): item is CardPost {
+	return item.type === "post";
 }
 
 // ============================================================================
@@ -90,34 +96,11 @@ export function getCardUserDisplayName(user: CardUser): string {
 	});
 }
 
-// Get display name for a card org
-export function getCardOrgDisplayName(org: CardOrg): string {
-	return org.name;
+// Get display name for a card page
+export function getCardPageDisplayName(page: CardPage): string {
+	return page.name;
 }
 
-// Get initials for a card user
-export function getCardUserInitials(user: CardUser): string {
-	if (user.firstName && user.lastName) {
-		return (user.firstName[0] + user.lastName[0]).toUpperCase();
-	}
-	if (user.firstName) {
-		return user.firstName[0].toUpperCase();
-	}
-	if (user.lastName) {
-		return user.lastName[0].toUpperCase();
-	}
-	return user.username[0].toUpperCase();
-}
-
-// Get initials for a card org
-export function getCardOrgInitials(orgName: string): string {
-	const words = orgName.trim().split(/\s+/);
-	if (words.length >= 2) {
-		return (words[0][0] + words[1][0]).toUpperCase();
-	}
-	const name = words[0];
-	if (name.length >= 3) {
-		return name.substring(0, 3).toUpperCase();
-	}
-	return name.substring(0, 2).toUpperCase();
-}
+// Delegate to shared initials utilities in utils/text.ts
+export const getCardUserInitials = (user: CardUser): string => getUserInitials(user);
+export const getCardPageInitials = (pageName: string): string => getPageInitials(pageName);

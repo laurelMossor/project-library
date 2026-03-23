@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
-import { ArtifactType } from "@prisma/client";
+import { AttachmentTarget } from "@prisma/client";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 
 /**
  * POST /api/image-attachments
- * Attach an image to an artifact (Project, Event, or Post)
+ * Attach an image to a target (Page, Event, Post, etc.)
  * Protected endpoint
- * 
- * Body: { imageId: string, type: ArtifactType, targetId: string, sortOrder?: number }
+ *
+ * Body: { imageId: string, type: AttachmentTarget, targetId: string, sortOrder?: number }
  */
 export async function POST(request: Request) {
 	try {
@@ -25,8 +26,8 @@ export async function POST(request: Request) {
 			return badRequest("imageId is required");
 		}
 
-		if (!type || !Object.values(ArtifactType).includes(type)) {
-			return badRequest("Valid type is required (PROJECT, EVENT, or POST)");
+		if (!type || !Object.values(AttachmentTarget).includes(type)) {
+			return badRequest(`Valid type is required (${Object.values(AttachmentTarget).join(", ")})`);
 		}
 
 		if (!targetId || typeof targetId !== "string") {
@@ -39,35 +40,42 @@ export async function POST(request: Request) {
 			return notFound("Image not found");
 		}
 
-		if (image.uploadedById !== ctx.activeOwnerId) {
+		if (image.uploadedByUserId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "You can only attach your own images" },
 				{ status: 403 }
 			);
 		}
 
-		// Verify target exists and belongs to user
-		let targetOwnerId: string | null = null;
-
-		if (type === ArtifactType.PROJECT) {
-			const project = await prisma.project.findUnique({ where: { id: targetId } });
-			if (!project) return notFound("Project not found");
-			targetOwnerId = project.ownerId;
-		} else if (type === ArtifactType.EVENT) {
+		// Verify target exists and user has permission
+		if (type === AttachmentTarget.PAGE) {
+			const page = await prisma.page.findUnique({ where: { id: targetId } });
+			if (!page) return notFound("Page not found");
+			const canEdit = await canPostAsPage(ctx.userId, targetId);
+			if (!canEdit) {
+				return NextResponse.json(
+					{ error: "You don't have permission to attach images to this page" },
+					{ status: 403 }
+				);
+			}
+		} else if (type === AttachmentTarget.EVENT) {
 			const event = await prisma.event.findUnique({ where: { id: targetId } });
 			if (!event) return notFound("Event not found");
-			targetOwnerId = event.ownerId;
-		} else if (type === ArtifactType.POST) {
+			if (event.userId !== ctx.userId) {
+				return NextResponse.json(
+					{ error: "You can only attach images to your own content" },
+					{ status: 403 }
+				);
+			}
+		} else if (type === AttachmentTarget.POST) {
 			const post = await prisma.post.findUnique({ where: { id: targetId } });
 			if (!post) return notFound("Post not found");
-			targetOwnerId = post.ownerId;
-		}
-
-		if (targetOwnerId !== ctx.activeOwnerId) {
-			return NextResponse.json(
-				{ error: "You can only attach images to your own content" },
-				{ status: 403 }
-			);
+			if (post.userId !== ctx.userId) {
+				return NextResponse.json(
+					{ error: "You can only attach images to your own content" },
+					{ status: 403 }
+				);
+			}
 		}
 
 		const attachment = await prisma.imageAttachment.create({

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getSessionContext } from "@/lib/utils/server/session";
 import { getEventById } from "@/lib/utils/server/event";
 import { getPostsForEvent, createPost } from "@/lib/utils/server/post";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { getOwnerIdForUser, ownerOwnsEvent } from "@/lib/utils/server/owner";
 
 // GET /api/events/[id]/posts - Get all posts for an event
 // Public endpoint (anyone can view event posts)
@@ -32,23 +31,21 @@ export async function POST(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const session = await auth();
-
-	if (!session?.user?.id) {
+	const ctx = await getSessionContext();
+	if (!ctx) {
 		return unauthorized();
 	}
 
 	const { id } = await params;
 
 	try {
-		// Verify event exists and user owns it (via Owner)
+		// Verify event exists and user owns it
 		const event = await getEventById(id);
 		if (!event) {
 			return notFound("Event not found");
 		}
 
-		const ownerId = await getOwnerIdForUser(session.user.id, session.user.activeOwnerId);
-		if (!ownerId || !(await ownerOwnsEvent(ownerId, id))) {
+		if (event.userId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "Only the event owner can create posts" },
 				{ status: 403 }
@@ -68,7 +65,7 @@ export async function POST(
 			return badRequest("Title must be a string");
 		}
 
-		const post = await createPost(session.user.id, {
+		const post = await createPost(ctx.userId, {
 			eventId: id,
 			title: title?.trim() || null,
 			content: content.trim(),

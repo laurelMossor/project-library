@@ -2,35 +2,35 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
-import { fetchProjects } from "@/lib/utils/project-client";
 import { fetchEvents } from "@/lib/utils/event-client";
-import { ProjectItem } from "@/lib/types/project";
+import { fetchPosts } from "@/lib/utils/post-client";
 import { EventItem } from "@/lib/types/event";
+import { PostCollectionItem } from "@/lib/types/post";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { useFilterParams } from "@/lib/hooks/useFilterParams";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 
-export default function CollectionsPage() {
+export default function ExplorePage() {
 	const { initialFilters, initialSearch } = useFilterParams();
 
-	const [projects, setProjects] = useState<ProjectItem[]>([]);
 	const [events, setEvents] = useState<EventItem[]>([]);
+	const [posts, setPosts] = useState<PostCollectionItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState(initialSearch);
 
-	// Combine all items for filtering
-	const allItems: CollectionItem[] = useMemo(() => [...projects, ...events], [projects, events]);
+	// All items for filtering
+	const allItems: CollectionItem[] = useMemo(() => [...events, ...posts], [events, posts]);
 
 	// Use filter hook for filtering, sorting, and view state
-	const { 
-		filteredItems, 
-		collectionTypeFilter, 
-		setCollectionTypeFilter, 
-		sort, 
-		setSort, 
-		view, 
+	const {
+		filteredItems,
+		collectionTypeFilter,
+		setCollectionTypeFilter,
+		sort,
+		setSort,
+		view,
 		setView,
 		selectedTags,
 		setSelectedTags,
@@ -64,12 +64,12 @@ export default function CollectionsPage() {
 		setError("");
 
 		try {
-			const [projectsData, eventsData] = await Promise.all([
-				fetchProjects(search || undefined),
+			const [eventsData, postsData] = await Promise.all([
 				fetchEvents(search || undefined),
+				fetchPosts(search || undefined),
 			]);
-			setProjects(projectsData);
 			setEvents(eventsData);
+			setPosts(postsData);
 		} catch (err) {
 			setError("Failed to load collections");
 		} finally {
@@ -100,4 +100,3 @@ export default function CollectionsPage() {
 		</PageLayout>
 	);
 }
-

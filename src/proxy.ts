@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT, PRIVATE_ORG_PAGE, ORG_PROFILE_SETTINGS, ORG_PROFILE_EDIT, PROJECT_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
+import { PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT, PRIVATE_PAGE, PAGE_PROFILE_SETTINGS, PAGE_PROFILE_EDIT, PAGE_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
 
 // Next.js 16: proxy.ts replaces the deprecated middleware.ts
 // Keep this lightweight - only handle redirects, rewrites, and headers
@@ -10,10 +10,10 @@ const protectedRoutes = [
 	PRIVATE_USER_PAGE,
 	USER_PROFILE_SETTINGS,
 	USER_PROFILE_EDIT,
-	PRIVATE_ORG_PAGE,
-	ORG_PROFILE_SETTINGS,
-	ORG_PROFILE_EDIT,
-	PROJECT_NEW,
+	PRIVATE_PAGE,
+	PAGE_PROFILE_SETTINGS,
+	PAGE_PROFILE_EDIT,
+	PAGE_NEW,
 	EVENT_NEW,
 	MESSAGES,
 ];
@@ -64,4 +64,3 @@ export const config = {
 		"/((?!api|_next/static|_next/image|favicon|icon|apple-icon|manifest).*)",
 	],
 };
-

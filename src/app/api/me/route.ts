@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getOwnersForUser } from "@/lib/utils/server/owner";
-import { getActiveOwnerId } from "@/lib/utils/server/session";
+import { getPagesForUser } from "@/lib/utils/server/permission";
+import { getActivePageId } from "@/lib/utils/server/session";
 import { unauthorized, serverError } from "@/lib/utils/errors";
 
 /**
  * GET /api/me
- * Returns current user + their owners summary (for "switch hat" UI)
+ * Returns current user + their pages summary (for "switch hat" UI)
  * Protected endpoint
  */
 export async function GET() {
@@ -30,7 +30,6 @@ export async function GET() {
 				firstName: true,
 				lastName: true,
 				avatarImageId: true,
-				ownerId: true,
 			},
 		});
 
@@ -38,11 +37,11 @@ export async function GET() {
 			return unauthorized("User not found");
 		}
 
-		// Get all owners for this user
-		const owners = await getOwnersForUser(userId);
+		// Get all pages for this user
+		const pages = await getPagesForUser(userId);
 
-		// Get active owner ID (from session or fallback to personal)
-		const activeOwnerId = await getActiveOwnerId(userId);
+		// Get active page ID from session
+		const activePageId = await getActivePageId();
 
 		return NextResponse.json({
 			user: {
@@ -53,23 +52,15 @@ export async function GET() {
 				firstName: user.firstName,
 				lastName: user.lastName,
 				avatarImageId: user.avatarImageId,
-				ownerId: user.ownerId,
 			},
-			owners: owners.map((owner) => ({
-				id: owner.id,
-				type: owner.type,
-				orgId: owner.orgId,
-				status: owner.status,
-				org: owner.org
-					? {
-							id: owner.org.id,
-							slug: owner.org.slug,
-							name: owner.org.name,
-							avatarImageId: owner.org.avatarImageId,
-					  }
-					: null,
+			pages: pages.map((page) => ({
+				id: page.id,
+				name: page.name,
+				slug: page.slug,
+				avatarImageId: page.avatarImageId,
+				role: page.role,
 			})),
-			activeOwnerId,
+			activePageId,
 		});
 	} catch (error) {
 		console.error("GET /api/me error:", error);

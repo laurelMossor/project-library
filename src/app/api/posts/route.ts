@@ -3,6 +3,10 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { canPostAsPage } from "@/lib/utils/server/permission";
+import { publicUserFields } from "@/lib/utils/server/user";
+import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -41,39 +45,40 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
 	return { valid: true };
 }
 
-const postWithOwnerFields = {
+const postFields = {
 	id: true,
-	ownerId: true,
-	projectId: true,
+	userId: true,
+	pageId: true,
 	eventId: true,
+	parentPostId: true,
 	title: true,
 	content: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
 	updatedAt: true,
-	owner: {
+	user: {
+		select: publicUserFields,
+	},
+	page: {
 		select: {
 			id: true,
-			type: true,
-			user: {
-				select: {
-					id: true,
-					username: true,
-					displayName: true,
-					firstName: true,
-					lastName: true,
-					avatarImageId: true,
-				},
-			},
-			org: {
-				select: {
-					id: true,
-					name: true,
-					slug: true,
-					avatarImageId: true,
-				},
-			},
+			name: true,
+			slug: true,
+			avatarImageId: true,
+			avatarImage: { select: { url: true } },
+		},
+	},
+	event: {
+		select: {
+			id: true,
+			title: true,
+		},
+	},
+	parentPost: {
+		select: {
+			id: true,
+			title: true,
 		},
 	},
 };
@@ -84,10 +89,11 @@ const postWithOwnerFields = {
  * Public endpoint
  */
 export async function GET(request: Request) {
-	// Rate limiting: 60 requests per minute per IP
+	// Rate limiting: 200 requests per minute per IP
+	// Higher limit because each collection card may fetch child posts individually
 	const clientId = getClientIdentifier(request);
 	const rateLimit = checkRateLimit(`search-posts:${clientId}`, {
-		maxRequests: 60,
+		maxRequests: 200,
 		windowMs: 60 * 1000,
 	});
 
@@ -99,9 +105,11 @@ export async function GET(request: Request) {
 	}
 
 	const { searchParams } = new URL(request.url);
-	const ownerId = searchParams.get("ownerId") || undefined;
-	const projectId = searchParams.get("projectId") || undefined;
+	const userId = searchParams.get("userId") || undefined;
+	const pageId = searchParams.get("pageId") || undefined;
 	const eventId = searchParams.get("eventId") || undefined;
+	const parentPostId = searchParams.get("parentPostId") || undefined;
+	const toplevel = searchParams.get("toplevel"); // "true" to exclude child/event posts
 	const limit = parseNumber(searchParams.get("limit"));
 	const offset = parseNumber(searchParams.get("offset"));
 
@@ -113,17 +121,31 @@ export async function GET(request: Request) {
 	try {
 		const posts = await prisma.post.findMany({
 			where: {
-				...(ownerId ? { ownerId } : {}),
-				...(projectId ? { projectId } : {}),
+				...(userId ? { userId } : {}),
+				...(pageId ? { pageId } : {}),
 				...(eventId ? { eventId } : {}),
+				...(parentPostId ? { parentPostId } : {}),
+				// When toplevel=true, only return posts without a parent or event
+				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
 			},
-			select: postWithOwnerFields,
+			select: postFields,
 			orderBy: { createdAt: "desc" },
 			take: enforcedLimit,
 			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
 		});
 
-		return NextResponse.json(posts);
+		// Batch load images
+		const postIds = posts.map((p) => p.id);
+		const imagesMap = await getImagesForTargetsBatch("POST", postIds);
+
+		// Transform to include type and images
+		const postsWithImages = posts.map((p) => ({
+			...p,
+			type: COLLECTION_TYPES.POST,
+			images: imagesMap.get(p.id) || [],
+		}));
+
+		return NextResponse.json(postsWithImages);
 	} catch (error) {
 		console.error("GET /api/posts error:", error);
 		return serverError("Failed to fetch posts");
@@ -134,9 +156,8 @@ export async function GET(request: Request) {
  * POST /api/posts
  * Create a new post
  * Protected endpoint (requires authentication)
- * 
- * Body: { content: string, title?: string, projectId?: string, eventId?: string, tags?: string[], topics?: string[] }
- * Rule: at most one of projectId, eventId
+ *
+ * Body: { content: string, title?: string, pageId?: string, eventId?: string, parentPostId?: string, tags?: string[], topics?: string[] }
  */
 export async function POST(request: Request) {
 	try {
@@ -146,7 +167,7 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { content, title, projectId, eventId, tags, topics } = data;
+		const { content, title, pageId, eventId, parentPostId, tags, topics } = data;
 
 		// Validate content
 		const contentValidation = validatePostContent(content);
@@ -160,35 +181,39 @@ export async function POST(request: Request) {
 			return badRequest(titleValidation.error || "Invalid post title");
 		}
 
-		// Validate at most one parent
-		if (projectId && eventId) {
-			return badRequest("Post can belong to at most one of projectId or eventId");
-		}
-
-		// Verify parent exists and belongs to user if provided
-		if (projectId) {
-			const project = await prisma.project.findUnique({
-				where: { id: projectId },
-				select: { ownerId: true },
-			});
-			if (!project) {
-				return badRequest("Project not found");
-			}
-			if (project.ownerId !== ctx.activeOwnerId) {
-				return badRequest("Cannot create post for a project you don't own");
+		// If pageId provided, verify user has permission to post as this page
+		if (pageId) {
+			const allowed = await canPostAsPage(ctx.userId, pageId);
+			if (!allowed) {
+				return badRequest("You don't have permission to post as this page");
 			}
 		}
 
+		// Verify event exists if provided
 		if (eventId) {
 			const event = await prisma.event.findUnique({
 				where: { id: eventId },
-				select: { ownerId: true },
+				select: { userId: true },
 			});
 			if (!event) {
 				return badRequest("Event not found");
 			}
-			if (event.ownerId !== ctx.activeOwnerId) {
+			if (event.userId !== ctx.userId) {
 				return badRequest("Cannot create post for an event you don't own");
+			}
+		}
+
+		// If parentPostId provided, verify parent exists and has no parent itself (one-level deep)
+		if (parentPostId) {
+			const parentPost = await prisma.post.findUnique({
+				where: { id: parentPostId },
+				select: { id: true, parentPostId: true },
+			});
+			if (!parentPost) {
+				return badRequest("Parent post not found");
+			}
+			if (parentPost.parentPostId) {
+				return badRequest("Cannot nest posts more than one level deep");
 			}
 		}
 
@@ -198,26 +223,27 @@ export async function POST(request: Request) {
 			if (typeof tags === "string") {
 				processedTags = tags
 					.split(",")
-					.map((tag) => tag.trim())
+					.map((tag: string) => tag.trim())
 					.filter(Boolean);
 			} else if (Array.isArray(tags)) {
 				processedTags = tags
-					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
+					.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
 					.filter(Boolean);
 			}
 		}
 
 		const post = await prisma.post.create({
 			data: {
-				ownerId: ctx.activeOwnerId,
+				userId: ctx.userId,
 				content: content.trim(),
 				title: title?.trim() || null,
-				projectId: projectId || null,
+				pageId: pageId || null,
 				eventId: eventId || null,
+				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
 			},
-			select: postWithOwnerFields,
+			select: postFields,
 		});
 
 		return NextResponse.json(post, { status: 201 });

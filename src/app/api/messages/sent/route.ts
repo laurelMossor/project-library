@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, serverError } from "@/lib/utils/errors";
+import { publicUserFields } from "@/lib/utils/server/user";
 
 /**
  * GET /api/messages/sent
- * Get messages sent by activeOwnerId
+ * Get messages sent by the current user
  * Protected endpoint
  */
 export async function GET() {
@@ -16,28 +17,23 @@ export async function GET() {
 		}
 
 		const messages = await prisma.message.findMany({
-			where: { senderId: ctx.activeOwnerId },
+			where: { senderId: ctx.userId },
 			include: {
-				receiver: {
-					select: {
-						id: true,
-						type: true,
-						user: {
-							select: {
-								id: true,
-								username: true,
-								displayName: true,
-								firstName: true,
-								lastName: true,
-								avatarImageId: true,
-							},
-						},
-						org: {
-							select: {
-								id: true,
-								slug: true,
-								name: true,
-								avatarImageId: true,
+				conversation: {
+					include: {
+						participants: {
+							include: {
+								user: {
+									select: publicUserFields,
+								},
+								page: {
+									select: {
+										id: true,
+										name: true,
+										slug: true,
+										avatarImageId: true,
+									},
+								},
 							},
 						},
 					},
@@ -50,16 +46,17 @@ export async function GET() {
 		const messagesList = messages.map((m) => ({
 			id: m.id,
 			senderId: m.senderId,
-			receiverId: m.receiverId,
+			asPageId: m.asPageId,
+			conversationId: m.conversationId,
 			content: m.content,
 			createdAt: m.createdAt,
 			readAt: m.readAt,
-			receiver: {
-				id: m.receiver.id,
-				type: m.receiver.type,
-				user: m.receiver.user,
-				org: m.receiver.org,
-			},
+			participants: m.conversation.participants
+				.filter((p) => p.userId !== ctx.userId)
+				.map((p) => ({
+					user: p.user,
+					page: p.page,
+				})),
 		}));
 
 		return NextResponse.json(messagesList);

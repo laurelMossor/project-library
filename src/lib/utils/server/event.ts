@@ -4,7 +4,7 @@
 import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
-import { eventWithOwnerFields, EventFromQuery } from "./fields";
+import { eventWithUserFields, EventFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -22,10 +22,10 @@ function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
 export async function getEventById(id: string): Promise<EventItem | null> {
 	const event = await prisma.event.findUnique({
 		where: { id },
-		select: eventWithOwnerFields,
+		select: eventWithUserFields,
 	});
 	if (!event) return null;
-	
+
 	const images = await getImagesForTarget("EVENT", id);
 	return toEventItem(event, images);
 }
@@ -50,66 +50,50 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 
 	const events = await prisma.event.findMany({
 		where,
-		select: eventWithOwnerFields,
+		select: eventWithUserFields,
 		orderBy: { createdAt: "desc" },
 		...(options?.offset !== undefined ? { skip: options.offset } : {}),
 		...(options?.limit !== undefined ? { take: options.limit } : {}),
 	});
-	
+
 	// Batch load images for all events (fixes N+1 query problem)
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
-	
+
 	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
 }
 
-// Fetch all events by a specific owner
-export async function getEventsByOwner(ownerId: string): Promise<EventItem[]> {
-	const events = await prisma.event.findMany({
-		where: { ownerId },
-		select: eventWithOwnerFields,
-		orderBy: { createdAt: "desc" },
-	});
-	
-	// Batch load images for all events (fixes N+1 query problem)
-	const eventIds = events.map(e => e.id);
-	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
-	
-	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
-}
-
-// Fetch all events by a specific user (via their personal owner)
+// Fetch all events by a specific user
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
-	// Find user's personal owner
-	const personalOwner = await prisma.owner.findFirst({
-		where: { userId, orgId: null },
-		select: { id: true },
-	});
-	if (!personalOwner) return [];
-	return getEventsByOwner(personalOwner.id);
-}
-
-// Fetch all events for an org (across all owners with that orgId)
-// This collects events from any owner posting on behalf of the org
-export async function getEventsByOrg(orgId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
-		where: {
-			owner: {
-				orgId: orgId,
-			},
-		},
-		select: eventWithOwnerFields,
+		where: { userId },
+		select: eventWithUserFields,
 		orderBy: { createdAt: "desc" },
 	});
-	
+
+	// Batch load images for all events (fixes N+1 query problem)
+	const eventIds = events.map(e => e.id);
+	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
+
+	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
+}
+
+// Fetch all events for a page
+export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
+	const events = await prisma.event.findMany({
+		where: { pageId },
+		select: eventWithUserFields,
+		orderBy: { createdAt: "desc" },
+	});
+
 	// Batch load images for all events
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
-	
+
 	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
 }
 
-export async function createEvent(ownerId: string, data: EventCreateInput): Promise<EventItem> {
+export async function createEvent(userId: string, data: EventCreateInput, pageId?: string): Promise<EventItem> {
 	const event = await prisma.event.create({
 		data: {
 			title: data.title,
@@ -119,11 +103,12 @@ export async function createEvent(ownerId: string, data: EventCreateInput): Prom
 			latitude: data.latitude ?? null,
 			longitude: data.longitude ?? null,
 			tags: data.tags || [],
-			ownerId,
+			userId,
+			pageId: pageId || null,
 		},
-		select: eventWithOwnerFields,
+		select: eventWithUserFields,
 	});
-	
+
 	// New event has no images yet
 	return toEventItem(event, []);
 }
@@ -164,9 +149,9 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 	const event = await prisma.event.update({
 		where: { id },
 		data: updateData,
-		select: eventWithOwnerFields,
+		select: eventWithUserFields,
 	});
-	
+
 	const images = await getImagesForTarget("EVENT", event.id);
 	return toEventItem(event, images);
 }
@@ -202,9 +187,9 @@ export async function deleteEvent(id: string): Promise<EventItem> {
 	// Delete the event (cascade will delete posts)
 	const deletedEvent = await prisma.event.delete({
 		where: { id },
-		select: eventWithOwnerFields,
+		select: eventWithUserFields,
 	});
-	
+
 	// Images already deleted above
 	return toEventItem(deletedEvent, []);
 }

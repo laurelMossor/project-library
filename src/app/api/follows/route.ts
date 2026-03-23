@@ -5,10 +5,11 @@ import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/err
 
 /**
  * POST /api/follows
- * Follow another owner as the active owner
+ * Follow a user or page
  * Protected endpoint
- * 
- * Body: { followingOwnerId: string }
+ *
+ * Body: { followingUserId?: string, followingPageId?: string }
+ * Exactly one of followingUserId or followingPageId must be provided.
  */
 export async function POST(request: Request) {
 	try {
@@ -18,50 +19,98 @@ export async function POST(request: Request) {
 		}
 
 		const body = await request.json();
-		const { followingOwnerId } = body;
+		const { followingUserId, followingPageId } = body;
 
-		if (!followingOwnerId || typeof followingOwnerId !== "string") {
-			return badRequest("followingOwnerId is required");
+		// Exactly one must be provided
+		if ((!followingUserId && !followingPageId) || (followingUserId && followingPageId)) {
+			return badRequest("Exactly one of followingUserId or followingPageId must be provided");
 		}
 
-		// Can't follow yourself
-		if (followingOwnerId === ctx.activeOwnerId) {
-			return badRequest("Cannot follow yourself");
+		if (followingUserId) {
+			if (typeof followingUserId !== "string") {
+				return badRequest("followingUserId must be a string");
+			}
+
+			// Can't follow yourself
+			if (followingUserId === ctx.userId) {
+				return badRequest("Cannot follow yourself");
+			}
+
+			// Verify target user exists
+			const targetUser = await prisma.user.findUnique({ where: { id: followingUserId } });
+			if (!targetUser) {
+				return notFound("User to follow not found");
+			}
+
+			// Check if already following
+			const existing = await prisma.follow.findUnique({
+				where: {
+					followerId_followingUserId: {
+						followerId: ctx.userId,
+						followingUserId,
+					},
+				},
+			});
+
+			if (existing) {
+				return badRequest("Already following this user");
+			}
+
+			const follow = await prisma.follow.create({
+				data: {
+					followerId: ctx.userId,
+					followingUserId,
+				},
+			});
+
+			return NextResponse.json(
+				{
+					id: follow.id,
+					followerId: follow.followerId,
+					followingUserId: follow.followingUserId,
+					createdAt: follow.createdAt,
+				},
+				{ status: 201 }
+			);
 		}
 
-		// Verify target owner exists
-		const targetOwner = await prisma.owner.findUnique({ where: { id: followingOwnerId } });
-		if (!targetOwner) {
-			return notFound("Owner to follow not found");
+		// followingPageId case
+		if (typeof followingPageId !== "string") {
+			return badRequest("followingPageId must be a string");
+		}
+
+		// Verify target page exists
+		const targetPage = await prisma.page.findUnique({ where: { id: followingPageId } });
+		if (!targetPage) {
+			return notFound("Page to follow not found");
 		}
 
 		// Check if already following
 		const existing = await prisma.follow.findUnique({
 			where: {
-				followerOwnerId_followingOwnerId: {
-					followerOwnerId: ctx.activeOwnerId,
-					followingOwnerId,
+				followerId_followingPageId: {
+					followerId: ctx.userId,
+					followingPageId,
 				},
 			},
 		});
 
 		if (existing) {
-			return badRequest("Already following this owner");
+			return badRequest("Already following this page");
 		}
 
-		// Create follow
 		const follow = await prisma.follow.create({
 			data: {
-				followerOwnerId: ctx.activeOwnerId,
-				followingOwnerId,
+				followerId: ctx.userId,
+				followingPageId,
 			},
 		});
 
 		return NextResponse.json(
 			{
 				id: follow.id,
-				followerOwnerId: follow.followerOwnerId,
-				followingOwnerId: follow.followingOwnerId,
+				followerId: follow.followerId,
+				followingPageId: follow.followingPageId,
 				createdAt: follow.createdAt,
 			},
 			{ status: 201 }

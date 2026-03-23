@@ -4,26 +4,29 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 type FollowStatsProps = {
-	ownerId: string;
+	entityId: string;
+	entityType: "user" | "page";
 	connectionsHref: string;
 };
 
 /**
  * FollowStats - Displays compact follower/following counts as a link
- * Shows "Followers (X) · Following (X)" format, both link to the same connections page
+ * Shows "Followers (X) . Following (X)" format, both link to the same connections page
  */
-export function FollowStats({ ownerId, connectionsHref }: FollowStatsProps) {
+export function FollowStats({ entityId, entityType, connectionsHref }: FollowStatsProps) {
 	const [followerCount, setFollowerCount] = useState<number | null>(null);
 	const [followingCount, setFollowingCount] = useState<number | null>(null);
 	const [loading, setLoading] = useState(true);
+
+	const apiBase = entityType === "user" ? "users" : "pages";
 
 	useEffect(() => {
 		const fetchCounts = async () => {
 			try {
 				// Fetch both counts in parallel
 				const [followersRes, followingRes] = await Promise.all([
-					fetch(`/api/owners/${ownerId}/followers`),
-					fetch(`/api/owners/${ownerId}/following`),
+					fetch(`/api/${apiBase}/${entityId}/followers`),
+					fetch(`/api/${apiBase}/${entityId}/following`),
 				]);
 
 				if (followersRes.ok) {
@@ -43,7 +46,7 @@ export function FollowStats({ ownerId, connectionsHref }: FollowStatsProps) {
 		};
 
 		fetchCounts();
-	}, [ownerId]);
+	}, [entityId, apiBase]);
 
 	if (loading) {
 		return (
@@ -54,7 +57,7 @@ export function FollowStats({ ownerId, connectionsHref }: FollowStatsProps) {
 	}
 
 	return (
-		<Link 
+		<Link
 			href={connectionsHref}
 			className="flex items-center gap-3 text-sm text-gray-700 hover:text-rich-brown"
 		>
@@ -62,7 +65,7 @@ export function FollowStats({ ownerId, connectionsHref }: FollowStatsProps) {
 				<span className="font-semibold">{followerCount ?? 0}</span>{" "}
 				<span className="text-gray-500">Followers</span>
 			</span>
-			<span className="text-gray-300">·</span>
+			<span className="text-gray-300">&middot;</span>
 			<span>
 				<span className="font-semibold">{followingCount ?? 0}</span>{" "}
 				<span className="text-gray-500">Following</span>

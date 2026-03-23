@@ -1,2 +1,2 @@
 export { UserCard } from "./UserCard";
-export { OrgCard } from "./OrgCard";
+export { PageCard } from "./PageCard";

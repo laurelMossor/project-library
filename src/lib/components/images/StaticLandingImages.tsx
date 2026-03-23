@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { PROJECT_NEW } from "@/lib/const/routes";
+import { EVENT_NEW, POST_NEW } from "@/lib/const/routes";
 
 const LANDING_IMAGES = [
 	{
@@ -16,12 +16,12 @@ const LANDING_IMAGES = [
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-3.png",
 		alt: "Build",
-		href: "/explore?type=project&sort=oldest",
+		href: "/explore?sort=oldest",
 	},
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-4.png",
 		alt: "Contribute",
-		href: PROJECT_NEW,
+		href: POST_NEW,
 	},
 ] as const;
 

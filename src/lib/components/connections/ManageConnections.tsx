@@ -11,14 +11,14 @@ export type { ConnectionType } from "@/lib/types/card";
 
 export type ConnectionItem = {
 	id: string; // membership/follow id
-	ownerId: string;
+	userId: string;
 	role?: string;
 	user: ConnectionUser;
 };
 
 type ManageConnectionsProps = {
-	// Target entity - the org or user whose connections we're managing
-	targetType: "org" | "user";
+	// Target entity - the page or user whose connections we're managing
+	targetType: "page" | "user";
 	targetId: string;
 	// What type of connections we're managing
 	connectionType: ConnectionType;
@@ -78,8 +78,8 @@ export function ManageConnections({
 			return;
 		}
 
-		// For org admins, we need to verify the user is an OWNER of the org
-		if (targetType === "org" && connectionType === "admins") {
+		// For page admins, we need to verify the user is an OWNER of the page
+		if (targetType === "page" && connectionType === "admins") {
 			try {
 				const res = await fetch(listEndpoint);
 				if (!res.ok) {
@@ -100,7 +100,7 @@ export function ManageConnections({
 			}
 		} else if (targetType === "user") {
 			// For user connections (followers/following), check if it's the user's own profile
-			// The session user's ownerId should match
+			// The session user's userId should match
 			setHasPermission(session.user.id === targetId);
 		} else {
 			setHasPermission(false);
@@ -122,17 +122,17 @@ export function ManageConnections({
 			let loadedItems: ConnectionItem[] = [];
 			
 			if (connectionType === "admins") {
-				loadedItems = (data.admins || []).map((admin: { id: string; ownerId: string; role: string; user: ConnectionUser }) => ({
+				loadedItems = (data.admins || []).map((admin: { id: string; userId: string; role: string; user: ConnectionUser }) => ({
 					id: admin.id,
-					ownerId: admin.ownerId,
+					userId: admin.userId,
 					role: admin.role,
 					user: admin.user,
 				}));
 			} else if (connectionType === "followers" || connectionType === "following") {
 				const list = data.followers || data.following || [];
-				loadedItems = list.map((item: { ownerId: string; user: ConnectionUser }) => ({
-					id: item.ownerId,
-					ownerId: item.ownerId,
+				loadedItems = list.map((item: { userId: string; user: ConnectionUser }) => ({
+					id: item.userId,
+					userId: item.userId,
 					user: item.user,
 				}));
 			}

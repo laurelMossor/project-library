@@ -9,12 +9,11 @@ export type { ConnectionItem } from "./ManageConnections";
 export { ManageAdmins } from "./ManageAdmins";
 
 // Re-export card types for convenience
-export type { 
-	CardUser, 
-	CardOrg, 
-	CardProject, 
-	CardEvent, 
+export type {
+	CardUser,
+	CardPage,
+	CardEvent,
 	CardCollectionItem,
 	ConnectionType,
 } from "@/lib/types/card";
-export { isCardEvent, isCardProject } from "@/lib/types/card";
+export { isCardEvent } from "@/lib/types/card";

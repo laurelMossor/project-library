@@ -1,24 +1,13 @@
-/**
- * Client-side utilities for fetching posts
- * Replaces entry-client.ts for v2 schema
- */
-
-import { PostItem } from "../types/post";
-import { CollectionType } from "../types/collection";
+import { PostItem, toPostCollectionItem, PostCollectionItem } from "../types/post";
+import { API_POSTS, API_EVENT_POSTS } from "../const/routes";
 
 /**
- * Fetch posts for a collection (project or event)
+ * Fetch posts for an event
  */
-export async function getPosts(
-	collectionId: string,
-	collectionType: CollectionType
-): Promise<PostItem[]> {
-	const endpoint = collectionType === "project" 
-		? `/api/projects/${collectionId}/posts`
-		: `/api/events/${collectionId}/posts`;
-
+export async function getEventPosts(eventId: string): Promise<PostItem[]> {
+	const endpoint = API_EVENT_POSTS(eventId);
 	const response = await fetch(endpoint);
-	
+
 	if (!response.ok) {
 		throw new Error(`Failed to fetch posts: ${response.statusText}`);
 	}
@@ -27,80 +16,74 @@ export async function getPosts(
 }
 
 /**
- * Fetch a single post by ID
+ * Fetch child posts (updates) for a parent post
  */
-export async function getPostById(postId: string): Promise<PostItem> {
-	const response = await fetch(`/api/posts/${postId}`);
-	
+export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
+	const response = await fetch(`${API_POSTS}?parentPostId=${parentPostId}`);
+
 	if (!response.ok) {
-		throw new Error(`Failed to fetch post: ${response.statusText}`);
+		throw new Error(`Failed to fetch post updates: ${response.statusText}`);
 	}
 
 	return response.json();
+}
+
+/**
+ * Fetch all posts with optional search query
+ * Client-side utility that calls the /api/posts endpoint
+ */
+export async function fetchPosts(search?: string): Promise<PostCollectionItem[]> {
+	const params = new URLSearchParams({ toplevel: "true" });
+	if (search) params.set("search", search);
+	const url = `${API_POSTS}?${params.toString()}`;
+
+	const res = await fetch(url);
+
+	if (!res.ok) {
+		throw new Error("Failed to fetch posts");
+	}
+
+	const posts = await res.json();
+	return posts.map(toPostCollectionItem);
+}
+
+/**
+ * Fetch a single post by ID
+ */
+export async function fetchPostById(id: string): Promise<PostItem | null> {
+	const res = await fetch(`${API_POSTS}/${id}`);
+
+	if (!res.ok) {
+		if (res.status === 404) {
+			return null;
+		}
+		throw new Error("Failed to fetch post");
+	}
+
+	return res.json();
 }
 
 /**
  * Create a new post
  */
-export async function createPost(
-	collectionId: string,
-	collectionType: CollectionType,
-	data: { title?: string | null; content: string }
-): Promise<PostItem> {
-	const endpoint = collectionType === "project"
-		? `/api/projects/${collectionId}/posts`
-		: `/api/events/${collectionId}/posts`;
-
-	const response = await fetch(endpoint, {
+export async function createPost(data: {
+	content: string;
+	title?: string;
+	pageId?: string;
+	eventId?: string;
+	parentPostId?: string;
+	tags?: string[];
+}): Promise<PostItem> {
+	const res = await fetch(API_POSTS, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(data),
 	});
 
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ error: "Failed to create post" }));
-		throw new Error(error.error || "Failed to create post");
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to create post");
 	}
 
-	return response.json();
+	return res.json();
 }
-
-/**
- * Update an existing post
- */
-export async function updatePost(
-	postId: string,
-	data: { title?: string | null; content?: string }
-): Promise<PostItem> {
-	const response = await fetch(`/api/posts/${postId}`, {
-		method: "PUT",
-		headers: {
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(data),
-	});
-
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ error: "Failed to update post" }));
-		throw new Error(error.error || "Failed to update post");
-	}
-
-	return response.json();
-}
-
-/**
- * Delete a post
- */
-export async function deletePost(postId: string): Promise<void> {
-	const response = await fetch(`/api/posts/${postId}`, {
-		method: "DELETE",
-	});
-
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({ error: "Failed to delete post" }));
-		throw new Error(error.error || "Failed to delete post");
-	}
-}
-

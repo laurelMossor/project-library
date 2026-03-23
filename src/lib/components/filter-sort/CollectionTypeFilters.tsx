@@ -21,15 +21,15 @@ export function CollectionTypeFilters({
 				onClick={onCollectionTypeChange}
 			/>
 			<CollectionTypeButton
-				label="Projects"
-				value={COLLECTION_TYPES.PROJECT}
-				selected={collectionTypeFilter === FILTER_ALL || collectionTypeFilter === COLLECTION_TYPES.PROJECT}
-				onClick={onCollectionTypeChange}
-			/>
-			<CollectionTypeButton
 				label="Events"
 				value={COLLECTION_TYPES.EVENT}
 				selected={collectionTypeFilter === FILTER_ALL || collectionTypeFilter === COLLECTION_TYPES.EVENT}
+				onClick={onCollectionTypeChange}
+			/>
+			<CollectionTypeButton
+				label="Posts"
+				value={COLLECTION_TYPES.POST}
+				selected={collectionTypeFilter === FILTER_ALL || collectionTypeFilter === COLLECTION_TYPES.POST}
 				onClick={onCollectionTypeChange}
 			/>
 		</div>

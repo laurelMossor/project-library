@@ -23,7 +23,7 @@ export function UserProfileHeader({ user, isOwnProfile, session }: UserProfileHe
 					<ProfileOptionsMenu />
 				) : (
 					loggedIn && (
-						<ButtonLink href={MESSAGE_CONVERSATION(user.ownerId)} fullWidth>
+						<ButtonLink href={MESSAGE_CONVERSATION(user.id)} fullWidth>
 							Send Message
 						</ButtonLink>
 					)
@@ -34,4 +34,3 @@ export function UserProfileHeader({ user, isOwnProfile, session }: UserProfileHe
 		</div>
 	);
 }
-

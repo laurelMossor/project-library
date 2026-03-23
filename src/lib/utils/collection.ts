@@ -1,14 +1,17 @@
-import { CollectionItem, isEvent, isProject, getCollectionItemType, getCollectionItemDate } from "../types/collection";
+import { CollectionItem, isEvent, isPost, getCollectionItemType, getCollectionItemDate } from "../types/collection";
 
 import { FilterCollectionType } from "../types/collection";
 
-export const itemHasCollectionType = (item: CollectionItem) => isProject(item) || isEvent(item);
+export const itemHasCollectionType = (item: CollectionItem) => isEvent(item) || isPost(item);
 
 /**
  * Get the detail page URL for a collection item
  */
 export function getCollectionItemUrl(item: CollectionItem): string {
-	return isEvent(item) ? `/events/${item.id}` : `/projects/${item.id}`;
+	if (isPost(item)) {
+		return `/posts/${item.id}`;
+	}
+	return `/events/${item.id}`;
 }
 
 /**

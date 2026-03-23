@@ -1,5 +1,5 @@
 # Milestone H Testing Checklist
-
+NOTE: THIS PAGE IS OUT OF DATE FROM THE CURRENT STATE OF THE APP, BUT REPRESENTS GOOD PRACTICES 
 ## Navigation & Layout
 - [ ] Navigation bar displays correctly (Title, Info, Collections, User Home icons)
 - [ ] Info icon opens About modal with mission and navigation links

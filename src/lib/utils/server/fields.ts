@@ -1,154 +1,115 @@
 // ⚠️ SERVER-ONLY: Reusable field selection objects for Prisma queries
-// Do not import this in client components! Only use in API routes, server components, or "use server" functions.
-
 import { Prisma } from "@prisma/client";
 import { publicUserFields } from "./user";
 
-/**
- * Standard fields to select when fetching an image
- * Includes all image metadata needed for display
- * Note: projectId/eventId removed in v2 - use ImageAttachment instead
- */
 export const imageFields = {
-	id: true,
-	url: true,
-	path: true,
-	altText: true,
-	uploadedById: true,
-	createdAt: true,
+  id: true,
+  url: true,
+  path: true,
+  altText: true,
+  uploadedByUserId: true,
+  createdAt: true,
 } as const;
 
-/**
- * Standard fields to select when fetching an image attachment
- */
 export const imageAttachmentFields = {
-	id: true,
-	imageId: true,
-	type: true,
-	targetId: true,
-	sortOrder: true,
-	createdAt: true,
+  id: true,
+  imageId: true,
+  type: true,
+  targetId: true,
+  sortOrder: true,
+  createdAt: true,
 } as const;
 
-/**
- * Standard fields to select when fetching images via ImageAttachment
- * Note: Images are no longer directly related - use getImagesForTarget() helper instead
- * This is kept for backward compatibility but should be replaced
- */
 export const imagesRelationFields = {
-	select: imageFields,
+  select: imageFields,
 } as const;
 
-
-/**
- * Base fields for Project model (without relations)
- * Note: type field removed in v2 - derived in TypeScript
- */
-export const projectBaseFields = {
-	id: true,
-	ownerId: true,
-	title: true,
-	description: true,
-	tags: true,
-	topics: true,
-	createdAt: true,
-	updatedAt: true,
-} as const;
-
-/**
- * Standard fields to select when fetching a project with owner
- * Note: Images are loaded separately via ImageAttachment - use getImagesForTarget("PROJECT", id)
- * Composable: uses projectBaseFields and publicUserFields
- * Note: owner is now through Actor relation
- */
-export const projectWithOwnerFields = {
-	...projectBaseFields,
-	// Images removed - load separately via ImageAttachment
-	owner: {
-		select: {
-			id: true,
-			type: true,
-			user: {
-				select: publicUserFields,
-			},
-			org: {
-				select: {
-					id: true,
-					name: true,
-					slug: true,
-					headline: true,
-					bio: true,
-					interests: true,
-					location: true,
-					avatarImageId: true,
-				},
-			},
-		},
-	},
-} as const;
-
-/**
- * Base fields for Event model (without relations)
- * Note: type field removed in v2 - derived in TypeScript
- * Note: eventDateTime (not dateTime) per schema v0.3
- */
+/** Standard fields for Event with user and page info */
 export const eventBaseFields = {
-	id: true,
-	ownerId: true,
-	title: true,
-	description: true,
-	eventDateTime: true,
-	location: true,
-	latitude: true,
-	longitude: true,
-	tags: true,
-	topics: true,
-	createdAt: true,
-	updatedAt: true,
+  id: true,
+  userId: true,
+  pageId: true,
+  title: true,
+  description: true,
+  eventDateTime: true,
+  location: true,
+  latitude: true,
+  longitude: true,
+  tags: true,
+  topics: true,
+  createdAt: true,
+  updatedAt: true,
 } as const;
 
-/**
- * Standard fields to select when fetching an event with owner
- * Note: Images are loaded separately via ImageAttachment - use getImagesForTarget("EVENT", id)
- * Composable: uses eventBaseFields and publicUserFields
- * Note: owner is now through Actor relation
- */
-export const eventWithOwnerFields = {
-	...eventBaseFields,
-	// Images removed - load separately via ImageAttachment
-	owner: {
-		select: {
-			id: true,
-			type: true,
-			user: {
-				select: publicUserFields,
-			},
-			org: {
-				select: {
-					id: true,
-					name: true,
-					slug: true,
-					headline: true,
-					bio: true,
-					interests: true,
-					location: true,
-					avatarImageId: true,
-				},
-			},
-		},
-	},
+export const eventWithUserFields = {
+  ...eventBaseFields,
+  user: {
+    select: publicUserFields,
+  },
+  page: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      headline: true,
+      bio: true,
+      interests: true,
+      location: true,
+      avatarImageId: true,
+      avatarImage: { select: { url: true } },
+    },
+  },
 } as const;
 
 // ========================
 // Prisma-derived types (schema as source of truth)
 // ========================
 
-/** Owner shape as returned by projectWithOwnerFields/eventWithOwnerFields queries */
-export type OwnerFromQuery = Prisma.OwnerGetPayload<typeof projectWithOwnerFields.owner>;
+/** Event shape as returned by eventWithUserFields query (without images/type - those are added separately) */
+export type EventFromQuery = Prisma.EventGetPayload<{ select: typeof eventWithUserFields }>;
 
-/** Project shape as returned by projectWithOwnerFields query (without images/type - those are added separately) */
-export type ProjectFromQuery = Prisma.ProjectGetPayload<{ select: typeof projectWithOwnerFields }>;
+/** Standard fields for Post with user and page info */
+export const postBaseFields = {
+  id: true,
+  userId: true,
+  pageId: true,
+  eventId: true,
+  parentPostId: true,
+  title: true,
+  content: true,
+  tags: true,
+  topics: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
-/** Event shape as returned by eventWithOwnerFields query (without images/type - those are added separately) */
-export type EventFromQuery = Prisma.EventGetPayload<{ select: typeof eventWithOwnerFields }>;
+export const postWithUserFields = {
+  ...postBaseFields,
+  user: {
+    select: publicUserFields,
+  },
+  page: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      avatarImageId: true,
+      avatarImage: { select: { url: true } },
+    },
+  },
+  event: {
+    select: {
+      id: true,
+      title: true,
+    },
+  },
+  parentPost: {
+    select: {
+      id: true,
+      title: true,
+    },
+  },
+} as const;
 
+/** Post shape as returned by postWithUserFields query */
+export type PostFromQuery = Prisma.PostGetPayload<{ select: typeof postWithUserFields }>;

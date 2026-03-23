@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { FilterCollectionType } from "@/lib/types/collection";
-import { PROJECT_NEW, EVENT_NEW } from "@/lib/const/routes";
 import { CreationCTA } from "./CreationCTA";
 
 type EmptyStateProps = {
@@ -16,8 +14,6 @@ export function EmptyState({
 }: EmptyStateProps) {
 	const getItemLabel = () => {
 		switch (collectionTypeFilter) {
-			case "project":
-				return "projects";
 			case "event":
 				return "events";
 			default:

@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
-import { eventWithOwnerFields } from "@/lib/utils/server/fields";
+import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 
@@ -41,9 +41,8 @@ export async function GET(request: Request) {
 
 	const { searchParams } = new URL(request.url);
 	const search = searchParams.get("search") || undefined;
-	const ownerId = searchParams.get("ownerId") || undefined;
-	const orgId = searchParams.get("orgId") || undefined;
 	const userId = searchParams.get("userId") || undefined;
+	const pageId = searchParams.get("pageId") || undefined;
 	const limit = parseNumber(searchParams.get("limit"));
 	const offset = parseNumber(searchParams.get("offset"));
 
@@ -63,11 +62,10 @@ export async function GET(request: Request) {
 							],
 					  }
 					: {}),
-				...(ownerId ? { ownerId } : {}),
-				...(orgId ? { owner: { orgId } } : {}),
-				...(userId ? { owner: { userId } } : {}),
+				...(userId ? { userId } : {}),
+				...(pageId ? { pageId } : {}),
 			},
-			select: eventWithOwnerFields,
+			select: eventWithUserFields,
 			orderBy: { eventDateTime: "asc" },
 			take: enforcedLimit,
 			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
@@ -146,7 +144,7 @@ export async function POST(request: Request) {
 
 		const event = await prisma.event.create({
 			data: {
-				ownerId: ctx.activeOwnerId,
+				userId: ctx.userId,
 				title: title.trim(),
 				description: description.trim(),
 				eventDateTime: parsedDateTime,
@@ -156,7 +154,7 @@ export async function POST(request: Request) {
 				tags: processedTags || [],
 				topics: Array.isArray(topics) ? topics : [],
 			},
-			select: eventWithOwnerFields,
+			select: eventWithUserFields,
 		});
 
 		// Return with type and empty images (new event has no images yet)

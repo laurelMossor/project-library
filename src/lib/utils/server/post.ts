@@ -6,29 +6,35 @@ import type { PostItem, PostCreateInput, PostUpdateInput } from "@/lib/types/pos
 
 const postSelectFields = {
 	id: true,
-	ownerId: true,
-	projectId: true,
+	userId: true,
+	pageId: true,
 	eventId: true,
+	parentPostId: true,
 	title: true,
 	content: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
 	updatedAt: true,
+	user: {
+		select: {
+			id: true,
+			username: true,
+			displayName: true,
+			firstName: true,
+			lastName: true,
+			avatarImageId: true,
+		},
+	},
+	page: {
+		select: {
+			id: true,
+			name: true,
+			slug: true,
+			avatarImageId: true,
+		},
+	},
 };
-
-/**
- * Fetch all posts for a project, sorted by createdAt (newest first)
- */
-export async function getPostsForProject(projectId: string): Promise<PostItem[]> {
-	const posts = await prisma.post.findMany({
-		where: { projectId },
-		orderBy: { createdAt: "desc" },
-		select: postSelectFields,
-	});
-
-	return posts as PostItem[];
-}
 
 /**
  * Fetch all posts for an event, sorted by createdAt (newest first)
@@ -44,13 +50,39 @@ export async function getPostsForEvent(eventId: string): Promise<PostItem[]> {
 }
 
 /**
- * Fetch all standalone posts (no projectId or eventId), sorted by createdAt (newest first)
+ * Fetch all posts for a page, sorted by createdAt (newest first)
  */
-export async function getStandalonePosts(ownerId?: string): Promise<PostItem[]> {
-	const where = ownerId
-		? { projectId: null, eventId: null, ownerId }
-		: { projectId: null, eventId: null };
-	
+export async function getPostsForPage(pageId: string): Promise<PostItem[]> {
+	const posts = await prisma.post.findMany({
+		where: { pageId },
+		orderBy: { createdAt: "desc" },
+		select: postSelectFields,
+	});
+
+	return posts as PostItem[];
+}
+
+/**
+ * Fetch all reply posts (updates) for a parent post, sorted by createdAt (newest first)
+ */
+export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
+	const posts = await prisma.post.findMany({
+		where: { parentPostId },
+		orderBy: { createdAt: "desc" },
+		select: postSelectFields,
+	});
+
+	return posts as PostItem[];
+}
+
+/**
+ * Fetch all standalone posts (no pageId, eventId, or parentPostId), sorted by createdAt (newest first)
+ */
+export async function getStandalonePosts(userId?: string): Promise<PostItem[]> {
+	const where = userId
+		? { pageId: null, eventId: null, parentPostId: null, userId }
+		: { pageId: null, eventId: null, parentPostId: null };
+
 	const posts = await prisma.post.findMany({
 		where,
 		orderBy: { createdAt: "desc" },
@@ -74,31 +106,15 @@ export async function getPostById(postId: string): Promise<PostItem | null> {
 
 /**
  * Create a new post
- * Can be standalone (no projectId/eventId) or descendant (one of projectId/eventId set)
+ * Can be standalone (no pageId/eventId/parentPostId) or attached to a page/event/parent
  */
 export async function createPost(
-	ownerId: string,
+	userId: string,
 	data: PostCreateInput
 ): Promise<PostItem> {
 	// Validate content is not empty
 	if (!data.content || data.content.trim().length === 0) {
 		throw new Error("Content is required and cannot be empty");
-	}
-
-	// Validate that projectId and eventId are not both set
-	if (data.projectId && data.eventId) {
-		throw new Error("Post cannot belong to both a project and an event");
-	}
-
-	// If projectId is set, verify project exists
-	if (data.projectId) {
-		const project = await prisma.project.findUnique({
-			where: { id: data.projectId },
-			select: { id: true },
-		});
-		if (!project) {
-			throw new Error("Project not found");
-		}
 	}
 
 	// If eventId is set, verify event exists
@@ -112,12 +128,24 @@ export async function createPost(
 		}
 	}
 
+	// If parentPostId is set, verify parent post exists
+	if (data.parentPostId) {
+		const parentPost = await prisma.post.findUnique({
+			where: { id: data.parentPostId },
+			select: { id: true },
+		});
+		if (!parentPost) {
+			throw new Error("Parent post not found");
+		}
+	}
+
 	// Create the post
 	const post = await prisma.post.create({
 		data: {
-			ownerId,
-			projectId: data.projectId || null,
+			userId,
+			pageId: data.pageId || null,
 			eventId: data.eventId || null,
+			parentPostId: data.parentPostId || null,
 			title: data.title?.trim() || null,
 			content: data.content.trim(),
 			tags: data.tags || [],

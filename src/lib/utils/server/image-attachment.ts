@@ -2,15 +2,16 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import { ImageItem, AttachmentType } from "../../types/image";
+import { ImageItem } from "../../types/image";
+import { AttachmentTarget } from "@prisma/client";
 import { imageFields } from "./fields";
 
 /**
- * Attach an image to a target (project, event, or post)
+ * Attach an image to a target (page, event, or post)
  */
 export async function attachImage(
 	imageId: string,
-	type: AttachmentType,
+	type: AttachmentTarget,
 	targetId: string,
 	sortOrder: number = 0
 ) {
@@ -33,7 +34,7 @@ export async function attachImage(
  * Get all images attached to a target
  */
 export async function getImagesForTarget(
-	type: AttachmentType,
+	type: AttachmentTarget,
 	targetId: string
 ): Promise<ImageItem[]> {
 	const attachments = await prisma.imageAttachment.findMany({
@@ -50,7 +51,7 @@ export async function getImagesForTarget(
 			sortOrder: "asc",
 		},
 	});
-	
+
 	return attachments.map(att => att.image) as ImageItem[];
 }
 
@@ -59,7 +60,7 @@ export async function getImagesForTarget(
  * Returns a map of targetId -> ImageItem[]
  */
 export async function getImagesForTargetsBatch(
-	type: AttachmentType,
+	type: AttachmentTarget,
 	targetIds: string[]
 ): Promise<Map<string, ImageItem[]>> {
 	if (targetIds.length === 0) {
@@ -112,7 +113,7 @@ export async function detachImage(imageId: string, targetId: string): Promise<vo
  * Remove all image attachments for a target
  */
 export async function detachAllImagesForTarget(
-	type: AttachmentType,
+	type: AttachmentTarget,
 	targetId: string
 ): Promise<void> {
 	await prisma.imageAttachment.deleteMany({
@@ -135,4 +136,3 @@ export async function updateImageAttachmentSortOrder(
 		data: { sortOrder },
 	});
 }
-

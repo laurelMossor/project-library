@@ -1,5 +1,5 @@
 /**
- * Image type - matches Prisma schema v2
+ * Image type - matches Prisma schema v0.4
  * Represents an image stored in Supabase Storage with metadata
  * Note: Images are attached via ImageAttachment, not direct foreign keys
  */
@@ -8,26 +8,26 @@ export interface ImageItem {
 	url: string; // Full Supabase public URL
 	path: string; // Storage path (e.g., "1735123456789-abc1234.jpg")
 	altText: string | null; // Optional alt text for accessibility
-	uploadedById: string; // Who uploaded the image
+	uploadedByUserId: string; // Who uploaded the image
 	createdAt: Date;
 	// Note: projectId/eventId removed - use ImageAttachment instead
 }
 
 /**
- * ImageAttachment type - matches Prisma schema v2
+ * ImageAttachment type - matches Prisma schema v0.4
  * Represents the polymorphic attachment of images to targets
  */
 export interface ImageAttachmentItem {
 	id: string;
 	imageId: string;
-	type: "PROJECT" | "EVENT" | "POST";
-	targetId: string; // ID of the target (project, event, or post)
+	type: "PAGE" | "EVENT" | "POST";
+	targetId: string; // ID of the target (page, event, or post)
 	sortOrder: number;
 	createdAt: Date;
 	image?: ImageItem; // Optional, included when loading with image relation
 }
 
-export type AttachmentType = "PROJECT" | "EVENT" | "POST";
+export type AttachmentType = "PAGE" | "EVENT" | "POST";
 
 /**
  * Image data for creating a new image
@@ -40,4 +40,3 @@ export type ImageCreateInput = Omit<ImageItem, "id" | "createdAt">;
  * Only updatable fields (url, path, and relations should not be updated after creation)
  */
 export type ImageUpdateInput = Partial<Pick<ImageItem, "altText">>;
-

@@ -3,6 +3,3 @@ export { ProfileSettingsBase } from "./ProfileSettingsBase";
 export { SettingsSection } from "./SettingsSection";
 export { DisabledSettingsButton } from "./DisabledSettingsButton";
 export { LineDivider } from "../layout/LineDivider";
-export { OrgSwitcher } from "./OrgSwitcher";
-export { UserOrgSettings } from "./UserOrgSettings";
-export type { OrgItem } from "./OrgSwitcher";

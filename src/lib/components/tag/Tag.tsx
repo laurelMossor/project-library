@@ -1,5 +1,4 @@
-import { ProjectItem } from "@/lib/types/project";
-import { EventItem } from "@/lib/types/event";
+import { CollectionItem } from "@/lib/types/collection";
 import { itemHasCollectionType } from "@/lib/utils/collection";
 import { CollectionTypeBadge } from "./CollectionTypeBadge";
 
@@ -16,7 +15,7 @@ export const Tag = ({ tag }: { tag: string }) => {
 	);
 };
 
-export const Tags = ({ item }: { item: ProjectItem | EventItem }) => {
+export const Tags = ({ item }: { item: CollectionItem }) => {
 	const itemHasTags = item.tags && item.tags.length > 0;
 
 	return (

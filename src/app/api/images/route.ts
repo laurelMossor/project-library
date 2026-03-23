@@ -5,7 +5,7 @@ import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 
 /**
  * POST /api/images
- * Create image metadata attributed to activeOwnerId
+ * Create image metadata attributed to the authenticated user
  * Protected endpoint
  * 
  * Body: { url: string, path: string, altText?: string }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 				url,
 				path,
 				altText: altText || null,
-				uploadedById: ctx.activeOwnerId,
+				uploadedByUserId: ctx.userId,
 			},
 		});
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 				url: image.url,
 				path: image.path,
 				altText: image.altText,
-				uploadedById: image.uploadedById,
+				uploadedByUserId: image.uploadedByUserId,
 				createdAt: image.createdAt,
 			},
 			{ status: 201 }
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
 /**
  * GET /api/images
- * List images uploaded by activeOwnerId
+ * List images uploaded by the authenticated user
  * Protected endpoint
  */
 export async function GET() {
@@ -77,7 +77,7 @@ export async function GET() {
 		}
 
 		const images = await prisma.image.findMany({
-			where: { uploadedById: ctx.activeOwnerId },
+			where: { uploadedByUserId: ctx.userId },
 			orderBy: { createdAt: "desc" },
 			take: 50,
 		});

@@ -12,31 +12,24 @@ export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUr
 // User & Profile Routes
 // ============================================================================
 export const PRIVATE_USER_PAGE = "/u/profile";
-export const USER_PROFILE_SETTINGS = "/u/profile/"; 
-export const USER_PROFILE_EDIT = "/u/profile#profile-section"; 
+export const USER_PROFILE_SETTINGS = "/u/profile/";
+export const USER_PROFILE_EDIT = "/u/profile#profile-section";
 export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
 export const USER_CONNECTIONS = (username: string) => `/u/${username}/connections`;
 
 // ============================================================================
-// Org & Profile Routes
+// Page Routes
 // ============================================================================
-export const PUBLIC_ORG_PAGE = (slug: string) => `/o/${slug}`;
-export const ORG_CONNECTIONS = (slug: string) => `/o/${slug}/connections`;
-export const PRIVATE_ORG_PAGE = "/o/profile";
-export const ORG_PROFILE_SETTINGS = "/o/profile"; 
-export const ORG_PROFILE_EDIT = "/o/profile#profile-section"; 
-export const ORG_NEW = "/orgs/new";
+export const PUBLIC_PAGE = (slug: string) => `/p/${slug}`;
+export const PAGE_CONNECTIONS = (slug: string) => `/p/${slug}/connections`;
+export const PRIVATE_PAGE = "/p/profile";
+export const PAGE_PROFILE_SETTINGS = "/p/profile";
+export const PAGE_PROFILE_EDIT = "/p/profile#profile-section";
+export const PAGE_NEW = "/pages/new";
 
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
-
-export const PROJECTS = "/projects";
-export const PROJECT_NEW = "/projects/new";
-export const PROJECT_DETAIL = (id: string) => `/projects/${id}`;
-export const PROJECT_EDIT = (id: string) => `/projects/${id}/edit`;
-export const PROJECT_POSTS = (id: string) => `/projects/${id}/posts`;
-export const PROJECT_POST_NEW = (id: string) => `/projects/${id}/posts/new`;
 
 // ============================================================================
 // Event Routes
@@ -45,6 +38,13 @@ export const EVENTS = "/events";
 export const EVENT_NEW = "/events/new";
 export const EVENT_DETAIL = (id: string) => `/events/${id}`;
 export const EVENT_EDIT = (id: string) => `/events/${id}/edit`;
+
+// ============================================================================
+// Post Routes
+// ============================================================================
+export const POSTS = "/posts";
+export const POST_NEW = "/posts/new";
+export const POST_DETAIL = (id: string) => `/posts/${id}`;
 
 // ============================================================================
 // Message Routes
@@ -60,32 +60,24 @@ export const API_AUTH_SIGNUP = "/api/auth/signup";
 
 // Current User Context API Routes (all under /api/me/)
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
-export const API_ME_ORG = "/api/me/org"; // GET/PUT current active org profile
-export const API_ME_ORGS = "/api/me/orgs"; // GET user's orgs
-export const API_ME_OWNER = "/api/me/owner"; // GET current owner, PUT to switch owner
-
-// Public User API Routes
-export const API_USER_PROJECTS = (username: string) => `/api/users/${username}/projects`;
-export const API_USER_EVENTS = (username: string) => `/api/users/${username}/events`;
-
-// Project API Routes
-export const API_PROJECTS = "/api/projects";
-export const API_PROJECT_UPLOAD = "/api/projects/upload";
-export const API_PROJECT = (id: string) => `/api/projects/${id}`;
-export const API_PROJECT_ENTRIES = (id: string) => `/api/projects/${id}/entries`;
-export const API_PROJECT_POSTS = (id: string) => `/api/projects/${id}/posts`;
+export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
+export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
 
 // Event API Routes
 export const API_EVENTS = "/api/events";
 export const API_EVENT = (id: string) => `/api/events/${id}`;
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
 
-// Org API Routes
-export const API_ORGS = "/api/orgs";
+// Post API Routes
+export const API_POSTS = "/api/posts";
+export const API_POST = (id: string) => `/api/posts/${id}`;
+
+// Page API Routes
+export const API_PAGES = "/api/pages";
 
 // Message API Routes
 export const API_MESSAGES = "/api/messages";
-export const API_MESSAGE = (ownerId: string) => `/api/messages/conversation/${ownerId}`;
+export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;
 
 // ============================================================================
 // Other Pages

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getConversations } from "@/lib/utils/server/message";
+import { getConversationsForUser } from "@/lib/utils/server/message";
 import { truncateText } from "@/lib/utils/text";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 import { LOGIN_WITH_CALLBACK, MESSAGES, MESSAGE_CONVERSATION } from "@/lib/const/routes";
@@ -30,7 +30,7 @@ export default async function MessagesPage() {
 		redirect(LOGIN_WITH_CALLBACK(MESSAGES));
 	}
 
-	const conversations = await getConversations(session.user.id);
+	const conversations = await getConversationsForUser(session.user.id);
 
 	return (
 		<PageLayout>
@@ -39,46 +39,57 @@ export default async function MessagesPage() {
 
 				{conversations.length === 0 ? (
 					<div className="text-center py-12">
-						<p>No messages yet. Start a conversation by visiting someone's profile!</p>
+						<p>No messages yet. Start a conversation by visiting someone&apos;s profile!</p>
 					</div>
 				) : (
 					<div className="space-y-2">
-						{conversations.map((conversation) => (
-							<Link
-								key={conversation.otherOwnerId}
-								href={MESSAGE_CONVERSATION(conversation.otherOwnerId)}
-								className="block border rounded p-4 hover:bg-gray-50 transition-colors"
-							>
-								<div className="flex items-start justify-between">
-									<div className="flex-1 min-w-0">
-										<div className="flex items-center gap-2 mb-1">
-											<h2 className="font-semibold text-lg">
-												{[conversation.otherUser.firstName, conversation.otherUser.middleName, conversation.otherUser.lastName]
-													.filter(Boolean)
-													.join(' ') || conversation.otherUser.username}
-											</h2>
-											<span className="text-sm text-gray-500">
-												@{conversation.otherUser.username}
-											</span>
-										</div>
-										{conversation.lastMessage && (
-											<div className="mt-2">
-												<p className="truncate">
-													{conversation.lastMessage.senderId === session?.user?.id ? (
-														<span>You: {truncateText(conversation.lastMessage.content)}</span>
-													) : (
-														<span>{truncateText(conversation.lastMessage.content)}</span>
-													)}
-												</p>
-												<p className="text-xs text-gray-400 mt-1">
-													{formatMessageTime(conversation.lastMessage.createdAt)}
-												</p>
+						{conversations.map((conversation) => {
+							// Find the "other" participant (not the current user)
+							const otherParticipant = conversation.participants.find(
+								(p) => p.userId !== session.user?.id
+							);
+							const otherUser = otherParticipant?.user;
+							const otherPage = otherParticipant?.page;
+							const displayName = otherUser
+								? [otherUser.firstName, otherUser.lastName].filter(Boolean).join(" ") || otherUser.username
+								: otherPage?.name || "Unknown";
+							const linkId = otherUser?.id || otherPage?.id || "";
+
+							return (
+								<Link
+									key={conversation.id}
+									href={MESSAGE_CONVERSATION(linkId)}
+									className="block border rounded p-4 hover:bg-gray-50 transition-colors"
+								>
+									<div className="flex items-start justify-between">
+										<div className="flex-1 min-w-0">
+											<div className="flex items-center gap-2 mb-1">
+												<h2 className="font-semibold text-lg">{displayName}</h2>
+												{otherUser && (
+													<span className="text-sm text-gray-500">
+														@{otherUser.username}
+													</span>
+												)}
 											</div>
-										)}
+											{conversation.lastMessage && (
+												<div className="mt-2">
+													<p className="truncate">
+														{conversation.lastMessage.senderId === session?.user?.id ? (
+															<span>You: {truncateText(conversation.lastMessage.content)}</span>
+														) : (
+															<span>{truncateText(conversation.lastMessage.content)}</span>
+														)}
+													</p>
+													<p className="text-xs text-gray-400 mt-1">
+														{formatMessageTime(conversation.lastMessage.createdAt)}
+													</p>
+												</div>
+											)}
+										</div>
 									</div>
-								</div>
-							</Link>
-						))}
+								</Link>
+							);
+						})}
 					</div>
 				)}
 			</div>

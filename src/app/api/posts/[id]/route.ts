@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
+import { publicUserFields } from "@/lib/utils/server/user";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -33,48 +34,36 @@ function validatePostTitle(title: string | undefined | null): { valid: boolean; 
 	return { valid: true };
 }
 
-const postWithOwnerFields = {
+const postFields = {
 	id: true,
-	ownerId: true,
-	projectId: true,
+	userId: true,
+	pageId: true,
 	eventId: true,
+	parentPostId: true,
 	title: true,
 	content: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
 	updatedAt: true,
-	owner: {
+	user: {
+		select: publicUserFields,
+	},
+	page: {
 		select: {
 			id: true,
-			type: true,
-			user: {
-				select: {
-					id: true,
-					username: true,
-					displayName: true,
-					firstName: true,
-					lastName: true,
-					avatarImageId: true,
-				},
-			},
-			org: {
-				select: {
-					id: true,
-					name: true,
-					slug: true,
-					avatarImageId: true,
-				},
-			},
+			name: true,
+			slug: true,
+			avatarImageId: true,
 		},
 	},
-	project: {
+	event: {
 		select: {
 			id: true,
 			title: true,
 		},
 	},
-	event: {
+	parentPost: {
 		select: {
 			id: true,
 			title: true,
@@ -93,7 +82,7 @@ export async function GET(request: Request, { params }: Params) {
 
 		const post = await prisma.post.findUnique({
 			where: { id },
-			select: postWithOwnerFields,
+			select: postFields,
 		});
 
 		if (!post) {
@@ -109,7 +98,7 @@ export async function GET(request: Request, { params }: Params) {
 
 /**
  * PATCH /api/posts/:id
- * Update a post (must be owner)
+ * Update a post (must be the post author)
  */
 export async function PATCH(request: Request, { params }: Params) {
 	try {
@@ -120,17 +109,17 @@ export async function PATCH(request: Request, { params }: Params) {
 
 		const { id } = await params;
 
-		// Verify post exists and belongs to active owner
+		// Verify post exists and belongs to user
 		const existing = await prisma.post.findUnique({
 			where: { id },
-			select: { ownerId: true },
+			select: { userId: true },
 		});
 
 		if (!existing) {
 			return notFound("Post not found");
 		}
 
-		if (existing.ownerId !== ctx.activeOwnerId) {
+		if (existing.userId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "You can only edit your own posts" },
 				{ status: 403 }
@@ -158,11 +147,11 @@ export async function PATCH(request: Request, { params }: Params) {
 			if (typeof tags === "string") {
 				processedTags = tags
 					.split(",")
-					.map((tag) => tag.trim())
+					.map((tag: string) => tag.trim())
 					.filter(Boolean);
 			} else if (Array.isArray(tags)) {
 				processedTags = tags
-					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
+					.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
 					.filter(Boolean);
 			}
 		}
@@ -176,7 +165,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		const post = await prisma.post.update({
 			where: { id },
 			data: updateData,
-			select: postWithOwnerFields,
+			select: postFields,
 		});
 
 		return NextResponse.json(post);
@@ -188,7 +177,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
 /**
  * DELETE /api/posts/:id
- * Delete a post (must be owner)
+ * Delete a post (must be the post author)
  */
 export async function DELETE(request: Request, { params }: Params) {
 	try {
@@ -199,17 +188,17 @@ export async function DELETE(request: Request, { params }: Params) {
 
 		const { id } = await params;
 
-		// Verify post exists and belongs to active owner
+		// Verify post exists and belongs to user
 		const existing = await prisma.post.findUnique({
 			where: { id },
-			select: { ownerId: true },
+			select: { userId: true },
 		});
 
 		if (!existing) {
 			return notFound("Post not found");
 		}
 
-		if (existing.ownerId !== ctx.activeOwnerId) {
+		if (existing.userId !== ctx.userId) {
 			return NextResponse.json(
 				{ error: "You can only delete your own posts" },
 				{ status: 403 }

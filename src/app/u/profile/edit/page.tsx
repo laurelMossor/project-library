@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { FormLayout } from "@/lib/components/layout/FormLayout";
 import { FormField } from "@/lib/components/forms/FormField";
@@ -9,6 +9,8 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { getUserInitials } from "@/lib/utils/text";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -16,6 +18,7 @@ export default function EditProfilePage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
+	const [username, setUsername] = useState("");
 	const [firstName, setFirstName] = useState("");
 	const [middleName, setMiddleName] = useState("");
 	const [lastName, setLastName] = useState("");
@@ -23,12 +26,16 @@ export default function EditProfilePage() {
 	const [bio, setBio] = useState("");
 	const [interests, setInterests] = useState("");
 	const [location, setLocation] = useState("");
+	const [avatarImageId, setAvatarImageId] = useState<string | null>(null);
+	const [existingAvatarUrl, setExistingAvatarUrl] = useState<string | null>(null);
+
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const { imageFile, imagePreview, error: imageError, handleImageChange, clearImage } = useImageUpload();
 
 	// Load current profile data
 	useEffect(() => {
 		fetch(API_ME_USER)
 			.then((res) => {
-				// Handle auth errors - redirect to login if unauthorized
 				if (res.status === 401) {
 					router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 					return;
@@ -39,6 +46,7 @@ export default function EditProfilePage() {
 				if (data && data.error) {
 					setError(data.error);
 				} else if (data) {
+					setUsername(data.username || "");
 					setFirstName(data.firstName || "");
 					setMiddleName(data.middleName || "");
 					setLastName(data.lastName || "");
@@ -46,6 +54,8 @@ export default function EditProfilePage() {
 					setBio(data.bio || "");
 					setInterests(data.interests?.join(", ") || "");
 					setLocation(data.location || "");
+					setAvatarImageId(data.avatarImageId || null);
+					setExistingAvatarUrl(data.avatarImage?.url || null);
 				}
 				setLoading(false);
 			})
@@ -60,6 +70,29 @@ export default function EditProfilePage() {
 		setSaving(true);
 		setError("");
 
+		let newAvatarImageId = avatarImageId;
+
+		// Upload new avatar if selected
+		if (imageFile) {
+			const formData = new FormData();
+			formData.append("file", imageFile);
+
+			const uploadRes = await fetch("/api/upload?folder=avatars", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!uploadRes.ok) {
+				const data = await uploadRes.json().catch(() => ({}));
+				setError(data.error || "Failed to upload avatar");
+				setSaving(false);
+				return;
+			}
+
+			const uploadData = await uploadRes.json();
+			newAvatarImageId = uploadData.id;
+		}
+
 		const res = await fetch(API_ME_USER, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
@@ -71,12 +104,12 @@ export default function EditProfilePage() {
 				bio,
 				interests: interests.split(",").map((s) => s.trim()).filter(Boolean),
 				location,
+				avatarImageId: newAvatarImageId,
 			}),
 		});
 
 		if (!res.ok) {
 			const data = await res.json();
-			// Handle auth errors - redirect to login if unauthorized
 			if (res.status === 401) {
 				router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 				return;
@@ -89,6 +122,8 @@ export default function EditProfilePage() {
 		router.push(PRIVATE_USER_PAGE);
 	};
 
+	const initials = getUserInitials({ firstName, lastName, username });
+
 	if (loading) {
 		return <FormLayout><div>Loading...</div></FormLayout>;
 	}
@@ -99,6 +134,47 @@ export default function EditProfilePage() {
 				<h1 className="text-2xl font-bold">Edit Profile</h1>
 
 				<FormError error={error} />
+				{imageError && <FormError error={imageError} />}
+
+				{/* Avatar Upload */}
+				<FormField label="Profile Photo" htmlFor="avatar">
+					<div className="flex items-center gap-4">
+						<div className="w-20 h-20 rounded-full bg-soft-grey flex items-center justify-center overflow-hidden flex-shrink-0">
+							{imagePreview || existingAvatarUrl ? (
+								<img src={imagePreview || existingAvatarUrl!} alt="Avatar preview" className="w-full h-full object-cover" />
+							) : (
+								<span className="text-gray-600 font-medium text-lg">{initials}</span>
+							)}
+						</div>
+						<div className="flex flex-col gap-2">
+							<input
+								ref={fileInputRef}
+								id="avatar"
+								type="file"
+								accept="image/jpeg,image/png,image/webp"
+								onChange={handleImageChange}
+								className="hidden"
+							/>
+							<button
+								type="button"
+								onClick={() => fileInputRef.current?.click()}
+								className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 transition-colors"
+							>
+								{imagePreview ? "Change Photo" : "Upload Photo"}
+							</button>
+							{imageFile && (
+								<button
+									type="button"
+									onClick={clearImage}
+									className="px-3 py-1.5 text-sm text-red-600 hover:text-red-800 transition-colors"
+								>
+									Remove
+								</button>
+							)}
+							<p className="text-xs text-gray-500">JPEG, PNG, or WebP. Max 5MB.</p>
+						</div>
+					</div>
+				</FormField>
 
 				<FormField label="First Name" htmlFor="firstName">
 					<FormInput
