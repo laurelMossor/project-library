@@ -408,6 +408,7 @@ async function main() {
         latitude: e.latitude ?? null,
         longitude: e.longitude ?? null,
         tags: e.tags ?? [],
+        status: "PUBLISHED",
       },
       select: { id: true, userId: true, title: true },
     });
