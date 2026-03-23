@@ -12,7 +12,30 @@ You are a Senior Engineer focused on clean & DRY code, lightweight & scalable MV
 The Project Library is a website dedicated to creativity, mutuality, and lifelong learning. Users create Posts to show what they are working on, in addition to a range of other features: Creative and skill building events, tool lending, mentorship and work trades. Find experts, find creative inspiration, create teaching and learning connections. Build. Make. Connect.
 
 ## Tech Stack
-React, NextJS, Prisma, Supabase (DB and Storage buckets), Launched using Vercel
+- **Framework**: React + Next.js (App Router)
+- **Auth**: NextAuth v5 (session-based, `lib/auth.ts`)
+- **DB**: PostgreSQL via Prisma ORM
+- **Storage**: Supabase storage buckets (image uploads → bucket "uploads", public URLs)
+- **Deploy**: Vercel
+
+## Key Conventions
+- **Routes**: All route constants in `lib/const/routes.ts` — never hardcode paths
+- **Server utils**: DB queries live in `lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`)
+- **Field selectors**: Reusable Prisma `select` objects in `lib/utils/server/fields.ts`
+- **Shared text utils**: Initials, truncation, display names → `lib/utils/text.ts`
+- **Validations**: All input validation in `lib/validations.ts` (events, posts, pages, messages)
+- **Types**: `lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
+
+## UI Component Map
+```
+Explore page:  CollectionPage → FilteredCollection → CollectionCard
+Profile pages: ProfileCollectionSection (wraps CollectionPage for user/page profiles)
+Avatars:       EntityAvatar (handles User or Page, image or initials fallback)
+Image display: ImageCarousel (multi-image carousel on cards)
+Posts on cards: PostsList (fetches child posts/updates for a parent post or event)
+Layout:        CenteredLayout, FormLayout
+Forms:         FormField, FormInput, FormTextarea, FormActions, FormError
+```
 
 # App Diagram (reflects current Prisma schema)
 Project Library – Conceptual Schema Tree

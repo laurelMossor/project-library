@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Sun 03/22/2026 22:09 PDT
+Addressed all 17 PR #2 review comments. Consolidated three duplicate initials implementations into canonical `getUserInitials`/`getPageInitials` in `utils/text.ts`. Deleted unused files: `OwnerContext.tsx`, `ProfilePicPlaceholder.tsx`, `UserCollectionSection.tsx`. Renamed `UserCollectionSection` → `ProfileCollectionSection` (shared by user and page profiles). Refactored `EntityAvatar` with clean `resolveEntity()` extractor. Added `validatePostData()`/`validatePostUpdateData()` to `validations.ts`. Updated `ConnectionsView` to use `EntityAvatar`. Updated `PROJECT_GUIDELINES.md` with v0.4 schema diagram, expanded tech stack, key conventions, and UI component map.
+
 #### Entry: Sat 03/21/2026 15:32 PDT
 Completed schema v0.4 migration — full codebase propagation. Eliminated Owner, Org, and Project models entirely. Pages replace both Orgs and Projects as a unified shared-resource concept. Permission table (ADMIN/EDITOR/MEMBER roles on PAGE/EVENT resources) replaces OrgMember roles and Owner-based access. All content (Posts, Events, Images) now references `userId` directly with optional `pageId` instead of `ownerId`. Follow model split into `followingUserId`/`followingPageId` (polymorphic nullable FKs). Messaging rewritten from direct sender/receiver to conversation-based model with polymorphic ConversationParticipants (User or Page), enabling shared Page inboxes for ADMIN/EDITOR users. Posts support one-level-deep update threads via `parentPostId`.
 
