@@ -38,15 +38,18 @@ export interface GetAllEventsOptions {
 
 export async function getAllEvents(options?: GetAllEventsOptions): Promise<EventItem[]> {
 	const search = options?.search;
-	const where = search
-		? {
-				OR: [
-					{ title: { contains: search, mode: "insensitive" as const } },
-					{ description: { contains: search, mode: "insensitive" as const } },
-					{ tags: { has: search } },
-				],
-		  }
-		: {};
+	const where: Prisma.EventWhereInput = {
+		status: "PUBLISHED",
+		...(search
+			? {
+					OR: [
+						{ title: { contains: search, mode: "insensitive" as const } },
+						{ description: { contains: search, mode: "insensitive" as const } },
+						{ tags: { has: search } },
+					],
+			  }
+			: {}),
+	};
 
 	const events = await prisma.event.findMany({
 		where,
@@ -142,6 +145,10 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 
 	if (data.tags !== undefined) {
 		updateData.tags = data.tags;
+	}
+
+	if (data.status !== undefined) {
+		updateData.status = data.status;
 	}
 
 	// Note: Images should be managed separately via image API endpoints

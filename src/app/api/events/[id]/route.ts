@@ -23,7 +23,7 @@ function parseNumber(value: unknown): number | null {
 /**
  * GET /api/events/:id
  * Get an event by ID
- * Public endpoint
+ * Draft events are only visible to the owner
  */
 export async function GET(request: Request, { params }: Params) {
 	try {
@@ -36,6 +36,14 @@ export async function GET(request: Request, { params }: Params) {
 
 		if (!event) {
 			return notFound("Event not found");
+		}
+
+		// Draft events are only visible to the owner
+		if (event.status === "DRAFT") {
+			const ctx = await getSessionContext();
+			if (!ctx || ctx.userId !== event.userId) {
+				return notFound("Event not found");
+			}
 		}
 
 		// Load images
@@ -85,7 +93,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = data;
+		const { title, description, eventDateTime, location, latitude, longitude, tags, topics, status } = data;
 
 		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
@@ -115,6 +123,7 @@ export async function PATCH(request: Request, { params }: Params) {
 			latitude: parsedLatitude ?? undefined,
 			longitude: parsedLongitude ?? undefined,
 			tags: processedTags,
+			status,
 		});
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid event data");
@@ -129,6 +138,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (parsedLongitude !== undefined) updateData.longitude = parsedLongitude;
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
+		if (status !== undefined) updateData.status = status;
 
 		const event = await prisma.event.update({
 			where: { id },

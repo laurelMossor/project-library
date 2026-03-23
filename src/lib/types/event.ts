@@ -7,12 +7,15 @@ import type { PostItem } from "./post";
  * Extends BaseCollectionItem with event-specific fields
  * Note: 'type' field is derived (not in database) for TypeScript type discrimination
  */
+export type EventStatus = "DRAFT" | "PUBLISHED";
+
 export interface EventItem extends BaseCollectionItem {
 	type: "event"; // Derived field for type discrimination
-	eventDateTime: Date; // Schema v0.3 uses eventDateTime
+	eventDateTime: Date;
 	location: string;
 	latitude: number | null;
 	longitude: number | null;
+	status: EventStatus;
 	images: ImageItem[]; // Images associated with this event (via ImageAttachment)
 	posts?: PostItem[]; // Descendant posts (optional, loaded when needed)
 }
@@ -36,6 +39,7 @@ export interface EventUpdateInput {
 	latitude?: number | null;
 	longitude?: number | null;
 	tags?: string[];
+	status?: EventStatus;
 	// Note: Images should be managed separately via image API endpoints
 }
 

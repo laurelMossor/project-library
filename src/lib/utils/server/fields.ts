@@ -35,6 +35,7 @@ export const eventBaseFields = {
   location: true,
   latitude: true,
   longitude: true,
+  status: true,
   tags: true,
   topics: true,
   createdAt: true,

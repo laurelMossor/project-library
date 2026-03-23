@@ -52,8 +52,10 @@ export async function GET(request: Request) {
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
 	try {
+		// Only show published events in public listings
 		const events = await prisma.event.findMany({
 			where: {
+				status: "PUBLISHED",
 				...(search
 					? {
 							OR: [
@@ -102,8 +104,36 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = data;
+		const { title, description, eventDateTime, location, latitude, longitude, tags, topics, isDraft } = data;
 
+		// Draft creation: minimal validation, used by inline editing flow
+		if (isDraft) {
+			const parsedDateTime = eventDateTime ? new Date(eventDateTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+			const event = await prisma.event.create({
+				data: {
+					userId: ctx.userId,
+					title: (title || "").trim(),
+					description: (description || "").trim(),
+					eventDateTime: parsedDateTime,
+					location: (location || "").trim(),
+					status: "DRAFT",
+					tags: [],
+					topics: [],
+				},
+				select: eventWithUserFields,
+			});
+
+			const eventItem = {
+				...event,
+				type: COLLECTION_TYPES.EVENT,
+				images: [],
+			};
+
+			return NextResponse.json(eventItem, { status: 201 });
+		}
+
+		// Standard creation: full validation
 		const parsedDateTime = eventDateTime ? new Date(eventDateTime) : null;
 
 		if (!parsedDateTime || isNaN(parsedDateTime.getTime())) {
@@ -153,6 +183,7 @@ export async function POST(request: Request) {
 				longitude: parsedLongitude,
 				tags: processedTags || [],
 				topics: Array.isArray(topics) ? topics : [],
+				status: "PUBLISHED",
 			},
 			select: eventWithUserFields,
 		});

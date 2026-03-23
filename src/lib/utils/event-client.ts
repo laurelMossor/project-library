@@ -1,5 +1,6 @@
 import { EventItem } from "../types/event";
-import { API_EVENTS, API_EVENT } from "../const/routes";
+import { API_EVENTS, API_EVENT, API_EVENT_RSVPS, API_EVENT_RSVP_COUNTS } from "../const/routes";
+import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "../types/rsvp";
 
 // CLIENT-SIDE FETCH UTILITIES
 // These functions fetch from the API routes and can be used in client components
@@ -53,10 +54,11 @@ export async function updateEvent(
 		latitude?: number | null;
 		longitude?: number | null;
 		tags?: string[];
+		status?: string;
 	}
 ): Promise<EventItem> {
 	const res = await fetch(API_EVENT(id), {
-		method: "PUT",
+		method: "PATCH",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
 			...data,
@@ -76,6 +78,78 @@ export async function updateEvent(
  * Delete an event by ID
  * Client-side utility that calls the DELETE /api/events/[id] endpoint
  */
+/**
+ * Publish an event (change status from DRAFT to PUBLISHED)
+ */
+export async function publishEvent(id: string): Promise<EventItem> {
+	return updateEvent(id, { status: "PUBLISHED" });
+}
+
+/**
+ * Create a draft event for inline editing
+ */
+export async function createDraftEvent(): Promise<EventItem> {
+	const res = await fetch(API_EVENTS, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ isDraft: true }),
+	});
+
+	if (!res.ok) {
+		if (res.status === 401) {
+			throw new Error("401");
+		}
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to create draft event");
+	}
+
+	return res.json();
+}
+
+/**
+ * Create or update an RSVP for an event (public, no auth required)
+ */
+export async function createRsvp(eventId: string, data: RsvpCreateInput): Promise<RsvpItem> {
+	const res = await fetch(API_EVENT_RSVPS(eventId), {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to submit RSVP");
+	}
+
+	return res.json();
+}
+
+/**
+ * Fetch RSVP counts for an event (public)
+ */
+export async function fetchRsvpCounts(eventId: string): Promise<RsvpCountSummary> {
+	const res = await fetch(API_EVENT_RSVP_COUNTS(eventId));
+
+	if (!res.ok) {
+		throw new Error("Failed to fetch RSVP counts");
+	}
+
+	return res.json();
+}
+
+/**
+ * Fetch all RSVPs for an event (organizer only)
+ */
+export async function fetchRsvps(eventId: string): Promise<RsvpItem[]> {
+	const res = await fetch(API_EVENT_RSVPS(eventId));
+
+	if (!res.ok) {
+		throw new Error("Failed to fetch RSVPs");
+	}
+
+	return res.json();
+}
+
 export async function deleteEvent(id: string): Promise<void> {
 	const res = await fetch(API_EVENT(id), {
 		method: "DELETE",

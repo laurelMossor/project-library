@@ -27,6 +27,17 @@ enum ResourceType {
   EVENT
 }
 
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum RsvpStatus {
+  GOING
+  MAYBE
+  CANT_MAKE_IT
+}
+
 // Used for ImageAttachment target typing.
 enum AttachmentTarget {
   PAGE
@@ -240,6 +251,7 @@ model Event {
   location      String
   latitude      Float?
   longitude     Float?
+  status        EventStatus @default(DRAFT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -247,6 +259,7 @@ model Event {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   page  Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
   posts Post[]
+  rsvps Rsvp[]
 
   tags   String[] @default([])
   topics String[] @default([])
@@ -254,6 +267,30 @@ model Event {
   @@index([userId, createdAt])
   @@index([pageId, createdAt])
   @@map("events")
+}
+
+// ========================
+// RSVPs (anonymous event attendance)
+// ========================
+//
+// No userId required — attendees RSVP with name + email only.
+// Upsert by [eventId, email] to allow changing response.
+
+model Rsvp {
+  id      String     @id @default(cuid())
+  eventId String
+  name    String
+  email   String
+  status  RsvpStatus
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, email])
+  @@index([eventId])
+  @@map("rsvps")
 }
 
 // ========================

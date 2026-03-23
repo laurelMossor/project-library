@@ -67,6 +67,8 @@ export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
 export const API_EVENTS = "/api/events";
 export const API_EVENT = (id: string) => `/api/events/${id}`;
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
+export const API_EVENT_RSVPS = (id: string) => `/api/events/${id}/rsvps`;
+export const API_EVENT_RSVP_COUNTS = (id: string) => `/api/events/${id}/rsvps/counts`;
 
 // Post API Routes
 export const API_POSTS = "/api/posts";

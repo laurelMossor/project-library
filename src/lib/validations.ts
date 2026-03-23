@@ -1,6 +1,7 @@
 import { ProfileData } from "./types/user";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
+import type { RsvpCreateInput } from "./types/rsvp";
 
 // Validation utilities for user input
 // Provides reusable validation functions for email, username, password, and profile data
@@ -244,6 +245,41 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		if (data.longitude !== null && (typeof data.longitude !== "number" || Number.isNaN(data.longitude))) {
 			return { valid: false, error: "Longitude must be a number or null" };
 		}
+	}
+
+	if (data.status !== undefined) {
+		if (data.status !== "DRAFT" && data.status !== "PUBLISHED") {
+			return { valid: false, error: "Status must be DRAFT or PUBLISHED" };
+		}
+	}
+
+	return { valid: true };
+}
+
+// RSVP validation utilities
+
+const VALID_RSVP_STATUSES = ["GOING", "MAYBE", "CANT_MAKE_IT"] as const;
+
+export function validateRsvpData(data: RsvpCreateInput): { valid: boolean; error?: string } {
+	if (!data.name || typeof data.name !== "string") {
+		return { valid: false, error: "Name is required" };
+	}
+	if (data.name.trim().length === 0) {
+		return { valid: false, error: "Name cannot be empty" };
+	}
+	if (data.name.length > 100) {
+		return { valid: false, error: "Name must be 100 characters or less" };
+	}
+
+	if (!data.email || typeof data.email !== "string") {
+		return { valid: false, error: "Email is required" };
+	}
+	if (!validateEmail(data.email)) {
+		return { valid: false, error: "Invalid email address" };
+	}
+
+	if (!data.status || !VALID_RSVP_STATUSES.includes(data.status as typeof VALID_RSVP_STATUSES[number])) {
+		return { valid: false, error: "Status must be GOING, MAYBE, or CANT_MAKE_IT" };
 	}
 
 	return { valid: true };
