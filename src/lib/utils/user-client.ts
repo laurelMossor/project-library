@@ -8,7 +8,7 @@ import { API_ME_USER } from "../const/routes";
 /**
  * Fetch current user's profile
  * Client-side utility that calls the /api/me/user endpoint
- * Returns null if user is not authenticated
+ * Returns null if user is not authenticated or not found
  */
 export async function fetchProfile(): Promise<PublicUser | null> {
 	const res = await fetch(API_ME_USER);

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteEvent } from "@/lib/utils/event-client";
-import { COLLECTIONS } from "@/lib/const/routes";
+import { AuthError } from "@/lib/utils/auth-client";
+import { COLLECTIONS, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
 type Props = {
 	eventId: string;
@@ -24,6 +25,10 @@ export function DeleteEventButton({ eventId, eventTitle }: Props) {
 			await deleteEvent(eventId);
 			router.push(COLLECTIONS);
 		} catch (err) {
+			if (err instanceof AuthError) {
+				router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(eventId)));
+				return;
+			}
 			setError(err instanceof Error ? err.message : "Failed to delete event");
 			setIsDeleting(false);
 			setShowConfirm(false);

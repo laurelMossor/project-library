@@ -1,5 +1,6 @@
 import { PostItem, toPostCollectionItem, PostCollectionItem } from "../types/post";
 import { API_POSTS, API_EVENT_POSTS } from "../const/routes";
+import { authFetch } from "./auth-client";
 
 /**
  * Fetch posts for an event
@@ -74,7 +75,7 @@ export async function createPost(data: {
 	parentPostId?: string;
 	tags?: string[];
 }): Promise<PostItem> {
-	const res = await fetch(API_POSTS, {
+	const res = await authFetch(API_POSTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(data),

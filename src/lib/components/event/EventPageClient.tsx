@@ -17,9 +17,10 @@ import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
 import { updateEvent, publishEvent } from "@/lib/utils/event-client";
+import { AuthError } from "@/lib/utils/auth-client";
 import { getUserDisplayName } from "@/lib/types/user";
 import { getCardUserInitials } from "@/lib/types/card";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE, MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME } from "@/lib/const/routes";
+import { PUBLIC_USER_PAGE, PUBLIC_PAGE, MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
 type EventPageClientProps = {
 	event: EventItem;
@@ -58,6 +59,10 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 		: getCardUserInitials(user);
 	const coverImageUrl = event.images?.[0]?.url || null;
 
+	const handleAuthError = () => {
+		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
+	};
+
 	const saveField = async (field: string, data: Record<string, unknown>) => {
 		setSaving(true);
 		setSaveError("");
@@ -66,6 +71,10 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 			setEvent((prev) => ({ ...prev, ...updated }));
 			setEditingField(null);
 		} catch (err) {
+			if (err instanceof AuthError) {
+				handleAuthError();
+				return;
+			}
 			setSaveError(err instanceof Error ? err.message : "Failed to save");
 			throw err;
 		} finally {
@@ -79,6 +88,10 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 			const updated = await publishEvent(event.id);
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
+			if (err instanceof AuthError) {
+				handleAuthError();
+				return;
+			}
 			setSaveError(err instanceof Error ? err.message : "Failed to publish");
 		} finally {
 			setPublishing(false);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createDraftEvent } from "@/lib/utils/event-client";
+import { AuthError } from "@/lib/utils/auth-client";
 import { EVENT_DETAIL, LOGIN_WITH_CALLBACK, EVENT_NEW } from "@/lib/const/routes";
 
 /**
@@ -19,7 +20,7 @@ export default function NewEventPage() {
 				router.replace(EVENT_DETAIL(event.id));
 			})
 			.catch((err) => {
-				if (err.message?.includes("401") || err.message?.includes("unauthorized")) {
+				if (err instanceof AuthError) {
 					router.push(LOGIN_WITH_CALLBACK(EVENT_NEW));
 					return;
 				}
