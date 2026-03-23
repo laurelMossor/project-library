@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { EntityAvatar } from "./EntityAvatar";
 
 type ConnectionsViewProps = {
 	entityId: string;
@@ -135,9 +136,32 @@ export function ConnectionsView({ entityId, entityType }: ConnectionsViewProps) 
 									href={href}
 									className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
 								>
-									<div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-										<span className="text-sm">{displayName?.[0]?.toUpperCase() || "?"}</span>
-									</div>
+									{isUser && item.user ? (
+										<EntityAvatar
+											user={{
+												...item.user,
+												displayName: item.user.displayName ?? null,
+												firstName: item.user.firstName ?? null,
+												lastName: item.user.lastName ?? null,
+												avatarImageId: item.user.avatarImageId ?? null,
+											}}
+											size="sm"
+											asLink={false}
+										/>
+									) : isPage && item.page ? (
+										<EntityAvatar
+											page={{
+												...item.page,
+												avatarImageId: item.page.avatarImageId ?? null,
+											}}
+											size="sm"
+											asLink={false}
+										/>
+									) : (
+										<div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+											<span className="text-xs">?</span>
+										</div>
+									)}
 									<div>
 										<p className="font-medium">{displayName}</p>
 										<p className="text-sm text-gray-500">{isUser ? "User" : isPage ? "Page" : "Unknown"}</p>

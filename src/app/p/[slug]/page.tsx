@@ -12,7 +12,7 @@ import { getPageBySlug } from "@/lib/utils/server/page";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { getEventsByPage } from "@/lib/utils/server/event";
-import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
+import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { canManagePage } from "@/lib/utils/server/permission";
 import { getPageDisplayName } from "@/lib/types/page";
@@ -83,7 +83,7 @@ export default async function PublicPageProfilePage({ params }: Props) {
 			</div>
 
 			{/* Page's Collection Section */}
-			<UserCollectionSection
+			<ProfileCollectionSection
 				items={collectionItems}
 				title={`${displayName}'s Collection`}
 				emptyMessage={`${displayName} hasn't created any events yet.`}

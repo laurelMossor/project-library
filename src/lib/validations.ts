@@ -1,5 +1,6 @@
 import { ProfileData } from "./types/user";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
+import type { PostCreateInput, PostUpdateInput } from "./types/post";
 
 // Validation utilities for user input
 // Provides reusable validation functions for email, username, password, and profile data
@@ -242,6 +243,96 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 	if (data.longitude !== undefined) {
 		if (data.longitude !== null && (typeof data.longitude !== "number" || Number.isNaN(data.longitude))) {
 			return { valid: false, error: "Longitude must be a number or null" };
+		}
+	}
+
+	return { valid: true };
+}
+
+// Post validation utilities
+// Reuses the same tag validation pattern as events
+
+export function validatePostData(data: PostCreateInput): { valid: boolean; error?: string } {
+	if (!data.content || typeof data.content !== "string") {
+		return { valid: false, error: "Post content is required" };
+	}
+	if (data.content.trim().length === 0) {
+		return { valid: false, error: "Post content cannot be empty" };
+	}
+	if (data.content.length > 10000) {
+		return { valid: false, error: "Post content must be 10,000 characters or less" };
+	}
+
+	if (data.title !== undefined && data.title !== null) {
+		if (typeof data.title !== "string") {
+			return { valid: false, error: "Post title must be a string" };
+		}
+		if (data.title.length > 150) {
+			return { valid: false, error: "Post title must be 150 characters or less" };
+		}
+	}
+
+	if (data.tags) {
+		if (!Array.isArray(data.tags)) {
+			return { valid: false, error: "Post tags must be an array" };
+		}
+		if (data.tags.length > 10) {
+			return { valid: false, error: "Maximum 10 tags allowed" };
+		}
+		for (const tag of data.tags) {
+			if (typeof tag !== "string") {
+				return { valid: false, error: "Each tag must be a string" };
+			}
+			const trimmedTag = tag.trim();
+			if (trimmedTag.length === 0) {
+				return { valid: false, error: "Post tags cannot be empty" };
+			}
+			if (trimmedTag.length > 50) {
+				return { valid: false, error: "Each post tag must be 50 characters or less" };
+			}
+		}
+	}
+
+	return { valid: true };
+}
+
+export function validatePostUpdateData(data: PostUpdateInput): { valid: boolean; error?: string } {
+	if (data.content !== undefined) {
+		if (typeof data.content !== "string" || data.content.trim().length === 0) {
+			return { valid: false, error: "Post content must be a non-empty string" };
+		}
+		if (data.content.length > 10000) {
+			return { valid: false, error: "Post content must be 10,000 characters or less" };
+		}
+	}
+
+	if (data.title !== undefined && data.title !== null) {
+		if (typeof data.title !== "string") {
+			return { valid: false, error: "Post title must be a string" };
+		}
+		if (data.title.length > 150) {
+			return { valid: false, error: "Post title must be 150 characters or less" };
+		}
+	}
+
+	if (data.tags !== undefined) {
+		if (!Array.isArray(data.tags)) {
+			return { valid: false, error: "Post tags must be an array" };
+		}
+		if (data.tags.length > 10) {
+			return { valid: false, error: "Maximum 10 tags allowed" };
+		}
+		for (const tag of data.tags) {
+			if (typeof tag !== "string") {
+				return { valid: false, error: "Each tag must be a string" };
+			}
+			const trimmedTag = tag.trim();
+			if (trimmedTag.length === 0) {
+				return { valid: false, error: "Post tags cannot be empty" };
+			}
+			if (trimmedTag.length > 50) {
+				return { valid: false, error: "Each post tag must be 50 characters or less" };
+			}
 		}
 	}
 

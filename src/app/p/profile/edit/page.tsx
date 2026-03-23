@@ -10,6 +10,7 @@ import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { API_ME_PAGE, LOGIN_WITH_CALLBACK, PRIVATE_PAGE } from "@/lib/const/routes";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { getPageInitials } from "@/lib/utils/text";
 
 export default function EditPageProfilePage() {
 	const router = useRouter();
@@ -130,13 +131,7 @@ export default function EditPageProfilePage() {
 		router.push(PRIVATE_PAGE);
 	};
 
-	// Get initials for placeholder
-	const getInitials = () => {
-		const words = pageName.trim().split(/\s+/);
-		if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-		if (words[0]?.length >= 2) return words[0].substring(0, 2).toUpperCase();
-		return "?";
-	};
+	const initials = pageName ? getPageInitials(pageName) : "?";
 
 	if (loading) {
 		return <FormLayout><div>Loading...</div></FormLayout>;
@@ -157,7 +152,7 @@ export default function EditPageProfilePage() {
 							{imagePreview || existingAvatarUrl ? (
 								<img src={imagePreview || existingAvatarUrl!} alt="Avatar preview" className="w-full h-full object-cover" />
 							) : (
-								<span className="text-gray-600 font-medium text-lg">{getInitials()}</span>
+								<span className="text-gray-600 font-medium text-lg">{initials}</span>
 							)}
 						</div>
 						<div className="flex flex-col gap-2">

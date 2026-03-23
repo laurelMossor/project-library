@@ -1,22 +1,15 @@
 /**
  * EntityAvatar - Displays avatar for a User or Page
- * Shows the actual avatar image when available, falls back to initials
+ * Shows the actual avatar image when available, falls back to initials.
+ * Uses shared initials utilities from utils/text.ts.
  */
 import Link from "next/link";
-import { CardUser, CardPage, getCardUserInitials, getCardPageInitials } from "@/lib/types/card";
+import { CardUser, CardPage } from "@/lib/types/card";
+import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 
-// Props for user mode
-type UserModeProps = {
-	user: CardUser;
-	page?: never;
-};
-
-// Props for page mode
-type PageModeProps = {
-	user?: never;
-	page: CardPage;
-};
+type UserModeProps = { user: CardUser; page?: never };
+type PageModeProps = { user?: never; page: CardPage };
 
 type EntityAvatarProps = (UserModeProps | PageModeProps) & {
 	size?: "sm" | "md" | "lg";
@@ -30,47 +23,45 @@ const sizeClasses = {
 	lg: "w-16 h-16 text-base",
 };
 
+// Derive display properties from the entity prop
+function resolveEntity(props: UserModeProps | PageModeProps) {
+	if (props.user) {
+		return {
+			initials: getUserInitials(props.user),
+			href: PUBLIC_USER_PAGE(props.user.username),
+			avatarUrl: props.user.avatarImage?.url ?? null,
+		};
+	}
+	if (props.page) {
+		return {
+			initials: getPageInitials(props.page.name),
+			href: PUBLIC_PAGE(props.page.slug),
+			avatarUrl: props.page.avatarImage?.url ?? null,
+		};
+	}
+	return null;
+}
+
 export function EntityAvatar(props: EntityAvatarProps) {
 	const { size = "md", className = "", asLink = true } = props;
 
-	let initials: string;
-	let href: string;
-	let avatarUrl: string | null = null;
+	const entity = resolveEntity(props);
+	if (!entity) return null;
 
-	if ("user" in props && props.user) {
-		initials = getCardUserInitials(props.user);
-		href = PUBLIC_USER_PAGE(props.user.username);
-		avatarUrl = props.user.avatarImage?.url ?? null;
-	} else if ("page" in props && props.page) {
-		initials = getCardPageInitials(props.page.name);
-		href = PUBLIC_PAGE(props.page.slug);
-		avatarUrl = props.page.avatarImage?.url ?? null;
-	} else {
-		return null;
-	}
-
+	const { initials, href, avatarUrl } = entity;
 	const sizeClass = sizeClasses[size];
 	const baseClasses = `${sizeClass} rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${className}`;
-	const interactiveClasses = asLink ? "hover:opacity-80 transition-opacity" : "";
+	const bgClass = avatarUrl ? "" : "bg-soft-grey";
 
 	const content = avatarUrl ? (
-		<img
-			src={avatarUrl}
-			alt={initials}
-			className="w-full h-full object-cover"
-		/>
+		<img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
 	) : (
 		<span className="text-gray-600 font-medium">{initials}</span>
 	);
 
-	const bgClass = avatarUrl ? "" : "bg-soft-grey";
-
 	if (asLink) {
 		return (
-			<Link
-				href={href}
-				className={`${baseClasses} ${bgClass} ${interactiveClasses}`}
-			>
+			<Link href={href} className={`${baseClasses} ${bgClass} hover:opacity-80 transition-opacity`}>
 				{content}
 			</Link>
 		);

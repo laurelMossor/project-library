@@ -4,6 +4,7 @@
  */
 
 import { getUserDisplayName } from "./user";
+import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 import type { ImageItem } from "./image";
 
 // ============================================================================
@@ -100,29 +101,6 @@ export function getCardPageDisplayName(page: CardPage): string {
 	return page.name;
 }
 
-// Get initials for a card user
-export function getCardUserInitials(user: CardUser): string {
-	if (user.firstName && user.lastName) {
-		return (user.firstName[0] + user.lastName[0]).toUpperCase();
-	}
-	if (user.firstName) {
-		return user.firstName[0].toUpperCase();
-	}
-	if (user.lastName) {
-		return user.lastName[0].toUpperCase();
-	}
-	return user.username[0].toUpperCase();
-}
-
-// Get initials for a card page
-export function getCardPageInitials(pageName: string): string {
-	const words = pageName.trim().split(/\s+/);
-	if (words.length >= 2) {
-		return (words[0][0] + words[1][0]).toUpperCase();
-	}
-	const name = words[0];
-	if (name.length >= 3) {
-		return name.substring(0, 3).toUpperCase();
-	}
-	return name.substring(0, 2).toUpperCase();
-}
+// Delegate to shared initials utilities in utils/text.ts
+export const getCardUserInitials = (user: CardUser): string => getUserInitials(user);
+export const getCardPageInitials = (pageName: string): string => getPageInitials(pageName);

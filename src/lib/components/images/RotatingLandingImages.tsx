@@ -8,13 +8,11 @@ const IMAGE_VERSIONS = ["A", "B", "C", "D"] as const;
 const PAUSE_DURATIONS = [5, 7, 9] as const;
 export const IMAGE_NAMES = ["FIND", "DISCOVER", "BUILD", "CONTRIBUTE"] as const;
 
-// Placeholder paths - customize these to your desired destinations
-// Supports any route, with optional query params for pre-filtered explore views
+// Landing image destinations — explore views with pre-set filters
 // Examples:
-//   "/explore?type=project&sort=newest" - projects, newest first
 //   "/explore?type=event&view=map" - events in map view
 //   "/explore?tags=woodworking,crafts" - filtered by tags
-//   "/about" - any other page
+//   POST_NEW - create a new post
 
 export const IMAGE_PATHS: Record<typeof IMAGE_NAMES[number], string> = {
 	FIND: "/explore?type=event&sort=newest&view=map&tags=improv",
@@ -91,7 +89,7 @@ export const RotatingLandingImages = () => {
 				<RotatingImage
 					key={name}
 					imageName={name}
-					altText={`Project Library landing surface ${i + 1}`}
+					altText={`Landing surface ${i + 1}`}
 					href={IMAGE_PATHS[name]}
 				/>
 			))}

@@ -13,7 +13,7 @@ import { getUserByUsername } from "@/lib/utils/server/user";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { getEventsByUser } from "@/lib/utils/server/event";
-import { UserCollectionSection } from "@/lib/components/collection/UserCollectionSection";
+import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { UserProfileHeader } from "@/lib/components/user/UserProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 
@@ -44,7 +44,7 @@ export default async function PublicProfilePage({ params }: Props) {
 			<UserProfileHeader user={user} isOwnProfile={isOwnProfile} session={session} />
 
 			{/* User's Collection Section */}
-			<UserCollectionSection
+			<ProfileCollectionSection
 				items={collectionItems}
 				title={'History'}
 				emptyMessage={`${username} hasn't created any events yet.`}

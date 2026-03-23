@@ -71,6 +71,8 @@ export interface PostCollectionItem extends BaseCollectionItem {
 	eventId: string | null;
 	parentPostId: string | null;
 	images: ImageItem[];
+	// TODO: Revisit — child posts (updates) are fetched separately by PostsList,
+	// so this field is largely unused. Consider removing in favor of a dedicated hook/query.
 	posts?: PostItem[];
 	event?: { id: string; title: string } | null;
 }

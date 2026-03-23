@@ -10,6 +10,7 @@ import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { getUserInitials } from "@/lib/utils/text";
 
 export default function EditProfilePage() {
 	const router = useRouter();
@@ -17,6 +18,7 @@ export default function EditProfilePage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
+	const [username, setUsername] = useState("");
 	const [firstName, setFirstName] = useState("");
 	const [middleName, setMiddleName] = useState("");
 	const [lastName, setLastName] = useState("");
@@ -44,6 +46,7 @@ export default function EditProfilePage() {
 				if (data && data.error) {
 					setError(data.error);
 				} else if (data) {
+					setUsername(data.username || "");
 					setFirstName(data.firstName || "");
 					setMiddleName(data.middleName || "");
 					setLastName(data.lastName || "");
@@ -119,12 +122,7 @@ export default function EditProfilePage() {
 		router.push(PRIVATE_USER_PAGE);
 	};
 
-	// Get initials for placeholder
-	const getInitials = () => {
-		if (firstName && lastName) return (firstName[0] + lastName[0]).toUpperCase();
-		if (firstName) return firstName[0].toUpperCase();
-		return "?";
-	};
+	const initials = getUserInitials({ firstName, lastName, username });
 
 	if (loading) {
 		return <FormLayout><div>Loading...</div></FormLayout>;
@@ -145,7 +143,7 @@ export default function EditProfilePage() {
 							{imagePreview || existingAvatarUrl ? (
 								<img src={imagePreview || existingAvatarUrl!} alt="Avatar preview" className="w-full h-full object-cover" />
 							) : (
-								<span className="text-gray-600 font-medium text-lg">{getInitials()}</span>
+								<span className="text-gray-600 font-medium text-lg">{initials}</span>
 							)}
 						</div>
 						<div className="flex flex-col gap-2">
