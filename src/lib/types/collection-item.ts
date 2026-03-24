@@ -29,4 +29,6 @@ export interface BaseCollectionItem {
 	createdAt: Date;
 	updatedAt: Date;
 	type: CollectionItemType;
+	_count?: { posts?: number; updates?: number };
+	recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null;
 }

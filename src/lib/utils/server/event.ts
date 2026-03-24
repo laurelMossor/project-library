@@ -4,7 +4,7 @@
 import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
-import { eventWithUserFields, EventFromQuery } from "./fields";
+import { eventWithUserFields, eventCollectionFields, EventFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -70,7 +70,7 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
 		where: { userId },
-		select: eventWithUserFields,
+		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
 
@@ -78,14 +78,18 @@ export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
+	return events.map(({ _count, posts, ...e }) => ({
+		...toEventItem(e, imagesMap.get(e.id) || []),
+		_count: { posts: _count.posts },
+		recentUpdate: posts[0] || null,
+	}));
 }
 
 // Fetch all events for a page
 export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
 		where: { pageId },
-		select: eventWithUserFields,
+		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
 
@@ -93,7 +97,11 @@ export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
+	return events.map(({ _count, posts, ...e }) => ({
+		...toEventItem(e, imagesMap.get(e.id) || []),
+		_count: { posts: _count.posts },
+		recentUpdate: posts[0] || null,
+	}));
 }
 
 export async function createEvent(userId: string, data: EventCreateInput, pageId?: string): Promise<EventItem> {

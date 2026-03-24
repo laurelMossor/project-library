@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
-import { eventWithUserFields } from "@/lib/utils/server/fields";
+import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 				...(userId ? { userId } : {}),
 				...(pageId ? { pageId } : {}),
 			},
-			select: eventWithUserFields,
+			select: eventCollectionFields,
 			orderBy: { eventDateTime: "asc" },
 			take: enforcedLimit,
 			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
@@ -78,10 +78,12 @@ export async function GET(request: Request) {
 		const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
 		// Transform to include type and images
-		const eventsWithImages = events.map((e) => ({
+		const eventsWithImages = events.map(({ _count, posts, ...e }) => ({
 			...e,
 			type: COLLECTION_TYPES.EVENT,
 			images: imagesMap.get(e.id) || [],
+			_count: { posts: _count.posts },
+			recentUpdate: posts[0] || null,
 		}));
 
 		return NextResponse.json(eventsWithImages);

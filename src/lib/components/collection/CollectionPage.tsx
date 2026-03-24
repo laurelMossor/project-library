@@ -82,8 +82,8 @@ export function CollectionPage({
 				onTagsChange={onTagsChange}
 				availableTags={availableTags}
 			/>
-			{/* Loading state */}
-			{loading && (
+			{/* Loading state — only shown on initial load, not during re-fetches */}
+			{loading && filteredItems.length === 0 && (
 				<div className="text-center py-12">
 					<p>Loading collections...</p>
 				</div>
@@ -96,7 +96,7 @@ export function CollectionPage({
 				</div>
 			)}
 
-			{/* Empty state */}
+			{/* Empty state — only after we've finished loading */}
 			{!loading && !error && filteredItems.length === 0 && (
 				<EmptyState
 					collectionTypeFilter={collectionTypeFilter}
@@ -105,10 +105,12 @@ export function CollectionPage({
 				/>
 			)}
 
-			{/* Content display */}
-			{!loading && !error && filteredItems.length > 0 && (
+			{/* Content display — show even during re-fetch to avoid flash */}
+			{!error && filteredItems.length > 0 && (
 				<>
-					<FilteredCollection items={paginatedItems} view={view} />
+					<div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
+						<FilteredCollection items={paginatedItems} view={view} />
+					</div>
 					<PaginationControls
 						currentPage={currentPage}
 						totalPages={totalPages}

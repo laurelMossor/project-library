@@ -17,6 +17,7 @@ export default function ExplorePage() {
 	const [events, setEvents] = useState<EventItem[]>([]);
 	const [posts, setPosts] = useState<PostCollectionItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [hasLoaded, setHasLoaded] = useState(false);
 	const [error, setError] = useState("");
 	const [search, setSearch] = useState(initialSearch);
 
@@ -74,6 +75,7 @@ export default function ExplorePage() {
 			setError("Failed to load collections");
 		} finally {
 			setLoading(false);
+			setHasLoaded(true);
 		}
 	};
 

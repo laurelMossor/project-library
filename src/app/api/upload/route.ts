@@ -43,6 +43,11 @@ export async function POST(request: Request) {
 		const { searchParams } = new URL(request.url);
 		const folder = searchParams.get("folder") || "user-uploads";
 
+		// Check if storage is configured before attempting upload
+		if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+			return badRequest("Image uploads are not available in this environment.");
+		}
+
 		// Upload to Supabase
 		const result = await uploadImage(file, folder);
 

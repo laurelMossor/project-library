@@ -80,7 +80,7 @@ export interface PostCollectionItem extends BaseCollectionItem {
 /**
  * Convert a PostItem (API response) to PostCollectionItem (for collection rendering)
  */
-export function toPostCollectionItem(post: PostItem & { images?: ImageItem[] }): PostCollectionItem {
+export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _count?: { updates?: number }; recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null }): PostCollectionItem {
 	return {
 		id: post.id,
 		userId: post.userId,
@@ -98,5 +98,7 @@ export function toPostCollectionItem(post: PostItem & { images?: ImageItem[] }):
 		parentPostId: post.parentPostId,
 		images: post.images || [],
 		event: post.event,
+		...(post._count ? { _count: { updates: post._count.updates } } : {}),
+		...(post.recentUpdate ? { recentUpdate: post.recentUpdate } : {}),
 	};
 }
