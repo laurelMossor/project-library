@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Masonry from "react-masonry-css";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,6 @@ type EventSample = {
 type PostSample = {
 	id: string;
 	type: "post";
-	badgeLabel: string;
 	title: string;
 	description: string;
 	handle: string;
@@ -60,10 +60,9 @@ const ALL_CARDS: CardItem[] = [
 	{
 		id: "2",
 		type: "post",
-		badgeLabel: "In Progress",
 		title: "Building a Reclaimed Wood Bookshelf",
 		description:
-			"Salvaged some Douglas fir from a demo site. Working through joinery options — might do mortise and tenon for the shelves.",
+			"Salvaged some Douglas fir from a demo site. Working through joinery options — might do mortise and tenon for the shelves. The grain on this wood is incredible, worth the extra effort to show it off.",
 		handle: "miriambuild",
 		initials: "MB",
 		tags: ["woodworking", "reclaimed"],
@@ -83,7 +82,6 @@ const ALL_CARDS: CardItem[] = [
 	{
 		id: "4",
 		type: "post",
-		badgeLabel: "Seeking Help",
 		title: "Learning to Fix My Vintage Singer",
 		description:
 			"My machine keeps skipping stitches. I've re-threaded it a dozen times. Anyone know tension adjustment on these older models?",
@@ -106,7 +104,6 @@ const ALL_CARDS: CardItem[] = [
 	{
 		id: "6",
 		type: "post",
-		badgeLabel: "Sharing",
 		title: "First Wheel Thrown on My Own",
 		description:
 			"Six weeks of classes at the community center and I finally centered clay without help. A slightly lopsided bowl still counts.",
@@ -115,15 +112,43 @@ const ALL_CARDS: CardItem[] = [
 		tags: ["ceramics", "learning"],
 		hasImage: false,
 	},
+	{
+		id: "7",
+		type: "event",
+		title: "Seed Saving and Soil Health",
+		description:
+			"A casual evening talk on saving seeds from your garden and building soil biology without synthetic inputs. Q&A after.",
+		date: "THU APR 10",
+		location: "Temescal Branch Library",
+		handle: "urbangrowcollective",
+		initials: "UG",
+	},
+	{
+		id: "8",
+		type: "post",
+		title: "Converted a Broken Dresser into a Tool Chest",
+		description:
+			"Found this mid-century dresser on the curb with a cracked top. Replaced the surface with plywood, added dividers, and lined the drawers with felt. Holds all my hand tools now.",
+		handle: "nolansworkshop",
+		initials: "NW",
+		tags: ["furniture", "upcycling", "tools"],
+		hasImage: true,
+	},
 ];
+
+const MASONRY_BREAKPOINTS = {
+	default: 3,
+	1024: 2,
+	640: 1,
+};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 function CalendarIcon() {
 	return (
 		<svg
-			width="11"
-			height="11"
+			width="12"
+			height="12"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
@@ -142,8 +167,8 @@ function CalendarIcon() {
 function PinIcon() {
 	return (
 		<svg
-			width="11"
-			height="11"
+			width="12"
+			height="12"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
@@ -157,39 +182,78 @@ function PinIcon() {
 	);
 }
 
+function SearchIcon() {
+	return (
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			className="text-dusty-grey"
+		>
+			<circle cx="11" cy="11" r="8" />
+			<line x1="21" y1="21" x2="16.65" y2="16.65" />
+		</svg>
+	);
+}
+
+function ImagePlaceholderIcon() {
+	return (
+		<svg
+			width="24"
+			height="24"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			className="text-dusty-grey"
+		>
+			<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+			<circle cx="8.5" cy="8.5" r="1.5" />
+			<polyline points="21 15 16 10 5 21" />
+		</svg>
+	);
+}
+
 // ─── Event Card ───────────────────────────────────────────────────────────────
 
 function EventCard({ card }: { card: EventSample }) {
 	return (
-		<div className="bg-grey-white border border-soft-grey rounded-lg p-5 flex flex-col gap-3 hover:-translate-y-0.5 hover:border-ash-green transition-all duration-150 cursor-pointer">
-			{/* Calendar icon + date — the icon signals "attend this", the date is why you care */}
-			<div className="flex items-center justify-between gap-2">
+		<div className="group bg-grey-white border border-soft-grey rounded-lg overflow-hidden flex flex-col hover:-translate-y-0.5 hover:border-ash-green/80 transition-all duration-150 cursor-pointer">
+			{/* Blue date banner — calendar icon + date is the entire identity */}
+			<div className="bg-alice-blue px-5 py-3 flex items-center justify-between gap-2">
 				<span className="text-whale-blue">
 					<CalendarIcon />
 				</span>
-				<span className="text-xs font-semibold text-rich-brown whitespace-nowrap">
+				<span className="text-sm font-bold text-whale-blue tracking-wide whitespace-nowrap">
 					{card.date}
 				</span>
 			</div>
 
-			<h3 className="text-base font-semibold text-rich-brown leading-snug">
-				{card.title}
-			</h3>
+			<div className="p-5 flex flex-col gap-3 flex-1">
+				<h3 className="font-display text-base font-bold text-rich-brown leading-snug tracking-tight">
+					{card.title}
+				</h3>
 
-			<p className="text-sm text-warm-grey leading-relaxed line-clamp-2 flex-1">
-				{card.description}
-			</p>
+				<p className="text-sm text-warm-grey leading-relaxed line-clamp-2 flex-1">
+					{card.description}
+				</p>
 
-			<div className="flex items-center gap-1.5 text-xs text-misty-forest">
-				<PinIcon />
-				{card.location}
-			</div>
-
-			<div className="border-t border-soft-grey pt-3 flex items-center gap-2">
-				<div className="w-6 h-6 rounded-full bg-melon-green flex items-center justify-center text-xs font-semibold text-moss-green flex-shrink-0">
-					{card.initials}
+				<div className="flex items-center gap-1.5 text-xs text-misty-forest">
+					<PinIcon />
+					<span>{card.location}</span>
 				</div>
-				<span className="text-xs text-warm-grey">@{card.handle}</span>
+
+				<div className="border-t border-soft-grey/80 pt-3 flex items-center gap-2">
+					<div className="w-6 h-6 rounded-full bg-melon-green flex items-center justify-center text-[10px] font-bold text-moss-green flex-shrink-0">
+						{card.initials}
+					</div>
+					<span className="text-xs text-warm-grey">@{card.handle}</span>
+				</div>
 			</div>
 		</div>
 	);
@@ -199,50 +263,39 @@ function EventCard({ card }: { card: EventSample }) {
 
 function PostCard({ card }: { card: PostSample }) {
 	return (
-		// Dashed left border = sketchbook signature, only post cards
 		<div
-			className="bg-grey-white border border-soft-grey rounded-lg flex flex-col hover:-translate-y-0.5 hover:border-ash-green transition-all duration-150 cursor-pointer overflow-hidden"
-			style={{ borderLeft: "2px dashed #C4D6B0" }}
+			className="group bg-grey-white border border-soft-grey rounded-lg flex flex-col hover:-translate-y-0.5 hover:border-ash-green/80 transition-all duration-150 cursor-pointer overflow-hidden"
+			style={{ borderLeft: "3px dashed #C4D6B0" }}
 		>
-			<div className="p-5 flex flex-col gap-3 flex-1">
-				<h3 className="text-base font-semibold text-rich-brown leading-snug">
+			{card.hasImage && (
+				<div className="bg-soft-grey/60 h-36 flex items-center justify-center flex-shrink-0">
+					<ImagePlaceholderIcon />
+				</div>
+			)}
+
+			<div className="p-5 flex flex-col gap-2.5 flex-1">
+				<h3 className="font-display text-[15px] font-bold text-rich-brown leading-snug tracking-tight">
 					{card.title}
 				</h3>
 
-				{card.hasImage && (
-					<div className="bg-soft-grey rounded h-32 flex items-center justify-center flex-shrink-0">
-						<svg
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							strokeWidth="1.5"
-							className="text-dusty-grey"
-						>
-							<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-							<circle cx="8.5" cy="8.5" r="1.5" />
-							<polyline points="21 15 16 10 5 21" />
-						</svg>
-					</div>
-				)}
-
-				<p className="text-sm text-warm-grey leading-relaxed line-clamp-2 flex-1">
+				<p className="text-sm text-warm-grey leading-relaxed line-clamp-3 flex-1">
 					{card.description}
 				</p>
 
-				<div className="border-t border-soft-grey pt-3 flex items-center justify-between gap-2">
-					<div className="flex items-center gap-2">
-						<div className="w-6 h-6 rounded-full bg-melon-green flex items-center justify-center text-xs font-semibold text-moss-green flex-shrink-0">
+				<div className="border-t border-soft-grey/80 pt-3 mt-0.5 flex items-center justify-between gap-2">
+					<div className="flex items-center gap-2 min-w-0">
+						<div className="w-6 h-6 rounded-full bg-melon-green flex items-center justify-center text-[10px] font-bold text-moss-green flex-shrink-0">
 							{card.initials}
 						</div>
-						<span className="text-xs text-warm-grey">@{card.handle}</span>
+						<span className="text-xs text-warm-grey truncate">
+							@{card.handle}
+						</span>
 					</div>
-					<div className="flex gap-1 flex-wrap justify-end">
+					<div className="flex gap-1.5 flex-wrap justify-end">
 						{card.tags.map((tag) => (
 							<span
 								key={tag}
-								className="bg-melon-green/30 text-moss-green text-xs rounded-full px-2 py-0.5"
+								className="bg-melon-green/25 text-moss-green text-[11px] rounded-full px-2.5 py-0.5"
 							>
 								{tag}
 							</span>
@@ -256,7 +309,7 @@ function PostCard({ card }: { card: PostSample }) {
 
 // ─── Skeleton Card ────────────────────────────────────────────────────────────
 
-function SkeletonCard() {
+function SkeletonCard({ tall }: { tall?: boolean }) {
 	return (
 		<div className="bg-grey-white border border-soft-grey rounded-lg p-5 flex flex-col gap-3">
 			<div className="flex items-center justify-between">
@@ -264,6 +317,9 @@ function SkeletonCard() {
 				<div className="h-4 w-14 bg-soft-grey rounded animate-pulse" />
 			</div>
 			<div className="h-5 w-3/4 bg-soft-grey rounded animate-pulse" />
+			{tall && (
+				<div className="h-28 w-full bg-soft-grey rounded-md animate-pulse" />
+			)}
 			<div className="flex flex-col gap-1.5 flex-1">
 				<div className="h-3.5 w-full bg-soft-grey rounded animate-pulse" />
 				<div className="h-3.5 w-5/6 bg-soft-grey rounded animate-pulse" />
@@ -282,20 +338,20 @@ function SkeletonCard() {
 function EmptyState() {
 	return (
 		<div className="flex flex-col items-center justify-center py-24 text-center">
-			<div className="w-10 h-10 rounded-full bg-soft-grey flex items-center justify-center mb-5">
+			<div className="w-12 h-12 rounded-full bg-ash-green flex items-center justify-center mb-5 text-misty-forest">
 				<PinIcon />
 			</div>
-			<p className="text-lg font-semibold text-rich-brown mb-1.5">
+			<p className="font-display text-xl font-bold text-rich-brown tracking-tight mb-1.5">
 				Nothing pinned here yet.
 			</p>
-			<p className="text-sm text-warm-grey mb-8 max-w-xs">
+			<p className="text-sm text-warm-grey mb-8 max-w-xs leading-relaxed">
 				Change your topic or search term — or add something to the board.
 			</p>
 			<div className="flex gap-3">
-				<button className="px-4 py-2 text-sm border border-rich-brown text-rich-brown rounded-md hover:bg-grey-white transition-colors">
+				<button className="px-5 py-2.5 text-sm font-medium border border-rich-brown text-rich-brown rounded-md hover:bg-rich-brown hover:text-grey-white transition-colors">
 					Share a project
 				</button>
-				<button className="px-4 py-2 text-sm bg-rich-brown text-grey-white rounded-md hover:opacity-90 transition-opacity">
+				<button className="px-5 py-2.5 text-sm font-medium bg-rich-brown text-grey-white rounded-md hover:bg-muted-brown transition-colors">
 					Post an event
 				</button>
 			</div>
@@ -303,69 +359,85 @@ function EmptyState() {
 	);
 }
 
-// ─── Search with Typeahead ────────────────────────────────────────────────────
+// ─── Search Box ───────────────────────────────────────────────────────────────
 
 function SearchBox({
+	value,
+	onChange,
 	selectedTopics,
-	onSelectTopic,
+	onToggleTopic,
 }: {
+	value: string;
+	onChange: (v: string) => void;
 	selectedTopics: string[];
-	onSelectTopic: (topic: string) => void;
+	onToggleTopic: (topic: string) => void;
 }) {
-	const [value, setValue] = useState("");
-	const [open, setOpen] = useState(false);
+	const [focused, setFocused] = useState(false);
 	const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const suggestions = value.trim()
-		? TOPICS.filter(
-				(t) =>
-					t.toLowerCase().includes(value.toLowerCase()) &&
-					!selectedTopics.includes(t)
+		? TOPICS.filter((t) =>
+				t.toLowerCase().includes(value.toLowerCase())
 		  )
 		: [];
 
 	const handleSelect = (topic: string) => {
-		onSelectTopic(topic);
-		setValue("");
-		setOpen(false);
+		onToggleTopic(topic);
+		onChange("");
 	};
+
+	const showDropdown = focused && suggestions.length > 0;
 
 	return (
 		<div className="relative w-full max-w-lg">
+			<div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+				<SearchIcon />
+			</div>
 			<input
 				type="text"
 				value={value}
-				onChange={(e) => {
-					setValue(e.target.value);
-					setOpen(true);
-				}}
-				onFocus={() => setOpen(true)}
+				onChange={(e) => onChange(e.target.value)}
+				onFocus={() => setFocused(true)}
 				onBlur={() => {
-					// Delay so click on suggestion registers first
-					blurTimer.current = setTimeout(() => setOpen(false), 150);
+					blurTimer.current = setTimeout(() => setFocused(false), 150);
 				}}
 				placeholder="Search workshops, projects, people..."
-				className="w-full bg-grey-white border border-soft-grey rounded-md px-4 py-2.5 text-sm text-rich-brown placeholder:text-dusty-grey focus:outline-none focus:border-misty-forest transition-colors"
+				className="w-full bg-grey-white border border-soft-grey rounded-md pl-10 pr-4 py-2.5 text-sm text-rich-brown placeholder:text-dusty-grey/70 focus:outline-none focus:border-misty-forest focus:ring-1 focus:ring-misty-forest/20 transition-all"
 			/>
 
-			{/* Topic suggestions dropdown */}
-			{open && suggestions.length > 0 && (
-				<div className="absolute top-full left-0 right-0 mt-1 bg-grey-white border border-soft-grey rounded-md shadow-sm overflow-hidden z-10">
-					<div className="px-3 pt-2 pb-1">
+			{showDropdown && (
+				<div className="absolute top-full left-0 right-0 mt-1.5 bg-grey-white border border-soft-grey rounded-md shadow-sm overflow-hidden z-10">
+					<div className="px-3 pt-2.5 pb-1">
 						<span className="text-[10px] uppercase tracking-widest text-dusty-grey font-medium">
 							Topics
 						</span>
 					</div>
-					{suggestions.map((topic) => (
-						<button
-							key={topic}
-							onMouseDown={() => handleSelect(topic)}
-							className="w-full text-left px-3 py-2 text-sm text-warm-grey hover:bg-soft-grey hover:text-rich-brown flex items-center gap-2 transition-colors"
-						>
-							<span className="w-1.5 h-1.5 rounded-full bg-melon-green flex-shrink-0" />
-							{topic}
-						</button>
-					))}
+					{suggestions.map((topic) => {
+						const isActive = selectedTopics.includes(topic);
+						return (
+							<button
+								key={topic}
+								onMouseDown={() => handleSelect(topic)}
+								className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+									isActive
+										? "text-rich-brown font-semibold bg-ash-green/30"
+										: "text-warm-grey hover:bg-ash-green/40 hover:text-rich-brown"
+								}`}
+							>
+								<span
+									className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+										isActive ? "bg-rich-brown" : "bg-melon-green"
+									}`}
+								/>
+								{topic}
+								{isActive && (
+									<span className="ml-auto text-[10px] text-dusty-grey uppercase tracking-wide">
+										active
+									</span>
+								)}
+							</button>
+						);
+					})}
 				</div>
 			)}
 		</div>
@@ -380,6 +452,7 @@ export default function ExploreMockPage() {
 	const [view, setView] = useState<ViewMode>("grid");
 	const [isLoading, setIsLoading] = useState(false);
 	const [isEmpty, setIsEmpty] = useState(false);
+	const [search, setSearch] = useState("");
 
 	const toggleTopic = (topic: string) =>
 		setSelectedTopics((prev) =>
@@ -390,13 +463,50 @@ export default function ExploreMockPage() {
 		? []
 		: ALL_CARDS.filter((c) => activeType === "all" || c.type === activeType);
 
-	const columnsClass =
-		view === "grid"
-			? "columns-1 md:columns-2 lg:columns-3 gap-5"
-			: "columns-1 max-w-2xl";
-
 	return (
 		<div className="min-h-screen bg-soft-grey">
+			{/* eslint-disable-next-line @next/next/no-page-custom-font */}
+			<link
+				href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&display=swap"
+				rel="stylesheet"
+			/>
+
+			<style>{`
+				.font-display { font-family: 'Fraunces', serif; }
+				.corkboard-bg {
+					background-color: #CED0CE;
+					background-image:
+						radial-gradient(ellipse at 20% 50%, rgba(203,210,194,0.4) 0%, transparent 50%),
+						radial-gradient(ellipse at 80% 20%, rgba(214,227,235,0.3) 0%, transparent 40%),
+						radial-gradient(circle at 50% 80%, rgba(196,214,176,0.15) 0%, transparent 35%);
+				}
+				.masonry-grid {
+					display: flex;
+					margin-left: -20px;
+					width: auto;
+				}
+				.masonry-grid_column {
+					padding-left: 20px;
+					background-clip: padding-box;
+				}
+				.masonry-grid_column > div {
+					margin-bottom: 20px;
+				}
+				.masonry-list {
+					display: flex;
+					margin-left: 0;
+					width: auto;
+					max-width: 42rem;
+				}
+				.masonry-list_column {
+					padding-left: 0;
+					background-clip: padding-box;
+				}
+				.masonry-list_column > div {
+					margin-bottom: 16px;
+				}
+			`}</style>
+
 			{/* Demo controls */}
 			<div className="bg-rich-brown text-grey-white text-xs px-6 py-2 flex items-center gap-4">
 				<span className="text-grey-white/40 uppercase tracking-widest text-[10px] font-medium">
@@ -416,153 +526,190 @@ export default function ExploreMockPage() {
 				</button>
 			</div>
 
-			{/* Header zone */}
-			<div className="bg-ash-green px-6 py-5">
+			{/* ── Header zone ── */}
+			<div className="bg-ash-green px-6 py-3">
 				<div className="max-w-6xl mx-auto">
-					<h1 className="text-2xl font-bold tracking-tight text-rich-brown mb-0.5">
+					<h1 className="font-display text-2xl font-extrabold tracking-tight text-rich-brown mb-0.5">
 						Explore
 					</h1>
-					<p className="text-sm text-misty-forest mb-4">
+					<p className="text-sm text-misty-forest mb-3">
 						See what your community is making and sharing
 					</p>
 					<SearchBox
+						value={search}
+						onChange={setSearch}
 						selectedTopics={selectedTopics}
-						onSelectTopic={toggleTopic}
+						onToggleTopic={toggleTopic}
 					/>
-					{/* Selected topic chips — visible confirmation of active filters */}
-					{selectedTopics.length > 0 && (
-						<div className="flex flex-wrap gap-2 mt-3">
-							{selectedTopics.map((topic) => (
-								<button
-									key={topic}
-									onClick={() => toggleTopic(topic)}
-									className="inline-flex items-center gap-1.5 bg-melon-green text-rich-brown text-xs font-medium px-2.5 py-1 rounded-full hover:bg-melon-green/70 transition-colors"
-								>
-									{topic}
-									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-										<line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-									</svg>
-								</button>
-							))}
-						</div>
-					)}
 				</div>
 			</div>
 
-			<div className="max-w-6xl mx-auto px-6 py-6">
-				{/* Topic tabs — curated interest areas, not raw tags */}
-				<div className="mb-5 flex items-center gap-3 overflow-x-auto pb-px">
-					<span className="text-xs text-dusty-grey whitespace-nowrap flex-shrink-0 font-medium">
-						Topics:
-					</span>
-					{TOPICS.map((topic) => {
-						const active = selectedTopics.includes(topic);
-						return (
-							<button
-								key={topic}
-								onClick={() => toggleTopic(topic)}
-								className={`flex-shrink-0 px-3 py-1.5 text-sm rounded-sm transition-all duration-100 whitespace-nowrap ${
-									active
-										? "bg-grey-white text-rich-brown font-semibold border-t-2 border-rich-brown"
-										: "bg-soft-grey/70 text-warm-grey hover:bg-grey-white/60 hover:text-rich-brown"
-								}`}
-							>
-								{topic}
-							</button>
-						);
-					})}
-				</div>
-
-				{/* Filter bar */}
-				<div className="flex items-center justify-between py-3 border-b border-soft-grey mb-6">
-					<div className="flex items-center gap-1.5">
-						{(
-							[
-								["all", "All"],
-								["event", "Events"],
-								["post", "Posts"],
-							] as [ActiveType, string][]
-						).map(([type, label]) => (
-							<button
-								key={type}
-								onClick={() => setActiveType(type)}
-								className={`px-3 py-1 text-sm rounded-full transition-colors ${
-									activeType === type
-										? "bg-rich-brown text-grey-white"
-										: "border border-soft-grey text-warm-grey hover:border-misty-forest hover:text-rich-brown"
-								}`}
-							>
-								{label}
-							</button>
-						))}
+			{/* ── Content area with corkboard texture ── */}
+			<div className="corkboard-bg">
+				<div className="max-w-6xl mx-auto px-6 pt-4 pb-6">
+					{/* ── Topic tabs ── */}
+					<div className="mb-3 flex items-center gap-2 overflow-x-auto pb-px scrollbar-none">
+						<span className="text-xs text-dusty-grey whitespace-nowrap flex-shrink-0 font-medium">
+							Browse by:
+						</span>
+						{TOPICS.map((topic) => {
+							const active = selectedTopics.includes(topic);
+							return (
+								<button
+									key={topic}
+									onClick={() => toggleTopic(topic)}
+									className={`flex-shrink-0 px-3 py-1.5 text-sm transition-all duration-100 whitespace-nowrap ${
+										active
+											? "bg-grey-white text-rich-brown font-semibold border-t-2 border-rich-brown rounded-sm shadow-sm"
+											: "bg-soft-grey/60 text-warm-grey hover:bg-grey-white/70 hover:text-rich-brown rounded-sm"
+									}`}
+								>
+									{topic}
+								</button>
+							);
+						})}
 					</div>
 
-					<div className="flex items-center gap-4">
-						<div className="relative">
-							<select className="text-sm text-warm-grey bg-transparent focus:outline-none cursor-pointer appearance-none pr-4">
-								<option>Newest</option>
-								<option>Oldest</option>
-								<option>Relevance</option>
-							</select>
-							<svg
-								className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-dusty-grey"
-								width="10"
-								height="10"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="2.5"
-							>
-								<polyline points="6 9 12 15 18 9" />
-							</svg>
+					{/* ── Filter bar ── */}
+					<div className="flex items-center justify-between py-2 border-b border-soft-grey/60 mb-4">
+						<div className="flex items-center gap-1.5">
+							{(
+								[
+									["all", "All"],
+									["event", "Events"],
+									["post", "Posts"],
+								] as [ActiveType, string][]
+							).map(([type, label]) => (
+								<button
+									key={type}
+									onClick={() => setActiveType(type)}
+									className={`px-3.5 py-1 text-sm rounded-full transition-colors ${
+										activeType === type
+											? "bg-rich-brown text-grey-white"
+											: "border border-soft-grey text-warm-grey hover:border-misty-forest hover:text-rich-brown"
+									}`}
+								>
+									{label}
+								</button>
+							))}
 						</div>
-						<div className="flex items-center gap-0.5">
-							<button
-								onClick={() => setView("list")}
-								className={`p-1.5 rounded transition-colors ${view === "list" ? "text-rich-brown" : "text-dusty-grey hover:text-warm-grey"}`}
-								title="List view"
-							>
-								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-									<line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-								</svg>
-							</button>
-							<button
-								onClick={() => setView("grid")}
-								className={`p-1.5 rounded transition-colors ${view === "grid" ? "text-rich-brown" : "text-dusty-grey hover:text-warm-grey"}`}
-								title="Grid view"
-							>
-								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-									<rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-								</svg>
-							</button>
-						</div>
-					</div>
-				</div>
 
-				{/* Content */}
-				{isLoading ? (
-					<div className={columnsClass}>
-						{Array.from({ length: 6 }).map((_, i) => (
-							<div key={i} className="break-inside-avoid mb-5">
-								<SkeletonCard />
+						<div className="flex items-center gap-4">
+							<div className="relative">
+								<select className="text-sm text-warm-grey bg-transparent focus:outline-none cursor-pointer appearance-none pr-4">
+									<option>Newest</option>
+									<option>Oldest</option>
+									<option>Relevance</option>
+								</select>
+								<svg
+									className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-dusty-grey"
+									width="10"
+									height="10"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2.5"
+								>
+									<polyline points="6 9 12 15 18 9" />
+								</svg>
 							</div>
-						))}
+							<div className="flex items-center gap-0.5">
+								<button
+									onClick={() => setView("list")}
+									className={`p-1.5 rounded transition-colors ${
+										view === "list"
+											? "text-rich-brown"
+											: "text-dusty-grey hover:text-warm-grey"
+									}`}
+									title="List view"
+								>
+									<svg
+										width="15"
+										height="15"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+									>
+										<line x1="3" y1="6" x2="21" y2="6" />
+										<line x1="3" y1="12" x2="21" y2="12" />
+										<line x1="3" y1="18" x2="21" y2="18" />
+									</svg>
+								</button>
+								<button
+									onClick={() => setView("grid")}
+									className={`p-1.5 rounded transition-colors ${
+										view === "grid"
+											? "text-rich-brown"
+											: "text-dusty-grey hover:text-warm-grey"
+									}`}
+									title="Grid view"
+								>
+									<svg
+										width="15"
+										height="15"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+									>
+										<rect x="3" y="3" width="7" height="7" />
+										<rect x="14" y="3" width="7" height="7" />
+										<rect x="3" y="14" width="7" height="7" />
+										<rect x="14" y="14" width="7" height="7" />
+									</svg>
+								</button>
+							</div>
+						</div>
 					</div>
-				) : visibleCards.length === 0 ? (
-					<EmptyState />
-				) : (
-					<div className={columnsClass}>
-						{visibleCards.map((card) => (
-							<div key={card.id} className="break-inside-avoid mb-5">
-								{card.type === "event" ? (
-									<EventCard card={card} />
+
+					{/* ── Content ── */}
+					{isLoading ? (
+						<Masonry
+							breakpointCols={
+								view === "grid" ? MASONRY_BREAKPOINTS : 1
+							}
+							className={
+								view === "grid" ? "masonry-grid" : "masonry-list"
+							}
+							columnClassName={
+								view === "grid"
+									? "masonry-grid_column"
+									: "masonry-list_column"
+							}
+						>
+							{Array.from({ length: 6 }).map((_, i) => (
+								<SkeletonCard key={i} tall={i % 3 === 1} />
+							))}
+						</Masonry>
+					) : visibleCards.length === 0 ? (
+						<EmptyState />
+					) : (
+						<Masonry
+							breakpointCols={
+								view === "grid" ? MASONRY_BREAKPOINTS : 1
+							}
+							className={
+								view === "grid" ? "masonry-grid" : "masonry-list"
+							}
+							columnClassName={
+								view === "grid"
+									? "masonry-grid_column"
+									: "masonry-list_column"
+							}
+						>
+							{visibleCards.map((card) =>
+								card.type === "event" ? (
+									<EventCard key={card.id} card={card} />
 								) : (
-									<PostCard card={card} />
-								)}
-							</div>
-						))}
-					</div>
-				)}
+									<PostCard key={card.id} card={card} />
+								)
+							)}
+						</Masonry>
+					)}
+				</div>
 			</div>
 		</div>
 	);

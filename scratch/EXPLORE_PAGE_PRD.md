@@ -1,7 +1,7 @@
 # PRD: Explore Page
 
-**Status:** Design direction defined, mock in progress
-**Run locally:** `npm run dev`
+**Status:** Mock complete, ready for implementation
+**Mock:** `/explore/mock` (run `npm run dev`)
 
 ---
 
@@ -39,7 +39,7 @@ Someone at a kitchen table on a weekend morning. Part of a local maker, mutual a
 ## Goals (MVP)
 
 1. Replace text-input tag filtering with browseable topic tabs
-2. Give events and posts distinct visual identities — scan at a glance
+2. Give events and posts distinct visual identities — instantly recognizable at a glance
 3. Make cards feel like they came from a community, not a CMS
 4. Replace all placeholder states with designed ones
 5. No new data models or API changes required
@@ -65,16 +65,25 @@ Project Library is a physical-world community platform. The colors and feel shou
 | `grey-white` | #E6E8E6 | Chalk dust, pale linen, pinned paper |
 | `soft-grey` | #CED0CE | Corkboard surface, matte paper |
 | `novel-red` | #A3333D | A worn rubber stamp, urgent notice |
+| `soft-blush` | #EDD4DA | Warm pink — gentle urgency for "seeking help" |
+| `smokey-red` | #A06064 | Muted red text — pairs with soft-blush |
 
-**Depth:** Surface color shifts, not shadows. Cards (`grey-white`) sit on a slightly deeper ground (`soft-grey`) — paper on corkboard. No dramatic drop shadows. Borders are whisper-quiet.
+**Depth:** Surface color shifts, not shadows. Cards (`grey-white`) sit on a slightly deeper ground (`soft-grey` with subtle radial gradient washes) — paper on corkboard. No dramatic drop shadows. Borders are whisper-quiet.
 
-**Typography:** Weight and tracking do the work. Heading: heavy, tight-tracked — like a printed label. Badges: uppercase, wide tracking — the rubber-stamp register. Body: comfortable reading weight.
+**Typography:** Two registers, one loaded font:
+- **Fraunces** (display, `.font-display`): Page title, card titles, empty state heading. Variable serif with optical size, warm and characterful. Heavy, tight-tracked — like a printed label.
+- **System sans** (everything else): Descriptions, UI labels, inputs, buttons, tags, handles. Tailwind v4's default sans-serif. Clean, stays out of the way.
+- Only one custom font loads. The hierarchy comes from weight and tracking, not from stacking multiple typefaces.
 
 **Spacing:** 4px base. Component padding: `p-5` (20px). Section gaps: 24–32px.
 
-### Signature element
+### Signature elements
 
-Posts are works-in-progress — that's what makes this platform different from every other content feed. Post cards carry a **dashed left border in `melon-green`**, like a page half-torn from a sketchbook. This visual language exists nowhere else and can only mean one thing here.
+**Events** are recognizable by their **blue identity**. A full-width `alice-blue` banner across the top of the card with a calendar icon and date in `whale-blue`. The blue band is the first thing your eye hits — "this is something you can attend."
+
+**Posts** are works-in-progress — that's what makes this platform different. Post cards carry a **dashed left border in `melon-green`**, like a page half-torn from a sketchbook. Posts are **content-first**: the image leads (when present), then the description, then the title. The writing and the making are the hook; the title is secondary context.
+
+These two visual signatures mean you never need a label that says "EVENT" or "POST." The card tells you what it is. **No type badges or status badges on cards** — categorization happens through Topics (tags), not through metadata labels. Event type (Workshop, Skill Share, etc.) and post status (In Progress, Finished, etc.) may be added as a future feature.
 
 ---
 
@@ -86,16 +95,18 @@ Background: `ash-green` — the warm entry that says "you're in a community spac
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Explore                                          │  ← font-bold tracking-tight text-4xl
-│  See what your community is making and sharing   │  ← alive, not a taxonomy
+│  Explore                                         │  ← font-display text-3xl font-extrabold tracking-tight
+│  See what your community is making and sharing   │  ← font-body text-sm text-misty-forest
 │                                                  │
-│  [ Search workshops, projects, people... ______] │
+│  [ 🔍 Search workshops, projects, people... ___ ]│
 └──────────────────────────────────────────────────┘
 ```
 
 - Search placeholder uses community vocabulary: **"workshops, projects, people"** — not "posts, events, tags"
-- Search input: inset feel (`bg-grey-white border border-soft-grey`), left-aligned, ~480px max
-- `px-6 py-10 bg-ash-green` — full-width header band
+- Search input: inset feel (`bg-grey-white border border-soft-grey`), search icon left, ~480px max
+- Typing in the search box surfaces **matching topic suggestions** in a dropdown. Clicking a suggestion toggles that topic in the "Browse by:" tabs below (activates or deactivates). Already-active topics appear bold with an "active" label. The input clears after selection.
+- The search box does **not** create separate topic chips — topic state lives only in the tab row.
+- `px-6 py-5 bg-ash-green` — compact header band, enough presence without eating the viewport
 
 ---
 
@@ -104,18 +115,19 @@ Background: `ash-green` — the warm entry that says "you're in a community spac
 Not chips — **tabs**, like index-card dividers at a physical library. The metaphor matters.
 
 ```
-Browse by:  [ All ]  [ Making ]  [ Tools ]  [ Growing ]  [ Learning ]  [ Mentorship ]  [ Design ]  [ Repair ] →
+Browse by:  [ Making ]  [ Tools ]  [ Growing ]  [ Learning ]  [ Mentorship ]  [ Design ]  [ Repair ] →
 ```
 
 | State | Style |
 |---|---|
-| Resting | `bg-soft-grey text-warm-grey` — matte, receded |
-| Active | `bg-grey-white text-rich-brown font-semibold border-t-2 border-rich-brown` — lifted forward |
+| Resting | `bg-soft-grey/60 text-warm-grey rounded-sm` — matte, receded |
+| Active | `bg-grey-white text-rich-brown font-semibold border-t-2 border-rich-brown rounded-sm shadow-sm` — lifted forward |
 
 - Horizontally scrollable, no wrapping
 - Sourced from `/api/topics`
-- Multi-select (OR logic)
+- Multi-select (OR logic) — click to activate, click again to deactivate
 - Label: **"Browse by:"** — shorter and more natural than "Browse by interest:"
+- Topics can also be activated via the search typeahead (see Header above)
 
 ---
 
@@ -127,77 +139,83 @@ Browse by:  [ All ]  [ Making ]  [ Tools ]  [ Growing ]  [ Learning ]  [ Mentors
 
 | Element | Style |
 |---|---|
-| Active type pill | `bg-rich-brown text-grey-white rounded-full px-3 py-1` |
-| Resting type pill | `border border-soft-grey text-warm-grey rounded-full px-3 py-1` |
-| Sort dropdown | Plain text `text-warm-grey text-sm` — no decorative border |
+| Active type pill | `bg-rich-brown text-grey-white rounded-full px-3.5 py-1` |
+| Resting type pill | `border border-soft-grey text-warm-grey rounded-full px-3.5 py-1` |
+| Sort dropdown | Plain text `font-body text-warm-grey text-sm` — no decorative border |
 | View toggle | Icon-only, no background containers |
 
-Full bar: `py-3 border-b border-soft-grey` — separates browsing from content without a heavy break.
+Full bar: `py-3 border-b border-soft-grey/60` — separates browsing from content without a heavy break.
 
 ---
 
 ### 4. Cards
 
-**Shared surface:** `bg-grey-white border border-soft-grey rounded-lg p-5 flex flex-col`
+**Shared surface:** `bg-grey-white border border-soft-grey rounded-lg overflow-hidden flex flex-col`
 
-**Hover:** `translate-y-[-2px] border-ash-green transition-all duration-150` — paper lifting off a board, not a SaaS card animating.
+**Hover:** `-translate-y-0.5 border-ash-green/80 transition-all duration-150` — paper lifting off a board, not a SaaS card animating.
 
 ---
 
-**Event Card**
+**Event Card** — Blue identity, calendar-forward
+
 ```
 ┌──────────────────────────────────────────────┐
-│ [ Workshop ]                      SAT MAR 28 │  ← badge left, date right — date is the hook
+│▓▓▓▓▓▓▓▓▓▓▓▓▓ alice-blue banner ▓▓▓▓▓▓▓▓▓▓▓▓│
+│ 📅                               SAT APR 5  │  ← calendar icon left, date right, all whale-blue
+│──────────────────────────────────────────────│
 │                                              │
-│ Title of the event                           │
+│ Title of the event                           │  ← font-display text-base font-bold
 │ Short description, 2 lines max...            │
 │                                              │
-│ ◎ Oakland Tool Library                       │
+│ 📍 Oakland Tool Library                      │
 │ ──────────────────────────────────────────── │
-│ [ML] @makersloft                             │
+│ [OT] @oaklandtools                           │
 └──────────────────────────────────────────────┘
 ```
 
-- **Badge** uses event type from data — not the word "EVENT":
-  `Workshop · Open Studio · Skill Share · Lending · Talk`
-- Badge style: `bg-alice-blue text-whale-blue text-xs tracking-wide uppercase px-2 py-0.5 rounded`
-- **Date** right-aligned, `text-sm font-semibold text-rich-brown` — the date is why you care
-- Location: `◎` icon + name, `text-xs text-warm-grey`
-- Avatar: initials circle `bg-melon-green text-moss-green text-xs font-semibold`
+- **Blue banner** across the top: `bg-alice-blue px-5 py-3` — the card's identity before you read a word
+- **Calendar icon** left, **date** right-aligned: `text-sm font-bold text-whale-blue` — the date is why you care
+- No event type label — the blue banner + calendar icon is the identity
+- Location: pin icon + name, `text-xs text-misty-forest`
+- Avatar: initials circle `bg-melon-green text-moss-green text-[10px] font-bold`
 
 ---
 
-**Post Card**
+**Post Card** — Content-first, sketchbook signature
+
 ```
 ┌──┬───────────────────────────────────────────┐
-│  │ [ In Progress ]                            │  ← dashed left border = sketchbook signature
-│  │ Title of the project                       │
+│  │ [ image if present, edge-to-edge, h-36 ]  │  ← image FIRST, before any text
 │  │                                            │
-│  │ [ image if present, rounded, h-32 ]        │
-│  │                                            │
-│  │ Short description, 2 lines max...          │
+│  │ Title of the project                       │  ← font-display text-[15px] font-bold
+│  │ Description of what they're making,        │  ← font-body, the substance of the post
+│  │ 3 lines max...                             │
 │  │ ────────────────────────────────────────── │
-│  │ [RL] @rosalopez        [ tag ] [ tag ]     │
+│  │ [MB] @miriambuild     [ tag ] [ tag ]      │
 └──┴───────────────────────────────────────────┘
 ```
 
-- **Dashed left border:** `border-l-2 border-dashed border-melon-green` — the sketchbook signature. Only post cards have this.
-- **Badge** uses post status — not the word "POST":
-  `In Progress · Finished · Seeking Help · Sharing`
-- Badge style: `bg-ash-green text-moss-green text-xs tracking-wide uppercase px-2 py-0.5 rounded`
-- Tags: `bg-melon-green/30 text-moss-green text-xs rounded-full px-2 py-0.5`
+- **Dashed left border:** `border-left: 3px dashed #C4D6B0` — the sketchbook signature. Only post cards have this.
+- **Image leads** when present — edge-to-edge at the top of the card, `h-36`
+- **Title then description** — title orients you, description is the substance
+- No status badge — categorization is through topic tags only
+- Tags: `bg-melon-green/25 text-moss-green text-[11px] rounded-full px-2.5 py-0.5`
 
 ---
 
-### 5. Grid
+### 5. Layout
 
-CSS Grid — stable rows, not masonry jumping.
+**Masonry** via `react-masonry-css` — stable left-to-right reading order, no column-reflow jumping. Cards have natural variable heights (posts with images are taller, text-only posts are compact) and the masonry layout keeps things visually interesting.
 
-| Breakpoint | Layout |
+| Breakpoint | Columns |
 |---|---|
-| Mobile | `grid-cols-1 gap-4` |
-| Tablet | `grid-cols-2 gap-5` |
-| Desktop | `grid-cols-3 gap-6` |
+| Mobile (<640px) | 1 column |
+| Tablet (640–1024px) | 2 columns |
+| Desktop (>1024px) | 3 columns |
+
+List view: single column, max-width `42rem`.
+
+Gap: 20px between cards in grid, 16px in list.
 
 ---
 
@@ -211,26 +229,53 @@ CSS Grid — stable rows, not masonry jumping.
    [ Share a project ]   [ Post an event ]
 ```
 
-- **"Nothing pinned here yet"** — corkboard vocabulary
+- **"Nothing pinned here yet"** — corkboard vocabulary, `font-display text-xl font-bold`
 - **"Share a project"** and **"Post an event"** — active community verbs, not system verbs
-- Primary CTA (Post an event): `bg-rich-brown text-grey-white` — time-sensitive, leads
-- Secondary CTA (Share a project): `border border-rich-brown text-rich-brown`
+- Primary CTA (Post an event): `bg-rich-brown text-grey-white hover:bg-muted-brown`
+- Secondary CTA (Share a project): `border border-rich-brown text-rich-brown hover:bg-rich-brown hover:text-grey-white`
 
 ---
 
 ### 7. Loading State
 
-6 skeleton cards in the grid. No text, no "Loading..." — the layout builds toward content.
+6 skeleton cards in the masonry grid. No text, no "Loading..." — the layout builds toward content.
 
-Each skeleton: badge-width block + title block + optional image block + two description lines + footer row. All `animate-pulse bg-soft-grey rounded`.
+Some skeletons include a tall image-height block to mimic the variable-height masonry. All blocks `animate-pulse bg-soft-grey rounded`.
+
+---
+
+### 8. Corkboard Background
+
+The content area below the header uses a subtle textured background instead of flat `soft-grey`:
+
+```css
+background-color: #CED0CE;
+background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(203,210,194,0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(214,227,235,0.3) 0%, transparent 40%),
+    radial-gradient(circle at 50% 80%, rgba(196,214,176,0.15) 0%, transparent 35%);
+```
+
+Layered radial gradients in ash-green, alice-blue, and melon-green tones create subtle color shifts across the surface — paper on corkboard, not a flat digital slab.
 
 ---
 
 ## Content types reference
 
-| Type | Key data fields | Badge vocabulary | Visual signature |
-|---|---|---|---|
-| Event | title, description, eventDateTime, location, tags, images | Workshop · Open Studio · Skill Share · Talk · Lending | Date prominent top-right |
-| Post | title, description, createdAt, tags, images, updates | In Progress · Finished · Seeking Help · Sharing | Dashed left border in `melon-green` |
+| Type | Key data fields | Visual signature |
+|---|---|---|
+| Event | title, description, eventDateTime, location, tags, images | Blue (`alice-blue`) banner with calendar icon and date |
+| Post | title, description, createdAt, tags, images, updates | Dashed left border in `melon-green`, content-first (image → description → title) |
+
+Categorization happens through **Topics (tags)**, not through type badges or status labels. Event type and post status badges may be added as a future feature.
 
 *No schema changes required.*
+
+---
+
+## Technical notes
+
+- **Masonry library:** `react-masonry-css` (~1KB) for stable left-to-right masonry without column-reflow jank
+- **Fonts:** One Google Font loaded — `Fraunces` (display headings only). All body text uses Tailwind's default sans. In production, move to `next/font` for self-hosting.
+- **No new API endpoints** — topics from `/api/topics`, events and posts from existing endpoints
+- **Mock location:** `src/app/explore/mock/page.tsx` — uses hardcoded sample data, toggle buttons for skeleton/empty states
