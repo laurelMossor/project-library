@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
 import { getCollectionItemKey } from "@/lib/utils/collection";
 import { CollectionCard } from "@/lib/components/collection/CollectionCard";
+import { useColumnCount } from "@/lib/hooks/useColumnCount";
 
 type FilteredCollectionProps = {
 	items: CollectionItem[];
@@ -8,6 +10,17 @@ type FilteredCollectionProps = {
 };
 
 export function FilteredCollection({ items, view }: FilteredCollectionProps) {
+	const columnCount = useColumnCount();
+
+	// Distribute items across columns using modulo
+	const columns = useMemo(() => {
+		const cols: CollectionItem[][] = Array.from({ length: columnCount }, () => []);
+		items.forEach((item, i) => {
+			cols[i % columnCount].push(item);
+		});
+		return cols;
+	}, [items, columnCount]);
+
 	if (items.length === 0) {
 		return null;
 	}
@@ -36,13 +49,14 @@ export function FilteredCollection({ items, view }: FilteredCollectionProps) {
 	}
 
 	return (
-		<div className="columns-1 md:columns-2 lg:columns-3 gap-6">
-			{items.map((item) => (
-				<div key={getCollectionItemKey(item)} className="break-inside-avoid mb-6">
-					<CollectionCard item={item} truncate={truncate} />
+		<div className="flex gap-6">
+			{columns.map((col, colIndex) => (
+				<div key={colIndex} className="flex-1 min-w-0 space-y-6">
+					{col.map((item) => (
+						<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
+					))}
 				</div>
 			))}
 		</div>
 	);
 }
-

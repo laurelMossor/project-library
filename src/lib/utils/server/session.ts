@@ -20,10 +20,18 @@ export async function getActivePageId(): Promise<string | null> {
   return session?.user?.activePageId ?? null;
 }
 
-/** Get full session context */
+/** Get full session context, verifying the user still exists in the database */
 export async function getSessionContext(): Promise<SessionContext | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  // Verify the user still exists (guards against stale sessions after re-seed, deletion, etc.)
+  const userExists = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+
+  if (!userExists) return null;
 
   return {
     userId: session.user.id,

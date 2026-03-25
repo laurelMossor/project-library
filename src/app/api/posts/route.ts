@@ -6,6 +6,7 @@ import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-lim
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { publicUserFields } from "@/lib/utils/server/user";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
+import { postCollectionFields } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 function parseNumber(value: unknown): number | null {
@@ -128,7 +129,7 @@ export async function GET(request: Request) {
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
 			},
-			select: postFields,
+			select: postCollectionFields,
 			orderBy: { createdAt: "desc" },
 			take: enforcedLimit,
 			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
@@ -139,10 +140,12 @@ export async function GET(request: Request) {
 		const imagesMap = await getImagesForTargetsBatch("POST", postIds);
 
 		// Transform to include type and images
-		const postsWithImages = posts.map((p) => ({
+		const postsWithImages = posts.map(({ _count, updates, ...p }) => ({
 			...p,
 			type: COLLECTION_TYPES.POST,
 			images: imagesMap.get(p.id) || [],
+			_count: { updates: _count.updates },
+			recentUpdate: updates[0] || null,
 		}));
 
 		return NextResponse.json(postsWithImages);

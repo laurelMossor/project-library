@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
-import { eventWithUserFields } from "@/lib/utils/server/fields";
+import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 
@@ -52,20 +52,22 @@ export async function GET(request: Request) {
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
 	try {
+		// Only show published events in public listings
 		const events = await prisma.event.findMany({
 			where: {
+				status: "PUBLISHED",
 				...(search
 					? {
 							OR: [
 								{ title: { contains: search, mode: "insensitive" } },
-								{ description: { contains: search, mode: "insensitive" } },
+								{ content: { contains: search, mode: "insensitive" } },
 							],
 					  }
 					: {}),
 				...(userId ? { userId } : {}),
 				...(pageId ? { pageId } : {}),
 			},
-			select: eventWithUserFields,
+			select: eventCollectionFields,
 			orderBy: { eventDateTime: "asc" },
 			take: enforcedLimit,
 			...(typeof offset === "number" && offset >= 0 ? { skip: offset } : {}),
@@ -76,10 +78,12 @@ export async function GET(request: Request) {
 		const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
 		// Transform to include type and images
-		const eventsWithImages = events.map((e) => ({
+		const eventsWithImages = events.map(({ _count, updates, ...e }) => ({
 			...e,
 			type: COLLECTION_TYPES.EVENT,
 			images: imagesMap.get(e.id) || [],
+			_count: { updates: _count.updates },
+			recentUpdate: updates[0] || null,
 		}));
 
 		return NextResponse.json(eventsWithImages);
@@ -102,8 +106,36 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, description, eventDateTime, location, latitude, longitude, tags, topics } = data;
+		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, isDraft } = data;
 
+		// Draft creation: minimal validation, used by inline editing flow
+		if (isDraft) {
+			const parsedDateTime = eventDateTime ? new Date(eventDateTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+			const event = await prisma.event.create({
+				data: {
+					userId: ctx.userId,
+					title: (title || "").trim(),
+					content: (content || "").trim(),
+					eventDateTime: parsedDateTime,
+					location: (location || "").trim(),
+					status: "DRAFT",
+					tags: [],
+					topics: [],
+				},
+				select: eventWithUserFields,
+			});
+
+			const eventItem = {
+				...event,
+				type: COLLECTION_TYPES.EVENT,
+				images: [],
+			};
+
+			return NextResponse.json(eventItem, { status: 201 });
+		}
+
+		// Standard creation: full validation
 		const parsedDateTime = eventDateTime ? new Date(eventDateTime) : null;
 
 		if (!parsedDateTime || isNaN(parsedDateTime.getTime())) {
@@ -131,7 +163,7 @@ export async function POST(request: Request) {
 		// Validate event data
 		const validation = validateEventData({
 			title,
-			description,
+			content,
 			eventDateTime: parsedDateTime,
 			location,
 			latitude: parsedLatitude ?? undefined,
@@ -146,13 +178,14 @@ export async function POST(request: Request) {
 			data: {
 				userId: ctx.userId,
 				title: title.trim(),
-				description: description.trim(),
+				content: content.trim(),
 				eventDateTime: parsedDateTime,
 				location: location.trim(),
 				latitude: parsedLatitude,
 				longitude: parsedLongitude,
 				tags: processedTags || [],
 				topics: Array.isArray(topics) ? topics : [],
+				status: "PUBLISHED",
 			},
 			select: eventWithUserFields,
 		});

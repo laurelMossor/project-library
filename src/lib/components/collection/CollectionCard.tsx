@@ -15,7 +15,6 @@ import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
-import { PostsList } from "../post/PostsList";
 import { EVENT_DETAIL, POST_DETAIL, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import { getCardUserDisplayName } from "@/lib/types/card";
 import { AtSignIcon } from "../icons/icons";
@@ -46,15 +45,15 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 					)}
 					<div className="flex-1 min-w-0">
 						<Link href={detailUrl}>
-							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title}</h2>
+							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title || "Untitled"}</h2>
 						</Link>
 					</div>
 				</div>
 			</div>
 
-			{/* Description */}
+			{/* Content */}
 			<p className="text-warm-grey text-sm mb-2">
-				{truncate ? truncateText(item.description, 250) : item.description}
+				{truncate ? truncateText(item.content, 250) : item.content}
 			</p>
 
 			{/* Event-specific info (only for events) */}
@@ -80,27 +79,31 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 				</div>
 			)}
 
+			{/* Updates section */}
+			{(() => {
+				const count = item._count?.updates ?? 0;
+				if (!count || count === 0) return null;
+				return (
+					<div className="mt-2 mb-2">
+						<Link href={detailUrl} className="text-xs font-medium text-gray-500 hover:text-rich-brown hover:underline">
+							{count} {count === 1 ? "update" : "updates"}
+						</Link>
+						{item.recentUpdate && (
+							<div className="mt-1 border-l-2 border-soft-grey pl-3">
+								<p className="text-sm text-warm-grey whitespace-pre-wrap">
+									{truncate ? truncateText(item.recentUpdate.content, 120) : item.recentUpdate.content}
+								</p>
+							</div>
+						)}
+					</div>
+				);
+			})()}
+
 			{/* Images */}
 			{item.images && item.images.length > 0 && (
 				<div className="mb-4">
 					<ImageCarousel images={item.images} />
 				</div>
-			)}
-
-			{/* Posts/Updates */}
-			{isEventItem && (
-				<PostsList
-					collectionId={item.id}
-					collectionType="event"
-					showTitle={true}
-				/>
-			)}
-			{isPost(item) && (
-				<PostsList
-					collectionId={item.id}
-					collectionType="post"
-					showTitle={true}
-				/>
 			)}
 
 			{/* Tags */}

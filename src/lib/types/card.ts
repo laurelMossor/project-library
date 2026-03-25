@@ -44,8 +44,8 @@ export type CardPage = {
 // Base fields shared by all collection card types
 type CardCollectionBase = {
 	id: string;
-	title: string;
-	description: string;
+	title: string | null;
+	content: string;
 	tags: string[];
 	topics: string[];
 	user: CardUser;
@@ -64,7 +64,6 @@ export type CardEvent = CardCollectionBase & {
 // Minimal post data for card displays
 export type CardPost = CardCollectionBase & {
 	type: "post";
-	content: string;
 	eventId: string | null;
 	parentPostId: string | null;
 };

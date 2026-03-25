@@ -30,11 +30,12 @@ export const eventBaseFields = {
   userId: true,
   pageId: true,
   title: true,
-  description: true,
+  content: true,
   eventDateTime: true,
   location: true,
   latitude: true,
   longitude: true,
+  status: true,
   tags: true,
   topics: true,
   createdAt: true,
@@ -60,6 +61,22 @@ export const eventWithUserFields = {
     },
   },
 } as const;
+
+/** Event fields for collection views — includes update count and most recent update */
+export const eventCollectionFields = {
+  ...eventWithUserFields,
+  _count: { select: { updates: true } },
+  updates: {
+    take: 1,
+    orderBy: { createdAt: "desc" as const },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      createdAt: true,
+    },
+  },
+};
 
 // ========================
 // Prisma-derived types (schema as source of truth)
@@ -110,6 +127,22 @@ export const postWithUserFields = {
     },
   },
 } as const;
+
+/** Post fields for collection views — includes update count and most recent update */
+export const postCollectionFields = {
+  ...postWithUserFields,
+  _count: { select: { updates: true } },
+  updates: {
+    take: 1,
+    orderBy: { createdAt: "desc" as const },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      createdAt: true,
+    },
+  },
+};
 
 /** Post shape as returned by postWithUserFields query */
 export type PostFromQuery = Prisma.PostGetPayload<{ select: typeof postWithUserFields }>;

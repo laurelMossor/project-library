@@ -4,7 +4,7 @@
 import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
-import { eventWithUserFields, EventFromQuery } from "./fields";
+import { eventWithUserFields, eventCollectionFields, EventFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -38,15 +38,18 @@ export interface GetAllEventsOptions {
 
 export async function getAllEvents(options?: GetAllEventsOptions): Promise<EventItem[]> {
 	const search = options?.search;
-	const where = search
-		? {
-				OR: [
-					{ title: { contains: search, mode: "insensitive" as const } },
-					{ description: { contains: search, mode: "insensitive" as const } },
-					{ tags: { has: search } },
-				],
-		  }
-		: {};
+	const where: Prisma.EventWhereInput = {
+		status: "PUBLISHED",
+		...(search
+			? {
+					OR: [
+						{ title: { contains: search, mode: "insensitive" as const } },
+						{ content: { contains: search, mode: "insensitive" as const } },
+						{ tags: { has: search } },
+					],
+			  }
+			: {}),
+	};
 
 	const events = await prisma.event.findMany({
 		where,
@@ -67,7 +70,7 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
 		where: { userId },
-		select: eventWithUserFields,
+		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
 
@@ -75,14 +78,18 @@ export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
+	return events.map(({ _count, updates, ...e }) => ({
+		...toEventItem(e, imagesMap.get(e.id) || []),
+		_count: { updates: _count.updates },
+		recentUpdate: updates[0] || null,
+	}));
 }
 
 // Fetch all events for a page
 export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
 		where: { pageId },
-		select: eventWithUserFields,
+		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
 
@@ -90,14 +97,18 @@ export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
+	return events.map(({ _count, updates, ...e }) => ({
+		...toEventItem(e, imagesMap.get(e.id) || []),
+		_count: { updates: _count.updates },
+		recentUpdate: updates[0] || null,
+	}));
 }
 
 export async function createEvent(userId: string, data: EventCreateInput, pageId?: string): Promise<EventItem> {
 	const event = await prisma.event.create({
 		data: {
 			title: data.title,
-			description: data.description,
+			content: data.content,
 			eventDateTime: data.eventDateTime,
 			location: data.location,
 			latitude: data.latitude ?? null,
@@ -120,8 +131,8 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 		updateData.title = data.title;
 	}
 
-	if (data.description !== undefined) {
-		updateData.description = data.description;
+	if (data.content !== undefined) {
+		updateData.content = data.content;
 	}
 
 	if (data.eventDateTime !== undefined) {
@@ -142,6 +153,10 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 
 	if (data.tags !== undefined) {
 		updateData.tags = data.tags;
+	}
+
+	if (data.status !== undefined) {
+		updateData.status = data.status;
 	}
 
 	// Note: Images should be managed separately via image API endpoints
