@@ -3,7 +3,7 @@ import { ImageItem } from "./image";
 
 /**
  * Post type - matches Prisma schema v0.4
- * Can be standalone or attached to Page/Event, or a reply (parentPostId)
+ * Can be standalone or attached to Page/Event, or an update (parentPostId)
  * Posts are owned by User, optionally posted as a Page
  */
 export interface PostItem {
@@ -11,7 +11,7 @@ export interface PostItem {
 	userId: string; // User that created this post
 	pageId: string | null; // Optional - if set, posted on behalf of a page
 	eventId: string | null; // Optional - if set, this is a descendant post of an event
-	parentPostId: string | null; // Optional - if set, this is a reply to another post
+	parentPostId: string | null; // Optional - if set, this is an update to another post
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
 	tags: string[];
@@ -21,7 +21,7 @@ export interface PostItem {
 	// Relations (optional, loaded when needed)
 	user?: { id: string; username: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null } | null;
 	page?: { id: string; name: string; slug: string; avatarImageId: string | null } | null;
-	event?: { id: string; title: string } | null;
+	event?: { id: string; title: string | null } | null;
 }
 
 /**
@@ -61,31 +61,25 @@ export function isStandalonePost(post: PostItem): boolean {
 
 /**
  * Post as a collection item - extends BaseCollectionItem for unified rendering
- * Maps PostItem fields to BaseCollectionItem pattern:
- *   title → title (uses content excerpt if null)
- *   content → description
  */
 export interface PostCollectionItem extends BaseCollectionItem {
 	type: "post";
-	content: string;
 	eventId: string | null;
 	parentPostId: string | null;
 	images: ImageItem[];
-	// TODO: Revisit — child posts (updates) are fetched separately by PostsList,
-	// so this field is largely unused. Consider removing in favor of a dedicated hook/query.
-	posts?: PostItem[];
-	event?: { id: string; title: string } | null;
+	event?: { id: string; title: string | null } | null;
 }
 
 /**
- * Convert a PostItem (API response) to PostCollectionItem (for collection rendering)
+ * Convert a PostItem (Prisma result) to PostCollectionItem (for collection rendering).
+ * Used by server components that query Prisma directly (e.g. post detail page).
+ * API routes do this transform inline so client fetches don't need this.
  */
 export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _count?: { updates?: number }; recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null }): PostCollectionItem {
 	return {
 		id: post.id,
 		userId: post.userId,
-		title: post.title || post.content.substring(0, 80) + (post.content.length > 80 ? "..." : ""),
-		description: post.content,
+		title: post.title,
 		content: post.content,
 		tags: post.tags,
 		topics: post.topics,

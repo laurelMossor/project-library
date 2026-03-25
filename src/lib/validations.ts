@@ -122,14 +122,14 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		return { valid: false, error: "Event title must be 150 characters or less" };
 	}
 
-	if (!data.description || typeof data.description !== "string") {
-		return { valid: false, error: "Event description is required" };
+	if (!data.content || typeof data.content !== "string") {
+		return { valid: false, error: "Event content is required" };
 	}
-	if (data.description.trim().length === 0) {
-		return { valid: false, error: "Event description cannot be empty" };
+	if (data.content.trim().length === 0) {
+		return { valid: false, error: "Event content cannot be empty" };
 	}
-	if (data.description.length > 5000) {
-		return { valid: false, error: "Event description must be 5000 characters or less" };
+	if (data.content.length > 5000) {
+		return { valid: false, error: "Event content must be 5000 characters or less" };
 	}
 
 	if (!isValidFutureDate(data.eventDateTime)) {
@@ -192,12 +192,12 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		}
 	}
 
-	if (data.description !== undefined) {
-		if (typeof data.description !== "string" || data.description.trim().length === 0) {
-			return { valid: false, error: "Event description must be a non-empty string" };
+	if (data.content !== undefined) {
+		if (typeof data.content !== "string" || data.content.trim().length === 0) {
+			return { valid: false, error: "Event content must be a non-empty string" };
 		}
-		if (data.description.length > 5000) {
-			return { valid: false, error: "Event description must be 5000 characters or less" };
+		if (data.content.length > 5000) {
+			return { valid: false, error: "Event content must be 5000 characters or less" };
 		}
 	}
 

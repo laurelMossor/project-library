@@ -45,15 +45,15 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 					)}
 					<div className="flex-1 min-w-0">
 						<Link href={detailUrl}>
-							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title}</h2>
+							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title || "Untitled"}</h2>
 						</Link>
 					</div>
 				</div>
 			</div>
 
-			{/* Description */}
+			{/* Content */}
 			<p className="text-warm-grey text-sm mb-2">
-				{truncate ? truncateText(item.description, 250) : item.description}
+				{truncate ? truncateText(item.content, 250) : item.content}
 			</p>
 
 			{/* Event-specific info (only for events) */}
@@ -81,7 +81,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 
 			{/* Updates section */}
 			{(() => {
-				const count = item._count ? (isEventItem ? item._count.posts : item._count.updates) : 0;
+				const count = item._count?.updates ?? 0;
 				if (!count || count === 0) return null;
 				return (
 					<div className="mt-2 mb-2">

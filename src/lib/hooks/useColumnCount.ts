@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useBreakpoint } from "./useBreakpoint";
 
 // Matches Tailwind's md and lg breakpoints
 const MD_BREAKPOINT = 768;
@@ -15,14 +15,5 @@ function getColumnCount(): number {
 
 /** Returns 1, 2, or 3 based on viewport width matching Tailwind md/lg breakpoints */
 export function useColumnCount(): number {
-	const [columns, setColumns] = useState(getColumnCount);
-
-	useEffect(() => {
-		const handleResize = () => setColumns(getColumnCount());
-		handleResize();
-		window.addEventListener("resize", handleResize);
-		return () => window.removeEventListener("resize", handleResize);
-	}, []);
-
-	return columns;
+	return useBreakpoint(getColumnCount);
 }

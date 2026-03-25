@@ -111,7 +111,7 @@ type SeedProjectJson = {
 
 type SeedEventJson = {
   title: string;
-  description: string;
+  content: string;
   dateTime: string;
   location: string;
   latitude?: number;
@@ -391,7 +391,7 @@ async function main() {
 
   // ---- Create Events
   console.log("📅 Creating events...");
-  const createdEvents: { id: string; userId: string; title: string }[] = [];
+  const createdEvents: { id: string; userId: string; title: string | null }[] = [];
 
   for (const e of eventsJson) {
     const userIdx = userIndexToKey(e.ownerId);
@@ -402,7 +402,7 @@ async function main() {
       data: {
         userId: user.id,
         title: e.title,
-        description: e.description,
+        content: e.content,
         eventDateTime: new Date(e.dateTime),
         location: e.location,
         latitude: e.latitude ?? null,

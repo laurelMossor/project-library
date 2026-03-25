@@ -30,7 +30,7 @@ export const eventBaseFields = {
   userId: true,
   pageId: true,
   title: true,
-  description: true,
+  content: true,
   eventDateTime: true,
   location: true,
   latitude: true,
@@ -62,11 +62,11 @@ export const eventWithUserFields = {
   },
 } as const;
 
-/** Event fields for collection views — includes update count and most recent post */
+/** Event fields for collection views — includes update count and most recent update */
 export const eventCollectionFields = {
   ...eventWithUserFields,
-  _count: { select: { posts: true } },
-  posts: {
+  _count: { select: { updates: true } },
+  updates: {
     take: 1,
     orderBy: { createdAt: "desc" as const },
     select: {

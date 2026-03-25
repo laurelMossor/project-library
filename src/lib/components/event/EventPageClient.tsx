@@ -37,7 +37,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 
 	// Inline edit state
 	const [editTitle, setEditTitle] = useState(event.title);
-	const [editDescription, setEditDescription] = useState(event.description);
+	const [editContent, setEditContent] = useState(event.content);
 	const [editLocation, setEditLocation] = useState(event.location);
 	const [editLatitude, setEditLatitude] = useState<number | null>(event.latitude);
 	const [editLongitude, setEditLongitude] = useState<number | null>(event.longitude);
@@ -147,7 +147,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							setEditingField("title");
 						}}
 						onSave={async () => {
-							await saveField("title", { title: editTitle.trim() });
+							await saveField("title", { title: (editTitle || "").trim() });
 						}}
 						onCancel={() => setEditingField(null)}
 						saving={saving}
@@ -160,7 +160,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 						editContent={
 							<input
 								type="text"
-								value={editTitle}
+								value={editTitle || ""}
 								onChange={(e) => setEditTitle(e.target.value)}
 								placeholder="Event name"
 								className="w-full text-4xl font-bold text-rich-brown border-b-2 border-rich-brown/20 pb-1 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -231,26 +231,26 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					{/* Description */}
 					<InlineEditable
 						canEdit={isOwner}
-						isEditing={editingField === "description"}
+						isEditing={editingField === "content"}
 						onEditStart={() => {
-							setEditDescription(event.description);
-							setEditingField("description");
+							setEditContent(event.content);
+							setEditingField("content");
 						}}
 						onSave={async () => {
-							await saveField("description", { description: editDescription.trim() });
+							await saveField("content", { content: editContent.trim() });
 						}}
 						onCancel={() => setEditingField(null)}
 						saving={saving}
-						error={editingField === "description" ? saveError : undefined}
+						error={editingField === "content" ? saveError : undefined}
 						displayContent={
 							<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">
-								{event.description || (isOwner ? "What should people know?" : "")}
+								{event.content || (isOwner ? "What should people know?" : "")}
 							</p>
 						}
 						editContent={
 							<textarea
-								value={editDescription}
-								onChange={(e) => setEditDescription(e.target.value)}
+								value={editContent}
+								onChange={(e) => setEditContent(e.target.value)}
 								placeholder="What should people know?"
 								rows={6}
 								maxLength={5000}
@@ -289,7 +289,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 									</p>
 								</div>
 								{event.latitude != null && event.longitude != null && (
-									<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title} />
+									<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title || undefined} />
 								)}
 							</div>
 						}
@@ -420,7 +420,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 
 					{/* Footer actions */}
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-						{isOwner && <DeleteEventButton eventId={event.id} eventTitle={event.title} />}
+						{isOwner && <DeleteEventButton eventId={event.id} eventTitle={event.title || "Untitled Event"} />}
 						<Link
 							href={EXPLORE_PAGE}
 							className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"

@@ -33,8 +33,8 @@ export function ProfileCollectionSection({
 		const searchLower = search.toLowerCase();
 		return items.filter((item) => {
 			return (
-				item.title.toLowerCase().includes(searchLower) ||
-				item.description.toLowerCase().includes(searchLower) ||
+				(item.title || "").toLowerCase().includes(searchLower) ||
+				item.content.toLowerCase().includes(searchLower) ||
 				item.tags.some((tag) => tag.toLowerCase().includes(searchLower))
 			);
 		});

@@ -43,9 +43,9 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 				</div>
 			</div>
 
-			{/* Description */}
+			{/* Content */}
 			<p className="text-warm-grey text-sm mb-2">
-				{truncate ? truncateText(event.description, 250) : event.description}
+				{truncate ? truncateText(event.content, 250) : event.content}
 			</p>
 
 			{/* Event-specific info */}

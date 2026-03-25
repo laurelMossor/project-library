@@ -44,7 +44,7 @@ export async function getAllEvents(options?: GetAllEventsOptions): Promise<Event
 			? {
 					OR: [
 						{ title: { contains: search, mode: "insensitive" as const } },
-						{ description: { contains: search, mode: "insensitive" as const } },
+						{ content: { contains: search, mode: "insensitive" as const } },
 						{ tags: { has: search } },
 					],
 			  }
@@ -78,10 +78,10 @@ export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map(({ _count, posts, ...e }) => ({
+	return events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
-		_count: { posts: _count.posts },
-		recentUpdate: posts[0] || null,
+		_count: { updates: _count.updates },
+		recentUpdate: updates[0] || null,
 	}));
 }
 
@@ -97,10 +97,10 @@ export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map(({ _count, posts, ...e }) => ({
+	return events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
-		_count: { posts: _count.posts },
-		recentUpdate: posts[0] || null,
+		_count: { updates: _count.updates },
+		recentUpdate: updates[0] || null,
 	}));
 }
 
@@ -108,7 +108,7 @@ export async function createEvent(userId: string, data: EventCreateInput, pageId
 	const event = await prisma.event.create({
 		data: {
 			title: data.title,
-			description: data.description,
+			content: data.content,
 			eventDateTime: data.eventDateTime,
 			location: data.location,
 			latitude: data.latitude ?? null,
@@ -131,8 +131,8 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 		updateData.title = data.title;
 	}
 
-	if (data.description !== undefined) {
-		updateData.description = data.description;
+	if (data.content !== undefined) {
+		updateData.content = data.content;
 	}
 
 	if (data.eventDateTime !== undefined) {

@@ -20,8 +20,8 @@ export type CollectionItemType = (typeof COLLECTION_TYPES)[keyof typeof COLLECTI
 export interface BaseCollectionItem {
 	id: string;
 	userId: string;
-	title: string;
-	description: string;
+	title: string | null;
+	content: string;
 	tags: string[];
 	topics: string[];
 	user: { id: string; username: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };
@@ -29,6 +29,6 @@ export interface BaseCollectionItem {
 	createdAt: Date;
 	updatedAt: Date;
 	type: CollectionItemType;
-	_count?: { posts?: number; updates?: number };
+	_count?: { updates?: number };
 	recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null;
 }

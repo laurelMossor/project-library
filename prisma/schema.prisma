@@ -245,8 +245,8 @@ model Event {
   userId String
   pageId String?
 
-  title         String
-  description   String
+  title         String?
+  content       String
   eventDateTime DateTime
   location      String
   latitude      Float?
@@ -258,8 +258,8 @@ model Event {
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   page  Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  posts Post[]
-  rsvps Rsvp[]
+  updates Post[]
+  rsvps   Rsvp[]
 
   tags   String[] @default([])
   topics String[] @default([])

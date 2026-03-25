@@ -47,7 +47,7 @@ export default async function PostDetailPage({ params }: Props) {
 				<p className="text-sm text-gray-500 mb-4">
 					Part of:{" "}
 					<Link href={EVENT_DETAIL(post.event.id)} className="text-rich-brown hover:underline">
-						{post.event.title}
+						{post.event.title || "Untitled Event"}
 					</Link>
 				</p>
 			)}

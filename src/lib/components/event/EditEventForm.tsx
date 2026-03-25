@@ -35,7 +35,7 @@ export function EditEventForm({ event }: Props) {
 	const [error, setError] = useState("");
 
 	const [title, setTitle] = useState(event?.title || "");
-	const [description, setDescription] = useState(event?.description || "");
+	const [contentValue, setContentValue] = useState(event?.content || "");
 	const [eventDateTime, setEventDateTime] = useState("");
 	const [location, setLocation] = useState(event?.location || "");
 	const [latitude, setLatitude] = useState<number | null>(event?.latitude ?? null);
@@ -94,7 +94,7 @@ export function EditEventForm({ event }: Props) {
 		setSubmitting(true);
 
 		const trimmedTitle = title.trim();
-		const trimmedDescription = description.trim();
+		const trimmedContent = contentValue.trim();
 		const trimmedLocation = location.trim();
 
 		if (!trimmedTitle) {
@@ -103,8 +103,8 @@ export function EditEventForm({ event }: Props) {
 			return;
 		}
 
-		if (!trimmedDescription) {
-			setError("Description is required");
+		if (!trimmedContent) {
+			setError("Content is required");
 			setSubmitting(false);
 			return;
 		}
@@ -144,7 +144,7 @@ export function EditEventForm({ event }: Props) {
 				// Update existing event
 				await updateEvent(event.id, {
 					title: trimmedTitle,
-					description: trimmedDescription,
+					content: trimmedContent,
 					eventDateTime: scheduledDate,
 					location: trimmedLocation,
 					latitude: parsedLatitude,
@@ -160,7 +160,7 @@ export function EditEventForm({ event }: Props) {
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						title: trimmedTitle,
-						description: trimmedDescription,
+						content: trimmedContent,
 						eventDateTime: scheduledDate.toISOString(),
 						location: trimmedLocation,
 						latitude: parsedLatitude,
@@ -209,11 +209,11 @@ export function EditEventForm({ event }: Props) {
 					/>
 				</FormField>
 
-				<FormField label="Description" htmlFor="description" required>
+				<FormField label="Description" htmlFor="content" required>
 					<FormTextarea
-						id="description"
-						value={description}
-						onChange={(event) => setDescription(event.target.value)}
+						id="content"
+						value={contentValue}
+						onChange={(event) => setContentValue(event.target.value)}
 						placeholder="Describe the event..."
 						required
 						rows={6}

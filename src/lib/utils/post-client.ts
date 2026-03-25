@@ -1,4 +1,4 @@
-import { PostItem, toPostCollectionItem, PostCollectionItem } from "../types/post";
+import { PostItem, PostCollectionItem } from "../types/post";
 import { API_POSTS, API_EVENT_POSTS } from "../const/routes";
 import { authFetch } from "./auth-client";
 
@@ -44,8 +44,7 @@ export async function fetchPosts(search?: string): Promise<PostCollectionItem[]>
 		throw new Error("Failed to fetch posts");
 	}
 
-	const posts = await res.json();
-	return posts.map(toPostCollectionItem);
+	return res.json();
 }
 
 /**

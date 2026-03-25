@@ -60,7 +60,7 @@ export async function GET(request: Request) {
 					? {
 							OR: [
 								{ title: { contains: search, mode: "insensitive" } },
-								{ description: { contains: search, mode: "insensitive" } },
+								{ content: { contains: search, mode: "insensitive" } },
 							],
 					  }
 					: {}),
@@ -78,12 +78,12 @@ export async function GET(request: Request) {
 		const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
 		// Transform to include type and images
-		const eventsWithImages = events.map(({ _count, posts, ...e }) => ({
+		const eventsWithImages = events.map(({ _count, updates, ...e }) => ({
 			...e,
 			type: COLLECTION_TYPES.EVENT,
 			images: imagesMap.get(e.id) || [],
-			_count: { posts: _count.posts },
-			recentUpdate: posts[0] || null,
+			_count: { updates: _count.updates },
+			recentUpdate: updates[0] || null,
 		}));
 
 		return NextResponse.json(eventsWithImages);
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, description, eventDateTime, location, latitude, longitude, tags, topics, isDraft } = data;
+		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, isDraft } = data;
 
 		// Draft creation: minimal validation, used by inline editing flow
 		if (isDraft) {
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
 				data: {
 					userId: ctx.userId,
 					title: (title || "").trim(),
-					description: (description || "").trim(),
+					content: (content || "").trim(),
 					eventDateTime: parsedDateTime,
 					location: (location || "").trim(),
 					status: "DRAFT",
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
 		// Validate event data
 		const validation = validateEventData({
 			title,
-			description,
+			content,
 			eventDateTime: parsedDateTime,
 			location,
 			latitude: parsedLatitude ?? undefined,
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 			data: {
 				userId: ctx.userId,
 				title: title.trim(),
-				description: description.trim(),
+				content: content.trim(),
 				eventDateTime: parsedDateTime,
 				location: location.trim(),
 				latitude: parsedLatitude,

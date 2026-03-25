@@ -48,7 +48,7 @@ export async function updateEvent(
 	id: string,
 	data: {
 		title?: string;
-		description?: string;
+		content?: string;
 		eventDateTime?: Date;
 		location?: string;
 		latitude?: number | null;
