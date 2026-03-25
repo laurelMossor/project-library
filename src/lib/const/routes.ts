@@ -77,6 +77,10 @@ export const API_POST = (id: string) => `/api/posts/${id}`;
 // Page API Routes
 export const API_PAGES = "/api/pages";
 
+// Follow API Routes
+export const API_FOLLOWS = "/api/follows";
+export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
+
 // Message API Routes
 export const API_MESSAGES = "/api/messages";
 export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;

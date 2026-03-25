@@ -11,17 +11,9 @@ interface Message {
 	id: string;
 	content: string;
 	senderId: string;
-	receiverId: string;
 	createdAt: string;
 	readAt: string | null;
 	sender: {
-		id: string;
-		username: string;
-		firstName: string | null;
-		middleName: string | null;
-		lastName: string | null;
-	};
-	receiver: {
 		id: string;
 		username: string;
 		firstName: string | null;
@@ -127,24 +119,9 @@ export default function ConversationPage() {
 
 			const data = await res.json();
 
-			// Handle response format: either array of messages or object with messages and otherUser
-			let newMessages: Message[] = [];
-			let newOtherUser: OtherUser | null = null;
-
-			if (Array.isArray(data)) {
-				newMessages = data;
-				// Get other user info from first message if available
-				if (data.length > 0) {
-					// Determine other user from first message
-					// The userId param is the other user's ID, so we can get their info from sender or receiver
-					const otherUserData = data[0].senderId === userId ? data[0].sender : data[0].receiver;
-					newOtherUser = otherUserData;
-				}
-			} else if (data.messages && data.otherUser) {
-				// Response includes otherUser info (for empty conversations)
-				newMessages = data.messages;
-				newOtherUser = data.otherUser;
-			}
+			// API returns { messages, target, targetType }
+			const newMessages: Message[] = data.messages ?? [];
+			const newOtherUser: OtherUser | null = data.target ?? null;
 
 			// Only update if we have new messages (for background refresh)
 			// This prevents unnecessary re-renders and scrolling
@@ -195,7 +172,7 @@ export default function ConversationPage() {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					receiverId: userId,
+					recipientUserId: userId,
 					content: content.trim(),
 				}),
 			});
@@ -278,9 +255,9 @@ export default function ConversationPage() {
 						</div>
 					) : (
 						messages.map((message) => {
-							// Determine if message was sent by current user (current user is sender, other user is receiver)
-							// Since userId param is the other user's ID, if receiverId matches, we sent it
-							const isSent = message.receiverId === userId;
+							// userId param is the other user's ID, so if they're not the sender, we sent it
+							
+							const isSent = message.senderId !== userId;
 							return (
 								<div
 									key={message.id}

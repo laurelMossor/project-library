@@ -25,6 +25,7 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 - **Shared text utils**: Initials, truncation, display names → `lib/utils/text.ts`
 - **Validations**: All input validation in `lib/validations.ts` (events, posts, pages, messages)
 - **Types**: `lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
+- **Re-exports**: Avoid re-exports. Either move the function or just import from where it already exists.
 
 ## UI Component Map
 ```

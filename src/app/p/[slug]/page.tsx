@@ -18,6 +18,7 @@ import { canManagePage } from "@/lib/utils/server/permission";
 import { getPageDisplayName } from "@/lib/types/page";
 import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
+import { FollowButton } from "@/lib/components/ui/FollowButton";
 import { PAGE_PROFILE_SETTINGS } from "@/lib/const/routes";
 import Link from "next/link";
 
@@ -51,11 +52,14 @@ export default async function PublicPageProfilePage({ params }: Props) {
 			<div className="flex flex-col gap-8 mb-8">
 				<div className="flex items-center justify-between gap-3">
 					<HeadingTitle title={displayName} />
-					{canManage && (
-						<ButtonLink href={PAGE_PROFILE_SETTINGS} variant="secondary" size="sm">
-							Manage Page
-						</ButtonLink>
-					)}
+					<div className="flex gap-2">
+						<FollowButton targetId={page.id} targetType="page" currentUserId={session?.user?.id} />
+						{canManage && (
+							<ButtonLink href={PAGE_PROFILE_SETTINGS} variant="secondary" size="sm">
+								Manage Page
+							</ButtonLink>
+						)}
+					</div>
 				</div>
 
 				{/* Page profile info */}
