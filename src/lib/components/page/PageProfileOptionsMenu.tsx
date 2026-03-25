@@ -62,31 +62,9 @@ export function PageProfileOptionsMenu({ isActingAsThisPage: serverIsActingAsThi
 		}
 	};
 
-	// When NOT acting as this page, show only "Switch to Page" option
+	// When NOT acting as this page, don't show options (switch flow is disabled)
 	if (!isActingAsThisPage) {
-		return (
-			<DropdownMenu
-				isOpen={isOpen}
-				onClose={() => setIsOpen((o) => !o)}
-				trigger={
-					<>
-						<span className={transparentCTAStyles.iconWrapper}>
-							<GearsIcon className="w-6 h-6 shrink-0" />
-						</span>
-						<span className={transparentCTAStyles.label}>Options</span>
-					</>
-				}
-				triggerClassName={transparentCTAStyles.container}
-				triggerAriaLabel="Page profile options"
-			>
-				<MenuItem
-					icon={<PeopleGroupIcon className={iconClass} />}
-					label={switching ? "Switching..." : "Switch to Page"}
-					onClick={handleSwitchToPage}
-					closeMenu={() => {}}
-				/>
-			</DropdownMenu>
-		);
+		return null;
 	}
 
 	// When acting as this page, show full options menu

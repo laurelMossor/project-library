@@ -7,6 +7,7 @@ import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-lim
 import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -106,7 +107,15 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, isDraft } = data;
+		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, isDraft, pageId } = data;
+
+		// If posting as a page, verify permission
+		if (pageId) {
+			const allowed = await canPostAsPage(ctx.userId, pageId);
+			if (!allowed) {
+				return badRequest("You don't have permission to create events for this page");
+			}
+		}
 
 		// Draft creation: minimal validation, used by inline editing flow
 		if (isDraft) {
@@ -115,6 +124,7 @@ export async function POST(request: Request) {
 			const event = await prisma.event.create({
 				data: {
 					userId: ctx.userId,
+					...(pageId ? { pageId } : {}),
 					title: (title || "").trim(),
 					content: (content || "").trim(),
 					eventDateTime: parsedDateTime,
@@ -177,6 +187,7 @@ export async function POST(request: Request) {
 		const event = await prisma.event.create({
 			data: {
 				userId: ctx.userId,
+				...(pageId ? { pageId } : {}),
 				title: title.trim(),
 				content: content.trim(),
 				eventDateTime: parsedDateTime,

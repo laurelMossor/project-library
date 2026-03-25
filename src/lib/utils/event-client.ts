@@ -55,6 +55,7 @@ export async function updateEvent(
 		longitude?: number | null;
 		tags?: string[];
 		status?: string;
+		pageId?: string;
 	}
 ): Promise<EventItem> {
 	const res = await authFetch(API_EVENT(id), {
@@ -84,11 +85,11 @@ export async function publishEvent(id: string): Promise<EventItem> {
 /**
  * Create a draft event for inline editing (authenticated)
  */
-export async function createDraftEvent(): Promise<EventItem> {
+export async function createDraftEvent(pageId?: string): Promise<EventItem> {
 	const res = await authFetch(API_EVENTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true }),
+		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}) }),
 	});
 
 	if (!res.ok) {
