@@ -1,7 +1,8 @@
 import { getUserByUsername } from "@/lib/utils/server/user";
+import { getPagesForUser } from "@/lib/utils/server/permission";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ConnectionsView } from "@/lib/components/owner/ConnectionsView";
+import { ConnectionsPageView } from "@/lib/components/profile/ConnectionsPageView";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { PUBLIC_USER_PAGE } from "@/lib/const/routes";
 import { getUserDisplayName } from "@/lib/types/user";
@@ -19,6 +20,7 @@ export default async function UserConnectionsPage({ params }: Props) {
 	}
 
 	const displayName = getUserDisplayName(user);
+	const pages = await getPagesForUser(user.id);
 
 	return (
 		<CenteredLayout maxWidth="4xl">
@@ -31,7 +33,22 @@ export default async function UserConnectionsPage({ params }: Props) {
 				</Link>
 				<h1 className="text-2xl font-bold mt-2">{displayName}&apos;s Connections</h1>
 			</div>
-			<ConnectionsView entityId={user.id} entityType="user" />
+			<ConnectionsPageView
+				user={{
+					id: user.id,
+					username: user.username,
+					displayName: user.displayName ?? null,
+					firstName: user.firstName ?? null,
+					lastName: user.lastName ?? null,
+					avatarImageId: user.avatarImageId ?? null,
+				}}
+				pages={pages.map((p) => ({
+					id: p.id,
+					slug: p.slug,
+					name: p.name,
+					avatarImageId: p.avatarImageId ?? null,
+				}))}
+			/>
 		</CenteredLayout>
 	);
 }

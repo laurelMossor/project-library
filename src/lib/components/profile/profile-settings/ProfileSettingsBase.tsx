@@ -5,7 +5,7 @@ import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { Button } from "@/lib/components/ui/Button";
 import { BUG_REPORT_FORM } from "@/lib/const/routes";
 import { PencilIcon } from "@/lib/components/icons/icons";
-import { transparentCTAStyles } from "../collection/CreationCTA";
+import { transparentCTAStyles } from "../../collection/CreationCTA";
 import { SettingsSection } from "./SettingsSection";
 import { DisabledSettingsButton } from "./DisabledSettingsButton";
 import { UserPageSettings } from "./UserPageSettings";

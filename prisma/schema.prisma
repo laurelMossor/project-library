@@ -150,6 +150,7 @@ model Page {
 
   // Social
   followers Follow[] @relation("PageFollowed")
+  following Follow[] @relation("PageFollowing")
 
   // Messaging (Page as conversation participant)
   conversations ConversationParticipant[]
@@ -294,27 +295,36 @@ model Rsvp {
 }
 
 // ========================
-// Social graph (User follows User or Page)
+// Social graph (User or Page follows User or Page)
 // ========================
 //
-// Exactly one of followingUserId / followingPageId is set.
+// Exactly one of followerId / followerPageId is the follower.
+// Exactly one of followingUserId / followingPageId is the followee.
 // Enforce via DB CHECK constraint in migration.
 
 model Follow {
-  id         String   @id @default(cuid())
-  followerId String
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
 
+  // Exactly one of these is the "follower"
+  followerId     String?
+  followerPageId String?
+
+  // Exactly one of these is the "followee"
   followingUserId String?
   followingPageId String?
 
-  follower      User  @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
-  followingUser User? @relation("UserFollowers", fields: [followingUserId], references: [id], onDelete: Cascade)
-  followingPage Page? @relation("PageFollowed", fields: [followingPageId], references: [id], onDelete: Cascade)
+  follower      User? @relation("UserFollowing",  fields: [followerId],     references: [id], onDelete: Cascade)
+  followerPage  Page? @relation("PageFollowing",  fields: [followerPageId], references: [id], onDelete: Cascade)
+  followingUser User? @relation("UserFollowers",  fields: [followingUserId], references: [id], onDelete: Cascade)
+  followingPage Page? @relation("PageFollowed",   fields: [followingPageId], references: [id], onDelete: Cascade)
 
-  @@unique([followerId, followingUserId])
-  @@unique([followerId, followingPageId])
+  @@unique([followerId,     followingUserId])
+  @@unique([followerId,     followingPageId])
+  @@unique([followerPageId, followingUserId])
+  @@unique([followerPageId, followingPageId])
   @@index([followerId])
+  @@index([followerPageId])
   @@index([followingUserId])
   @@index([followingPageId])
   @@map("follows")

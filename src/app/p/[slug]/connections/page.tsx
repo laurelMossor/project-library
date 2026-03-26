@@ -1,7 +1,7 @@
 import { getPageBySlug } from "@/lib/utils/server/page";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ConnectionsView } from "@/lib/components/owner/ConnectionsView";
+import { ConnectionsView } from "@/lib/components/profile/ConnectionsView";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { PUBLIC_PAGE } from "@/lib/const/routes";
 import { getPageDisplayName } from "@/lib/types/page";

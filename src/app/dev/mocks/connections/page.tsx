@@ -35,7 +35,6 @@ const LEFT_TABS: AdminProfileTab[] = [
   { id: "Me", label: "Me", isSelf: true },
   { id: "Berkeley Builders Collective", label: "Berkeley Builders Collective", isSelf: false },
 ];
-
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const CONNECTIONS: Record<LeftTab, Record<TopTab, MockUser[]>> = {
