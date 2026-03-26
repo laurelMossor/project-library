@@ -79,10 +79,10 @@ export async function getPagesForUser(userId: string) {
   }));
 }
 
-/** Get pages where a user has the MEMBER role */
+/** Get all pages a user has any role on */
 export async function getUserMemberships(userId: string) {
   const permissions = await prisma.permission.findMany({
-    where: { userId, resourceType: ResourceType.PAGE, role: PermissionRole.MEMBER },
+    where: { userId, resourceType: ResourceType.PAGE },
     orderBy: { createdAt: "asc" },
   });
 
@@ -96,7 +96,7 @@ export async function getUserMemberships(userId: string) {
 
   return pages.map((page) => ({
     id: permissions.find((p) => p.resourceId === page.id)!.id,
-    role: PermissionRole.MEMBER,
+    role: permissions.find((p) => p.resourceId === page.id)!.role,
     page,
   }));
 }

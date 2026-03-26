@@ -69,7 +69,7 @@ type ConnectionsData = {
 	followers: ConnectionItem[];
 	following: ConnectionItem[];
 	membership: MemberItem[];          // page entity: users who are members
-	memberOf: PageMembershipItem[];    // user entity: pages user is a MEMBER of
+	memberOf: PageMembershipItem[];    // user entity: pages user has a ROLE for the Page, e.g. Member, Admin, Editor. It will display a badge with the role 
 };
 
 // ─── Props ──────────────────────────────────────────────────────────────────
