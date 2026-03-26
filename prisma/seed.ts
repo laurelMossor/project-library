@@ -109,14 +109,16 @@ type SeedProjectJson = {
   imageFilenames?: string[];
 };
 
+/** Matches app EventCreateInput field names + seed-only ownerId / optional metadata */
 type SeedEventJson = {
   title: string;
   content: string;
-  dateTime: string;
+  eventDateTime: string;
   location: string;
   latitude?: number;
   longitude?: number;
   tags?: string[];
+  imageUrls?: string[];
   ownerId: number; // 1-based index into users.json
   createdAt?: string;
 };
@@ -398,17 +400,29 @@ async function main() {
     const user = createdUsers[userIdx];
     if (!user) throw new Error(`Event ownerId ${e.ownerId} out of range.`);
 
+    const title = e.title.trim();
+    const content = e.content.trim();
+    if (!title) {
+      throw new Error(
+        `Seed event has empty title after trim. Fix prisma/seed-data/events.json (content: "${content.slice(0, 40)}…").`
+      );
+    }
+    if (!content) {
+      throw new Error(`Seed event "${title}" has empty content after trim.`);
+    }
+
     const created = await prisma.event.create({
       data: {
         userId: user.id,
-        title: e.title,
-        content: e.content,
-        eventDateTime: new Date(e.dateTime),
-        location: e.location,
+        title,
+        content,
+        eventDateTime: new Date(e.eventDateTime),
+        location: e.location.trim(),
         latitude: e.latitude ?? null,
         longitude: e.longitude ?? null,
         tags: e.tags ?? [],
         status: "PUBLISHED",
+        ...(e.createdAt ? { createdAt: new Date(e.createdAt) } : {}),
       },
       select: { id: true, userId: true, title: true },
     });
@@ -421,7 +435,7 @@ async function main() {
         userId: user.id,
         eventId: created.id,
         title: "Event update",
-        content: `Reminder + details for "${e.title}". What to bring, who it's for, and how to join.`,
+        content: `Reminder + details for "${title}". What to bring, who it's for, and how to join.`,
       },
     });
   }
