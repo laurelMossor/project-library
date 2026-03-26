@@ -15,5 +15,5 @@ function getColumnCount(): number {
 
 /** Returns 1, 2, or 3 based on viewport width matching Tailwind md/lg breakpoints */
 export function useColumnCount(): number {
-	return useBreakpoint(getColumnCount);
+	return useBreakpoint(getColumnCount, 1);
 }
