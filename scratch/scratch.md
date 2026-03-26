@@ -1,5 +1,4 @@
-Unify profile avatar, the standard sizes, 
-create ProfileCard or ProfileTag or something
+Unify profile avatar, the standard sizes, and their use in the new ProfileTag
 Used anywhere a user is listed. It might grow depending on the options, like 'remove' from memberships from a Page
 
 ProfileTag:
@@ -7,6 +6,6 @@ ProfileTag:
 - Under "Page Settings", listing the pages 
 - Event page
 
-Avatar:
+Avatar (Profile Picture):
 - ProfileTag
 - On the Collections card
