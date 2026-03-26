@@ -22,6 +22,7 @@ export default async function UserConnectionsPage({ params }: Props) {
 	const displayName = getUserDisplayName(user);
 	const allPages = await getPagesForUser(user.id);
 	// Show pages where the user is ADMIN or EDITOR (admins can remove members, editors are read-only)
+	// TODO: Make a can manageAdmins util function and use it here and in the page settings page
 	const managedPages = allPages.filter((p) => p.role === "ADMIN" || p.role === "EDITOR");
 
 	return (
