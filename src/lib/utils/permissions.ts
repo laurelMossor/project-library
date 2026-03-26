@@ -1,3 +1,3 @@
-export const hasManageAdminPermissions = (p) => {
+export const hasManageAdminPermissions = (p: { role: string }) => {
     return p.role === "ADMIN" || p.role === "EDITOR";
 };
