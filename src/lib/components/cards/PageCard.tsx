@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
-import { EntityAvatar } from "@/lib/components/owner/EntityAvatar";
+import { EntityAvatar } from "@/lib/components/profile/EntityAvatar";
 import { CardPage, getCardPageDisplayName } from "@/lib/types/card";
 import { PUBLIC_PAGE } from "@/lib/const/routes";
 

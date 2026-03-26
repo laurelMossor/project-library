@@ -1,38 +1,49 @@
-import { getUserByUsername } from "@/lib/utils/server/user";
-import { getPagesForUser } from "@/lib/utils/server/permission";
-import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getPageById } from "@/lib/utils/server/page";
+import { getPagesForUser, canPostAsPage } from "@/lib/utils/server/permission";
+import { getUserById } from "@/lib/utils/server/user";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ConnectionsPageView } from "@/lib/components/profile/ConnectionsPageView";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { PUBLIC_USER_PAGE } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PRIVATE_PAGE, PRIVATE_USER_PAGE } from "@/lib/const/routes";
 import { getUserDisplayName } from "@/lib/types/user";
 
-type Props = {
-	params: Promise<{ username: string }>;
-};
+export default async function PageConnectionsPage() {
+	const session = await auth();
 
-export default async function UserConnectionsPage({ params }: Props) {
-	const { username } = await params;
-	const user = await getUserByUsername(username);
-
-	if (!user) {
-		notFound();
+	if (!session?.user?.id) {
+		redirect(LOGIN_WITH_CALLBACK(PRIVATE_PAGE));
 	}
 
-	const displayName = getUserDisplayName(user);
-	const allPages = await getPagesForUser(user.id);
-	// Show pages where the user is ADMIN or EDITOR (admins can remove members, editors are read-only)
-	// TODO: Make a can manageAdmins util function and use it here and in the page settings page
+	const activePageId = session.user.activePageId;
+	if (!activePageId) {
+		redirect(PRIVATE_USER_PAGE);
+	}
+
+	const userId = session.user.id;
+	const [user, page, hasAccess, allPages] = await Promise.all([
+		getUserById(userId),
+		getPageById(activePageId),
+		canPostAsPage(userId, activePageId),
+		getPagesForUser(userId),
+	]);
+
+	if (!user || !page || !hasAccess) {
+		redirect(PRIVATE_USER_PAGE);
+	}
+
 	const managedPages = allPages.filter((p) => p.role === "ADMIN" || p.role === "EDITOR");
+	const displayName = getUserDisplayName(user);
 
 	return (
 		<CenteredLayout maxWidth="4xl">
 			<div className="mb-6">
 				<Link
-					href={PUBLIC_USER_PAGE(username)}
+					href={PRIVATE_PAGE}
 					className="text-sm text-gray-500 hover:text-gray-700 hover:underline"
 				>
-					&larr; Back to {displayName}&apos;s profile
+					&larr; Back to profile
 				</Link>
 				<h1 className="text-2xl font-bold mt-2">{displayName}&apos;s Connections</h1>
 			</div>

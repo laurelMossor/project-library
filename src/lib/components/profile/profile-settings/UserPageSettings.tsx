@@ -3,7 +3,7 @@
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { PAGE_NEW } from "@/lib/const/routes";
 import { PeopleGroupIcon } from "@/lib/components/icons/icons";
-import { LineDivider } from "../layout/LineDivider";
+import { LineDivider } from "../../layout/LineDivider";
 import { PageSwitcher, PageItem } from "./PageSwitcher";
 
 type UserPageSettingsProps = {

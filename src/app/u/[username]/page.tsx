@@ -13,6 +13,7 @@ import { getUserByUsername } from "@/lib/utils/server/user";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { getEventsByUser } from "@/lib/utils/server/event";
+import { getPostsByUser } from "@/lib/utils/server/post";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { UserProfileHeader } from "@/lib/components/user/UserProfileHeader";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
@@ -33,11 +34,11 @@ export default async function PublicProfilePage({ params }: Props) {
 	// Check if viewing own profile (only show message button if viewing another user's profile)
 	const isOwnProfile = session?.user?.id === user.id;
 
-	// Fetch user's events
-	const events = await getEventsByUser(user.id);
-
-	// Collection items are just events now
-	const collectionItems = [...events];
+	const [events, posts] = await Promise.all([
+		getEventsByUser(user.id),
+		getPostsByUser(user.id),
+	]);
+	const collectionItems = [...events, ...posts];
 
 	return (
 		<CenteredLayout maxWidth="6xl">
@@ -47,7 +48,7 @@ export default async function PublicProfilePage({ params }: Props) {
 			<ProfileCollectionSection
 				items={collectionItems}
 				title={'History'}
-				emptyMessage={`${username} hasn't created any events yet.`}
+				emptyMessage={`${username} hasn't created anything yet.`}
 				showCreateLinks={false}
 			/>
 		</CenteredLayout>

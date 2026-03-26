@@ -2,7 +2,10 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import type { PostItem, PostCreateInput, PostUpdateInput } from "@/lib/types/post";
+import type { PostItem, PostCollectionItem, PostCreateInput, PostUpdateInput } from "@/lib/types/post";
+import { postCollectionFields } from "./fields";
+import { getImagesForTargetsBatch } from "./image-attachment";
+import { COLLECTION_TYPES } from "@/lib/types/collection";
 
 const postSelectFields = {
 	id: true,
@@ -73,6 +76,46 @@ export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> 
 	});
 
 	return posts as PostItem[];
+}
+
+/**
+ * Fetch a user's toplevel posts (no pageId, eventId, or parentPostId) as collection items
+ */
+export async function getPostsByUser(userId: string): Promise<PostCollectionItem[]> {
+	const posts = await prisma.post.findMany({
+		where: { userId, pageId: null, parentPostId: null, eventId: null },
+		select: postCollectionFields,
+		orderBy: { createdAt: "desc" },
+	});
+	const postIds = posts.map((p) => p.id);
+	const imagesMap = await getImagesForTargetsBatch("POST", postIds);
+	return posts.map(({ _count, updates, ...p }) => ({
+		...p,
+		type: COLLECTION_TYPES.POST as "post",
+		images: imagesMap.get(p.id) || [],
+		_count: { updates: _count.updates },
+		recentUpdate: updates[0] || null,
+	}));
+}
+
+/**
+ * Fetch all posts belonging to a page as collection items
+ */
+export async function getPostsByPage(pageId: string): Promise<PostCollectionItem[]> {
+	const posts = await prisma.post.findMany({
+		where: { pageId, parentPostId: null, eventId: null },
+		select: postCollectionFields,
+		orderBy: { createdAt: "desc" },
+	});
+	const postIds = posts.map((p) => p.id);
+	const imagesMap = await getImagesForTargetsBatch("POST", postIds);
+	return posts.map(({ _count, updates, ...p }) => ({
+		...p,
+		type: COLLECTION_TYPES.POST as "post",
+		images: imagesMap.get(p.id) || [],
+		_count: { updates: _count.updates },
+		recentUpdate: updates[0] || null,
+	}));
 }
 
 /**

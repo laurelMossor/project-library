@@ -79,6 +79,28 @@ export async function getPagesForUser(userId: string) {
   }));
 }
 
+/** Get all pages a user has any role on */
+export async function getUserMemberships(userId: string) {
+  const permissions = await prisma.permission.findMany({
+    where: { userId, resourceType: ResourceType.PAGE },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (permissions.length === 0) return [];
+
+  const pageIds = permissions.map((p) => p.resourceId);
+  const pages = await prisma.page.findMany({
+    where: { id: { in: pageIds } },
+    select: { id: true, name: true, slug: true, avatarImageId: true },
+  });
+
+  return pages.map((page) => ({
+    id: permissions.find((p) => p.resourceId === page.id)!.id,
+    role: permissions.find((p) => p.resourceId === page.id)!.role,
+    page,
+  }));
+}
+
 /** Grant a permission */
 export async function grantPermission(
   userId: string,

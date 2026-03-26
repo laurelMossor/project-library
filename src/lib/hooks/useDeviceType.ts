@@ -19,7 +19,7 @@ function getSmallScreen(): boolean {
  * Uses window width (600px breakpoint) with user agent fallback.
  */
 export function useSmallScreen(): boolean {
-	return useBreakpoint(getSmallScreen);
+	return useBreakpoint(getSmallScreen, false);
 }
 
 /**

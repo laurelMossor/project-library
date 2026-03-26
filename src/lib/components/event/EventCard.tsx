@@ -7,7 +7,7 @@
  * This component will be removed in a future version.
  */
 import Link from "next/link";
-import { EntityAvatar } from "../owner/EntityAvatar";
+import { EntityAvatar } from "../profile/EntityAvatar";
 import { EventItem } from "@/lib/types/event";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
