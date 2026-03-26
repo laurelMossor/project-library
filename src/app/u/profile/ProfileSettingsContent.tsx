@@ -31,7 +31,7 @@ export function ProfileSettingsContent({ user, pages }: ProfileSettingsContentPr
 			viewPublicProfileHref={PUBLIC_USER_PAGE(user.username)}
 			disabledButtons={USER_DISABLED_BUTTONS}
 			additionalSettingsButtons={
-				<ButtonLink href={USER_CONNECTIONS(user.username)} variant="secondary" fullWidth>
+				<ButtonLink href={USER_CONNECTIONS} variant="secondary" fullWidth>
 					Manage Connections
 				</ButtonLink>
 			}

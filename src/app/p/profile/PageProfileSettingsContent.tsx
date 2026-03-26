@@ -47,7 +47,7 @@ export function PageProfileSettingsContent({ page, pages }: PageProfileSettingsC
 				}
 				additionalSettingsButtons={
 					<>
-						<ButtonLink href={PAGE_CONNECTIONS(slug)} variant="secondary" fullWidth>
+						<ButtonLink href={PAGE_CONNECTIONS} variant="secondary" fullWidth>
 							Manage Connections
 						</ButtonLink>
 						<Button
