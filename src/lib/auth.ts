@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./utils/server/prisma";
 import { LOGIN } from "./const/routes";
+import { logAction } from "./utils/server/log";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -29,6 +30,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
 					const passwordMatch = await bcrypt.compare(password, user.passwordHash);
 					if (!passwordMatch) return null;
+
+					logAction("user.login", user.id);
 
 					// Return user object (excluding password) for session
 					// Note: name field removed in v2, use firstName/lastName if needed

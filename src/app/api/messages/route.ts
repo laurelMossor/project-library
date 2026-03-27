@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateMessageContent } from "@/lib/validations";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { logAction } from "@/lib/utils/server/log";
 
 /**
  * POST /api/messages
@@ -93,6 +94,8 @@ export async function POST(request: Request) {
 			}
 		}
 
+		const isNewConversation = conversationId === null;
+
 		// If no existing conversation, create one with both participants
 		if (!conversationId) {
 			const conversation = await prisma.conversation.create({
@@ -118,6 +121,12 @@ export async function POST(request: Request) {
 				content: content.trim(),
 				asPageId: asPageId || null,
 			},
+		});
+
+		logAction("message.sent", ctx.userId, {
+			conversationId,
+			isNewConversation,
+			asPageId: asPageId ?? undefined,
 		});
 
 		// Update conversation updatedAt

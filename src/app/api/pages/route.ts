@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { createPage } from "@/lib/utils/server/page";
+import { logAction } from "@/lib/utils/server/log";
 
 /**
  * POST /api/pages
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
 			interests,
 			location,
 		});
+
+		logAction("page.created", ctx.userId, { pageId: page.id });
 
 		return NextResponse.json(page, { status: 201 });
 	} catch (error) {

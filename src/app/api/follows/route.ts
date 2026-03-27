@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
+import { logAction } from "@/lib/utils/server/log";
 
 /**
  * POST /api/follows
@@ -63,6 +64,8 @@ export async function POST(request: Request) {
 				},
 			});
 
+			logAction("follow.created", ctx.userId, { followingUserId });
+
 			return NextResponse.json(
 				{
 					id: follow.id,
@@ -105,6 +108,8 @@ export async function POST(request: Request) {
 				followingPageId,
 			},
 		});
+
+		logAction("follow.created", ctx.userId, { followingPageId });
 
 		return NextResponse.json(
 			{

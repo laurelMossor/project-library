@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
 import { PageBanner } from "@/lib/components/layout/PageBanner";
 import { Footer } from "@/lib/components/footer/Footer";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
 	title: "Project Library",
@@ -42,6 +43,7 @@ export default async function RootLayout({
 						<Footer />
 					</div>
 				</Providers>
+			<Analytics />
 			</body>
 		</html>
 	);

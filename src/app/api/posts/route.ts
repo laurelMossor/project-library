@@ -8,6 +8,7 @@ import { publicUserFields } from "@/lib/utils/server/user";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { postCollectionFields } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
+import { logAction } from "@/lib/utils/server/log";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -247,6 +248,13 @@ export async function POST(request: Request) {
 				topics: Array.isArray(topics) ? topics : [],
 			},
 			select: postFields,
+		});
+
+		logAction("post.created", ctx.userId, {
+			postId: post.id,
+			pageId: post.pageId ?? undefined,
+			eventId: post.eventId ?? undefined,
+			isReply: post.parentPostId != null,
 		});
 
 		return NextResponse.json(post, { status: 201 });
