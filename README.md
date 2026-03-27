@@ -105,6 +105,10 @@ npm run build
 
 Visit [http://localhost:3000](http://localhost:3000)
 
+## Testing
+
+E2E tests use [Playwright](https://playwright.dev/) and run against the local dev server. Seed the database first (`npm run db:seed:dev`), start the dev server (`npm run dev`), then run `npm run test:e2e`. Tests cover public page renders, auth flows, content creation (events, posts, pages), messaging, and profile interactions.
+
 ## Deployment
 
 ### Vercel Deployment
@@ -116,15 +120,35 @@ Visit [http://localhost:3000](http://localhost:3000)
 ```
 src/
 ├── app/
-│   ├── (auth)/          # Login & signup pages
-│   ├── api/auth/        # Auth API routes
-│   └── page.tsx         # Home page
+│   ├── (auth)/              # Login & signup
+│   ├── welcome/             # Landing page
+│   ├── explore/             # Browse events & posts
+│   ├── events/              # Event listing, detail, create
+│   ├── posts/               # Post detail, create
+│   ├── pages/               # Page creation
+│   ├── p/[slug]/            # Public page profiles
+│   ├── u/[username]/        # Public user profiles
+│   ├── u/profile/           # Private profile & settings
+│   ├── messages/            # Inbox & conversations
+│   └── api/                 # REST API routes
+│       ├── auth/            # NextAuth + signup
+│       ├── events/          # Events + RSVPs
+│       ├── posts/           # Posts
+│       ├── pages/           # Pages + members/followers
+│       ├── users/           # Users + follows
+│       ├── messages/        # Conversations + inbox
+│       ├── me/              # Current user/page context
+│       └── follows/         # Follow relationships
 ├── lib/
-│   ├── auth.ts          # NextAuth config
-│   └── prisma.ts        # Prisma client
+│   ├── components/          # UI components (event, post, page, profile, nav, forms…)
+│   ├── utils/server/        # Server-only: Prisma queries, auth, permissions
+│   ├── utils/               # Client utilities
+│   ├── hooks/               # React hooks
+│   ├── types/               # TypeScript interfaces
+│   └── const/               # Route constants
 prisma/
-│   └── schema.prisma    # Database models
-database/
-│   └── README.md        # Database setup docs
+├── schema.prisma            # DB models (source of truth)
+└── seed-data/               # Seed JSON
+tests/                       # Playwright E2E tests
 ```
 

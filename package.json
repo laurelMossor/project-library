@@ -18,7 +18,9 @@
     "db:studio": "npx prisma studio",
     "db:seed:deploy": "NODE_ENV=production npx prisma db seed",
     "db:seed:dev": "NODE_ENV=development npx prisma db seed",
-    "db:generate": "npx prisma generate"
+    "db:generate": "npx prisma generate",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright test --reporter=html"
   },
   "keywords": [],
   "author": "",
@@ -53,6 +55,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
+    "@playwright/test": "^1.58.2",
     "@types/pg": "^8.16.0",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
