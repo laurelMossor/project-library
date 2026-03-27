@@ -21,7 +21,6 @@ import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { FollowButton } from "@/lib/components/ui/FollowButton";
 import { PAGE_PROFILE_SETTINGS } from "@/lib/const/routes";
-import Link from "next/link";
 
 type Props = {
 	params: Promise<{ slug: string }>;

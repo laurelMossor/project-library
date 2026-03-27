@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Client } from "@notionhq/client";
 import type { PageObjectResponse, PartialPageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { serverError, badRequest } from "@/lib/utils/errors";
 

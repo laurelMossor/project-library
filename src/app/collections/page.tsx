@@ -62,7 +62,7 @@ export default function CollectionsPage() {
 		try {
 			const eventsData = await fetchEvents(search || undefined);
 			setEvents(eventsData);
-		} catch (err) {
+		} catch {
 			setError("Failed to load collections");
 		} finally {
 			setLoading(false);

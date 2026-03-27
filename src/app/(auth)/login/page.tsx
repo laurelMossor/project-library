@@ -2,7 +2,7 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { PRIVATE_USER_PAGE, SIGNUP, HOME } from "@/lib/const/routes";
 
@@ -11,7 +11,6 @@ export default function LoginPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
-	const router = useRouter();
 	const searchParams = useSearchParams();
 	const callbackUrl = searchParams.get("callbackUrl") || HOME;
 

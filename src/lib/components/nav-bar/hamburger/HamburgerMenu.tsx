@@ -15,9 +15,7 @@ import {
 import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
-	COLLECTIONS,
 	MESSAGES,
-	PRIVATE_USER_PAGE,
 	USER_PROFILE_SETTINGS,
 	PAGE_PROFILE_SETTINGS,
 	LOGIN_WITH_CALLBACK,
@@ -82,11 +80,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 
 	const closeMenu = () => {
 		setIsOpen(false);
-	};
-
-	const handleAbout = () => {
-		closeMenu();
-		setIsAboutModalOpen(true);
 	};
 
 	const handleCreateNew = () => {

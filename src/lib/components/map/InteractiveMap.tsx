@@ -17,7 +17,7 @@ export function InteractiveMap({
 	latitude,
 	longitude,
 	onLocationChange,
-	onAddressGeocode,
+	onAddressGeocode: _onAddressGeocode,
 }: InteractiveMapProps) {
 	const mapContainerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<any>(null);

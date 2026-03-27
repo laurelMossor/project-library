@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EVENT_NEW, POST_NEW } from "@/lib/const/routes";
+import { POST_NEW } from "@/lib/const/routes";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 

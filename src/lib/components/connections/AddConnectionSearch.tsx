@@ -48,7 +48,7 @@ export function AddConnectionSearch({
 			
 			setUsername("");
 			onClose();
-		} catch (err) {
+		} catch {
 			setError("Failed to add user");
 		} finally {
 			setAdding(false);

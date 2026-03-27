@@ -81,7 +81,7 @@ export function EditEventForm({ event }: Props) {
 			} else {
 				setGeocodeError("Could not find location. Try adjusting the address or set location on the map.");
 			}
-		} catch (error) {
+		} catch {
 			setGeocodeError("Failed to geocode address. Please set location on the map instead.");
 		} finally {
 			setGeocoding(false);

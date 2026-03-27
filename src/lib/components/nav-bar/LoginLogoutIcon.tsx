@@ -11,8 +11,6 @@ interface LoginLogoutIconProps {
 	iconButtonStyles?: string;
 }
 
-const iconButtonStyles = "p-2 hover:bg-soft-grey rounded transition-colors";
-
 export function LoginLogoutIcon({ isLoggedIn, iconStyles, iconButtonStyles }: LoginLogoutIconProps) {
 	const router = useRouter();
 

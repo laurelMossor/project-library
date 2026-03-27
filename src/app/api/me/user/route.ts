@@ -59,7 +59,7 @@ export async function PUT(request: Request) {
 		});
 
 		return NextResponse.json(user);
-	} catch (error) {
+	} catch {
 		return badRequest("Failed to update profile");
 	}
 }

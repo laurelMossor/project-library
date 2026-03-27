@@ -62,7 +62,7 @@ export function PageBanner() {
 				await updateSession({ activePageId: null });
 				router.push("/u/profile");
 			}
-		} catch (err) {
+		} catch {
 			// Silently fail
 		} finally {
 			setSwitching(false);

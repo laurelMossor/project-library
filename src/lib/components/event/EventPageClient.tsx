@@ -19,7 +19,7 @@ import { InteractiveMap, geocodeAddress } from "@/lib/components/map/Interactive
 import { updateEvent, publishEvent } from "@/lib/utils/event-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
-import { PUBLIC_PAGE, MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
 type EventPageClientProps = {
 	event: EventItem;
@@ -55,7 +55,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
 	};
 
-	const saveField = async (field: string, data: Record<string, unknown>) => {
+	const saveField = async (_field: string, data: Record<string, unknown>) => {
 		setSaving(true);
 		setSaveError("");
 		try {

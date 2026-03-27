@@ -17,7 +17,7 @@ type CoverImageEditorProps = {
  */
 export function CoverImageEditor({ eventId, imageUrl, canEdit, onImageUploaded }: CoverImageEditorProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const { imageFile, imagePreview, error: imageError, handleImageChange } = useImageUpload(imageUrl);
+	const { imagePreview, error: imageError, handleImageChange } = useImageUpload(imageUrl);
 	const [uploading, setUploading] = useState(false);
 	const [error, setError] = useState("");
 

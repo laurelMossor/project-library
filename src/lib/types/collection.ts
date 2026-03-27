@@ -1,4 +1,3 @@
-import { BaseCollectionItem } from "./collection-item";
 import { EventItem } from "./event";
 import { PostCollectionItem } from "./post";
 

@@ -5,7 +5,6 @@ import {
 	buildTaxonomyTree,
 	loadTaxonomyTopics
 } from "@/lib/utils/taxonomy";
-import { getUserById } from "@/lib/utils/server/user";
 import { redirect } from "next/navigation";
 import { LOGIN_WITH_CALLBACK, DEV_TAXONOMY } from "@/lib/const/routes";
 import { getUserId } from "@/lib/utils/auth-client";

@@ -10,7 +10,7 @@ import { AboutIcon, CollectionsIcon, UserHomeIcon, MessageIcon, PencilIcon } fro
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 import { Tooltip } from "../tooltip/Tooltip";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
-import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_PAGE, PRIVATE_USER_PAGE, MESSAGES } from "@/lib/const/routes";
+import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_PAGE, MESSAGES } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { API_ME_PAGE } from "@/lib/const/routes";
 import { NewItemModal } from "./NewItemModal";

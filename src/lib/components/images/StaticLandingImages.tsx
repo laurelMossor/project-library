@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { EVENT_NEW, POST_NEW } from "@/lib/const/routes";
+import { POST_NEW } from "@/lib/const/routes";
 
 const LANDING_IMAGES = [
 	{

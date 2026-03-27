@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { ComponentProps } from "react";
-import { Button } from "./Button";
-
 type ButtonLinkProps = ComponentProps<typeof Link> & {
 	variant?: "primary" | "secondary" | "tertiary" | "danger";
 	size?: "sm" | "md" | "lg";

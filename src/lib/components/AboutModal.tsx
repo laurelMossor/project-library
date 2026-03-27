@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { COLLECTIONS, MESSAGES, PUBLIC_USER_PAGE } from "@/lib/const/routes";
-import { fetchProfile } from "@/lib/utils/user-client";
 
 const WELCOME_MESSAGE = `The Project Library is about process, not polish. This is a shared space for making, learning, and helping each other along the way. 
 

@@ -9,7 +9,7 @@
  *   <CollectionCard item={collectionItem} truncate={true} />
  */
 import Link from "next/link";
-import { CollectionItem, isEvent, isPost } from "@/lib/types/collection";
+import { CollectionItem, isEvent } from "@/lib/types/collection";
 import { EntityAvatar } from "../profile/EntityAvatar";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";

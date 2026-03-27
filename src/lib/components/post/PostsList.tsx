@@ -34,7 +34,7 @@ export function PostsList({
 					? await getEventPosts(collectionId)
 					: await getPostUpdates(collectionId);
 				setPosts(data);
-			} catch (err) {
+			} catch {
 				setError("Failed to load posts");
 			} finally {
 				setLoading(false);
@@ -73,8 +73,6 @@ export function PostsList({
 						: user
 						? getUserDisplayName(user)
 						: null;
-
-					const handle = page ? page.slug : user?.username;
 
 					const profileHref = page
 						? PUBLIC_PAGE(page.slug)

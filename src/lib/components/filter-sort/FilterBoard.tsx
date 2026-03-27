@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { SortType, ViewType } from "@/lib/hooks/useFilter";
 import { FilterCollectionType } from "@/lib/types/collection";
-import { HeadingTitle } from "../text/HeadingTitle";
 import { CollectionTypeFilters } from "./CollectionTypeFilters";
 import { ViewToggle } from "./ViewToggle";
 
@@ -20,7 +19,7 @@ type FilterBoardProps = {
 };
 
 export function FilterBoard({
-	title,
+	title: _title,
 	collectionTypeFilter,
 	onCollectionTypeChange,
 	sort,
@@ -30,7 +29,7 @@ export function FilterBoard({
 	hasLocationData = false,
 	selectedTags,
 	onTagsChange,
-	availableTags,
+	availableTags: _availableTags,
 }: FilterBoardProps) {
 	const [tagInput, setTagInput] = useState("");
 

@@ -78,7 +78,7 @@ export default function PageSettingsPage() {
 
 			await updateSession({ activePageId: pageId });
 			router.push(PRIVATE_PAGE);
-		} catch (err) {
+		} catch {
 			setError("Failed to switch to page");
 			setSwitching(false);
 		}
@@ -104,7 +104,7 @@ export default function PageSettingsPage() {
 
 			await updateSession({ activePageId: null });
 			router.push(PRIVATE_USER_PAGE);
-		} catch (err) {
+		} catch {
 			setError("Failed to switch to user");
 			setSwitching(false);
 		}

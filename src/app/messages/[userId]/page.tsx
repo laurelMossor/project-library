@@ -149,7 +149,7 @@ export default function ConversationPage() {
 					setOtherUser(newOtherUser);
 				}
 			}
-		} catch (err) {
+		} catch {
 			if (!isBackgroundRefresh) {
 				setError("Failed to load conversation");
 			}
@@ -200,7 +200,7 @@ export default function ConversationPage() {
 			if (!otherUser) {
 				setOtherUser(newMessage.receiver);
 			}
-		} catch (err) {
+		} catch {
 			setError("Failed to send message");
 		} finally {
 			setSending(false);

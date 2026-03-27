@@ -50,7 +50,7 @@ export function ActingAsPageTooltip() {
 				await updateSession({ activePageId: null });
 				router.push(PRIVATE_USER_PAGE);
 			}
-		} catch (err) {
+		} catch {
 			// Silently fail
 		} finally {
 			setSwitching(false);

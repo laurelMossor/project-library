@@ -20,7 +20,7 @@ type UseImageUploadResult = {
 export function useImageUpload(existingImageUrl?: string | null): UseImageUploadResult {
 	const [imageFile, setImageFile] = useState<File | null>(null);
 	const [imagePreview, setImagePreview] = useState<string | null>(existingImageUrl || null);
-	const [uploading, setUploading] = useState(false);
+	const [uploading] = useState(false);
 	const [error, setError] = useState("");
 
 	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +47,7 @@ export function useImageUpload(existingImageUrl?: string | null): UseImageUpload
 			setImageFile(file);
 			setImagePreview(preview);
 			setError("");
-		} catch (err) {
+		} catch {
 			setError("Failed to create image preview");
 			setImageFile(null);
 			setImagePreview(existingImageUrl || null);

@@ -54,8 +54,6 @@ export function CollectionPage({
 		paginatedItems,
 		currentPage,
 		totalPages,
-		hasNextPage,
-		hasPreviousPage,
 		nextPage,
 		previousPage,
 	} = usePagination(filteredItems, itemsPerPage);

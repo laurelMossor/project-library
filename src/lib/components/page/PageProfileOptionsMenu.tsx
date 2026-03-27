@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { DropdownMenu, dropdownMenuStyles } from "../ui/DropdownMenu";
 import { MenuItem } from "../nav-bar/hamburger/MenuItem";
-import { GearsIcon, PencilIcon, CalendarIcon, UserHomeIcon, PeopleGroupIcon } from "../icons/icons";
-import { EVENT_NEW, PAGE_PROFILE_SETTINGS, API_ME_PAGE, PRIVATE_PAGE } from "@/lib/const/routes";
+import { GearsIcon, CalendarIcon, UserHomeIcon } from "../icons/icons";
+import { EVENT_NEW, PAGE_PROFILE_SETTINGS } from "@/lib/const/routes";
 import { transparentCTAStyles } from "../collection/CreationCTA";
 
 const iconClass = "w-6 h-6 shrink-0";
@@ -23,9 +22,7 @@ type PageProfileOptionsMenuProps = {
  */
 export function PageProfileOptionsMenu({ isActingAsThisPage: serverIsActingAsThisPage = false, pageId }: PageProfileOptionsMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
-	const [switching, setSwitching] = useState(false);
-	const router = useRouter();
-	const { data: session, update: updateSession } = useSession();
+	const { data: session } = useSession();
 
 	// Check client-side session to ensure we have the most up-to-date state
 	let isActingAsThisPage = serverIsActingAsThisPage;
@@ -37,29 +34,6 @@ export function PageProfileOptionsMenu({ isActingAsThisPage: serverIsActingAsThi
 
 	const closeMenu = () => {
 		setIsOpen(false);
-	};
-
-	const handleSwitchToPage = async () => {
-		if (!pageId) return;
-
-		setSwitching(true);
-		try {
-			const res = await fetch(API_ME_PAGE, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ activePageId: pageId }),
-			});
-
-			if (res.ok) {
-				await updateSession({ activePageId: pageId });
-				closeMenu();
-				router.refresh();
-			}
-		} catch (err) {
-			// Silently fail
-		} finally {
-			setSwitching(false);
-		}
 	};
 
 	// When NOT acting as this page, don't show options (switch flow is disabled)
