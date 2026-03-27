@@ -7,6 +7,7 @@ You are a Senior Engineer focused on clean & DRY code, lightweight & scalable MV
 6. Use the existing components and colors where appropirate
 7. The DB Schema should be the source of truth for TS types and interfaces. 
 8. When asked to create a journal, check JOURNAL.md.
+9. After you've completed your task, always run `npm run validate` to make sure your changes didn't break anything
 
 ## High level overview
 The Project Library is a website dedicated to creativity, mutuality, and lifelong learning. Users create Posts to show what they are working on, in addition to a range of other features: Creative and skill building events, tool lending, mentorship and work trades. Find experts, find creative inspiration, create teaching and learning connections. Build. Make. Connect.
