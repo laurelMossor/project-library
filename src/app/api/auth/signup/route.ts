@@ -5,6 +5,7 @@ import { createUser } from "@/lib/utils/server/user";
 import { badRequest, serverError } from "@/lib/utils/errors";
 import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { logAction } from "@/lib/utils/server/log";
 
 export async function POST(request: Request) {
 	// Rate limiting: 5 signups per hour per IP
@@ -65,6 +66,8 @@ export async function POST(request: Request) {
 			passwordHash,
 			username,
 		});
+
+		logAction("user.signup", userId);
 
 		return NextResponse.json(
 			{

@@ -33,6 +33,23 @@ function hasSessionCookie(req: NextRequest): boolean {
 export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
 
+	const ip =
+		req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+		req.headers.get("x-real-ip") ??
+		"unknown";
+
+	console.log(
+		JSON.stringify({
+			type: "request",
+			method: req.method,
+			path: pathname,
+			ip,
+			referer: req.headers.get("referer") ?? null,
+			ua: req.headers.get("user-agent") ?? null,
+			ts: new Date().toISOString(),
+		})
+	);
+
 	// Check if the current path is a protected route
 	const isProtected = protectedRoutes.some((route) =>
 		pathname.startsWith(route)

@@ -8,6 +8,7 @@ import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/f
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { logAction } from "@/lib/utils/server/log";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -136,6 +137,8 @@ export async function POST(request: Request) {
 				select: eventWithUserFields,
 			});
 
+			logAction("event.created", ctx.userId, { eventId: event.id, status: "DRAFT" });
+
 			const eventItem = {
 				...event,
 				type: COLLECTION_TYPES.EVENT,
@@ -200,6 +203,8 @@ export async function POST(request: Request) {
 			},
 			select: eventWithUserFields,
 		});
+
+		logAction("event.created", ctx.userId, { eventId: event.id, status: "PUBLISHED" });
 
 		// Return with type and empty images (new event has no images yet)
 		const eventItem = {
