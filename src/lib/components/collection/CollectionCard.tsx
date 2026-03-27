@@ -38,6 +38,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			{/* Header: Profile pic + Title */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
+					{/* Avatar should handle if its a page or user */}
 					{item.page ? (
 						<EntityAvatar page={item.page} size="md" />
 					) : (
@@ -79,7 +80,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 				</div>
 			)}
 
-			{/* Updates section */}
+			{/* Updates section, TODO: Create a component for this */}
 			{(() => {
 				const count = item._count?.updates ?? 0;
 				if (!count || count === 0) return null;
