@@ -15,12 +15,14 @@ type ConnectionItem = {
 		firstName: string | null;
 		lastName: string | null;
 		avatarImageId: string | null;
+		avatarImage?: { url: string } | null;
 	} | null;
 	page: {
 		id: string;
 		slug: string;
 		name: string;
 		avatarImageId: string | null;
+		avatarImage?: { url: string } | null;
 	} | null;
 };
 
@@ -31,6 +33,7 @@ const followerUserSelect = {
 	firstName: true,
 	lastName: true,
 	avatarImageId: true,
+	avatarImage: { select: { url: true } },
 } as const;
 
 const followingUserSelect = followerUserSelect;
@@ -40,6 +43,7 @@ const followingPageSelect = {
 	slug: true,
 	name: true,
 	avatarImageId: true,
+	avatarImage: { select: { url: true } },
 } as const;
 
 /** Users (and pages) who follow a given user */

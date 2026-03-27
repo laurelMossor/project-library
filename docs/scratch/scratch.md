@@ -1,0 +1,3 @@
+It's time to refactor the switchToPage and canPostAsPage functionality, but I want to come at it with FRESH eyes and not take these pattners to be inherently good just because they are the ones we're using. Take a critical perspective in order to create the framework for this core website utility. 
+
+As you read in the PROJECT_GUIDELINES, being able to act as a Page is a core aspect of the Project Library. Throughout recent refactors (if you're curious to see that history, you can read back to )

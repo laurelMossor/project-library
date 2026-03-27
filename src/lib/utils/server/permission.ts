@@ -59,6 +59,7 @@ export async function getPagesForUser(userId: string) {
       location: true,
       visibility: true,
       avatarImageId: true,
+      avatarImage: { select: { url: true } },
       createdAt: true,
       updatedAt: true,
       createdByUserId: true,
@@ -91,7 +92,7 @@ export async function getUserMemberships(userId: string) {
   const pageIds = permissions.map((p) => p.resourceId);
   const pages = await prisma.page.findMany({
     where: { id: { in: pageIds } },
-    select: { id: true, name: true, slug: true, avatarImageId: true },
+    select: { id: true, name: true, slug: true, avatarImageId: true, avatarImage: { select: { url: true } } },
   });
 
   return pages.map((page) => ({
@@ -142,6 +143,7 @@ export async function getResourcePermissions(
           firstName: true,
           lastName: true,
           avatarImageId: true,
+          avatarImage: { select: { url: true } },
         },
       },
     },

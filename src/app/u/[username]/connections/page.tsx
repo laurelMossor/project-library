@@ -44,12 +44,14 @@ export default async function UserConnectionsPage({ params }: Props) {
 					firstName: user.firstName ?? null,
 					lastName: user.lastName ?? null,
 					avatarImageId: user.avatarImageId ?? null,
+					avatarImage: user.avatarImage ?? null,
 				}}
 				pages={managedPages.map((p) => ({
 					id: p.id,
 					slug: p.slug,
 					name: p.name,
 					avatarImageId: p.avatarImageId ?? null,
+					avatarImage: p.avatarImage ?? null,
 					role: p.role,
 				}))}
 			/>

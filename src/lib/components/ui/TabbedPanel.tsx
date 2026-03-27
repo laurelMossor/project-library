@@ -62,7 +62,7 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
       {/* overflow-hidden clips the right edge on mobile so tabs don't bleed past viewport */}
       {/* isolation: isolate ensures z-index stacking works correctly in Safari */}
       <div className="flex items-end overflow-hidden sm:overflow-visible">
-        <div className="w-20 sm:w-36 shrink-0" />
+        <div className="w-28 sm:w-48 shrink-0" />
         <div className="flex items-end pl-1 sm:gap-1.5 sm:px-1" style={{ isolation: "isolate" }}>
           {topTabs.map((tab, i) => {
             const isActive = tab.id === activeTop;
@@ -98,14 +98,14 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
       {/* Main row: left tabs + panel */}
       <div className="flex items-start">
         {/* Left tab column — no top padding keeps first tab flush with panel top border */}
-        <div className="flex flex-col gap-1.5 pb-1 w-20 sm:w-36 shrink-0">
+        <div className="flex flex-col gap-1.5 pb-1 w-28 sm:w-48 shrink-0">
           {leftTabs.map((tab) => {
             const isActive = tab.id === activeLeft;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveLeft(tab.id)}
-                className={`px-2 py-2 text-xs break-words whitespace-normal sm:px-3 sm:py-2.5 sm:text-sm sm:break-normal font-medium rounded-l-lg border w-full text-right leading-tight transition-colors cursor-pointer select-none ${
+                className={`overflow-hidden rounded-l-lg border w-full text-left leading-tight transition-colors cursor-pointer select-none ${
                   isActive ? ACTIVE_LEFT : INACTIVE_LEFT
                 }`}
               >

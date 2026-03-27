@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/ui/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
+import { getCardUserDisplayName } from "@/lib/types/card";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import Link from "next/link";
 
@@ -17,6 +18,7 @@ type LeftTabMeta = TabDef<LeftTabId> & {
 	entityType: "user" | "page";
 	entityId: string;
 	role?: string; // only set for page tabs
+	entity: UserEntity | PageEntity;
 };
 
 type ConnectionItem = {
@@ -79,6 +81,7 @@ type PageEntity = {
 	slug: string;
 	name: string;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 	role: string; // user's permission role on this page
 };
 
@@ -89,6 +92,7 @@ type UserEntity = {
 	firstName: string | null;
 	lastName: string | null;
 	avatarImageId: string | null;
+	avatarImage?: { url: string } | null;
 };
 
 type ConnectionsPageViewProps = {
@@ -149,7 +153,7 @@ function EmptyMessage({ label }: { label: string }) {
 
 export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 	const leftTabs: LeftTabMeta[] = [
-		{ id: user.id, label: "Me", isSelf: true, entityType: "user", entityId: user.id },
+		{ id: user.id, label: getCardUserDisplayName(user), isSelf: true, entityType: "user", entityId: user.id, entity: user },
 		...pages.map((p) => ({
 			id: p.id,
 			label: p.name,
@@ -157,6 +161,7 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 			entityType: "page" as const,
 			entityId: p.id,
 			role: p.role,
+			entity: p,
 		})),
 	];
 
@@ -331,14 +336,12 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 			renderLeftTab={(tab) => {
 				const meta = tab as LeftTabMeta;
 				return (
-					<span className="flex flex-col items-end gap-0.5">
-						<span>{meta.label}</span>
-						{!meta.isSelf && meta.role && (
-							<span className="text-[10px] font-normal opacity-50 tracking-wide uppercase">
-								{meta.role.toLowerCase()}
-							</span>
-						)}
-					</span>
+					<ProfileTag
+						entity={meta.entity}
+						badge={!meta.isSelf && meta.role ? meta.role.toLowerCase() : undefined}
+						asLink={false}
+						className="!border-0 !bg-transparent hover:!bg-transparent w-full"
+					/>
 				);
 			}}
 			renderContent={renderContent}
