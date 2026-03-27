@@ -6,7 +6,7 @@ test.describe("Authoring — create content", () => {
     await loginAs(page, "alice");
   });
 
-  test("create and publish an event", async ({ page }) => {
+  test("create, publish, and delete an event", async ({ page }) => {
     // /events/new creates a draft and immediately redirects to the event detail page
     await page.goto("/events/new");
     await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
@@ -14,13 +14,13 @@ test.describe("Authoring — create content", () => {
     // Draft banner should be visible
     await expect(page.getByText("Draft — only you can see this")).toBeVisible();
 
-    // Click the title inline editable to activate it
+    // Inline-edit title
     await page.getByRole("button", { name: /Event name/i }).first().click();
     await page.getByPlaceholder("Event name").fill("Playwright Test Event");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Playwright Test Event")).toBeVisible();
 
-    // Click the content inline editable
+    // Inline-edit description
     await page.getByRole("button", { name: /What should people know/i }).first().click();
     await page.getByPlaceholder("What should people know?").fill("This event was created by an automated test.");
     await page.getByRole("button", { name: "Save" }).click();
@@ -29,9 +29,17 @@ test.describe("Authoring — create content", () => {
     await page.getByRole("button", { name: "Publish" }).click();
     await expect(page.getByText("Live")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Draft — only you can see this")).not.toBeVisible();
+
+    // Delete — two-step confirm
+    await page.getByRole("button", { name: "Delete Event" }).click();
+    await expect(page.getByText(/Are you sure you want to delete/)).toBeVisible();
+    await page.getByRole("button", { name: "Delete" }).click();
+
+    // Redirects to /collections after deletion
+    await page.waitForURL(/\/collections/, { timeout: 10_000 });
   });
 
-  test("create a post", async ({ page }) => {
+  test("create and delete a post", async ({ page }) => {
     await page.goto("/posts/new");
     await expect(page).toHaveURL(/\/posts\/new/);
 
@@ -42,9 +50,19 @@ test.describe("Authoring — create content", () => {
     // Redirects to post detail
     await page.waitForURL(/\/posts\/[^/]+$/, { timeout: 10_000 });
     await expect(page.getByText("Playwright Test Post")).toBeVisible();
+
+    // Delete — two-step confirm
+    await page.getByRole("button", { name: "Delete Post" }).click();
+    await expect(page.getByText(/Are you sure you want to delete/)).toBeVisible();
+    await page.getByRole("button", { name: "Delete" }).click();
+
+    // Redirects to /explore after deletion
+    await page.waitForURL(/\/explore/, { timeout: 10_000 });
   });
 
   test("create a page", async ({ page }) => {
+    // NOTE: No delete UI exists for pages — this test leaves a record in the DB.
+    // Clean up manually: DELETE FROM "Page" WHERE slug LIKE 'playwright-test-%';
     const slug = `playwright-test-${Date.now()}`;
     await page.goto("/pages/new");
     await expect(page).toHaveURL(/\/pages\/new/);
@@ -57,7 +75,7 @@ test.describe("Authoring — create content", () => {
     await page.waitForURL(/\/u\/profile/, { timeout: 10_000 });
     await expect(page.locator("body")).not.toContainText("error");
 
-    // Verify the page is accessible
+    // Verify the page is accessible at its slug
     await page.goto(`/p/${slug}`);
     await expect(page.locator("body")).toContainText("Playwright Test Page");
   });

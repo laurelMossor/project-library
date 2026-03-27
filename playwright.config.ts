@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  globalTeardown: "./tests/global-teardown.ts",
   timeout: 30_000,
   retries: 0,
   workers: 1, // run serially — tests share a local dev DB
