@@ -250,8 +250,8 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 						const isPage = item.type === "PAGE" && item.page;
 						const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
 						const viewLink = <Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">View</Link>;
-						if (isUser && item.user) return <ProfileTag key={item.id} user={item.user} actions={viewLink} />;
-						if (isPage && item.page) return <ProfileTag key={item.id} page={item.page} actions={viewLink} />;
+						if (isUser && item.user) return <ProfileTag key={item.id} entity={item.user} actions={viewLink} />;
+						if (isPage && item.page) return <ProfileTag key={item.id} entity={item.page} actions={viewLink} />;
 						return null;
 					})}
 				</div>
@@ -268,8 +268,8 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 						const isPage = item.type === "PAGE" && item.page;
 						const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
 						const viewLink = <Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">View</Link>;
-						if (isUser && item.user) return <ProfileTag key={item.id} user={item.user} actions={viewLink} />;
-						if (isPage && item.page) return <ProfileTag key={item.id} page={item.page} actions={viewLink} />;
+						if (isUser && item.user) return <ProfileTag key={item.id} entity={item.user} actions={viewLink} />;
+						if (isPage && item.page) return <ProfileTag key={item.id} entity={item.page} actions={viewLink} />;
 						return null;
 					})}
 				</div>
@@ -285,7 +285,7 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 					{items.map((item) => (
 						<ProfileTag
 							key={item.id}
-							page={item.page}
+							entity={item.page}
 							badge={item.role.toLowerCase()}
 							actions={
 								<Link
@@ -310,7 +310,7 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 				{items.map((item) => (
 					<ProfileTag
 						key={item.id}
-						user={item.user}
+						entity={item.user}
 						badge={item.role.toLowerCase()}
 						actions={
 							isAdmin && item.user.id !== user.id ? (

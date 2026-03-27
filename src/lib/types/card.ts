@@ -82,6 +82,18 @@ export function isCardPost(item: CardCollectionItem): item is CardPost {
 }
 
 // ============================================================================
+// Entity Union
+// ============================================================================
+
+// A CardUser or CardPage — pages have `slug`, users have `username`
+export type CardEntity = CardUser | CardPage;
+
+// TODO mourn whatever logic created this monstrosity and fix it
+export function isCardPage(entity: CardEntity): entity is CardPage {
+	return "slug" in entity;
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

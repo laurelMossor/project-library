@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { LOGIN_WITH_CALLBACK, HOME, API_ME_PAGES, PRIVATE_USER_PAGE, USER_PROFILE_EDIT, USER_PROFILE_SETTINGS, PUBLIC_PAGE } from "@/lib/const/routes";
 
 interface PageInfo {
@@ -80,21 +81,17 @@ export default function UserSettingsPage() {
 				{pages.length === 0 ? (
 					<p className="text-sm text-gray-600">You don&apos;t have any pages yet.</p>
 				) : (
-					<div className="space-y-3">
+					<div className="space-y-2">
 						{pages.map((page) => (
-							<div key={page.id} className="flex items-center justify-between p-3 border rounded">
-								<div>
-									<p className="font-medium">{page.name}</p>
-									<p className="text-sm text-gray-500">@{page.slug}</p>
-								</div>
-								<ButtonLink
-									href={PUBLIC_PAGE(page.slug)}
-									variant="secondary"
-									size="sm"
-								>
-									View Page
-								</ButtonLink>
-							</div>
+							<ProfileTag
+								key={page.id}
+								entity={{ id: page.id, name: page.name, slug: page.slug, avatarImageId: null }}
+								actions={
+									<ButtonLink href={PUBLIC_PAGE(page.slug)} variant="secondary" size="sm">
+										View Page
+									</ButtonLink>
+								}
+							/>
 						))}
 					</div>
 				)}

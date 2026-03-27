@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { MenuItem } from "./hamburger/MenuItem";
-import { CardUser, CardPage } from "@/lib/types/card";
+import { CardEntity } from "@/lib/types/card";
 import { API_ME_USER, API_ME_PAGE, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { UserHomeIcon } from "@/lib/components/icons/icons";
@@ -21,7 +21,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 	const isLoggedIn = hasSession(activeSession);
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [entity, setEntity] = useState<{ type: "user"; data: CardUser } | { type: "page"; data: CardPage } | null>(null);
+	const [entity, setEntity] = useState<CardEntity | null>(null);
 	const [profileLink, setProfileLink] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
@@ -32,7 +32,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 				.then((r) => (r.ok ? r.json() : null))
 				.then((page) => {
 					if (page?.id) {
-						setEntity({ type: "page", data: page as CardPage });
+						setEntity(page as CardEntity);
 						setProfileLink(PUBLIC_PAGE(page.slug));
 					}
 				})
@@ -42,7 +42,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 				.then((r) => (r.ok ? r.json() : null))
 				.then((user) => {
 					if (user?.id) {
-						setEntity({ type: "user", data: user as CardUser });
+						setEntity(user as CardEntity);
 						setProfileLink(PUBLIC_USER_PAGE(user.username));
 					}
 				})
@@ -59,9 +59,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 			triggerClassName="cursor-pointer rounded transition-opacity hover:opacity-80"
 			triggerAriaLabel="Profile menu"
 			trigger={
-				entity.type === "user"
-					? <ProfileTag user={entity.data} size="md" className="border-none bg-transparent hover:bg-transparent" />
-					: <ProfileTag page={entity.data} size="md" className="border-none bg-transparent hover:bg-transparent" />
+				<ProfileTag entity={entity} size="md" asLink={false} className="border-none bg-transparent hover:bg-transparent" />
 			}
 		>
 			<MenuItem

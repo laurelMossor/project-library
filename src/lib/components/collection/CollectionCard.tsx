@@ -38,12 +38,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			{/* Header: Profile pic + Title */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					{/* Avatar should handle if its a page or user */}
-					{item.page ? (
-						<EntityAvatar page={item.page} size="md" />
-					) : (
-						<EntityAvatar user={item.user} size="md" />
-					)}
+					<EntityAvatar entity={item.page ?? item.user} size="md" />
 					<div className="flex-1 min-w-0">
 						<Link href={detailUrl}>
 							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title || "Untitled"}</h2>

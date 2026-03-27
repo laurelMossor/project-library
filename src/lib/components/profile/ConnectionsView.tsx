@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
-import { EntityAvatar } from "./EntityAvatar";
+
+import { ProfileTag } from "./ProfileTag";
 
 type ConnectionsViewProps = {
 	entityId: string;
@@ -113,60 +114,23 @@ export function ConnectionsView({ entityId, entityType }: ConnectionsViewProps) 
 				) : currentList.length === 0 ? (
 					<p className="text-gray-500">{emptyMessage}</p>
 				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					<div className="space-y-2">
 						{currentList.map((item) => {
-							const isUser = item.type === "USER" && item.user;
-							const isPage = item.type === "PAGE" && item.page;
-
-							const displayName = isUser
-								? item.user!.displayName || `${item.user!.firstName || ""} ${item.user!.lastName || ""}`.trim() || item.user!.username
-								: isPage
-								? item.page!.name
-								: "Unknown";
-
-							const href = isUser
-								? PUBLIC_USER_PAGE(item.user!.username)
-								: isPage
-								? PUBLIC_PAGE(item.page!.slug)
-								: "#";
-
+							const entity = item.page ?? item.user;
+							if (!entity) return null;
+							const href = 'slug' in entity
+								? PUBLIC_PAGE(entity.slug)
+								: PUBLIC_USER_PAGE(entity.username);
 							return (
-								<Link
+								<ProfileTag
 									key={item.id}
-									href={href}
-									className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50"
-								>
-									{isUser && item.user ? (
-										<EntityAvatar
-											user={{
-												...item.user,
-												displayName: item.user.displayName ?? null,
-												firstName: item.user.firstName ?? null,
-												lastName: item.user.lastName ?? null,
-												avatarImageId: item.user.avatarImageId ?? null,
-											}}
-											size="sm"
-											asLink={false}
-										/>
-									) : isPage && item.page ? (
-										<EntityAvatar
-											page={{
-												...item.page,
-												avatarImageId: item.page.avatarImageId ?? null,
-											}}
-											size="sm"
-											asLink={false}
-										/>
-									) : (
-										<div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-											<span className="text-xs">?</span>
-										</div>
-									)}
-									<div>
-										<p className="font-medium">{displayName}</p>
-										<p className="text-sm text-gray-500">{isUser ? "User" : isPage ? "Page" : "Unknown"}</p>
-									</div>
-								</Link>
+									entity={entity}
+									actions={
+										<Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">
+											View
+										</Link>
+									}
+								/>
 							);
 						})}
 					</div>

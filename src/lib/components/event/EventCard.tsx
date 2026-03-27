@@ -30,11 +30,7 @@ export const EventCard = ({ event, truncate = false }: { event: EventItem, trunc
 			{/* Type badge and header */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					{event.page ? (
-						<EntityAvatar page={event.page} size="md" />
-					) : (
-						<EntityAvatar user={event.user} size="md" />
-					)}
+					<EntityAvatar entity={event.page ?? event.user} size="md" />
 					<div className="flex-1 min-w-0">
 						<Link href={detailUrl}>
 							<h2 className="text-xl font-semibold mb-2 hover:underline">{event.title}</h2>

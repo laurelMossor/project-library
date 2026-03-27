@@ -35,7 +35,7 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 				{pages.map((page) => (
 					<ProfileTag
 						key={page.id}
-						page={{
+						entity={{
 							id: page.id,
 							name: page.name,
 							slug: page.slug,

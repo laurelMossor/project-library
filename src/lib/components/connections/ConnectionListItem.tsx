@@ -38,7 +38,7 @@ export function ConnectionListItem({
 
 	return (
 		<ProfileTag
-			user={user}
+			entity={user}
 			badge={role}
 			actions={removeAction ?? undefined}
 		/>

@@ -175,10 +175,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					{/* Organizer info + actions */}
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex-1">
-							{page
-								? <ProfileTag page={page} size="md" avatarAsLink />
-								: <ProfileTag user={event.user} size="md" avatarAsLink />
-							}
+							<ProfileTag entity={page ?? event.user} size="md" asLink />
 						</div>
 
 						<div className="flex flex-wrap gap-3 items-center">

@@ -4,14 +4,12 @@
  * Uses shared initials utilities from utils/text.ts.
  */
 import Link from "next/link";
-import { CardUser, CardPage } from "@/lib/types/card";
+import { CardEntity, isCardPage } from "@/lib/types/card";
 import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 
-type UserModeProps = { user: CardUser; page?: never };
-type PageModeProps = { user?: never; page: CardPage };
-
-type EntityAvatarProps = (UserModeProps | PageModeProps) & {
+type EntityAvatarProps = {
+	entity: CardEntity;
 	size?: "sm" | "md" | "lg";
 	className?: string;
 	asLink?: boolean;
@@ -23,32 +21,23 @@ const sizeClasses = {
 	lg: "w-16 h-16 text-base",
 };
 
-// Derive display properties from the entity prop
-function resolveEntity(props: UserModeProps | PageModeProps) {
-	if (props.user) {
+function resolveEntity(entity: CardEntity) {
+	if (isCardPage(entity)) {
 		return {
-			initials: getUserInitials(props.user),
-			href: PUBLIC_USER_PAGE(props.user.username),
-			avatarUrl: props.user.avatarImage?.url ?? null,
+			initials: getPageInitials(entity.name),
+			href: PUBLIC_PAGE(entity.slug),
+			avatarUrl: entity.avatarImage?.url ?? null,
 		};
 	}
-	if (props.page) {
-		return {
-			initials: getPageInitials(props.page.name),
-			href: PUBLIC_PAGE(props.page.slug),
-			avatarUrl: props.page.avatarImage?.url ?? null,
-		};
-	}
-	return null;
+	return {
+		initials: getUserInitials(entity),
+		href: PUBLIC_USER_PAGE(entity.username),
+		avatarUrl: entity.avatarImage?.url ?? null,
+	};
 }
 
-export function EntityAvatar(props: EntityAvatarProps) {
-	const { size = "md", className = "", asLink = true } = props;
-
-	const entity = resolveEntity(props);
-	if (!entity) return null;
-
-	const { initials, href, avatarUrl } = entity;
+export function EntityAvatar({ entity, size = "md", className = "", asLink = true }: EntityAvatarProps) {
+	const { initials, href, avatarUrl } = resolveEntity(entity);
 	const sizeClass = sizeClasses[size];
 	const baseClasses = `${sizeClass} rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${className}`;
 	const bgClass = avatarUrl ? "" : "bg-soft-grey";
