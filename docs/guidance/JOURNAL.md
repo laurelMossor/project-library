@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Thu 03/26/2026 23:20 PDT
+Created `ProfileTag` — unified entity row (avatar + name + handle + badge + actions) accepting `CardEntity` (`CardUser | CardPage`) and resolving type internally. Refactored `EntityAvatar` to the same single `entity` prop. Replaced all one-off avatar/profile patterns across the app: `ConnectionsPageView`, `ConnectionsView`, both settings pages, `EventPageClient`, `ConnectionListItem`, `PageSwitcher`. Deleted `UserCard` and `PageCard`. Added `NavProfileTag` in the nav bar as a `DropdownMenu` trigger; removed Profile from the hamburger menu.
+
 #### Entry: Thu 03/26/2026 15:51 PDT
 Production deployment and bug fixes. Applied 3 pending migrations to prod and reseeded after data drop. Fixed posts missing from user and page profiles — a prior refactor left `// Collection items are just events now` in both profile pages, silently dropping posts; added `getPostsByUser`/`getPostsByPage` utilities and wired them in. Fixed hydration mismatch in `FilteredCollection` — `useBreakpoint` called getter during `useState` init so client and server diverged on column count; fixed with explicit `initialValue` param (also applied to `useDeviceType`). Fixed `getUserMemberships` hardcoding `role: MEMBER` — now returns all roles so connections view "Me" tab shows full page membership.
 
