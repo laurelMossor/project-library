@@ -1,15 +1,46 @@
-# E2E Testing
+# Testing
+
+Two layers of tests, both living under `tests/`:
+
+- **`tests/unit/`** — Vitest unit tests for pure business logic (no server, no browser)
+- **`tests/*.spec.ts`** — Playwright E2E tests running against the local dev server
+
+---
+
+## Unit Tests
+
+```bash
+npm run test:unit        # run once
+npm run test:unit:watch  # watch mode
+```
+
+No prerequisites. Tests run in jsdom and use `@/` path aliases.
+
+### Test Files
+
+| File | What it covers |
+|---|---|
+| `unit/validations.test.ts` | All validators: `validateEmail`, `validateUsername`, `validatePassword`, `validateMessageContent`, `validatePostData`, `validateEventData`, `validatePageData` |
+| `unit/rate-limit.test.ts` | `checkRateLimit` — allowed/denied counts, remaining decrement, window reset via `vi.useFakeTimers()`, independent keys |
+| `unit/useFilter.test.ts` | `useFilter` hook — type filter, tag filter, sort (newest/oldest), `availableTags`, filter composition, `initialValues` |
+| `unit/permission.test.ts` | **⚠️ INTENTIONALLY FAILING** — placeholder blocking CI until `canPostAsPage` tests are written (mid-refactor) |
+
+**Note on sort:** events sort by `eventDateTime`, posts sort by `createdAt`. Tests assert on item ID order to account for this. Note: This will likely change depending on the page view. 
+
+---
+
+## E2E Tests (Playwright)
 
 Playwright tests running against the local dev server (`http://localhost:3000`). Tests run serially (1 worker) since they share the local dev database.
 
-## Prerequisites
+### Prerequisites
 
 ```bash
 npm run db:seed:dev   # seed alice, george, dolores, sam, fiona, iris
 npm run dev           # dev server must be running
 ```
 
-## Run
+### Run
 
 ```bash
 npm run test:e2e              # run all tests (list reporter)
@@ -18,11 +49,9 @@ npx playwright test --ui      # interactive UI mode
 npx playwright test auth      # run a single file
 ```
 
----
+### Test Files
 
-## Test Files
-
-### `public.spec.ts` — unauthenticated renders
+#### `public.spec.ts` — unauthenticated renders
 No login required. Visits each public route and asserts it renders without a 500/error.
 
 | Test | Route | Asserts |
@@ -37,7 +66,7 @@ No login required. Visits each public route and asserts it renders without a 500
 
 ---
 
-### `auth.spec.ts` — authentication flows
+#### `auth.spec.ts` — authentication flows
 
 | Test | Actor | Flow | Asserts |
 |---|---|---|---|
@@ -51,7 +80,7 @@ No login required. Visits each public route and asserts it renders without a 500
 
 ---
 
-### `authoring.spec.ts` — create content (all as alice)
+#### `authoring.spec.ts` — create content (all as alice)
 
 | Test | Flow | Asserts |
 |---|---|---|
@@ -70,7 +99,7 @@ No login required. Visits each public route and asserts it renders without a 500
 
 ---
 
-### `messaging.spec.ts` — send a message (as alice → george)
+#### `messaging.spec.ts` — send a message (as alice → george)
 
 | Test | Flow | Asserts |
 |---|---|---|
@@ -80,7 +109,7 @@ The Send Message link navigates to `/messages/[georgeId]` where the ID is george
 
 ---
 
-### `profile.spec.ts` — profile pages
+#### `profile.spec.ts` — profile pages
 
 | Test | Actor | Flow | Asserts |
 |---|---|---|---|
@@ -112,7 +141,7 @@ USERS.dolores
 
 ## DB Cleanup
 
-All test data is cleaned up automatically. Events and posts are deleted by their own tests via the UI. Pages, messages, and signup users have no delete UI — these are removed by `tests/global-teardown.ts`, which runs once after the full suite via Playwright's `globalTeardown` hook.
+All E2E test data is cleaned up automatically. Events and posts are deleted by their own tests via the UI. Pages, messages, and signup users have no delete UI — these are removed by `tests/global-teardown.ts`, which runs once after the full suite via Playwright's `globalTeardown` hook.
 
 | Data created | Cleaned up how |
 |---|---|
@@ -130,8 +159,11 @@ DELETE FROM "Message" WHERE content LIKE 'Hello from Playwright%';
 DELETE FROM "User" WHERE username LIKE 'tst%';
 ```
 
+---
+
 ## What's Not Tested Yet
 
+- **`canPostAsPage` permissions** — mid-refactor; placeholder in `unit/permission.test.ts` blocks CI
 - **RSVP flow** — public RSVP on event detail (no auth required, upserts by `[eventId, email]`)
 - **Event detail render** — visiting a published event's detail page as unauthenticated user
 - **Page profile** — `/p/[slug]` render and follow
