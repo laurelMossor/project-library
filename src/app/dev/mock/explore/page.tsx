@@ -465,7 +465,6 @@ export default function ExploreMockPage() {
 
 	return (
 		<div className="min-h-screen bg-soft-grey">
-			{/* eslint-disable-next-line @next/next/no-page-custom-font */}
 			<link
 				href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&display=swap"
 				rel="stylesheet"
