@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/ui/TabbedPanel";
-import { EntityAvatar } from "./EntityAvatar";
+import { ProfileTag } from "./ProfileTag";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import Link from "next/link";
 
@@ -69,7 +69,7 @@ type ConnectionsData = {
 	followers: ConnectionItem[];
 	following: ConnectionItem[];
 	membership: MemberItem[];          // page entity: users who are members
-	memberOf: PageMembershipItem[];    // user entity: pages user has a ROLE for the Page, e.g. Member, Admin, Editor. It will display a badge with the role 
+	memberOf: PageMembershipItem[];    // user entity: pages user has a ROLE for the Page, e.g. Member, Admin, Editor. It will display a badge with the role
 };
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -104,66 +104,21 @@ const TOP_TABS: TabDef<TopTab>[] = [
 	{ id: "Membership", label: "Membership" },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── MemberRowActions — file-scope component to keep hooks valid ─────────────
 
-function displayName(user: { displayName: string | null; firstName: string | null; lastName: string | null; username: string }) {
-	return (
-		user.displayName ||
-		[user.firstName, user.lastName].filter(Boolean).join(" ") ||
-		user.username
-	);
-}
-
-// ─── Sub-components ─────────────────────────────────────────────────────────
-
-function ConnectionRow({ item }: { item: ConnectionItem }) {
-	const isUser = item.type === "USER" && item.user;
-	const isPage = item.type === "PAGE" && item.page;
-	const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
-
-	return (
-		<div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-soft-grey/60 bg-white/70 hover:bg-white transition-colors">
-			<div className="flex items-center gap-3">
-				{isUser && item.user ? (
-					<EntityAvatar user={item.user} size="sm" asLink={false} />
-				) : isPage && item.page ? (
-					<EntityAvatar page={item.page} size="sm" asLink={false} />
-				) : null}
-				<div>
-					{isUser && item.user && (
-						<>
-							<p className="text-sm font-medium text-rich-brown leading-tight">{displayName(item.user)}</p>
-							<p className="text-xs text-dusty-grey">@{item.user.username}</p>
-						</>
-					)}
-					{isPage && item.page && (
-						<p className="text-sm font-medium text-rich-brown leading-tight">{item.page.name}</p>
-					)}
-				</div>
-			</div>
-			<Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">
-				View
-			</Link>
-		</div>
-	);
-}
-
-function MemberRow({
-	item,
+function MemberRowActions({
 	onRemove,
 }: {
-	item: MemberItem;
-	onRemove?: (userId: string) => Promise<void>;
+	onRemove: () => Promise<void>;
 }) {
 	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	async function handleRemove() {
-		if (!onRemove) return;
 		setRemoving(true);
 		setError(null);
 		try {
-			await onRemove(item.user.id);
+			await onRemove();
 		} catch {
 			setError("Failed to remove");
 			setRemoving(false);
@@ -171,52 +126,16 @@ function MemberRow({
 	}
 
 	return (
-		<div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-soft-grey/60 bg-white/70 hover:bg-white transition-colors">
-			<div className="flex items-center gap-3">
-				<EntityAvatar user={item.user} size="sm" asLink={false} />
-				<div>
-					<p className="text-sm font-medium text-rich-brown leading-tight">{displayName(item.user)}</p>
-					<p className="text-xs text-dusty-grey">@{item.user.username}</p>
-					{error && <p className="text-xs text-red-500">{error}</p>}
-				</div>
-			</div>
-			<div className="flex items-center gap-2">
-				<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize">
-					{item.role.toLowerCase()}
-				</span>
-				{onRemove && (
-					<button
-						onClick={handleRemove}
-						disabled={removing}
-						className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-40 cursor-pointer"
-					>
-						{removing ? "Removing..." : "Remove"}
-					</button>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function PageMembershipRow({ item }: { item: PageMembershipItem }) {
-	return (
-		<div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-soft-grey/60 bg-white/70 hover:bg-white transition-colors">
-			<div className="flex items-center gap-3">
-				<EntityAvatar page={item.page} size="sm" asLink={false} />
-				<p className="text-sm font-medium text-rich-brown leading-tight">{item.page.name}</p>
-			</div>
-			<div className="flex items-center gap-2">
-				<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize">
-					{item.role.toLowerCase()}
-				</span>
-				<Link
-					href={PUBLIC_PAGE(item.page.slug)}
-					className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors"
-				>
-					View
-				</Link>
-			</div>
-		</div>
+		<>
+			{error && <p className="text-xs text-red-500">{error}</p>}
+			<button
+				onClick={handleRemove}
+				disabled={removing}
+				className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-40 cursor-pointer"
+			>
+				{removing ? "Removing..." : "Remove"}
+			</button>
+		</>
 	);
 }
 
@@ -324,20 +243,62 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 		if (top === "Followers") {
 			const items = d?.followers ?? [];
 			if (!items.length) return <EmptyMessage label="Followers" />;
-			return <div className="p-5 space-y-2">{items.map((item) => <ConnectionRow key={item.id} item={item} />)}</div>;
+			return (
+				<div className="p-5 space-y-2">
+					{items.map((item) => {
+						const isUser = item.type === "USER" && item.user;
+						const isPage = item.type === "PAGE" && item.page;
+						const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
+						const viewLink = <Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">View</Link>;
+						if (isUser && item.user) return <ProfileTag key={item.id} user={item.user} actions={viewLink} />;
+						if (isPage && item.page) return <ProfileTag key={item.id} page={item.page} actions={viewLink} />;
+						return null;
+					})}
+				</div>
+			);
 		}
 
 		if (top === "Following") {
 			const items = d?.following ?? [];
 			if (!items.length) return <EmptyMessage label="Following" />;
-			return <div className="p-5 space-y-2">{items.map((item) => <ConnectionRow key={item.id} item={item} />)}</div>;
+			return (
+				<div className="p-5 space-y-2">
+					{items.map((item) => {
+						const isUser = item.type === "USER" && item.user;
+						const isPage = item.type === "PAGE" && item.page;
+						const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
+						const viewLink = <Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">View</Link>;
+						if (isUser && item.user) return <ProfileTag key={item.id} user={item.user} actions={viewLink} />;
+						if (isPage && item.page) return <ProfileTag key={item.id} page={item.page} actions={viewLink} />;
+						return null;
+					})}
+				</div>
+			);
 		}
 
 		// Membership tab
 		if (tab.entityType === "user") {
 			const items = d?.memberOf ?? [];
 			if (!items.length) return <EmptyMessage label="Memberships" />;
-			return <div className="p-5 space-y-2">{items.map((item) => <PageMembershipRow key={item.id} item={item} />)}</div>;
+			return (
+				<div className="p-5 space-y-2">
+					{items.map((item) => (
+						<ProfileTag
+							key={item.id}
+							page={item.page}
+							badge={item.role.toLowerCase()}
+							actions={
+								<Link
+									href={PUBLIC_PAGE(item.page.slug)}
+									className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors"
+								>
+									View
+								</Link>
+							}
+						/>
+					))}
+				</div>
+			);
 		}
 
 		// Page membership — ADMIN can remove members, EDITOR is read-only
@@ -347,10 +308,15 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 		return (
 			<div className="p-5 space-y-2">
 				{items.map((item) => (
-					<MemberRow
+					<ProfileTag
 						key={item.id}
-						item={item}
-						onRemove={isAdmin && item.user.id !== user.id ? (userId) => removeMember(leftId, userId) : undefined}
+						user={item.user}
+						badge={item.role.toLowerCase()}
+						actions={
+							isAdmin && item.user.id !== user.id ? (
+								<MemberRowActions onRemove={() => removeMember(leftId, item.user.id)} />
+							) : undefined
+						}
 					/>
 				))}
 			</div>

@@ -1,2 +1,1 @@
-export { UserCard } from "./UserCard";
-export { PageCard } from "./PageCard";
+export { ProfileTag } from "@/lib/components/profile/ProfileTag";

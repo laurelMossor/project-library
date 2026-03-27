@@ -12,3 +12,5 @@ Avatar (Profile Picture):
 - On the Collections card
 
 All of these should have alignment and take in a page or user and be able to render the profile picture and either Name and username or Page name and slug, depending on context.
+
+The new component will be used in a new place. In the nav bar next to the hamburger menu, a medium sized version of the ProfilTag that when selected, will span the same menu component as the hamburger menu with just one option 'View Profile'

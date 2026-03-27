@@ -18,9 +18,8 @@ import { PostsList } from "@/lib/components/post/PostsList";
 import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
 import { updateEvent, publishEvent } from "@/lib/utils/event-client";
 import { AuthError } from "@/lib/utils/auth-client";
-import { getUserDisplayName } from "@/lib/types/user";
-import { getCardUserInitials } from "@/lib/types/card";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE, MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { PUBLIC_PAGE, MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
 type EventPageClientProps = {
 	event: EventItem;
@@ -49,14 +48,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 	const isDraft = event.status === "DRAFT";
 	const isPublished = event.status === "PUBLISHED";
 
-	const user = event.user;
 	const page = event.page;
-	const displayName = page ? page.name : getUserDisplayName(user);
-	const handle = page ? page.slug : user.username;
-	const profileHref = page ? PUBLIC_PAGE(page.slug) : PUBLIC_USER_PAGE(user.username);
-	const initials = page
-		? page.name.substring(0, 2).toUpperCase()
-		: getCardUserInitials(user);
 	const coverImageUrl = event.images?.[0]?.url || null;
 
 	const handleAuthError = () => {
@@ -182,22 +174,11 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 
 					{/* Organizer info + actions */}
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<div className="flex items-center gap-3">
-							<Link
-								href={profileHref}
-								className="w-12 h-12 rounded-full bg-melon-green/30 flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity"
-							>
-								<span className="text-moss-green font-medium text-sm">{initials}</span>
-							</Link>
-							<div>
-								<Link
-									href={profileHref}
-									className="text-base font-semibold text-rich-brown hover:underline"
-								>
-									{displayName}
-								</Link>
-								<p className="text-xs text-gray-500">@{handle}</p>
-							</div>
+						<div className="flex-1">
+							{page
+								? <ProfileTag page={page} size="md" avatarAsLink />
+								: <ProfileTag user={event.user} size="md" avatarAsLink />
+							}
 						</div>
 
 						<div className="flex flex-wrap gap-3 items-center">

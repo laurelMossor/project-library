@@ -6,7 +6,6 @@ import { useSession, signOut } from "next-auth/react";
 import {
 	HamburgerIcon,
 	CollectionsIcon,
-	UserHomeIcon,
 	MessageIcon,
 	PencilIcon,
 	LoginIcon,
@@ -18,8 +17,6 @@ import { NewItemModal } from "../NewItemModal";
 import {
 	COLLECTIONS,
 	MESSAGES,
-	PUBLIC_USER_PAGE,
-	PUBLIC_PAGE,
 	PRIVATE_USER_PAGE,
 	USER_PROFILE_SETTINGS,
 	PAGE_PROFILE_SETTINGS,
@@ -47,8 +44,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-	const [profileLink, setProfileLink] = useState<string | undefined>(undefined);
-	const [profileLabel, setProfileLabel] = useState<string>("Profile");
 	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
 	const [username, setUsername] = useState<string>('');
 
@@ -56,31 +51,24 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		if (isLoggedIn) {
 			const activePageId = activeSession?.user?.activePageId;
 			if (activePageId) {
-				// Fetch active page info
 				fetch(API_ME_PAGE)
 					.then((res) => (res.ok ? res.json() : null))
 					.then((data) => {
 						if (data?.slug) {
-							setProfileLink(PUBLIC_PAGE(data.slug));
-							setProfileLabel(`${data.name} Profile`);
 							setSettingsLink(PAGE_PROFILE_SETTINGS);
 						}
 					})
 					.catch(() => {});
 
-				// Still get username
 				fetch("/api/me/user")
 					.then((r) => (r.ok ? r.json() : null))
 					.then((user) => user?.username && setUsername(user.username))
 					.catch(() => {});
 			} else {
-				// Link to user's public profile
 				fetch("/api/me/user")
 					.then((r) => (r.ok ? r.json() : null))
 					.then((user) => {
 						if (user?.username) {
-							setProfileLink(PUBLIC_USER_PAGE(user.username));
-							setProfileLabel("Profile");
 							setSettingsLink(USER_PROFILE_SETTINGS);
 							setUsername(user.username);
 						}
@@ -88,7 +76,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					.catch(() => {});
 			}
 		} else {
-			setProfileLink(undefined);
 			setSettingsLink(undefined);
 		}
 	}, [isLoggedIn, activeSession?.user?.activePageId]);
@@ -115,13 +102,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 		closeMenu();
 		if (!isLoggedIn) {
 			router.push(LOGIN_WITH_CALLBACK(MESSAGES));
-		}
-	};
-
-	const handleProfile = () => {
-		closeMenu();
-		if (!isLoggedIn) {
-			router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 		}
 	};
 
@@ -162,14 +142,6 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					icon={<PencilIcon className={iconClass} />}
 					label="Post"
 					onClick={handleCreateNew}
-					closeMenu={closeMenu}
-				/>
-
-				<MenuItem
-					icon={<UserHomeIcon className={iconClass} />}
-					label={profileLabel}
-					href={isLoggedIn ? profileLink : undefined}
-					onClick={!isLoggedIn ? handleProfile : undefined}
 					closeMenu={closeMenu}
 				/>
 

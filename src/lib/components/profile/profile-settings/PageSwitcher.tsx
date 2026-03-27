@@ -1,7 +1,7 @@
 "use client";
 
-import { PageCard } from "@/lib/components/cards/PageCard";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
+import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { PUBLIC_PAGE } from "@/lib/const/routes";
 
 export type PageItem = {
@@ -33,7 +33,7 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 			</p>
 			<div className="space-y-2">
 				{pages.map((page) => (
-					<PageCard
+					<ProfileTag
 						key={page.id}
 						page={{
 							id: page.id,
