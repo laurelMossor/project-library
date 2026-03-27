@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/lib/components/ui/Button";
-import { UserCard } from "@/lib/components/cards/UserCard";
+import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { CardUser } from "@/lib/types/card";
 
 // Re-export CardUser as ConnectionUser for backward compatibility
@@ -16,10 +16,6 @@ type ConnectionListItemProps = {
 	removeButtonLabel?: string;
 };
 
-/**
- * ConnectionListItem - Wrapper around UserCard for managing connections
- * Adds remove button functionality for admin management, etc.
- */
 export function ConnectionListItem({
 	user,
 	role,
@@ -41,10 +37,10 @@ export function ConnectionListItem({
 	) : null;
 
 	return (
-		<UserCard
-			user={user}
+		<ProfileTag
+			entity={user}
 			badge={role}
-			actions={removeAction}
+			actions={removeAction ?? undefined}
 		/>
 	);
 }

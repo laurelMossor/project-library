@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { Button } from "@/lib/components/ui/Button";
+import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { LOGIN_WITH_CALLBACK, HOME, API_ME_PAGES, API_ME_PAGE, PRIVATE_PAGE, PRIVATE_USER_PAGE, PAGE_PROFILE_EDIT, PAGE_PROFILE_SETTINGS } from "@/lib/const/routes";
 
 interface PageInfo {
@@ -160,24 +161,24 @@ export default function PageSettingsPage() {
 				{pages.length === 0 ? (
 					<p className="text-sm text-gray-600">You don&apos;t have any pages yet.</p>
 				) : (
-					<div className="space-y-3">
+					<div className="space-y-2">
 						<p className="text-sm text-gray-600 mb-4">Switch to a page profile to manage it:</p>
 						{pages.map((page) => (
-							<div key={page.id} className="flex items-center justify-between p-3 border rounded">
-								<div>
-									<p className="font-medium">{page.name}</p>
-									<p className="text-sm text-gray-500">@{page.slug}</p>
-								</div>
-								<Button
-									onClick={() => handleSwitchToPage(page.id)}
-									disabled={switching || activePageId === page.id}
-									loading={switching}
-									variant="secondary"
-									size="sm"
-								>
-									{activePageId === page.id ? "Active" : "Switch To"}
-								</Button>
-							</div>
+							<ProfileTag
+								key={page.id}
+								entity={{ id: page.id, name: page.name, slug: page.slug, avatarImageId: null }}
+								actions={
+									<Button
+										onClick={() => handleSwitchToPage(page.id)}
+										disabled={switching || activePageId === page.id}
+										loading={switching}
+										variant="secondary"
+										size="sm"
+									>
+										{activePageId === page.id ? "Active" : "Switch To"}
+									</Button>
+								}
+							/>
 						))}
 					</div>
 				)}
