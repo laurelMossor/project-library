@@ -60,7 +60,7 @@ const ALL_CARDS: CardItem[] = [
 	{
 		id: "2",
 		type: "post",
-		title: "Building a Reclaimed Wood Bookshelf",
+		title: "",
 		description:
 			"Salvaged some Douglas fir from a demo site. Working through joinery options — might do mortise and tenon for the shelves. The grain on this wood is incredible, worth the extra effort to show it off.",
 		handle: "miriambuild",
