@@ -8,118 +8,33 @@
  */
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { Button } from "@/lib/components/ui/Button";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
-import { LOGIN_WITH_CALLBACK, HOME, API_ME_PAGES, API_ME_PAGE, PRIVATE_PAGE, PRIVATE_USER_PAGE, PAGE_PROFILE_EDIT, PAGE_PROFILE_SETTINGS } from "@/lib/const/routes";
-
-interface PageInfo {
-	id: string;
-	name: string;
-	slug: string;
-}
+import { LOGIN_WITH_CALLBACK, HOME, PRIVATE_PAGE, PRIVATE_USER_PAGE, PAGE_PROFILE_EDIT, PAGE_PROFILE_SETTINGS } from "@/lib/const/routes";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { useEffect } from "react";
 
 export default function PageSettingsPage() {
-	const { data: session, update: updateSession } = useSession();
+	const { data: session } = useSession();
 	const router = useRouter();
-	const [loading, setLoading] = useState(true);
-	const [pages, setPages] = useState<PageInfo[]>([]);
-	const [switching, setSwitching] = useState(false);
-	const [error, setError] = useState("");
+	const { pages, fetchPages, switchProfile, activePageId, loading, error } = useActiveProfile();
 
 	useEffect(() => {
 		if (!session?.user?.id) {
 			router.push(LOGIN_WITH_CALLBACK(PAGE_PROFILE_SETTINGS));
 			return;
 		}
+		fetchPages();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [session?.user?.id]);
 
-		// Fetch user's pages
-		fetch(API_ME_PAGES)
-			.then((res) => {
-				if (res.status === 401) {
-					router.push(LOGIN_WITH_CALLBACK(PAGE_PROFILE_SETTINGS));
-					return;
-				}
-				return res.json();
-			})
-			.then((data) => {
-				if (data && !data.error) {
-					setPages(data);
-				}
-				setLoading(false);
-			})
-			.catch(() => {
-				setError("Failed to load pages");
-				setLoading(false);
-			});
-	}, [session, router]);
+	if (!session?.user?.id) return null;
 
-	const handleSwitchToPage = async (pageId: string) => {
-		setSwitching(true);
-		setError("");
-
-		try {
-			const res = await fetch(API_ME_PAGE, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ activePageId: pageId }),
-			});
-
-			if (!res.ok) {
-				const data = await res.json();
-				setError(data.error || "Failed to switch to page");
-				setSwitching(false);
-				return;
-			}
-
-			await updateSession({ activePageId: pageId });
-			router.push(PRIVATE_PAGE);
-		} catch {
-			setError("Failed to switch to page");
-			setSwitching(false);
-		}
-	};
-
-	const handleSwitchToUser = async () => {
-		setSwitching(true);
-		setError("");
-
-		try {
-			const res = await fetch(API_ME_PAGE, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ activePageId: null }),
-			});
-
-			if (!res.ok) {
-				const data = await res.json();
-				setError(data.error || "Failed to switch to user");
-				setSwitching(false);
-				return;
-			}
-
-			await updateSession({ activePageId: null });
-			router.push(PRIVATE_USER_PAGE);
-		} catch {
-			setError("Failed to switch to user");
-			setSwitching(false);
-		}
-	};
-
-	if (loading) {
-		return (
-			<CenteredLayout maxWidth="2xl">
-				<div>Loading...</div>
-			</CenteredLayout>
-		);
-	}
-
-	const activePageId = session?.user?.activePageId;
-	const activePage = pages.find(page => page.id === activePageId);
+	const activePage = pages.find((page) => page.id === activePageId);
 
 	return (
 		<CenteredLayout maxWidth="2xl">
@@ -140,9 +55,9 @@ export default function PageSettingsPage() {
 					<div className="space-y-3">
 						<p className="text-sm text-gray-600">You are currently acting as a page.</p>
 						<Button
-							onClick={handleSwitchToUser}
-							disabled={switching}
-							loading={switching}
+							onClick={() => switchProfile(null).then(() => router.push(PRIVATE_USER_PAGE))}
+							disabled={loading}
+							loading={loading}
 							variant="secondary"
 						>
 							Switch to User Profile
@@ -166,12 +81,12 @@ export default function PageSettingsPage() {
 						{pages.map((page) => (
 							<ProfileTag
 								key={page.id}
-								entity={{ id: page.id, name: page.name, slug: page.slug, avatarImageId: null }}
+								entity={{ id: page.id, name: page.name, slug: page.slug, avatarImageId: page.avatarImageId, avatarImage: page.avatarImage }}
 								actions={
 									<Button
-										onClick={() => handleSwitchToPage(page.id)}
-										disabled={switching || activePageId === page.id}
-										loading={switching}
+										onClick={() => switchProfile(page.id).then(() => router.push(PRIVATE_PAGE))}
+										disabled={loading || activePageId === page.id}
+										loading={loading}
 										variant="secondary"
 										size="sm"
 									>
