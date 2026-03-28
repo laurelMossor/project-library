@@ -205,12 +205,21 @@ describe("validateEventData", () => {
     })).toMatchObject({ valid: false });
   });
 
-  test("rejects missing location", () => {
+  test("accepts empty location (location is optional)", () => {
     expect(validateEventData({
       title: "Event",
       content: "Details",
       eventDateTime: futureDate,
       location: "",
+    })).toMatchObject({ valid: true });
+  });
+
+  test("rejects location over 255 characters", () => {
+    expect(validateEventData({
+      title: "Event",
+      content: "Details",
+      eventDateTime: futureDate,
+      location: "a".repeat(256),
     })).toMatchObject({ valid: false });
   });
 

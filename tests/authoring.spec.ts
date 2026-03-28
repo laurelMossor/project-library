@@ -26,7 +26,7 @@ test.describe("Authoring — create content", () => {
 
     // Publish — single DB write; redirects to /events/[id]
     await page.getByRole("button", { name: "Publish" }).click();
-    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
+    await page.waitForURL((url) => /\/events\/[^/]+$/.test(url.pathname) && !url.pathname.endsWith("/events/new"), { timeout: 15_000 });
     await expect(page.getByText("Live")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Draft — only you can see this")).not.toBeVisible();
 

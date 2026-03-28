@@ -136,13 +136,7 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		return { valid: false, error: "Event date must be in the future" };
 	}
 
-	if (!data.location || typeof data.location !== "string") {
-		return { valid: false, error: "Event location is required" };
-	}
-	if (data.location.trim().length === 0) {
-		return { valid: false, error: "Event location cannot be empty" };
-	}
-	if (data.location.length > 255) {
+	if (data.location != null && typeof data.location === "string" && data.location.length > 255) {
 		return { valid: false, error: "Event location must be 255 characters or less" };
 	}
 
