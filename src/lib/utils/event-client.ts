@@ -55,7 +55,7 @@ export async function updateEvent(
 		longitude?: number | null;
 		tags?: string[];
 		status?: string;
-		pageId?: string;
+		pageId?: string | null;
 	}
 ): Promise<EventItem> {
 	const res = await authFetch(API_EVENT(id), {

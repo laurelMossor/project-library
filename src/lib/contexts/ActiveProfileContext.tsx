@@ -63,7 +63,8 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 			.catch(() => {});
 	}, [currentUser, activePageId]);
 
-	const fetchPages = async () => {
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	async function fetchPages() {
 		try {
 			const r = await fetch(API_ME_PAGES);
 			if (!r.ok) return;
@@ -84,7 +85,7 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 		} catch {
 			// silently fail — pages list is non-critical
 		}
-	};
+	}
 
 	const switchProfile = async (pageId: string | null) => {
 		setLoading(true);

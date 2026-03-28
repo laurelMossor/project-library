@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
@@ -21,12 +21,23 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 	const activeSession = session || sessionProp;
 	const isLoggedIn = hasSession(activeSession);
 
-	const { activeEntity, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
+	const { activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [switcherExpanded, setSwitcherExpanded] = useState(false);
 
+	// Load pages on mount so the trigger badge can show the active role
+	useEffect(() => {
+		if (isLoggedIn) fetchPages();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isLoggedIn]);
+
 	if (!isLoggedIn || !activeEntity) return null;
+
+	// Badge on the trigger: "me" for personal identity, role for a page
+	const activeBadge = activePageId
+		? (pages.find((p) => p.id === activePageId)?.role?.toLowerCase() ?? undefined)
+		: "me";
 
 	const isActingAsPage = isCardPage(activeEntity);
 	const profileLink = isActingAsPage
@@ -60,8 +71,9 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 			onClose={handleToggle}
 			triggerClassName="cursor-pointer rounded transition-opacity hover:opacity-80"
 			triggerAriaLabel="Profile menu"
+			containerClassName="w-[260px]"
 			trigger={
-				<ProfileTag entity={activeEntity} size="md" asLink={false} className="border-none bg-transparent hover:bg-transparent" />
+				<ProfileTag entity={activeEntity} size="md" asLink={false} variant="compact" badge={activeBadge} className="border-none bg-transparent hover:bg-transparent" />
 			}
 		>
 			<MenuItem
@@ -89,7 +101,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							role="button"
 							aria-label="Switch to personal profile"
 						>
-							<ProfileTag entity={currentUser as CardEntity} size="sm" asLink={false} />
+							<ProfileTag entity={currentUser as CardEntity} size="sm" asLink={false} variant="compact" />
 						</div>
 					)}
 
@@ -102,7 +114,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							role="button"
 							aria-label={`Switch to ${page.name}`}
 						>
-							<ProfileTag entity={page} size="sm" asLink={false} badge={page.role.toLowerCase()} />
+							<ProfileTag entity={page} size="sm" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
 						</div>
 					))}
 

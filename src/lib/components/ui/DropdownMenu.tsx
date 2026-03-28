@@ -20,6 +20,8 @@ interface DropdownMenuProps {
 	children: ReactNode;
 	triggerClassName?: string;
 	triggerAriaLabel?: string;
+	/** Extra classes appended to the dropdown container — use to override min-w or set a fixed width. */
+	containerClassName?: string;
 }
 
 export function DropdownMenu({
@@ -29,6 +31,7 @@ export function DropdownMenu({
 	children,
 	triggerClassName = "p-2 hover:opacity-80 rounded transition-opacity",
 	triggerAriaLabel = "Menu",
+	containerClassName = "",
 }: DropdownMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null);
@@ -68,7 +71,7 @@ export function DropdownMenu({
 					/>
 					{dropdownPosition && (
 						<div
-							className={dropdownMenuStyles.container}
+							className={`${dropdownMenuStyles.container} ${containerClassName}`}
 							style={{
 								position: "fixed",
 								top: dropdownPosition.top,

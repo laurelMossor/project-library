@@ -340,6 +340,8 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 						entity={meta.entity}
 						badge={!meta.isSelf && meta.role ? meta.role.toLowerCase() : undefined}
 						asLink={false}
+						variant="compact"
+						align="right"
 						className="!border-0 !bg-transparent hover:!bg-transparent w-full"
 					/>
 				);

@@ -19,6 +19,7 @@ import { InteractiveMap, geocodeAddress } from "@/lib/components/map/Interactive
 import { updateEvent, publishEvent } from "@/lib/utils/event-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
 type EventPageClientProps = {
@@ -33,6 +34,11 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 	const [editingField, setEditingField] = useState<string | null>(null);
 	const [rsvpRefreshKey, setRsvpRefreshKey] = useState(0);
 	const [publishing, setPublishing] = useState(false);
+
+	// Authorship switcher (draft + owner only)
+	const { currentUser, pages, fetchPages } = useActiveProfile();
+	const [authorPageId, setAuthorPageId] = useState<string | null>(event.page?.id ?? null);
+	const [authorSelectorOpen, setAuthorSelectorOpen] = useState(false);
 
 	// Inline edit state
 	const [editTitle, setEditTitle] = useState(event.title);
@@ -106,6 +112,22 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 		}
 	};
 
+	const handleAuthorSwitch = async (pageId: string | null) => {
+		setAuthorSelectorOpen(false);
+		try {
+			const updated = await updateEvent(event.id, { pageId });
+			setEvent((prev) => ({ ...prev, ...updated }));
+			setAuthorPageId(pageId);
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
+		}
+	};
+
+	// Entity to display in the organizer section
+	const authorEntity = authorPageId === null
+		? event.user
+		: (pages.find((p) => p.id === authorPageId) ?? event.page ?? event.user);
+
 	return (
 		<main className="flex min-h-screen items-center justify-center bg-slate-50 py-8 px-4">
 			<div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-glow">
@@ -175,7 +197,47 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					{/* Organizer info + actions */}
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex-1">
-							<ProfileTag entity={page ?? event.user} size="md" asLink />
+							{isOwner && isDraft ? (
+								<div className="relative">
+									<button
+										type="button"
+										onClick={() => { if (!authorSelectorOpen) fetchPages(); setAuthorSelectorOpen((o) => !o); }}
+										className="w-full text-left cursor-pointer rounded transition-opacity hover:opacity-80"
+										aria-expanded={authorSelectorOpen}
+										aria-label="Change event author"
+									>
+										<ProfileTag entity={authorEntity} size="md" asLink={false} />
+									</button>
+									{authorSelectorOpen && (
+										<>
+											<div className="fixed inset-0 z-10" onClick={() => setAuthorSelectorOpen(false)} />
+											<div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-soft-grey rounded-lg shadow-lg py-1 min-w-[240px]">
+												{currentUser && authorPageId !== null && (
+													<div
+														onClick={() => handleAuthorSwitch(null)}
+														className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+														role="option"
+													>
+														<ProfileTag entity={currentUser} size="sm" asLink={false} />
+													</div>
+												)}
+												{pages.filter((p) => p.id !== authorPageId).map((p) => (
+													<div
+														key={p.id}
+														onClick={() => handleAuthorSwitch(p.id)}
+														className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+														role="option"
+													>
+														<ProfileTag entity={p} size="sm" asLink={false} badge={p.role.toLowerCase()} />
+													</div>
+												))}
+											</div>
+										</>
+									)}
+								</div>
+							) : (
+								<ProfileTag entity={page ?? event.user} size="md" asLink />
+							)}
 						</div>
 
 						<div className="flex flex-wrap gap-3 items-center">
