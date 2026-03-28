@@ -6,6 +6,23 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Fri 03/27/2026 23:06 PDT
+Refactored event creation flow and extracted generic inline-editable field components.
+
+**Event creation flow overhaul:** Replaced the "create draft immediately, then patch per field" model with a pure client-side form at `/events/new`. No DB writes happen until the user clicks Publish, which fires a single `POST /api/events` creating the event as `PUBLISHED` and redirects to `/events/[id]`. Added `createEvent()` to `event-client.ts`. The "Draft — only you can see this" banner is retained as a presentational UX element on the creation page. `canPublish` gate requires title, content, and a future date before enabling the Publish button.
+
+**Shared page shell:** Extracted `EventPageShell` and `DraftBanner` into `src/lib/components/event/EventPageShell.tsx` — a shared structural wrapper consumed by both `EventPageClient` (editing) and `CreateEventPage` (creation), eliminating duplicated layout JSX.
+
+**Generic inline-editable field components:** Extracted four field components from `EventPageClient` and moved them to `src/lib/components/inline-editable/` with resource-agnostic names and APIs:
+- `InlineEditableTitle` — `<h1>` text input with `placeholder` / `emptyLabel` props
+- `InlineEditableContent` — `<textarea>` with `placeholder` prop
+- `InlineEditableLocation` — location string + geocoding + `InteractiveMap`/`EventMap`, `eventTitle` renamed to `mapTitle`
+- `InlineEditableTags` — comma-separated tag input rendering `<Tag>` chips
+
+Each component manages its own editing/saving/error state and notifies the parent via a generic `onCommit` callback. Event-specific placeholder strings (`"Event name"`, `"What should people know?"`) are passed at the call site rather than hardcoded in the components. Old `Event*Field` files deleted.
+
+**E2E tests updated:** `authoring.spec.ts` reworked — creation test no longer expects an immediate redirect on `/events/new`; publish step waits for URL redirect and asserts the "Live" badge. Discard-draft test now verifies no DB record is created when navigating away without publishing (event count before/after comparison).
+
 #### Entry: Fri 03/27/2026 19:37 PDT
 Auto-delete draft events on navigation. `EventPageClient` cleanup effect calls `deleteEvent` when the owner navigates away without publishing. Uses a `useRef` to track live draft status (avoids stale closures on publish) and an `armed`/`setTimeout(0)` flag to skip the delete during React Strict Mode's dev double-invocation. `console.log` left as a TODO marker for a future confirmation popup.
 
