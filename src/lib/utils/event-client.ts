@@ -83,6 +83,36 @@ export async function publishEvent(id: string): Promise<EventItem> {
 }
 
 /**
+ * Create and publish an event in a single submission (authenticated)
+ */
+export async function createEvent(
+	data: {
+		title: string;
+		content: string;
+		eventDateTime: Date;
+		location?: string;
+		tags?: string[];
+		pageId?: string;
+	}
+): Promise<EventItem> {
+	const res = await authFetch(API_EVENTS, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			...data,
+			eventDateTime: data.eventDateTime.toISOString(),
+		}),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to create event");
+	}
+
+	return res.json();
+}
+
+/**
  * Create a draft event for inline editing (authenticated)
  */
 export async function createDraftEvent(pageId?: string): Promise<EventItem> {

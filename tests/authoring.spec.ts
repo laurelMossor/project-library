@@ -7,26 +7,26 @@ test.describe("Authoring — create content", () => {
   });
 
   test("create, publish, and delete an event", async ({ page }) => {
-    // /events/new creates a draft and immediately redirects to the event detail page
+    // /events/new renders the creation surface directly — no redirect until Publish
     await page.goto("/events/new");
-    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
 
-    // Draft banner should be visible
+    // Draft banner should be visible on the creation page
     await expect(page.getByText("Draft — only you can see this")).toBeVisible();
 
-    // Inline-edit title
+    // Inline-edit title (local state only — no DB write yet)
     await page.getByRole("button", { name: /Event name/i }).first().click();
     await page.getByPlaceholder("Event name").fill("Playwright Test Event");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Playwright Test Event")).toBeVisible();
 
-    // Inline-edit description
+    // Inline-edit description (local state only — no DB write yet)
     await page.getByRole("button", { name: /What should people know/i }).first().click();
     await page.getByPlaceholder("What should people know?").fill("This event was created by an automated test.");
     await page.getByRole("button", { name: "Save" }).click();
 
-    // Publish
+    // Publish — single DB write; redirects to /events/[id]
     await page.getByRole("button", { name: "Publish" }).click();
+    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
     await expect(page.getByText("Live")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("Draft — only you can see this")).not.toBeVisible();
 
@@ -39,37 +39,28 @@ test.describe("Authoring — create content", () => {
     await page.waitForURL(/\/collections/, { timeout: 10_000 });
   });
 
-  test("navigating away from a draft event deletes it", async ({ page }) => {
-    // Create a draft event
+  test("navigating away from the new event page does not create a DB record", async ({ page }) => {
+    // Record the published event count before visiting the creation page
+    const beforeResponse = await page.request.get("/api/events");
+    const eventsBefore: unknown[] = await beforeResponse.json();
+    const countBefore = eventsBefore.length;
+
+    // Visit the creation page — no DB write happens just by visiting
     await page.goto("/events/new");
-    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
 
-    const eventId = page.url().split("/events/")[1];
+    // URL should stay at /events/new — no redirect (no draft created in DB)
+    await expect(page).toHaveURL(/\/events\/new/);
+    await expect(page.getByText("Draft — only you can see this")).toBeVisible();
 
-    // Set up console listener BEFORE navigating — the cleanup effect logs when it fires,
-    // which confirms the useEffect cleanup actually ran (not just that the test passed by coincidence)
-    const cleanupFired = page.waitForEvent("console", {
-      predicate: (msg) => msg.text().includes("deleting draft event on navigation away"),
-      timeout: 10_000,
-    });
-
-    // SPA navigation via the Explore link unmounts EventPageClient, triggering the
-    // cleanup effect which calls deleteEvent in the background
+    // Navigate away without publishing
     await page.getByRole("link", { name: "Explore" }).click();
     await page.waitForURL(/\/explore/, { timeout: 10_000 });
 
-    // Confirm the cleanup effect actually ran
-    await cleanupFired;
-
-    // Poll the API until the background DELETE completes (max 10s, checks every 500ms)
-    await page.waitForFunction(
-      async (id) => {
-        const resp = await fetch(`/api/events/${id}`);
-        return resp.status === 404;
-      },
-      eventId,
-      { timeout: 10_000, polling: 500 }
-    );
+    // Give any potential async writes a moment to settle, then verify no event was created
+    await page.waitForTimeout(1000);
+    const afterResponse = await page.request.get("/api/events");
+    const eventsAfter: unknown[] = await afterResponse.json();
+    expect(eventsAfter.length).toBe(countBefore);
   });
 
   test("create and delete a post", async ({ page }) => {

@@ -5,7 +5,7 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { formatDateTime } from "@/lib/utils/datetime";
 
 type InlineDateTimePickerProps = {
-	eventId: string;
+	eventId?: string;
 	eventDateTime: Date | string;
 	canEdit: boolean;
 	onSave: (dateTime: Date) => Promise<void>;

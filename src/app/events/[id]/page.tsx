@@ -1,3 +1,6 @@
+// Route entry point — server-side data fetching and auth only.
+// All display and editing UI is in src/lib/components/event/EventPageClient.tsx,
+// mirroring the pattern used by src/app/events/new/page.tsx → CreateEventPage.
 import { getEventById } from "@/lib/utils/server/event";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
