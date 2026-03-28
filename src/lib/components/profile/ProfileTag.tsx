@@ -39,6 +39,7 @@ export function ProfileTag({
 	const name = page ? entity.name : getCardUserDisplayName(entity);
 	const handle = page ? entity.slug : entity.username;
 	const href = page ? PUBLIC_PAGE(entity.slug) : PUBLIC_USER_PAGE(entity.username);
+	const resolvedBadge = badge ?? (variant === "compact" && !page ? "me" : undefined);
 
 	const avatar = <EntityAvatar entity={entity} size={size} asLink={false} />;
 
@@ -46,9 +47,9 @@ export function ProfileTag({
 		variant === "compact" ? (
 			<div className="min-w-0">
 				<p className="text-sm font-medium text-rich-brown leading-tight">{name}</p>
-				{badge && (
+				{resolvedBadge && (
 					<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize mt-1 inline-block">
-						{badge}
+						{resolvedBadge}
 					</span>
 				)}
 			</div>
