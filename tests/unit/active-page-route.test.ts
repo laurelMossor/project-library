@@ -35,7 +35,7 @@ describe("PUT /api/session/active-page", () => {
   beforeEach(() => vi.clearAllMocks());
 
   test("unauthenticated → 401", async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as any);
     const res = await PUT(putRequest({ activePageId: "page-1" }));
     expect(res.status).toBe(401);
   });
@@ -85,7 +85,7 @@ describe("DELETE /api/session/active-page", () => {
   beforeEach(() => vi.clearAllMocks());
 
   test("unauthenticated → 401", async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as any);
     const res = await DELETE();
     expect(res.status).toBe(401);
   });
