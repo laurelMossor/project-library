@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createDraftEvent } from "@/lib/utils/event-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { EVENT_DETAIL, LOGIN_WITH_CALLBACK, EVENT_NEW } from "@/lib/const/routes";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 /**
  * /events/new — Creates a draft event and redirects to the event page for inline editing.
@@ -12,10 +13,11 @@ import { EVENT_DETAIL, LOGIN_WITH_CALLBACK, EVENT_NEW } from "@/lib/const/routes
  */
 export default function NewEventPage() {
 	const router = useRouter();
+	const { activePageId } = useActiveProfile();
 	const [error, setError] = useState("");
 
 	useEffect(() => {
-		createDraftEvent()
+		createDraftEvent(activePageId ?? undefined)
 			.then((event) => {
 				router.replace(EVENT_DETAIL(event.id));
 			})
@@ -26,7 +28,7 @@ export default function NewEventPage() {
 				}
 				setError(err instanceof Error ? err.message : "Failed to create event");
 			});
-	}, [router]);
+	}, [router, activePageId]);
 
 	if (error) {
 		return (

@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { API_ME_PAGE, PRIVATE_USER_PAGE } from "@/lib/const/routes";
-import { useSession } from "next-auth/react";
+import { PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 /**
  * ActingAsPageTooltip
@@ -14,13 +14,11 @@ import { useSession } from "next-auth/react";
 export function ActingAsPageTooltip() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
-	const { update: updateSession } = useSession();
+	const { switchProfile, loading } = useActiveProfile();
 	const [isVisible, setIsVisible] = useState(false);
-	const [switching, setSwitching] = useState(false);
 	const [pageSlug, setPageSlug] = useState<string | null>(null);
 
 	useEffect(() => {
-		// Check if redirected from user profile
 		const from = searchParams.get("from");
 		const page = searchParams.get("page");
 
@@ -28,7 +26,6 @@ export function ActingAsPageTooltip() {
 			setIsVisible(true);
 			setPageSlug(page);
 
-			// Clean up URL without causing navigation
 			const url = new URL(window.location.href);
 			url.searchParams.delete("from");
 			url.searchParams.delete("page");
@@ -37,38 +34,16 @@ export function ActingAsPageTooltip() {
 	}, [searchParams]);
 
 	const handleSwitchToUser = async () => {
-		setSwitching(true);
-
-		try {
-			const res = await fetch(API_ME_PAGE, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ activePageId: null }),
-			});
-
-			if (res.ok) {
-				await updateSession({ activePageId: null });
-				router.push(PRIVATE_USER_PAGE);
-			}
-		} catch {
-			// Silently fail
-		} finally {
-			setSwitching(false);
-		}
+		await switchProfile(null);
+		router.push(PRIVATE_USER_PAGE);
 	};
 
-	const handleDismiss = () => {
-		setIsVisible(false);
-	};
-
-	if (!isVisible) {
-		return null;
-	}
+	if (!isVisible) return null;
 
 	return (
 		<div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 relative">
 			<button
-				onClick={handleDismiss}
+				onClick={() => setIsVisible(false)}
 				className="absolute top-2 right-2 text-amber-600 hover:text-amber-800 text-lg leading-none"
 				aria-label="Dismiss"
 			>
@@ -81,8 +56,8 @@ export function ActingAsPageTooltip() {
 				</p>
 				<Button
 					onClick={handleSwitchToUser}
-					disabled={switching}
-					loading={switching}
+					disabled={loading}
+					loading={loading}
 					variant="secondary"
 					size="sm"
 				>

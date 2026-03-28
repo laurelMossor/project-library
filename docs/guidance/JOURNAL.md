@@ -6,6 +6,21 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Fri 03/27/2026 19:37 PDT
+Auto-delete draft events on navigation. `EventPageClient` cleanup effect calls `deleteEvent` when the owner navigates away without publishing. Uses a `useRef` to track live draft status (avoids stale closures on publish) and an `armed`/`setTimeout(0)` flag to skip the delete during React Strict Mode's dev double-invocation. `console.log` left as a TODO marker for a future confirmation popup.
+
+Added Playwright E2E test: confirms the cleanup ran via `page.waitForEvent("console")`, then polls `GET /api/events/{id}` with `page.waitForFunction` until 404. (`waitForResponse` was unreliable — Playwright doesn't capture fetches initiated during React component teardown.) All 19 tests pass.
+
+#### Entry: Fri 03/27/2026 18:01 PDT
+Added basic observability and unit tests for profile switching.
+
+**Logging:** Added `@vercel/analytics` to root layout, structured JSON request logging in `proxy.ts`, and a `logAction()` helper wired into 7 write paths (login, signup, post/event/page/follow/message created). Logs queryable via Vercel dashboard or CLI with `jq`. Documented in `docs/scratch/logging_and_tracking.md`.
+
+**Unit tests:** Filled `permission.test.ts` placeholder (`canPostAsPage`, `canManagePage`). Added `active-page-route.test.ts` (PUT/DELETE auth + permission gate). Added `ActiveProfileContext.test.tsx` (identity resolution, switchProfile success/403/null, fetchPages filtering). 88 tests passing, typecheck clean.
+
+#### Entry: Fri 03/27/2026 17:41 PDT
+Completed profile switching (ActiveProfileContext) and event authorship features. Replaced `SessionContext` with `ActiveProfileContext` — a full provider supplying `activeEntity`, `activePageId`, `currentUser`, `pages`, `switchProfile`, and `fetchPages` app-wide. All profile switching now routes through `PUT/DELETE /api/session/active-page` (validates ADMIN/EDITOR permission server-side), closing a security gap in the old `PUT /api/me/page` route which ignored `activePageId`. Added `NavProfileTag` dropdown with "View Profile" and "Switch Profile" menu items (icons, accordion-style inline expansion). Added `variant="compact"` to `ProfileTag` (no handle, badge stacked below name) and `align` prop (`"left"` default fixes button-ancestor centering, `"right"` for ConnectionsView left tabs). Nav trigger uses compact+badge ("Me" for personal, role for pages). Event authorship implemented on the draft event page (`EventPageClient`) — clicking the organizer ProfileTag opens a selector showing all switchable identities (personal + ADMIN/EDITOR pages); saves immediately via `PATCH /api/events/[id]`; read-only once published. Active identity excluded from the selector list. Hover behavior matches the nav profile tag trigger.
+
 #### Entry: Fri 03/27/2026 12:53 PDT
 Added Playwright E2E test suite (19 tests, all passing). Installed `@playwright/test`, created `playwright.config.ts` (chromium, serial workers, localhost:3000), and a shared `tests/helpers/auth.ts` login utility. Test files cover: public page renders (`public.spec.ts`), auth flows including login/logout/signup/protected-route redirect (`auth.spec.ts`), content authoring — event inline-edit+publish, post creation, page creation (`authoring.spec.ts`), messaging between users (`messaging.spec.ts`), and profile pages with follow/unfollow toggle (`profile.spec.ts`). Run with `npm run test:e2e`. Tests run serially since they share the local dev DB; seed must be run first. Noted that the signup test handles the in-memory rate limiter (5 signups/hr per IP) gracefully.
 

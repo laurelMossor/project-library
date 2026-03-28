@@ -1,7 +1,7 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
-import { SessionProvider as AppSessionProvider } from "@/lib/contexts/SessionContext";
+import { ActiveProfileProvider } from "@/lib/contexts/ActiveProfileContext";
 import { Session } from "next-auth";
 
 interface ProvidersProps {
@@ -12,9 +12,9 @@ interface ProvidersProps {
 export function Providers({ children, session }: ProvidersProps) {
 	return (
 		<SessionProvider session={session}>
-			<AppSessionProvider session={session}>
+			<ActiveProfileProvider>
 				{children}
-			</AppSessionProvider>
+			</ActiveProfileProvider>
 		</SessionProvider>
 	);
 }

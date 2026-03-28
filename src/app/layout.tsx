@@ -3,7 +3,6 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
 import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
-import { PageBanner } from "@/lib/components/layout/PageBanner";
 import { Footer } from "@/lib/components/footer/Footer";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -32,9 +31,6 @@ export default async function RootLayout({
 					<div className="flex flex-col min-h-screen">
 						{/* Navigation bar */}
 						<NavigationBar session={session} />
-
-						{/* Page Banner - shows when user has an active page */}
-						<PageBanner />
 
 						{/* Main content area - no sidebar */}
 						<main className="flex-1">

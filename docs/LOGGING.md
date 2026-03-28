@@ -91,6 +91,31 @@ vercel logs <your-app-url> \
 
 ---
 
+## Filtering Your Own Traffic
+
+Your userId is included in every `logAction` call. Find it once by doing anything while logged in and searching the Vercel Logs tab for `"type":"action"` — your id will be in `.userId`.
+
+**CLI: exclude your userId from action logs**
+```bash
+vercel logs <url> \
+  | grep '"type":"action"' \
+  | jq 'select(.userId != "YOUR_USER_ID")'
+```
+
+**CLI: exclude your IP from request logs**
+```bash
+vercel logs <url> \
+  | grep '"type":"request"' \
+  | jq 'select(.ip != "YOUR_IP")'
+```
+> Find your current IP at [whatismyip.com](https://www.whatismyip.com/) — note that home IPs can change.
+
+**Vercel dashboard:** search `-"YOUR_USER_ID"` in the Logs search box to negate a term.
+
+If you later add the `AppEvent` DB table and an on-site dashboard, you can set a `LOG_SKIP_USER_IDS` env var and skip writing your own events at the source (see [Option B in prior discussion]).
+
+---
+
 ## Limitations & Next Steps
 
 - **Log retention:** Vercel keeps function logs for 30 days on the hobby plan

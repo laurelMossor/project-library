@@ -37,7 +37,6 @@ export const EXPLORE_PAGE = "/explore";
 export const EVENTS = "/events";
 export const EVENT_NEW = "/events/new";
 export const EVENT_DETAIL = (id: string) => `/events/${id}`;
-export const EVENT_EDIT = (id: string) => `/events/${id}/edit`;
 
 // ============================================================================
 // Post Routes
@@ -62,6 +61,7 @@ export const API_AUTH_SIGNUP = "/api/auth/signup";
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
+export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
 
 // Event API Routes
 export const API_EVENTS = "/api/events";

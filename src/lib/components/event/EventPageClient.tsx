@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
@@ -16,9 +16,10 @@ import { Tags } from "@/lib/components/tag/Tag";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
-import { updateEvent, publishEvent } from "@/lib/utils/event-client";
+import { updateEvent, publishEvent, deleteEvent } from "@/lib/utils/event-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
 type EventPageClientProps = {
@@ -50,6 +51,36 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 
 	const page = event.page;
 	const coverImageUrl = event.images?.[0]?.url || null;
+
+	// Tracks whether this event is still a draft so the unmount cleanup always
+	// has the latest value (avoids stale closure over `isDraft`).
+	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
+	useEffect(() => {
+		shouldDiscardOnLeaveRef.current = event.status === "DRAFT" && isOwner;
+	}, [event.status, isOwner]);
+
+	// When the owner navigates away from an unpublished draft, delete it silently.
+	// TODO: replace console.log with a confirmation popup before deleting.
+	//
+	// The `armed` flag guards against React Strict Mode's double-invocation in dev:
+	// Strict Mode runs the cleanup synchronously, which cancels the 0ms timer before
+	// it fires (armed stays false → no delete). On real navigation the timer has
+	// already fired, so armed is true and we delete.
+	useEffect(() => {
+		const eventId = event.id;
+		let armed = false;
+		const armTimer = setTimeout(() => { armed = true; }, 0);
+
+		return () => {
+			clearTimeout(armTimer);
+			if (armed && shouldDiscardOnLeaveRef.current) {
+				console.log("TODO: show discard-draft popup — deleting draft event on navigation away:", eventId);
+				deleteEvent(eventId).catch(() => {});
+			}
+		};
+	// event.id is stable for the lifetime of this component
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const handleAuthError = () => {
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
@@ -103,6 +134,15 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 			// Geocoding is optional
 		} finally {
 			setGeocoding(false);
+		}
+	};
+
+	const handleAuthorSwitch = async (pageId: string | null) => {
+		try {
+			const updated = await updateEvent(event.id, { pageId });
+			setEvent((prev) => ({ ...prev, ...updated }));
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
 		}
 	};
 
@@ -175,7 +215,14 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					{/* Organizer info + actions */}
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex-1">
-							<ProfileTag entity={page ?? event.user} size="md" asLink />
+							{isOwner && isDraft ? (
+								<DropdownProfileSelector
+									initialPageId={event.page?.id ?? null}
+									onChange={handleAuthorSwitch}
+								/>
+							) : (
+								<ProfileTag entity={page ?? event.user} size="md" asLink />
+							)}
 						</div>
 
 						<div className="flex flex-wrap gap-3 items-center">

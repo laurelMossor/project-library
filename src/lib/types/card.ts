@@ -88,6 +88,9 @@ export function isCardPost(item: CardCollectionItem): item is CardPost {
 // A CardUser or CardPage — pages have `slug`, users have `username`
 export type CardEntity = CardUser | CardPage;
 
+// CardPage with the user's role on that page (ADMIN | EDITOR | MEMBER)
+export type CardPageWithRole = CardPage & { role: string };
+
 // TODO mourn whatever logic created this monstrosity and fix it
 export function isCardPage(entity: CardEntity): entity is CardPage {
 	return "slug" in entity;
