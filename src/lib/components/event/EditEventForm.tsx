@@ -12,10 +12,9 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { Button } from "@/lib/components/ui/Button";
-import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { API_EVENTS, LOGIN_WITH_CALLBACK, EVENT_NEW, EVENT_DETAIL } from "@/lib/const/routes";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import { CardEntity } from "@/lib/types/card";
 
 const MAX_TAGS = 10;
 
@@ -34,7 +33,7 @@ type Props = {
 export function EditEventForm({ event }: Props) {
 	const isEditMode = !!event;
 	const router = useRouter();
-	const { activeEntity, activePageId, currentUser, pages, fetchPages } = useActiveProfile();
+	const { activePageId } = useActiveProfile();
 
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
@@ -51,7 +50,6 @@ export function EditEventForm({ event }: Props) {
 
 	// Authorship: defaults to current active page, always overridable (create mode only)
 	const [pageId, setPageId] = useState<string | null>(activePageId ?? null);
-	const [selectorOpen, setSelectorOpen] = useState(false);
 
 	// Initialize datetime from event if editing
 	useEffect(() => {
@@ -197,17 +195,6 @@ export function EditEventForm({ event }: Props) {
 		}
 	};
 
-	// Resolve the selected author entity for display:
-	// - null pageId → personal user (currentUser from context)
-	// - pageId set → find in loaded pages, fall back to activeEntity (already fetched by context)
-	const selectedAuthorEntity: CardEntity | null =
-		pageId === null
-			? currentUser
-			: (pages.find((p) => p.id === pageId) ?? activeEntity);
-
-	// Edit mode: display authorship based on who originally created the event
-	const editModeAuthorEntity: CardEntity | null = event?.page ?? (event?.user ?? null);
-
 	return (
 		<FormLayout>
 			<form onSubmit={handleSubmit} className="space-y-4">
@@ -215,66 +202,9 @@ export function EditEventForm({ event }: Props) {
 
 				<FormError error={error} />
 
-				{/* Authorship selector — editable in create mode, read-only in edit mode */}
-				<FormField label="Post as" htmlFor="author">
-					{isEditMode ? (
-						// Edit mode: authorship is immutable after creation
-						editModeAuthorEntity && (
-							<ProfileTag entity={editModeAuthorEntity} size="sm" asLink={false} />
-						)
-					) : (
-						// Create mode: allow choosing personal identity or any page
-						<div className="relative">
-							<button
-								type="button"
-								onClick={() => { if (!selectorOpen) fetchPages(); setSelectorOpen((o) => !o); }}
-								className="w-full text-left"
-								aria-expanded={selectorOpen}
-							>
-								{selectedAuthorEntity ? (
-									<ProfileTag entity={selectedAuthorEntity} size="sm" asLink={false} />
-								) : (
-									<span className="text-sm text-dusty-grey">Loading...</span>
-								)}
-							</button>
-
-							{selectorOpen && (
-								<>
-									{/* Backdrop to close selector */}
-									<div
-										className="fixed inset-0 z-10"
-										onClick={() => setSelectorOpen(false)}
-									/>
-									<div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-soft-grey rounded-lg shadow-lg py-1">
-										{/* Personal identity option */}
-										{currentUser && (
-											<div
-												onClick={() => { setPageId(null); setSelectorOpen(false); }}
-												className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
-												role="option"
-												aria-selected={pageId === null}
-											>
-												<ProfileTag entity={currentUser} size="sm" asLink={false} />
-											</div>
-										)}
-										{/* Page identity options */}
-										{pages.map((page) => (
-											<div
-												key={page.id}
-												onClick={() => { setPageId(page.id); setSelectorOpen(false); }}
-												className="px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
-												role="option"
-												aria-selected={pageId === page.id}
-											>
-												<ProfileTag entity={page} size="sm" asLink={false} badge={page.role.toLowerCase()} />
-											</div>
-										))}
-									</div>
-								</>
-							)}
-						</div>
-					)}
-				</FormField>
+				{!isEditMode && (
+					<DropdownProfileSelector label="Post as" onChange={setPageId} />
+				)}
 
 				<FormField label="Title" htmlFor="title" required>
 					<FormInput
