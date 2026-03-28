@@ -8,24 +8,28 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 export type DropdownProfileSelectorProps = {
 	label?: string;
 	onChange?: (pageId: string | null) => void;
+	/** Seed the selection with a specific page id. Defaults to the active profile. */
+	initialPageId?: string | null;
 };
 
-export function DropdownProfileSelector({ label, onChange }: DropdownProfileSelectorProps) {
+export function DropdownProfileSelector({ label, onChange, initialPageId }: DropdownProfileSelectorProps) {
 	const { activeEntity, currentUser, pages, fetchPages, activePageId } = useActiveProfile();
-	// Tracks an explicit user selection; null means "follow active profile"
-	const [override, setOverride] = useState<{ pageId: string | null } | null>(null);
-	const selectedPageId = override !== null ? override.pageId : activePageId;
+	// Tracks an explicit user selection; undefined means "use initial/active profile"
+	const [override, setOverride] = useState<{ pageId: string | null } | undefined>(undefined);
+	const selectedPageId = override !== undefined ? override.pageId : (initialPageId !== undefined ? initialPageId : activePageId);
 	const [open, setOpen] = useState(false);
 
 	// Pre-load pages on mount so the dropdown is ready and the active role badge is available
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => { fetchPages(); }, []);
 
-	// When no override, use the already-resolved activeEntity from context
+	// Prefer already-resolved activeEntity when showing the active page, otherwise look up in pages
 	const selectedEntity: CardEntity | null =
-		override === null
-			? activeEntity
-			: (override.pageId === null ? currentUser : pages.find((p) => p.id === override.pageId) ?? null);
+		selectedPageId === null
+			? currentUser
+			: selectedPageId === activePageId
+				? activeEntity
+				: pages.find((p) => p.id === selectedPageId) ?? null;
 
 	function handleOpen() {
 		setOpen((o) => !o);

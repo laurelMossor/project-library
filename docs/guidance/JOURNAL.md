@@ -6,6 +6,11 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Fri 03/27/2026 19:37 PDT
+Auto-delete draft events on navigation. `EventPageClient` cleanup effect calls `deleteEvent` when the owner navigates away without publishing. Uses a `useRef` to track live draft status (avoids stale closures on publish) and an `armed`/`setTimeout(0)` flag to skip the delete during React Strict Mode's dev double-invocation. `console.log` left as a TODO marker for a future confirmation popup.
+
+Added Playwright E2E test: confirms the cleanup ran via `page.waitForEvent("console")`, then polls `GET /api/events/{id}` with `page.waitForFunction` until 404. (`waitForResponse` was unreliable — Playwright doesn't capture fetches initiated during React component teardown.) All 19 tests pass.
+
 #### Entry: Fri 03/27/2026 18:01 PDT
 Added basic observability and unit tests for profile switching.
 

@@ -37,7 +37,6 @@ export const EXPLORE_PAGE = "/explore";
 export const EVENTS = "/events";
 export const EVENT_NEW = "/events/new";
 export const EVENT_DETAIL = (id: string) => `/events/${id}`;
-export const EVENT_EDIT = (id: string) => `/events/${id}/edit`;
 
 // ============================================================================
 // Post Routes

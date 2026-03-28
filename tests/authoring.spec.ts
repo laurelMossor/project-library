@@ -39,6 +39,39 @@ test.describe("Authoring — create content", () => {
     await page.waitForURL(/\/collections/, { timeout: 10_000 });
   });
 
+  test("navigating away from a draft event deletes it", async ({ page }) => {
+    // Create a draft event
+    await page.goto("/events/new");
+    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
+
+    const eventId = page.url().split("/events/")[1];
+
+    // Set up console listener BEFORE navigating — the cleanup effect logs when it fires,
+    // which confirms the useEffect cleanup actually ran (not just that the test passed by coincidence)
+    const cleanupFired = page.waitForEvent("console", {
+      predicate: (msg) => msg.text().includes("deleting draft event on navigation away"),
+      timeout: 10_000,
+    });
+
+    // SPA navigation via the Explore link unmounts EventPageClient, triggering the
+    // cleanup effect which calls deleteEvent in the background
+    await page.getByRole("link", { name: "Explore" }).click();
+    await page.waitForURL(/\/explore/, { timeout: 10_000 });
+
+    // Confirm the cleanup effect actually ran
+    await cleanupFired;
+
+    // Poll the API until the background DELETE completes (max 10s, checks every 500ms)
+    await page.waitForFunction(
+      async (id) => {
+        const resp = await fetch(`/api/events/${id}`);
+        return resp.status === 404;
+      },
+      eventId,
+      { timeout: 10_000, polling: 500 }
+    );
+  });
+
   test("create and delete a post", async ({ page }) => {
     await page.goto("/posts/new");
     await expect(page).toHaveURL(/\/posts\/new/);
