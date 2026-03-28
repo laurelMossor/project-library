@@ -6,6 +6,13 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Fri 03/27/2026 18:01 PDT
+Added basic observability and unit tests for profile switching.
+
+**Logging:** Added `@vercel/analytics` to root layout, structured JSON request logging in `proxy.ts`, and a `logAction()` helper wired into 7 write paths (login, signup, post/event/page/follow/message created). Logs queryable via Vercel dashboard or CLI with `jq`. Documented in `docs/scratch/logging_and_tracking.md`.
+
+**Unit tests:** Filled `permission.test.ts` placeholder (`canPostAsPage`, `canManagePage`). Added `active-page-route.test.ts` (PUT/DELETE auth + permission gate). Added `ActiveProfileContext.test.tsx` (identity resolution, switchProfile success/403/null, fetchPages filtering). 88 tests passing, typecheck clean.
+
 #### Entry: Fri 03/27/2026 17:41 PDT
 Completed profile switching (ActiveProfileContext) and event authorship features. Replaced `SessionContext` with `ActiveProfileContext` — a full provider supplying `activeEntity`, `activePageId`, `currentUser`, `pages`, `switchProfile`, and `fetchPages` app-wide. All profile switching now routes through `PUT/DELETE /api/session/active-page` (validates ADMIN/EDITOR permission server-side), closing a security gap in the old `PUT /api/me/page` route which ignored `activePageId`. Added `NavProfileTag` dropdown with "View Profile" and "Switch Profile" menu items (icons, accordion-style inline expansion). Added `variant="compact"` to `ProfileTag` (no handle, badge stacked below name) and `align` prop (`"left"` default fixes button-ancestor centering, `"right"` for ConnectionsView left tabs). Nav trigger uses compact+badge ("Me" for personal, role for pages). Event authorship implemented on the draft event page (`EventPageClient`) — clicking the organizer ProfileTag opens a selector showing all switchable identities (personal + ADMIN/EDITOR pages); saves immediately via `PATCH /api/events/[id]`; read-only once published. Active identity excluded from the selector list. Hover behavior matches the nav profile tag trigger.
 
