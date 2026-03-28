@@ -89,6 +89,7 @@ export function isCardPost(item: CardCollectionItem): item is CardPost {
 export type CardEntity = CardUser | CardPage;
 
 // CardPage with the user's role on that page (ADMIN | EDITOR | MEMBER)
+// TODO consider just expanding cardpage to have role, and/or make ROLES an enum
 export type CardPageWithRole = CardPage & { role: string };
 
 // TODO mourn whatever logic created this monstrosity and fix it
