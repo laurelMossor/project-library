@@ -84,6 +84,7 @@ export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 // Message API Routes
 export const API_MESSAGES = "/api/messages";
 export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;
+export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 
 // ============================================================================
 // Other Pages

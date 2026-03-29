@@ -69,12 +69,21 @@ export async function POST(request: Request) {
 			recipientParticipantWhere = { pageId: recipientPageId };
 		}
 
+		// When asPageId is set, the conversation is owned by the page, not the user directly.
+		// This ensures [page:PMG, user:Sam] conversations are separate from [user:Dolores, user:Sam].
+		const senderParticipantWhere = asPageId
+			? { pageId: asPageId }
+			: { userId: ctx.userId };
+
+		const senderParticipantCreate = asPageId
+			? { pageId: asPageId }
+			: { userId: ctx.userId };
+
 		// Find existing conversation between these two participants
-		// A conversation where BOTH the sender (as user) and the recipient are participants
 		let conversationId: string | null = null;
 
 		const senderConversations = await prisma.conversationParticipant.findMany({
-			where: { userId: ctx.userId },
+			where: senderParticipantWhere,
 			select: { conversationId: true },
 		});
 
@@ -102,7 +111,7 @@ export async function POST(request: Request) {
 				data: {
 					participants: {
 						create: [
-							{ userId: ctx.userId },
+							senderParticipantCreate,
 							recipientUserId
 								? { userId: recipientUserId }
 								: { pageId: recipientPageId },

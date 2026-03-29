@@ -12,6 +12,7 @@ import {
 	LogoutIcon,
 	SettingsIcon,
 } from "../../icons/icons";
+import { NotificationDot } from "../../ui/NotificationDot";
 import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
@@ -21,7 +22,7 @@ import {
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
 } from "@/lib/const/routes";
-import { API_ME_PAGE } from "@/lib/const/routes";
+import { API_ME_PAGE, API_MESSAGES_UNREAD_COUNT } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { MenuItem } from "./MenuItem";
 import { DropdownMenu, dropdownMenuStyles } from "../../ui/DropdownMenu";
@@ -44,6 +45,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
 	const [username, setUsername] = useState<string>('');
+	const [unreadCount, setUnreadCount] = useState(0);
 
 	useEffect(() => {
 		if (isLoggedIn) {
@@ -77,6 +79,24 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 			setSettingsLink(undefined);
 		}
 	}, [isLoggedIn, activeSession?.user?.activePageId]);
+
+	// Poll for unread message count every 60 seconds when logged in
+	useEffect(() => {
+		if (!isLoggedIn) return;
+
+		function fetchUnreadCount() {
+			fetch(API_MESSAGES_UNREAD_COUNT)
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => { if (data?.count !== undefined) setUnreadCount(data.count); })
+				.catch(() => {});
+		}
+
+		fetchUnreadCount();
+		const intervalId = setInterval(() => {
+			if (document.visibilityState === "visible") fetchUnreadCount();
+		}, 60000);
+		return () => clearInterval(intervalId);
+	}, [isLoggedIn]);
 
 	const closeMenu = () => {
 		setIsOpen(false);
@@ -121,7 +141,16 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 			<DropdownMenu
 				isOpen={isOpen}
 				onClose={() => setIsOpen((o) => !o)}
-				trigger={<HamburgerIcon className="w-8 h-8 shrink-0" />}
+				trigger={
+				<div className="relative">
+					<HamburgerIcon className="w-8 h-8 shrink-0" />
+					{unreadCount > 0 && (
+						<span className="absolute -top-0.5 -right-0.5">
+							<NotificationDot />
+						</span>
+					)}
+				</div>
+			}
 				triggerAriaLabel="Menu"
 			>
 				<MenuItem
@@ -144,6 +173,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					href={isLoggedIn ? MESSAGES : undefined}
 					onClick={!isLoggedIn ? handleMessages : undefined}
 					closeMenu={closeMenu}
+					indicator={unreadCount > 0 ? <NotificationDot /> : undefined}
 				/>
 
 				<MenuItem

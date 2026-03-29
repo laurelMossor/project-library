@@ -6,6 +6,8 @@ import { useBreakpoint } from "@/lib/hooks/useBreakpoint";
 export type TabDef<TId extends string = string> = {
   id: TId;
   label: string;
+  /** If true, renders a × button to close the tab. Use with onTopTabClose. */
+  closeable?: boolean;
 };
 
 type TabbedPanelProps<TTop extends string, TLeft extends string> = {
@@ -18,6 +20,12 @@ type TabbedPanelProps<TTop extends string, TLeft extends string> = {
   getCount?: (left: TLeft, top: TTop) => number;
   defaultTop?: TTop;
   defaultLeft?: TLeft;
+  /** Controlled active top tab. If provided, component defers to parent for top tab selection. */
+  activeTop?: TTop;
+  /** Called when a top tab is clicked (controlled + uncontrolled modes). */
+  onActiveTopChange?: (id: TTop) => void;
+  /** Called when a closeable tab's × button is clicked. Parent should remove the tab from topTabs. */
+  onTopTabClose?: (id: TTop) => void;
 };
 
 const ACTIVE_TOP =
@@ -38,13 +46,24 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
   getCount,
   defaultTop,
   defaultLeft,
+  activeTop: controlledActiveTop,
+  onActiveTopChange,
+  onTopTabClose,
 }: TabbedPanelProps<TTop, TLeft>) {
-  const [activeTop, setActiveTop] = useState<TTop>(
+  const [internalActiveTop, setInternalActiveTop] = useState<TTop>(
     defaultTop ?? topTabs[0].id
   );
   const [activeLeft, setActiveLeft] = useState<TLeft>(
     defaultLeft ?? leftTabs[0].id
   );
+
+  // Controlled mode: use parent-provided activeTop; otherwise use internal state.
+  const activeTop = controlledActiveTop !== undefined ? controlledActiveTop : internalActiveTop;
+
+  const handleTopClick = (id: TTop) => {
+    setInternalActiveTop(id);
+    onActiveTopChange?.(id);
+  };
 
   // matchMedia is more reliable than innerWidth on mobile Safari.
   const isMobile = useBreakpoint(
@@ -74,7 +93,7 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTop(tab.id)}
+                onClick={() => handleTopClick(tab.id)}
                 // z-index via inline style works reliably across all browsers including Safari.
                 // Active tab always floats above all others; earlier inactive tabs above later ones.
                 style={{
@@ -88,6 +107,16 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
                 {tab.label}
                 {count !== undefined && (
                   <span className="ml-1.5 text-xs opacity-60">({count})</span>
+                )}
+                {tab.closeable && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); onTopTabClose?.(tab.id); }}
+                    className="ml-1.5 opacity-50 hover:opacity-100 transition-opacity"
+                    role="button"
+                    aria-label={`Close ${tab.label}`}
+                  >
+                    ×
+                  </span>
                 )}
               </button>
             );
