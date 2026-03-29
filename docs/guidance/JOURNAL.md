@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief.
 
 
+#### Entry: Sun 03/29/2026 15:25 PDT
+The messages flow was overhauled by replacing the old multi-page navigation with a TabbedPanel-based MessagesPageView, where thread tabs open inline and the left panel reflects only the active profile — switching profiles clears tabs and reloads the inbox. A core identity bug was fixed so that messages sent as a page (e.g. PMG) correctly create [page:PMG, user:Sam] conversations rather than personal user threads, and the GET conversation endpoint was updated to find threads via managed pages consistently with the existing PATCH behavior. Two display bugs were resolved: isSent now reads from useActiveProfile() instead of incorrectly comparing against targetId, and scroll behavior was fixed by using scrollTop = scrollHeight on the overflow container instead of scrollIntoView(), which had been hiding the tab bar. Finally, unread message notifications were added via a NotificationDot component overlaid on the hamburger icon and Messages menu row, backed by 60-second polling; opening a thread marks messages read via PATCH and optimistically reverts the bold unread styling.
+
 #### Entry: Fri 03/27/2026 19:37 PDT
 Auto-delete draft events on navigation. `EventPageClient` cleanup effect calls `deleteEvent` when the owner navigates away without publishing. Uses a `useRef` to track live draft status (avoids stale closures on publish) and an `armed`/`setTimeout(0)` flag to skip the delete during React Strict Mode's dev double-invocation. `console.log` left as a TODO marker for a future confirmation popup.
 
