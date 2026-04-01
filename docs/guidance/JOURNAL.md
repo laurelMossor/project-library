@@ -3,16 +3,11 @@
 1. When requested by the user (i.e. "Please add to the journal"), add a log above the previous one
 2. Run `date` to get the date and time, use that as the headline (Convert date to format-> Day MM/DD/YYYY HH:MM TMZ)
 3. Write a brief summary of what has been changed or updated since the last journal. No need to document every little nuance. Include major changes, and current challenges at a high level
-4. Treat them like a substantially detailed commit message with some details but keep it brief.
+4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
 
 
 #### Entry: Sun 03/29/2026 15:25 PDT
 The messages flow was overhauled by replacing the old multi-page navigation with a TabbedPanel-based MessagesPageView, where thread tabs open inline and the left panel reflects only the active profile — switching profiles clears tabs and reloads the inbox. A core identity bug was fixed so that messages sent as a page (e.g. PMG) correctly create [page:PMG, user:Sam] conversations rather than personal user threads, and the GET conversation endpoint was updated to find threads via managed pages consistently with the existing PATCH behavior. Two display bugs were resolved: isSent now reads from useActiveProfile() instead of incorrectly comparing against targetId, and scroll behavior was fixed by using scrollTop = scrollHeight on the overflow container instead of scrollIntoView(), which had been hiding the tab bar. Finally, unread message notifications were added via a NotificationDot component overlaid on the hamburger icon and Messages menu row, backed by 60-second polling; opening a thread marks messages read via PATCH and optimistically reverts the bold unread styling.
-
-#### Entry: Fri 03/27/2026 19:37 PDT
-Auto-delete draft events on navigation. `EventPageClient` cleanup effect calls `deleteEvent` when the owner navigates away without publishing. Uses a `useRef` to track live draft status (avoids stale closures on publish) and an `armed`/`setTimeout(0)` flag to skip the delete during React Strict Mode's dev double-invocation. `console.log` left as a TODO marker for a future confirmation popup.
-
-Added Playwright E2E test: confirms the cleanup ran via `page.waitForEvent("console")`, then polls `GET /api/events/{id}` with `page.waitForFunction` until 404. (`waitForResponse` was unreliable — Playwright doesn't capture fetches initiated during React component teardown.) All 19 tests pass.
 
 #### Entry: Fri 03/27/2026 18:01 PDT
 Added basic observability and unit tests for profile switching.
