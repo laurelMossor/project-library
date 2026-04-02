@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
 
 
+#### Entry: Thu 04/02/2026 12:08 PDT
+Fixed page-based messaging bug where messages sent "as a Page" were actually sent as the personal user. The root cause was `/messages/[userId]/page.tsx` — the direct conversation route reached via "Send Message" on a profile — which never read `activePageId` from `ActiveProfileContext`, so `asPageId` was never passed to `ConversationThread`. This meant the API created conversations under the personal user identity instead of the page, causing threads to not appear in the page's inbox and messages to display as from the user instead of the page. Also updated `isSent` in `ConversationThread` to recognize messages sent as the active page (multi-admin support) and `isUnread` in `MessagesPageView` to not flag page-sent messages as unread for fellow page admins.
+
 #### Entry: Wed 04/01/2026 17:33 PDT
 Refactored unread message notifications to be profile-scoped. The unread-count API now returns `{ personal, pages: { [pageId]: count } }` instead of a flat total. A new `UnreadCountContext` centralizes polling (60s, visibility-gated), re-fetches on profile switch, listens for a `messages:read` custom event dispatched after mark-as-read, and exposes `activeCount` for the current profile. `HamburgerMenu` lost its local polling effect and now reads from context. `NavProfileTag` shows a `NotificationDot` next to inactive profiles in the switcher when they have unread messages. Added 7 new e2e tests: 3 in `messaging.spec.ts` (inbox list, open thread, notification dot clear) and a new `profile-switching.spec.ts` with 4 tests covering switcher visibility, page/personal identity transitions, and profile-scoped inbox filtering. The dot test uses a second browser context to send a fresh message, making it independent of seeded read state.
 

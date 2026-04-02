@@ -219,10 +219,13 @@ export function MessagesPageView() {
 					const targetType: "user" | "page" = other?.user ? "user" : "page";
 
 					// Unread: last message was sent by the other party and hasn't been read
+					const sentByActiveEntity =
+						conv.lastMessage?.senderId === currentUser?.id ||
+						(activeEntityType === "page" && conv.lastMessage?.asPageId === entityId);
 					const isUnread = !!(
 						conv.lastMessage &&
 						conv.lastMessage.readAt === null &&
-						conv.lastMessage.senderId !== currentUser?.id
+						!sentByActiveEntity
 					);
 
 					const previewText = conv.lastMessage

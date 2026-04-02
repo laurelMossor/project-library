@@ -5,10 +5,12 @@ import Link from "next/link";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 import { ConversationThread } from "@/lib/components/messages/ConversationThread";
 import { MESSAGES } from "@/lib/const/routes";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 export default function ConversationPage() {
 	const params = useParams();
 	const userId = params?.userId as string;
+	const { activePageId } = useActiveProfile();
 
 	return (
 		<PageLayout>
@@ -19,7 +21,11 @@ export default function ConversationPage() {
 					</Link>
 				</div>
 				<div className="flex-1 border border-soft-grey rounded-xl overflow-hidden flex flex-col">
-					<ConversationThread targetId={userId} targetType="user" />
+					<ConversationThread
+						targetId={userId}
+						targetType="user"
+						asPageId={activePageId ?? undefined}
+					/>
 				</div>
 			</div>
 		</PageLayout>
