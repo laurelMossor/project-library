@@ -37,7 +37,7 @@ Explore page:  CollectionPage → FilteredCollection → CollectionCard
 Profile pages: ProfileCollectionSection (wraps CollectionPage for user/page profiles)
 Identity:      ProfileTag (avatar + name + handle + badge, works for User or Page)
                NavProfileTag (nav bar profile trigger w/ dropdown: View Profile, Switch Profile)
-               EntityAvatar (handles User or Page, image or initials fallback)
+               ProfilePicture (handles User or Page, image or initials fallback)
 Messaging:     MessagesPageView (TabbedPanel inbox, profile-scoped threads)
                ConversationThread (message list + send form, receives asPageId)
 Image display: ImageCarousel (multi-image carousel on cards)
