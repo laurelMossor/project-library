@@ -3,11 +3,11 @@ You are a Senior Engineer focused on clean & DRY code, lightweight & scalable MV
 ## Best Practices & Instructions (Important!)
 1. For best results, always ask for clarification on what the user would like done instead of moving forward with actions that were not requested
 2. Keep code simple, to the point, without fluff. Add comments only where things may be confusing to even a developer with context
-5. ALWAYS explain why you are doing what you're doing it! I love to learn.
-6. Use the existing components and colors where appropirate
-7. The DB Schema should be the source of truth for TS types and interfaces. 
-8. When asked to create a journal, check JOURNAL.md.
-9. After you've completed your task, always run `npm run validate` to make sure your changes didn't break anything
+3. ALWAYS explain why you are doing what you're doing it! I love to learn.
+4. Use the existing components and colors where appropriate
+5. The DB Schema should be the source of truth for TS types and interfaces.
+6. When asked to create a journal, check `docs/guidance/JOURNAL.md`.
+7. After you've completed your task, always run `npm run validate` to make sure your changes didn't break anything
 
 ## High level overview
 The Project Library is a website dedicated to creativity, mutuality, and lifelong learning. Users create Posts to show what they are working on, in addition to a range of other features: Creative and skill building events, tool lending, mentorship and work trades. Find experts, find creative inspiration, create teaching and learning connections. Build. Make. Connect.
@@ -17,12 +17,15 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 - **Auth**: NextAuth v5 (session-based, `lib/auth.ts`)
 - **DB**: PostgreSQL via Prisma ORM
 - **Storage**: Supabase storage buckets (image uploads → bucket "uploads", public URLs)
+- **Testing**: Playwright (E2E, `tests/`), Vitest (unit, `tests/unit/`)
 - **Deploy**: Vercel
 
 ## Key Conventions
 - **Routes**: All route constants in `lib/const/routes.ts` — never hardcode paths
-- **Server utils**: DB queries live in `lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`)
+- **Server utils**: DB queries live in `lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`, `permission.ts`)
 - **Field selectors**: Reusable Prisma `select` objects in `lib/utils/server/fields.ts`
+- **Permissions**: `canPostAsPage()`, `canManagePage()`, `getPagesForUser()` in `lib/utils/server/permission.ts`
+- **Identity context**: `ActiveProfileContext` (`lib/contexts/`) — provides `activeEntity`, `activePageId`, `currentUser`, `switchProfile()`. All identity-aware UI reads from this context.
 - **Shared text utils**: Initials, truncation, display names → `lib/utils/text.ts`
 - **Validations**: All input validation in `lib/validations.ts` (events, posts, pages, messages)
 - **Types**: `lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
@@ -32,11 +35,16 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 ```
 Explore page:  CollectionPage → FilteredCollection → CollectionCard
 Profile pages: ProfileCollectionSection (wraps CollectionPage for user/page profiles)
-Avatars:       EntityAvatar (handles User or Page, image or initials fallback)
+Identity:      ProfileTag (avatar + name + handle + badge, works for User or Page)
+               NavProfileTag (nav bar profile trigger w/ dropdown: View Profile, Switch Profile)
+               EntityAvatar (handles User or Page, image or initials fallback)
+Messaging:     MessagesPageView (TabbedPanel inbox, profile-scoped threads)
+               ConversationThread (message list + send form, receives asPageId)
 Image display: ImageCarousel (multi-image carousel on cards)
 Posts on cards: PostsList (fetches child posts/updates for a parent post or event)
-Layout:        CenteredLayout, FormLayout
+Layout:        CenteredLayout, FormLayout, TabbedPanel (dual-axis tabbed container)
 Forms:         FormField, FormInput, FormTextarea, FormActions, FormError
+Notifications: NotificationDot (unread indicator on nav icons / profile switcher)
 ```
 
 # App Diagram (reflects current Prisma schema)
@@ -90,7 +98,9 @@ Events
 Event
 ├─ user → User                   (creator, always set)
 ├─ page → Page?                  (hosted by a page; requires ADMIN/EDITOR permission)
+├─ status: DRAFT | PUBLISHED     (default DRAFT, only PUBLISHED events appear publicly)
 ├─ posts → Post[]                (event updates / announcements)
+├─ rsvps → Rsvp[]               (name + email, no userId required)
 └─ tags, topics
 
 ------------------------------------------------
@@ -146,8 +156,12 @@ Conversation
 │  ├─ user → User?               (exactly one of these is set)
 │  └─ page → Page?               (Page participant: ADMIN/EDITOR users can access)
 └─ messages → Message[]
-   ├─ sender → User              (accountability)
+   ├─ sender → User              (accountability — always the logged-in user)
    └─ asPageId?                  (sending on behalf of a Page)
+
+• Conversations are identity-scoped: API calls pass asPageId to ensure
+  queries only return conversations for the active identity (personal vs page).
+  Without this, a page admin's personal inbox could leak page conversations.
 
 ------------------------------------------------
 
