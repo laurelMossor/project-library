@@ -21,8 +21,8 @@
 	},
 	{
 		"email": "sam.example@example.com",
-		"username": "Sam",
-		"password": "Sam",
+		"username": "sam",
+		"password": "sam",
 		"name": "Sam Example",
 		"headline": "Vegetable enthusiast and Full Stack Developer",
 		"bio": "I might have a dog named Falafel and enjoy my garden and building web applications with React, Node.js, and TypeScript. Passionate about clean code, testing, and contributing to open source projects. I volunteer with beginningers from time to time.",

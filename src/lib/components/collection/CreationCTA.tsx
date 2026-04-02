@@ -9,12 +9,12 @@ export const transparentCTAStyles = {
     label: "px-2 py-2 text-rich-brown",
 };
 
-type TransparentCTAButtonBase = { label: string; icon?: React.ReactNode };
+type TransparentCTAButtonBase = { label: string; icon?: React.ReactNode; className?: string };
 type TransparentCTALinkProps = TransparentCTAButtonBase & { href: string; onClick?: never; disabled?: never };
 type TransparentCTAActionProps = TransparentCTAButtonBase & { href?: never; onClick: () => void; disabled?: boolean };
 type TransparentCTAButtonProps = TransparentCTALinkProps | TransparentCTAActionProps;
 
-export const TransparentCTAButton = ({ label, icon, ...rest }: TransparentCTAButtonProps) => {
+export const TransparentCTAButton = ({ label, icon, className = "", ...rest }: TransparentCTAButtonProps) => {
     const inner = (
         <>
             <div className={transparentCTAStyles.iconWrapper}>{icon}</div>
@@ -24,7 +24,7 @@ export const TransparentCTAButton = ({ label, icon, ...rest }: TransparentCTABut
 
     if ("href" in rest && rest.href) {
         return (
-            <div className={transparentCTAStyles.container}>
+            <div className={`${transparentCTAStyles.container} ${className}`}>
                 <Link href={rest.href} className="flex items-center">
                     {inner}
                 </Link>
@@ -38,7 +38,7 @@ export const TransparentCTAButton = ({ label, icon, ...rest }: TransparentCTABut
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className={`${transparentCTAStyles.container} disabled:opacity-40 disabled:cursor-not-allowed`}
+            className={`${transparentCTAStyles.container} disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
         >
             {inner}
         </button>

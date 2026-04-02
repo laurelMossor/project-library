@@ -16,6 +16,7 @@ import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
+import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 
@@ -45,7 +46,10 @@ export default async function PublicPageProfilePage({ params }: Props) {
 			<div className="flex flex-col gap-6 mb-8">
 				<div className="flex items-start justify-between gap-4">
 					<ProfileHeader profile={profile} />
-					<ProfileButtons entityId={page.id} entityType="page" />
+					<div className="flex flex-col gap-2 w-36 shrink-0">
+						<ProfileButtons entityId={page.id} entityType="page" />
+						<JoinButton pageId={page.id} />
+					</div>
 				</div>
 				<ProfileBody profile={profile} />
 			</div>

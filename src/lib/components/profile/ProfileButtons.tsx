@@ -85,12 +85,13 @@ export function ProfileButtons({ entityId, entityType }: ProfileButtonsProps) {
 		: <PlusSignIcon className="w-4 h-4" />;
 
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="flex flex-col gap-2 w-full">
 			<TransparentCTAButton
 				label={followLabel}
 				icon={followIcon}
 				onClick={handleFollow}
 				disabled={disabled || loadingFollow || toggling}
+				className="w-full"
 			/>
 			{disabled ? (
 				<TransparentCTAButton
@@ -98,12 +99,14 @@ export function ProfileButtons({ entityId, entityType }: ProfileButtonsProps) {
 					icon={<MessageIcon className="w-4 h-4" />}
 					onClick={() => {}}
 					disabled
+					className="w-full"
 				/>
 			) : (
 				<TransparentCTAButton
 					label="Message"
 					icon={<MessageIcon className="w-4 h-4" />}
 					href={messageHref}
+					className="w-full"
 				/>
 			)}
 		</div>

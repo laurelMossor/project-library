@@ -43,7 +43,9 @@ export default async function PublicProfilePage({ params }: Props) {
 			<div className="flex flex-col gap-6 mb-8">
 				<div className="flex items-start justify-between gap-4">
 					<ProfileHeader profile={profile} />
-					<ProfileButtons entityId={user.id} entityType="user" />
+					<div className="flex flex-col gap-2 w-36 shrink-0">
+						<ProfileButtons entityId={user.id} entityType="user" />
+					</div>
 				</div>
 				<ProfileBody profile={profile} />
 			</div>
