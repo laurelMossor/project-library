@@ -3,29 +3,27 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { publicUserFields } from "@/lib/utils/server/user";
-import { getPagesForUser } from "@/lib/utils/server/permission";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 
-async function getAllConversationIds(userId: string): Promise<string[]> {
-	const [directConvos, userPages] = await Promise.all([
-		prisma.conversationParticipant.findMany({
-			where: { userId },
-			select: { conversationId: true },
-		}),
-		getPagesForUser(userId),
-	]);
+/**
+ * Returns conversation IDs for a specific identity.
+ * When asPageId is provided, returns only that page's conversations.
+ * Otherwise returns only the user's direct conversations.
+ */
+async function getConversationIdsForIdentity(
+	userId: string,
+	asPageId: string | null,
+): Promise<string[]> {
+	const where = asPageId
+		? { pageId: asPageId }
+		: { userId };
 
-	const pageIds = userPages.map((p) => p.id);
-	const pageConvos = pageIds.length > 0
-		? await prisma.conversationParticipant.findMany({
-			where: { pageId: { in: pageIds } },
-			select: { conversationId: true },
-		})
-		: [];
+	const records = await prisma.conversationParticipant.findMany({
+		where,
+		select: { conversationId: true },
+	});
 
-	return [...new Set([
-		...directConvos.map((p) => p.conversationId),
-		...pageConvos.map((p) => p.conversationId),
-	])];
+	return records.map((p) => p.conversationId);
 }
 
 interface Params {
@@ -48,9 +46,18 @@ export async function GET(request: Request, { params }: Params) {
 
 		const { searchParams } = new URL(request.url);
 		const type = searchParams.get("type") || "user";
+		const asPageId = searchParams.get("asPageId") || null;
 
 		if (type !== "user" && type !== "page") {
 			return badRequest("Query param 'type' must be 'user' or 'page'");
+		}
+
+		// If acting as a page, verify permission
+		if (asPageId) {
+			const allowed = await canPostAsPage(ctx.userId, asPageId);
+			if (!allowed) {
+				return badRequest("You don't have permission to act as this page");
+			}
 		}
 
 		// Build the target participant filter
@@ -84,15 +91,15 @@ export async function GET(request: Request, { params }: Params) {
 			targetInfo = targetPage;
 		}
 
-		// Find conversation between current user (or their managed pages) and target
-		const allConvIds = await getAllConversationIds(ctx.userId);
+		// Find conversation between the active identity and the target
+		const identityConvIds = await getConversationIdsForIdentity(ctx.userId, asPageId);
 
 		let conversationId: string | null = null;
 
-		if (allConvIds.length > 0) {
+		if (identityConvIds.length > 0) {
 			const recipientInSameConv = await prisma.conversationParticipant.findFirst({
 				where: {
-					conversationId: { in: allConvIds },
+					conversationId: { in: identityConvIds },
 					...targetParticipantWhere,
 				},
 				select: { conversationId: true },
@@ -150,21 +157,30 @@ export async function GET(request: Request, { params }: Params) {
  * Mark all unread messages in a conversation as read.
  * Protected endpoint — user must be a participant (directly or via managed page).
  */
-export async function PATCH(_request: Request, { params }: Params) {
+export async function PATCH(request: Request, { params }: Params) {
 	try {
 		const { targetId } = await params;
 
 		const ctx = await getSessionContext();
 		if (!ctx) return unauthorized();
 
-		const allConvIds = await getAllConversationIds(ctx.userId);
+		// Read asPageId from request body (optional)
+		let asPageId: string | null = null;
+		try {
+			const body = await request.json();
+			asPageId = body.asPageId ?? null;
+		} catch {
+			// No body is fine — defaults to personal identity
+		}
 
-		if (allConvIds.length === 0) return NextResponse.json({ updated: 0 });
+		const identityConvIds = await getConversationIdsForIdentity(ctx.userId, asPageId);
+
+		if (identityConvIds.length === 0) return NextResponse.json({ updated: 0 });
 
 		// Find the conversation that also has targetId as participant (user or page)
 		const targetParticipant = await prisma.conversationParticipant.findFirst({
 			where: {
-				conversationId: { in: allConvIds },
+				conversationId: { in: identityConvIds },
 				OR: [{ userId: targetId }, { pageId: targetId }],
 			},
 			select: { conversationId: true },

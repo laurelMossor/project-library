@@ -145,7 +145,11 @@ export function MessagesPageView() {
 		setActiveTop(targetId);
 
 		// Mark all unread messages in this conversation as read, then update local state
-		fetch(API_MESSAGE(targetId), { method: "PATCH" })
+		fetch(API_MESSAGE(targetId), {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ asPageId }),
+		})
 			.then((r) => r.ok ? r.json() : null)
 			.then((result) => {
 				if (result && result.updated > 0) {
@@ -219,10 +223,13 @@ export function MessagesPageView() {
 					const targetType: "user" | "page" = other?.user ? "user" : "page";
 
 					// Unread: last message was sent by the other party and hasn't been read
+					const sentByActiveEntity =
+						conv.lastMessage?.senderId === currentUser?.id ||
+						(activeEntityType === "page" && conv.lastMessage?.asPageId === entityId);
 					const isUnread = !!(
 						conv.lastMessage &&
 						conv.lastMessage.readAt === null &&
-						conv.lastMessage.senderId !== currentUser?.id
+						!sentByActiveEntity
 					);
 
 					const previewText = conv.lastMessage

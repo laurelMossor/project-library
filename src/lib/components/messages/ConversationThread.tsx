@@ -10,6 +10,7 @@ interface Message {
 	id: string;
 	content: string;
 	senderId: string;
+	asPageId: string | null;
 	createdAt: string;
 	readAt: string | null;
 	sender: {
@@ -79,7 +80,9 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 		if (!isBackgroundRefresh) setLoading(true);
 		setError("");
 		try {
-			const res = await fetch(`${API_MESSAGE(targetId)}?type=${targetType}`);
+			const params = new URLSearchParams({ type: targetType });
+			if (asPageId) params.set("asPageId", asPageId);
+			const res = await fetch(`${API_MESSAGE(targetId)}?${params}`);
 			if (!res.ok) {
 				if (res.status === 401) { router.push(LOGIN_WITH_CALLBACK(MESSAGES)); return; }
 				if (res.status === 404) { setError("Not found"); if (!isBackgroundRefresh) setLoading(false); return; }
@@ -153,7 +156,7 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 					<p className="text-center text-sm text-dusty-grey py-8">No messages yet. Start the conversation below!</p>
 				) : (
 					messages.map((message) => {
-						const isSent = message.senderId === currentUser?.id;
+						const isSent = message.senderId === currentUser?.id || (!!asPageId && message.asPageId === asPageId);
 						return (
 							<div key={message.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
 								<div className={`max-w-[70%] rounded p-3 ${isSent ? "bg-black text-white" : "bg-gray-200 text-black"}`}>
