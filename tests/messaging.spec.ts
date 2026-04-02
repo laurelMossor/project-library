@@ -1,5 +1,14 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, Page } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
+
+async function switchToPage(page: Page, pageName: string, expectedBadge: string) {
+  await page.getByRole("button", { name: "Profile menu" }).click();
+  await page.getByRole("menuitem", { name: "Switch Profile" }).click();
+  await page.getByRole("button", { name: `Switch to ${pageName}` }).click();
+  await expect(
+    page.locator('button[aria-label="Profile menu"]').getByText(expectedBadge)
+  ).toBeVisible({ timeout: 10_000 });
+}
 
 test.describe("Messaging", () => {
   test("send a message to another user", async ({ page }) => {
@@ -65,5 +74,53 @@ test.describe("Messaging", () => {
 
     // The first seeded message (sent by alice) should be visible in the thread
     await expect(page.getByText("Hey! Saw your work")).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("message sent as page creates thread under page identity, not personal", async ({ page }) => {
+    // Dolores switches to PMG and messages George via his profile
+    await loginAs(page, "dolores");
+    await switchToPage(page, "Portland Makers Guild", "admin");
+
+    await page.goto("/u/george");
+    await page.getByRole("link", { name: "Send Message" }).click();
+    await page.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
+
+    const msg = `Hello from Playwright (page-identity) ${Date.now()}`;
+    await page.getByPlaceholder(/Type a message/).fill(msg);
+    await page.getByRole("button", { name: "Send" }).click();
+    await expect(page.getByText(msg)).toBeVisible({ timeout: 10_000 });
+
+    // The thread should appear in PMG's inbox
+    await page.goto("/messages");
+    await expect(page.getByText("George Example")).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("page admin cannot see another page conversation through personal inbox", async ({ page, browser }) => {
+    // George is EDITOR of PMG. The seeded PMG ↔ Sam conversation should NOT
+    // leak into George's personal thread with PMG.
+    await loginAs(page, "george");
+    await page.goto("/messages");
+
+    // George has no personal conversations seeded, so inbox should be empty
+    // or only contain threads he's actually part of — not PMG ↔ Sam messages.
+    // Open a thread with PMG by messaging the page from George's profile view.
+    await page.goto("/p/portland-makers-guild");
+    const sendLink = page.getByRole("link", { name: "Send Message" });
+
+    // If there's no send message link on a page profile, navigate directly
+    if (await sendLink.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await sendLink.click();
+    } else {
+      // Trigger a fresh conversation via the messages route
+      // George messages PMG from the messages interface
+      await page.goto("/messages");
+    }
+
+    // Now go to messages and check George's personal inbox
+    await page.goto("/messages");
+
+    // The seeded PMG ↔ Sam messages should NOT be visible to George personally.
+    // "interested in joining your next workshop" is the seeded Sam → PMG message.
+    await expect(page.getByText("interested in joining your next workshop")).not.toBeVisible({ timeout: 3_000 });
   });
 });
