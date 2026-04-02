@@ -5,8 +5,8 @@ import { unauthorized, serverError } from "@/lib/utils/errors";
 
 /**
  * GET /api/messages/unread-count
- * Returns the total number of unread messages across all conversations
- * the user participates in (directly or via managed pages).
+ * Returns unread message counts split by active profile:
+ *   { personal: number, pages: { [pageId]: number } }
  * Protected endpoint.
  */
 export async function GET() {
@@ -14,44 +14,64 @@ export async function GET() {
 		const ctx = await getSessionContext();
 		if (!ctx) return unauthorized();
 
-		// Collect conversation IDs the user participates in directly
-		const directConvIds = await prisma.conversationParticipant.findMany({
+		// Personal: conversations where the user is a direct participant
+		const directParticipants = await prisma.conversationParticipant.findMany({
 			where: { userId: ctx.userId },
 			select: { conversationId: true },
 		});
+		const directConvIds = directParticipants.map((p) => p.conversationId);
 
-		// Collect conversation IDs via pages the user manages
+		const personal = directConvIds.length > 0
+			? await prisma.message.count({
+				where: {
+					conversationId: { in: directConvIds },
+					senderId: { not: ctx.userId },
+					readAt: null,
+				},
+			})
+			: 0;
+
+		// Pages: one unread count per managed page
 		const pagePerms = await prisma.permission.findMany({
 			where: { userId: ctx.userId, resourceType: "PAGE", role: { in: ["ADMIN", "EDITOR"] } },
 			select: { resourceId: true },
 		});
 		const pageIds = pagePerms.map((p) => p.resourceId);
 
-		const pageConvIds = pageIds.length > 0
-			? await prisma.conversationParticipant.findMany({
+		const pagesResult: Record<string, number> = {};
+
+		if (pageIds.length > 0) {
+			// Fetch conversation participants for all managed pages in one query
+			const pageParticipants = await prisma.conversationParticipant.findMany({
 				where: { pageId: { in: pageIds } },
-				select: { conversationId: true },
-			})
-			: [];
+				select: { conversationId: true, pageId: true },
+			});
 
-		const allConvIds = [
-			...new Set([
-				...directConvIds.map((c) => c.conversationId),
-				...pageConvIds.map((c) => c.conversationId),
-			]),
-		];
+			// Group conversation IDs by page
+			const convsByPage: Record<string, string[]> = {};
+			for (const { pageId, conversationId } of pageParticipants) {
+				if (!pageId) continue;
+				(convsByPage[pageId] ??= []).push(conversationId);
+			}
 
-		if (allConvIds.length === 0) return NextResponse.json({ count: 0 });
+			// Count unread per page
+			await Promise.all(
+				pageIds.map(async (pageId) => {
+					const convIds = convsByPage[pageId] ?? [];
+					pagesResult[pageId] = convIds.length > 0
+						? await prisma.message.count({
+							where: {
+								conversationId: { in: convIds },
+								senderId: { not: ctx.userId },
+								readAt: null,
+							},
+						})
+						: 0;
+				})
+			);
+		}
 
-		const count = await prisma.message.count({
-			where: {
-				conversationId: { in: allConvIds },
-				senderId: { not: ctx.userId },
-				readAt: null,
-			},
-		});
-
-		return NextResponse.json({ count });
+		return NextResponse.json({ personal, pages: pagesResult });
 	} catch (error) {
 		console.error("GET /api/messages/unread-count error:", error);
 		return serverError();

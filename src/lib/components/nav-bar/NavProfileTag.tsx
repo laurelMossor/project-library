@@ -10,6 +10,8 @@ import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { UserHomeIcon, AtSignIcon } from "@/lib/components/icons/icons";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
+import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { Session } from "next-auth";
 
 interface NavProfileTagProps {
@@ -22,6 +24,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 	const isLoggedIn = hasSession(activeSession);
 
 	const { activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
+	const { unreadData } = useUnreadCount();
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [switcherExpanded, setSwitcherExpanded] = useState(false);
@@ -97,11 +100,12 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 					{showPersonalUser && (
 						<div
 							onClick={() => { switchProfile(null); setIsOpen(false); setSwitcherExpanded(false); }}
-							className={`px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity ${loading ? "pointer-events-none opacity-50" : ""}`}
+							className={`px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-between ${loading ? "pointer-events-none opacity-50" : ""}`}
 							role="button"
 							aria-label="Switch to personal profile"
 						>
 							<ProfileTag entity={currentUser as CardEntity} size="sm" asLink={false} variant="compact" />
+							{unreadData.personal > 0 && <NotificationDot />}
 						</div>
 					)}
 
@@ -110,11 +114,12 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 						<div
 							key={page.id}
 							onClick={() => { switchProfile(page.id); setIsOpen(false); setSwitcherExpanded(false); }}
-							className={`px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity ${loading ? "pointer-events-none opacity-50" : ""}`}
+							className={`px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity flex items-center justify-between ${loading ? "pointer-events-none opacity-50" : ""}`}
 							role="button"
 							aria-label={`Switch to ${page.name}`}
 						>
 							<ProfileTag entity={page} size="sm" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
+							{(unreadData.pages[page.id] ?? 0) > 0 && <NotificationDot />}
 						</div>
 					))}
 

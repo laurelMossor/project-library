@@ -159,6 +159,7 @@ export function MessagesPageView() {
 							return { ...conv, lastMessage: { ...conv.lastMessage, readAt: new Date().toISOString() } };
 						})
 					);
+					window.dispatchEvent(new Event("messages:read"));
 				}
 			})
 			.catch(() => {});
