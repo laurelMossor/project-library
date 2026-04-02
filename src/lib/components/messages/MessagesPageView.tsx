@@ -145,7 +145,11 @@ export function MessagesPageView() {
 		setActiveTop(targetId);
 
 		// Mark all unread messages in this conversation as read, then update local state
-		fetch(API_MESSAGE(targetId), { method: "PATCH" })
+		fetch(API_MESSAGE(targetId), {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ asPageId }),
+		})
 			.then((r) => r.ok ? r.json() : null)
 			.then((result) => {
 				if (result && result.updated > 0) {

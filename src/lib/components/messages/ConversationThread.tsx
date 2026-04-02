@@ -80,7 +80,9 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 		if (!isBackgroundRefresh) setLoading(true);
 		setError("");
 		try {
-			const res = await fetch(`${API_MESSAGE(targetId)}?type=${targetType}`);
+			const params = new URLSearchParams({ type: targetType });
+			if (asPageId) params.set("asPageId", asPageId);
+			const res = await fetch(`${API_MESSAGE(targetId)}?${params}`);
 			if (!res.ok) {
 				if (res.status === 401) { router.push(LOGIN_WITH_CALLBACK(MESSAGES)); return; }
 				if (res.status === 404) { setError("Not found"); if (!isBackgroundRefresh) setLoading(false); return; }
