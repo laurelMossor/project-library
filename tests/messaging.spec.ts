@@ -18,9 +18,9 @@ test.describe("Messaging", () => {
     await page.goto("/u/george");
     await expect(page.getByRole("heading", { name: "George Example" })).toBeVisible();
 
-    // Click "Message" — this links to /messages/[georgeId]
+    // Click "Message" — links to /messages/u/{id} or /messages/p/{id}
     await page.getByRole("link", { name: "Message" }).click();
-    await page.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
+    await page.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
 
     // Fill in and send a message
     const msg = `Hello from Playwright at ${Date.now()}`;
@@ -47,7 +47,7 @@ test.describe("Messaging", () => {
     await loginAs(doloresPage, "dolores");
     await doloresPage.goto("/u/alice");
     await doloresPage.getByRole("link", { name: "Message" }).click();
-    await doloresPage.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
+    await doloresPage.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
     await doloresPage.getByPlaceholder(/Type a message/).fill("Hello from Playwright (dot test)");
     await doloresPage.getByRole("button", { name: "Send" }).click();
     await expect(doloresPage.getByText("Hello from Playwright (dot test)")).toBeVisible({ timeout: 10_000 });
@@ -83,7 +83,7 @@ test.describe("Messaging", () => {
 
     await page.goto("/u/george");
     await page.getByRole("link", { name: "Message" }).click();
-    await page.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
+    await page.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
 
     const msg = `Hello from Playwright (page-identity) ${Date.now()}`;
     await page.getByPlaceholder(/Type a message/).fill(msg);
