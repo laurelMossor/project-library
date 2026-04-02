@@ -18,8 +18,8 @@ test.describe("Messaging", () => {
     await page.goto("/u/george");
     await expect(page.getByRole("heading", { name: "George Example" })).toBeVisible();
 
-    // Click "Send Message" — this links to /messages/[georgeId]
-    await page.getByRole("link", { name: "Send Message" }).click();
+    // Click "Message" — this links to /messages/[georgeId]
+    await page.getByRole("link", { name: "Message" }).click();
     await page.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
 
     // Fill in and send a message
@@ -46,7 +46,7 @@ test.describe("Messaging", () => {
     const doloresPage = await doloresCtx.newPage();
     await loginAs(doloresPage, "dolores");
     await doloresPage.goto("/u/alice");
-    await doloresPage.getByRole("link", { name: "Send Message" }).click();
+    await doloresPage.getByRole("link", { name: "Message" }).click();
     await doloresPage.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
     await doloresPage.getByPlaceholder(/Type a message/).fill("Hello from Playwright (dot test)");
     await doloresPage.getByRole("button", { name: "Send" }).click();
@@ -82,7 +82,7 @@ test.describe("Messaging", () => {
     await switchToPage(page, "Portland Makers Guild", "admin");
 
     await page.goto("/u/george");
-    await page.getByRole("link", { name: "Send Message" }).click();
+    await page.getByRole("link", { name: "Message" }).click();
     await page.waitForURL(/\/messages\/[^/]+$/, { timeout: 10_000 });
 
     const msg = `Hello from Playwright (page-identity) ${Date.now()}`;
@@ -105,7 +105,7 @@ test.describe("Messaging", () => {
     // or only contain threads he's actually part of — not PMG ↔ Sam messages.
     // Open a thread with PMG by messaging the page from George's profile view.
     await page.goto("/p/portland-makers-guild");
-    const sendLink = page.getByRole("link", { name: "Send Message" });
+    const sendLink = page.getByRole("link", { name: "Message" });
 
     // If there's no send message link on a page profile, navigate directly
     if (await sendLink.isVisible({ timeout: 3_000 }).catch(() => false)) {

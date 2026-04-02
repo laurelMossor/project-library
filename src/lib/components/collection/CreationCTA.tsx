@@ -9,20 +9,40 @@ export const transparentCTAStyles = {
     label: "px-2 py-2 text-rich-brown",
 };
 
-export const TransparentCTAButton = ({ href, label, icon }: { href: string, label: string, icon?: React.ReactNode }) => {
-    return (
-        <div className={transparentCTAStyles.container}>
-            <div className={transparentCTAStyles.iconWrapper}>
-                {icon}
+type TransparentCTAButtonBase = { label: string; icon?: React.ReactNode };
+type TransparentCTALinkProps = TransparentCTAButtonBase & { href: string; onClick?: never; disabled?: never };
+type TransparentCTAActionProps = TransparentCTAButtonBase & { href?: never; onClick: () => void; disabled?: boolean };
+type TransparentCTAButtonProps = TransparentCTALinkProps | TransparentCTAActionProps;
+
+export const TransparentCTAButton = ({ label, icon, ...rest }: TransparentCTAButtonProps) => {
+    const inner = (
+        <>
+            <div className={transparentCTAStyles.iconWrapper}>{icon}</div>
+            <span className={transparentCTAStyles.label}>{label}</span>
+        </>
+    );
+
+    if ("href" in rest && rest.href) {
+        return (
+            <div className={transparentCTAStyles.container}>
+                <Link href={rest.href} className="flex items-center">
+                    {inner}
+                </Link>
             </div>
-            <Link
-                href={href}
-                className={transparentCTAStyles.label}
-            >
-                {label}
-            </Link>
-        </div>
-    )
+        );
+    }
+
+    const { onClick, disabled } = rest as TransparentCTAActionProps;
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className={`${transparentCTAStyles.container} disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+            {inner}
+        </button>
+    );
 }
 
 export const CreationCTA = ({ collectionTypeFilter }: { collectionTypeFilter: FilterCollectionType }) => {

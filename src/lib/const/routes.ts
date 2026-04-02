@@ -50,6 +50,7 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 // ============================================================================
 export const MESSAGES = "/messages";
 export const MESSAGE_CONVERSATION = (userId: string) => `/messages/${userId}`;
+export const MESSAGE_PAGE_CONVERSATION = (pageId: string) => `/messages/${pageId}?type=page`;
 
 // ============================================================================
 // API Routes

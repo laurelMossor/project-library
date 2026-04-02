@@ -181,6 +181,20 @@ export function PeopleGroupIcon({ className }: IconProps) {
 
 export function ThickLineDot({ className }: IconProps) {
 	return (
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM320 224C373 224 416 267 416 320C416 373 373 416 320 416C267 416 224 373 224 320C224 267 267 224 320 224z"/></svg>
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM320 224C373 224 416 267 416 320C416 373 373 416 320 416C267 416 224 373 224 320C224 267 267 224 320 224z"/></svg>
+	);
+}
+
+// a medium weight plus sign icon
+export function PlusSignIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/></svg>
+	);
+}
+
+// a medium weight minus sign icon
+export function MinusSignIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M96 320C96 302.3 110.3 288 128 288L512 288C529.7 288 544 302.3 544 320C544 337.7 529.7 352 512 352L128 352C110.3 352 96 337.7 96 320z"/></svg>
 	);
 }

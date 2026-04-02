@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 import { ConversationThread } from "@/lib/components/messages/ConversationThread";
@@ -9,7 +9,9 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 export default function ConversationPage() {
 	const params = useParams();
-	const userId = params?.userId as string;
+	const searchParams = useSearchParams();
+	const targetId = params?.userId as string;
+	const targetType = searchParams.get("type") === "page" ? "page" : "user";
 	const { activePageId } = useActiveProfile();
 
 	return (
@@ -22,8 +24,8 @@ export default function ConversationPage() {
 				</div>
 				<div className="flex-1 border border-soft-grey rounded-xl overflow-hidden flex flex-col">
 					<ConversationThread
-						targetId={userId}
-						targetType="user"
+						targetId={targetId}
+						targetType={targetType}
 						asPageId={activePageId ?? undefined}
 					/>
 				</div>
