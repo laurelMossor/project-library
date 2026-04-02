@@ -12,6 +12,7 @@ import {
 	LogoutIcon,
 	SettingsIcon,
 } from "../../icons/icons";
+import { NotificationDot } from "../../ui/NotificationDot";
 import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
@@ -22,6 +23,7 @@ import {
 	EXPLORE_PAGE,
 } from "@/lib/const/routes";
 import { API_ME_PAGE } from "@/lib/const/routes";
+import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { hasSession } from "@/lib/utils/auth-client";
 import { MenuItem } from "./MenuItem";
 import { DropdownMenu, dropdownMenuStyles } from "../../ui/DropdownMenu";
@@ -38,6 +40,8 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const router = useRouter();
 	const activeSession = session || sessionProp;
 	const isLoggedIn = hasSession(activeSession);
+
+	const { activeCount: unreadCount } = useUnreadCount();
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
@@ -121,7 +125,16 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 			<DropdownMenu
 				isOpen={isOpen}
 				onClose={() => setIsOpen((o) => !o)}
-				trigger={<HamburgerIcon className="w-8 h-8 shrink-0" />}
+				trigger={
+				<div className="relative">
+					<HamburgerIcon className="w-8 h-8 shrink-0" />
+					{unreadCount > 0 && (
+						<span className="absolute -top-0.5 -right-0.5">
+							<NotificationDot />
+						</span>
+					)}
+				</div>
+			}
 				triggerAriaLabel="Menu"
 			>
 				<MenuItem
@@ -144,6 +157,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					href={isLoggedIn ? MESSAGES : undefined}
 					onClick={!isLoggedIn ? handleMessages : undefined}
 					closeMenu={closeMenu}
+					indicator={unreadCount > 0 ? <NotificationDot /> : undefined}
 				/>
 
 				<MenuItem

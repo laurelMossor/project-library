@@ -208,7 +208,7 @@ Avoid: grey form inputs, visible field labels above each element, "required" ast
 
 ## Scoping & sequencing
 
-**P0 — Core loop:**
+**P0 — Core loop:** (Done)
 - Event creation (required fields + description + cover image)
 - Public event page with shareable link
 - RSVP (going/maybe/can't, name + email)
@@ -217,13 +217,13 @@ Avoid: grey form inputs, visible field labels above each element, "required" ast
 **P1 — Communication & coordination:**
 - Attendee messaging (email)
 - Add to calendar (.ics)
-- Automatic 24-hour reminder
 - Co-hosts (Someone granted 'Editor' role on the event resource)
+- Event notes and photos
 
 **P3 — Depth:**
 - SMS delivery channel
-- Event notes and photos
 - Custom RSVP question
+- Automatic 24-hour reminder
 - Public/unlisted visibility toggle
 
 ## Notes
