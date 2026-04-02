@@ -18,7 +18,7 @@ type ProfilePictureProps = {
 const sizeClasses = {
 	sm: "w-8 h-8 text-xs",
 	md: "w-12 h-12 text-sm",
-	lg: "w-16 h-16 text-base",
+	lg: "w-25 h-25 text-base",
 };
 
 function resolveEntity(entity: CardEntity) {
