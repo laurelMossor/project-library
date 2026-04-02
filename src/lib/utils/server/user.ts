@@ -46,9 +46,10 @@ export async function getUserById(id: string) {
 }
 
 // Fetch a user by username (for public profile pages)
+// Uses findFirst with mode: 'insensitive' so lookups are case-insensitive
 export async function getUserByUsername(username: string) {
-	return prisma.user.findUnique({
-		where: { username },
+	return prisma.user.findFirst({
+		where: { username: { equals: username, mode: "insensitive" } },
 		select: publicUserFields,
 	});
 }

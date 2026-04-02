@@ -78,7 +78,7 @@ export function ManageConnections({
 			return;
 		}
 
-		// For page admins, we need to verify the user is an OWNER of the page
+		// For page admins, verify the user has the ADMIN role on this page
 		if (targetType === "page" && connectionType === "admins") {
 			try {
 				const res = await fetch(listEndpoint);
@@ -89,12 +89,12 @@ export function ManageConnections({
 				const data = await res.json();
 				const admins = data.admins || [];
 				
-				// Check if current user is an OWNER
-				const isOwner = admins.some(
+				// Check if current user is an ADMIN of this page
+				const isAdmin = admins.some(
 					(admin: ConnectionItem) =>
-						admin.user?.id === session.user.id && admin.role === "OWNER"
+						admin.user?.id === session.user.id && admin.role === "ADMIN"
 				);
-				setHasPermission(isOwner);
+				setHasPermission(isAdmin);
 			} catch {
 				setHasPermission(false);
 			}

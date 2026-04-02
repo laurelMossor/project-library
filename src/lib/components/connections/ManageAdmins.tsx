@@ -11,10 +11,8 @@ type ManageAdminsProps = {
  * Only page ADMINs can add/remove other admins
  */
 export function ManageAdmins({ pageId }: ManageAdminsProps) {
-	// Creators/primary admins should not be removable
-	const canRemove = (item: ConnectionItem) => {
-		return item.role !== "OWNER";
-	};
+	// All admins can be removed; the server enforces that the last admin cannot be removed
+	const canRemove = (_item: ConnectionItem) => true;
 
 	return (
 		<ManageConnections
