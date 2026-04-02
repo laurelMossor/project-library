@@ -5,7 +5,7 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { isCardPage } from "@/lib/types/card";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { MessageIcon, PlusSignIcon, MinusSignIcon } from "@/lib/components/icons/icons";
-import { MESSAGE_CONVERSATION, MESSAGE_PAGE_CONVERSATION, API_FOLLOWS, API_FOLLOW } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION, API_FOLLOWS, API_FOLLOW } from "@/lib/const/routes";
 
 type ProfileButtonsProps = {
 	entityId: string;
@@ -74,9 +74,7 @@ export function ProfileButtons({ entityId, entityType }: ProfileButtonsProps) {
 		}
 	};
 
-	const messageHref = entityType === "page"
-		? MESSAGE_PAGE_CONVERSATION(entityId)
-		: MESSAGE_CONVERSATION(entityId);
+	const messageHref = MESSAGE_CONVERSATION({ id: entityId, type: entityType });
 
 	const disabled = isOwnProfile || !loggedIn;
 	const followLabel = loadingFollow || toggling ? "..." : isFollowing ? "Unfollow" : "Follow";

@@ -229,7 +229,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							{isPublished && <ShareButton />}
 							{isLoggedIn && !isOwner && (
 								<Link
-									href={MESSAGE_CONVERSATION(event.userId)}
+									href={MESSAGE_CONVERSATION({ id: event.userId, type: "user" })}
 									className="px-3 py-1 text-sm font-medium border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
 								>
 									Message

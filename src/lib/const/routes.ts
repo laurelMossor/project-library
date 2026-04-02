@@ -49,8 +49,7 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 // Message Routes
 // ============================================================================
 export const MESSAGES = "/messages";
-export const MESSAGE_CONVERSATION = (userId: string) => `/messages/${userId}`;
-export const MESSAGE_PAGE_CONVERSATION = (pageId: string) => `/messages/${pageId}?type=page`;
+export const MESSAGE_CONVERSATION = ({ id, type }: { id: string; type: "user" | "page" }) => `/messages/${type === "page" ? "p" : "u"}/${id}`;
 
 // ============================================================================
 // API Routes
