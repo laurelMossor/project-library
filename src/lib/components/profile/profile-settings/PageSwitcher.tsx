@@ -9,6 +9,8 @@ export type PageItem = {
 	name: string;
 	slug: string;
 	avatarImageId?: string | null;
+	avatarImage?: { url: string } | null;
+	role?: string;
 };
 
 type PageSwitcherProps = {
@@ -40,7 +42,9 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 							name: page.name,
 							slug: page.slug,
 							avatarImageId: page.avatarImageId ?? null,
+							avatarImage: page.avatarImage,
 						}}
+						badge={page.role?.toLowerCase()}
 						actions={
 							<ButtonLink
 								href={PUBLIC_PAGE(page.slug)}

@@ -181,6 +181,34 @@ export function PeopleGroupIcon({ className }: IconProps) {
 
 export function ThickLineDot({ className }: IconProps) {
 	return (
-		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM320 224C373 224 416 267 416 320C416 373 373 416 320 416C267 416 224 373 224 320C224 267 267 224 320 224z"/></svg>
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M320 576C461.4 576 576 461.4 576 320C576 178.6 461.4 64 320 64C178.6 64 64 178.6 64 320C64 461.4 178.6 576 320 576zM320 224C373 224 416 267 416 320C416 373 373 416 320 416C267 416 224 373 224 320C224 267 267 224 320 224z"/></svg>
+	);
+}
+
+// a medium weight plus sign icon
+export function PlusSignIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/></svg>
+	);
+}
+
+// a medium weight minus sign icon
+export function MinusSignIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M96 320C96 302.3 110.3 288 128 288L512 288C529.7 288 544 302.3 544 320C544 337.7 529.7 352 512 352L128 352C110.3 352 96 337.7 96 320z"/></svg>
+	);
+}
+
+// a user icon with a plus sign next to it	
+export function UserPlusSignIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M285.7 368C384.2 368 464 447.8 464 546.3C464 562.7 450.7 576 434.3 576L77.7 576C61.3 576 48 562.7 48 546.3C48 447.8 127.8 368 226.3 368L285.7 368zM528 144C541.3 144 552 154.7 552 168L552 216L600 216C613.3 216 624 226.7 624 240C624 253.3 613.3 264 600 264L552 264L552 312C552 325.3 541.3 336 528 336C514.7 336 504 325.3 504 312L504 264L456 264C442.7 264 432 253.3 432 240C432 226.7 442.7 216 456 216L504 216L504 168C504 154.7 514.7 144 528 144zM256 312C189.7 312 136 258.3 136 192C136 125.7 189.7 72 256 72C322.3 72 376 125.7 376 192C376 258.3 322.3 312 256 312z"/></svg>
+	);
+}
+
+// a user icon with a minus sign next to it
+export function UserMinusSignIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className}><path d="M285.7 368C384.2 368 464 447.8 464 546.3C464 562.7 450.7 576 434.3 576L77.7 576C61.3 576 48 562.7 48 546.3C48 447.8 127.8 368 226.3 368L285.7 368zM256 312C189.7 312 136 258.3 136 192C136 125.7 189.7 72 256 72C322.3 72 376 125.7 376 192C376 258.3 322.3 312 256 312zM600 216C613.3 216 624 226.7 624 240C624 253.3 613.3 264 600 264L456 264C442.7 264 432 253.3 432 240C432 226.7 442.7 216 456 216L600 216z"/></svg>
 	);
 }

@@ -149,6 +149,46 @@ function EmptyMessage({ label }: { label: string }) {
 	);
 }
 
+function ViewLink({ href }: { href: string }) {
+	return (
+		<Link
+			href={href}
+			className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors"
+		>
+			View
+		</Link>
+	);
+}
+
+function ConnectionList({ items, emptyLabel }: { items: ConnectionItem[]; emptyLabel: string }) {
+	if (!items.length) return <EmptyMessage label={emptyLabel} />;
+	return (
+		<div className="p-5 space-y-2">
+			{items.map((item) => {
+				if (item.type === "USER" && item.user) {
+					return (
+						<ProfileTag
+							key={item.id}
+							entity={item.user}
+							actions={<ViewLink href={PUBLIC_USER_PAGE(item.user.username)} />}
+						/>
+					);
+				}
+				if (item.type === "PAGE" && item.page) {
+					return (
+						<ProfileTag
+							key={item.id}
+							entity={item.page}
+							actions={<ViewLink href={PUBLIC_PAGE(item.page.slug)} />}
+						/>
+					);
+				}
+				return null;
+			})}
+		</div>
+	);
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
@@ -245,43 +285,10 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 			return <p className="text-sm text-red-500 text-center py-12">{error}</p>;
 		}
 
-		if (top === "Followers") {
-			const items = d?.followers ?? [];
-			if (!items.length) return <EmptyMessage label="Followers" />;
-			return (
-				<div className="p-5 space-y-2">
-					{items.map((item) => {
-						const isUser = item.type === "USER" && item.user;
-						const isPage = item.type === "PAGE" && item.page;
-						const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
-						const viewLink = <Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">View</Link>;
-						if (isUser && item.user) return <ProfileTag key={item.id} entity={item.user} actions={viewLink} />;
-						if (isPage && item.page) return <ProfileTag key={item.id} entity={item.page} actions={viewLink} />;
-						return null;
-					})}
-				</div>
-			);
-		}
+		if (top === "Followers") return <ConnectionList items={d?.followers ?? []} emptyLabel="Followers" />;
+		if (top === "Following") return <ConnectionList items={d?.following ?? []} emptyLabel="Following" />;
 
-		if (top === "Following") {
-			const items = d?.following ?? [];
-			if (!items.length) return <EmptyMessage label="Following" />;
-			return (
-				<div className="p-5 space-y-2">
-					{items.map((item) => {
-						const isUser = item.type === "USER" && item.user;
-						const isPage = item.type === "PAGE" && item.page;
-						const href = isUser ? PUBLIC_USER_PAGE(item.user!.username) : isPage ? PUBLIC_PAGE(item.page!.slug) : "#";
-						const viewLink = <Link href={href} className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors">View</Link>;
-						if (isUser && item.user) return <ProfileTag key={item.id} entity={item.user} actions={viewLink} />;
-						if (isPage && item.page) return <ProfileTag key={item.id} entity={item.page} actions={viewLink} />;
-						return null;
-					})}
-				</div>
-			);
-		}
-
-		// Membership tab
+		// Membership tab — user: pages they belong to; page: members of that page
 		if (tab.entityType === "user") {
 			const items = d?.memberOf ?? [];
 			if (!items.length) return <EmptyMessage label="Memberships" />;
@@ -292,14 +299,7 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 							key={item.id}
 							entity={item.page}
 							badge={item.role.toLowerCase()}
-							actions={
-								<Link
-									href={PUBLIC_PAGE(item.page.slug)}
-									className="text-xs px-3 py-1 rounded border border-soft-grey text-misty-forest hover:border-misty-forest hover:text-warm-grey transition-colors"
-								>
-									View
-								</Link>
-							}
+							actions={<ViewLink href={PUBLIC_PAGE(item.page.slug)} />}
 						/>
 					))}
 				</div>

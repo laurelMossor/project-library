@@ -49,7 +49,7 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 // Message Routes
 // ============================================================================
 export const MESSAGES = "/messages";
-export const MESSAGE_CONVERSATION = (userId: string) => `/messages/${userId}`;
+export const MESSAGE_CONVERSATION = ({ id, type }: { id: string; type: "user" | "page" }) => `/messages/${type === "page" ? "p" : "u"}/${id}`;
 
 // ============================================================================
 // API Routes
@@ -76,6 +76,7 @@ export const API_POST = (id: string) => `/api/posts/${id}`;
 
 // Page API Routes
 export const API_PAGES = "/api/pages";
+export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
 
 // Follow API Routes
 export const API_FOLLOWS = "/api/follows";

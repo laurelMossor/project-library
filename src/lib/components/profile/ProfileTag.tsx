@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { CardEntity, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
-import { EntityAvatar } from "./EntityAvatar";
+import { ProfilePicture } from "./ProfilePicture";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 
 export type ProfileTagProps = {
@@ -41,7 +41,7 @@ export function ProfileTag({
 	const href = page ? PUBLIC_PAGE(entity.slug) : PUBLIC_USER_PAGE(entity.username);
 	const resolvedBadge = badge ?? (variant === "compact" && !page ? "me" : undefined);
 
-	const avatar = <EntityAvatar entity={entity} size={size} asLink={false} />;
+	const avatar = <ProfilePicture entity={entity} size={size} asLink={false} />;
 
 	const nameBlock =
 		variant === "compact" ? (

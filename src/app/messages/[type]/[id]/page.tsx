@@ -9,7 +9,8 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 export default function ConversationPage() {
 	const params = useParams();
-	const userId = params?.userId as string;
+	const targetId = params?.id as string;
+	const targetType = params?.type === "p" ? "page" : "user";
 	const { activePageId } = useActiveProfile();
 
 	return (
@@ -22,8 +23,8 @@ export default function ConversationPage() {
 				</div>
 				<div className="flex-1 border border-soft-grey rounded-xl overflow-hidden flex flex-col">
 					<ConversationThread
-						targetId={userId}
-						targetType="user"
+						targetId={targetId}
+						targetType={targetType}
 						asPageId={activePageId ?? undefined}
 					/>
 				</div>

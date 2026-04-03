@@ -1,5 +1,5 @@
 /**
- * EntityAvatar - Displays avatar for a User or Page
+ * ProfilePicture - Displays avatar for a User or Page
  * Shows the actual avatar image when available, falls back to initials.
  * Uses shared initials utilities from utils/text.ts.
  */
@@ -8,7 +8,7 @@ import { CardEntity, isCardPage } from "@/lib/types/card";
 import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 
-type EntityAvatarProps = {
+type ProfilePictureProps = {
 	entity: CardEntity;
 	size?: "sm" | "md" | "lg";
 	className?: string;
@@ -18,7 +18,7 @@ type EntityAvatarProps = {
 const sizeClasses = {
 	sm: "w-8 h-8 text-xs",
 	md: "w-12 h-12 text-sm",
-	lg: "w-16 h-16 text-base",
+	lg: "w-25 h-25 text-base",
 };
 
 function resolveEntity(entity: CardEntity) {
@@ -36,7 +36,7 @@ function resolveEntity(entity: CardEntity) {
 	};
 }
 
-export function EntityAvatar({ entity, size = "md", className = "", asLink = true }: EntityAvatarProps) {
+export function ProfilePicture({ entity, size = "md", className = "", asLink = true }: ProfilePictureProps) {
 	const { initials, href, avatarUrl } = resolveEntity(entity);
 	const sizeClass = sizeClasses[size];
 	const baseClasses = `${sizeClass} rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${className}`;
