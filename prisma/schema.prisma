@@ -96,6 +96,19 @@ model User {
   @@map("users")
 }
 
+// One-time signup invitations (token delivered via ?invite= in URL; token stored as SHA-256 hex)
+model SignupInvite {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([email])
+  @@map("signup_invites")
+}
+
 // ========================
 // Pages (shared resource — replaces Org + Project)
 // ========================

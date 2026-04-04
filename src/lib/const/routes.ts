@@ -6,6 +6,10 @@
 // ============================================================================
 export const LOGIN = "/login";
 export const SIGNUP = "/signup";
+/** Query param name for one-time signup token (`/signup?invite=...`). */
+export const SIGNUP_INVITE_QUERY = "invite";
+export const SIGNUP_WITH_INVITE = (inviteToken: string) =>
+	`${SIGNUP}?${SIGNUP_INVITE_QUERY}=${encodeURIComponent(inviteToken)}`;
 export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
 // ============================================================================

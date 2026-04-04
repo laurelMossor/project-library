@@ -60,7 +60,8 @@ No login required. Visits each public route and asserts it renders without a 500
 | /explore loads | `/explore` | no Application error, networkidle |
 | /about loads | `/about` | no Application error |
 | /login form renders | `/login` | email + password inputs, Log In button visible |
-| /signup form renders | `/signup` | email + username + password inputs, Sign Up button visible |
+| /signup with invite link shows signup form | `/signup?invite=…` (DB invite) | email + username + password inputs, Sign Up button visible |
+| /signup without invite shows invitation-only message | `/signup` | "invitation only" copy; no Sign Up button |
 | /events listing loads | `/events` | no Application error |
 | seeded user profile loads | `/u/alice` | "Alice" text present |
 

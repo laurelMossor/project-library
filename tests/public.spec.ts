@@ -1,4 +1,7 @@
+import "./env";
 import { test, expect } from "@playwright/test";
+import { createSignupInvite } from "../src/lib/utils/server/signup-invite";
+import { SIGNUP_WITH_INVITE } from "../src/lib/const/routes";
 
 test.describe("Public pages — unauthenticated renders", () => {
   test("/welcome loads with key UI", async ({ page }) => {
@@ -31,12 +34,21 @@ test.describe("Public pages — unauthenticated renders", () => {
     await expect(page.getByRole("button", { name: "Log In" })).toBeVisible();
   });
 
-  test("/signup form renders", async ({ page }) => {
-    await page.goto("/signup");
+  test("/signup with invite link shows signup form", async ({ page }) => {
+    const email = `pub-invite-${Date.now()}@example.com`;
+    const { rawToken } = await createSignupInvite(email);
+    await page.goto(SIGNUP_WITH_INVITE(rawToken));
+    await expect(page.getByRole("heading", { name: "Sign Up" })).toBeVisible();
     await expect(page.getByPlaceholder("Email")).toBeVisible();
     await expect(page.getByPlaceholder("Username")).toBeVisible();
     await expect(page.getByPlaceholder("Password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible();
+  });
+
+  test("/signup without invite shows invitation-only message", async ({ page }) => {
+    await page.goto("/signup");
+    await expect(page.getByText(/invitation only/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign Up" })).not.toBeVisible();
   });
 
   test("/events listing loads", async ({ page }) => {

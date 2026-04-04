@@ -20,6 +20,7 @@
     "db:seed:deploy": "NODE_ENV=production npx prisma db seed",
     "db:seed:dev": "NODE_ENV=development npx prisma db seed",
     "db:generate": "npx prisma generate",
+    "invite:create": "tsx scripts/create-signup-invite.ts",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",

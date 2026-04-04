@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+	// Prisma + pg must run as Node externals; bundling breaks interactive transactions with the adapter.
+	serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
 	images: {
 		remotePatterns: [
 			{

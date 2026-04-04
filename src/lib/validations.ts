@@ -23,6 +23,13 @@ export function validatePassword(password: string): boolean {
 	return password.length >= 8;
 }
 
+/** Raw invite token from URL (base64url); keep bounds to avoid abuse. */
+export function validateInviteToken(token: unknown): token is string {
+	if (typeof token !== "string") return false;
+	const t = token.trim();
+	return t.length >= 20 && t.length <= 256;
+}
+
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
 

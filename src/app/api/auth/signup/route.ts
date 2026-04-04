@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { badRequest, serverError } from "@/lib/utils/errors";
+import {
+	validateEmail,
+	validateUsername,
+	validatePassword,
+	validateInviteToken,
+} from "@/lib/validations";
+import { consumeInviteAndCreateUser } from "@/lib/utils/server/signup-invite";
+import { isDevSignupBypassToken } from "@/lib/utils/server/dev-signup-bypass";
 import { prisma } from "@/lib/utils/server/prisma";
 import { createUser } from "@/lib/utils/server/user";
-import { badRequest, serverError } from "@/lib/utils/errors";
-import { validateEmail, validateUsername, validatePassword } from "@/lib/validations";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -23,11 +30,17 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const { email, password, username } = await request.json();
+		const { email, password, username, invite } = await request.json();
 
 		// Basic validation - check all required fields are present
 		if (!email || !password || !username) {
 			return badRequest("Email, password, and username are required");
+		}
+
+		const inviteStr = typeof invite === "string" ? invite.trim() : "";
+		const devBypass = isDevSignupBypassToken(inviteStr);
+		if (!devBypass && !validateInviteToken(inviteStr)) {
+			return badRequest("A valid invitation link is required to sign up");
 		}
 
 		// Normalize email to lowercase for case-insensitive storage and lookup
@@ -48,30 +61,44 @@ export async function POST(request: Request) {
 			return badRequest("Password must be at least 8 characters long");
 		}
 
-		// Check if user already exists (use normalized email)
-		const existingUser = await prisma.user.findFirst({
-			where: { OR: [{ email: normalizedEmail }, { username }] },
-		});
-
-		if (existingUser) {
-			return badRequest("User with this email or username already exists");
-		}
-
 		// Hash password
 		const passwordHash = await bcrypt.hash(password, 10);
 
-		// Create user
-		const { userId } = await createUser({
-			email: normalizedEmail,
-			passwordHash,
-			username,
-		});
+		let responseUserId: string;
 
-		logAction("user.signup", userId);
+		if (devBypass) {
+			const existingUser = await prisma.user.findFirst({
+				where: { OR: [{ email: normalizedEmail }, { username }] },
+			});
+			if (existingUser) {
+				return badRequest("User with this email or username already exists");
+			}
+			const { userId } = await createUser({
+				email: normalizedEmail,
+				username,
+				passwordHash,
+			});
+			responseUserId = userId;
+			logAction("user.signup.dev_bypass", userId);
+		} else {
+			const result = await consumeInviteAndCreateUser({
+				normalizedEmail,
+				username,
+				passwordHash,
+				rawInviteToken: inviteStr,
+			});
+
+			if (!result.ok) {
+				return badRequest(result.error);
+			}
+
+			responseUserId = result.userId;
+			logAction("user.signup", responseUserId);
+		}
 
 		return NextResponse.json(
 			{
-				id: userId,
+				id: responseUserId,
 				email: normalizedEmail,
 			},
 			{ status: 201 }
