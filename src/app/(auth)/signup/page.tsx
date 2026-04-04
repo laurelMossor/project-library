@@ -3,7 +3,8 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { API_AUTH_SIGNUP, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import Link from "next/link";
 
 function SignupForm() {
 	const router = useRouter();
@@ -44,16 +45,20 @@ function SignupForm() {
 			<main className="flex min-h-screen items-center justify-center p-4">
 				<div className="w-full max-w-sm space-y-4 text-center">
 					<h1 className="text-2xl font-bold">Sign up</h1>
-					<p className="text-gray-600">
-						Sign up is by invitation only. Open the link from your invitation email to
+					<p className="">
+						Sign up is by <span className="font-bold">invitation only</span>. Open the link from your invitation email to
 						continue.
 					</p>
-					<p className="text-sm">
+					<p className="text">
 						Already have an account?{" "}
 						<a href={LOGIN} className="underline">
 							Log in
 						</a>
 					</p>
+					<div className="py-4 px-4 border border-gray-300 rounded-md">
+						<p className="text-sm pb-3">The Project Library is currently in pre-beta which means that things are still in development and we are not yet open to the public. Interested in an invite or becoming a beta tester? <span className="font-bold">Fill out this form!</span> </p>
+						<Link href={ACCOUNT_INTEREST_FORM} className="underline">Interest Form</Link>
+					</div>
 				</div>
 			</main>
 		);
