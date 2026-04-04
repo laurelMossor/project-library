@@ -21,7 +21,12 @@ export async function POST(request: Request) {
 			return unauthorized();
 		}
 
-		const body = await request.json();
+		let body: Record<string, string>;
+		try {
+			body = await request.json();
+		} catch {
+			return badRequest("Request body must be valid JSON");
+		}
 		const { recipientUserId, recipientPageId, content, asPageId } = body;
 
 		// Validate content

@@ -7,6 +7,7 @@ import { SortType, ViewType } from "@/lib/hooks/useFilter";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { SearchBar } from "../search/SearchBar";
 import { HeadingTitle } from "../text/HeadingTitle";
+import { PinConfig } from "./CollectionCard";
 
 type CollectionPageProps = {
 	filteredItems: CollectionItem[];
@@ -27,6 +28,7 @@ type CollectionPageProps = {
 	title?: string;
 	itemsPerPage?: number;
 	showCreateLinks?: boolean;
+	pinConfig?: PinConfig;
 };
 
 export function CollectionPage({
@@ -48,6 +50,7 @@ export function CollectionPage({
 	title = "Collections",
 	itemsPerPage = 12,
 	showCreateLinks = true,
+	pinConfig,
 }: CollectionPageProps) {
 	// Use pagination hook to slice items for current page
 	const {
@@ -107,7 +110,7 @@ export function CollectionPage({
 			{!error && filteredItems.length > 0 && (
 				<>
 					<div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
-						<FilteredCollection items={paginatedItems} view={view} />
+						<FilteredCollection items={paginatedItems} view={view} pinConfig={pinConfig} />
 					</div>
 					<PaginationControls
 						currentPage={currentPage}

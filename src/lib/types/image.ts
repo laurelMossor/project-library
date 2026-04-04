@@ -8,6 +8,7 @@ export interface ImageItem {
 	url: string; // Full Supabase public URL
 	path: string; // Storage path (e.g., "1735123456789-abc1234.jpg")
 	altText: string | null; // Optional alt text for accessibility
+	caption: string | null; // Optional visible caption (shown on detail pages)
 	uploadedByUserId: string; // Who uploaded the image
 	createdAt: Date;
 	// Note: projectId/eventId removed - use ImageAttachment instead
@@ -39,4 +40,4 @@ export type ImageCreateInput = Omit<ImageItem, "id" | "createdAt">;
  * Image data for updating an existing image
  * Only updatable fields (url, path, and relations should not be updated after creation)
  */
-export type ImageUpdateInput = Partial<Pick<ImageItem, "altText">>;
+export type ImageUpdateInput = Partial<Pick<ImageItem, "altText" | "caption">>;

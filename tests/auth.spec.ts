@@ -1,4 +1,7 @@
+import "./env";
 import { test, expect } from "@playwright/test";
+import { createSignupInvite } from "../src/lib/utils/server/signup-invite";
+import { SIGNUP_WITH_INVITE } from "../src/lib/const/routes";
 import { loginAs, USERS } from "./helpers/auth";
 
 test.describe("Authentication flows", () => {
@@ -22,8 +25,15 @@ test.describe("Authentication flows", () => {
     // so this test may hit the limit during repeated local runs.
     // Username max 20 chars — use short suffix (Date.now() % 1e7 = 7 digits, "tst" + 7 = 10)
     const unique = `tst${Date.now() % 1e7}`;
-    await page.goto("/signup");
-    await page.getByPlaceholder("Email").fill(`${unique}@example.com`);
+    const email = `${unique}@example.com`;
+    const devBypass = process.env.DEV_SIGNUP_BYPASS_SECRET?.trim();
+    if (devBypass && devBypass.length >= 20) {
+      await page.goto(SIGNUP_WITH_INVITE(devBypass));
+    } else {
+      const { rawToken } = await createSignupInvite(email);
+      await page.goto(SIGNUP_WITH_INVITE(rawToken));
+    }
+    await page.getByPlaceholder("Email").fill(email);
     await page.getByPlaceholder("Username").fill(unique);
     await page.getByPlaceholder("Password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();

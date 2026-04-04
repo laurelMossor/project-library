@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * CollectionCard - Unified card component for all collection items
  *
@@ -8,6 +10,7 @@
  * Usage:
  *   <CollectionCard item={collectionItem} truncate={true} />
  */
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CollectionItem, isEvent } from "@/lib/types/collection";
 import { ProfilePicture } from "../profile/ProfilePicture";
@@ -17,14 +20,26 @@ import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { EVENT_DETAIL, POST_DETAIL, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import { getCardUserDisplayName } from "@/lib/types/card";
-import { AtSignIcon } from "../icons/icons";
+import { AtSignIcon, PinIcon } from "../icons/icons";
+
+const MAX_PINNED = 3;
+
+/** Configuration for pin functionality — only provided on profile/page collection views */
+export type PinConfig = {
+	currentUserId: string;
+	activePageId?: string | null;
+	pinnedCount: number;
+};
 
 type CollectionCardProps = {
 	item: CollectionItem;
 	truncate?: boolean;
+	showCaptions?: boolean;
+	pinConfig?: PinConfig;
 };
 
-export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
+export function CollectionCard({ item, truncate = true, showCaptions = false, pinConfig }: CollectionCardProps) {
+	const router = useRouter();
 	const isEventItem = isEvent(item);
 	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : POST_DETAIL(item.id);
 
@@ -33,9 +48,34 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 	const handle = item.page ? item.page.slug : item.user.username;
 	const profileHref = item.page ? PUBLIC_PAGE(item.page.slug) : PUBLIC_USER_PAGE(item.user.username);
 
+	// Pin button logic — available for all collection item types when pinConfig is provided
+	const isPinned = Boolean(item.pinnedAt);
+	const canPin = !!pinConfig && (
+		pinConfig.currentUserId === item.userId ||
+		(item.page !== null && item.page?.id === pinConfig.activePageId)
+	);
+	const atPinLimit = pinConfig ? pinConfig.pinnedCount >= MAX_PINNED && !isPinned : false;
+	const apiEndpoint = isEventItem ? `/api/events/${item.id}` : `/api/posts/${item.id}`;
+
+	async function handleTogglePin() {
+		if (atPinLimit) return;
+		try {
+			const res = await fetch(apiEndpoint, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ pinnedAt: isPinned ? null : new Date().toISOString() }),
+			});
+			if (res.ok) {
+				router.refresh();
+			}
+		} catch {
+			// silent fail — user can retry
+		}
+	}
+
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
-			{/* Header: Profile pic + Title */}
+			{/* Header: Profile pic + Title + Pin */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
 					<ProfilePicture entity={item.page ?? item.user} size="md" />
@@ -44,6 +84,22 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title || "Untitled"}</h2>
 						</Link>
 					</div>
+					{canPin && (
+						<button
+							onClick={handleTogglePin}
+							disabled={atPinLimit}
+							title={atPinLimit ? `Max ${MAX_PINNED} posts pinned` : isPinned ? "Unpin" : "Pin to top of profile"}
+							className={`flex-shrink-0 p-1 rounded transition-colors ${
+								isPinned
+									? "text-rich-brown hover:text-warm-grey"
+									: atPinLimit
+									? "text-gray-300 cursor-not-allowed"
+									: "text-gray-400 hover:text-rich-brown"
+							}`}
+						>
+							<PinIcon className="w-4 h-4" pinned={isPinned} />
+						</button>
+					)}
 				</div>
 			</div>
 
@@ -98,7 +154,7 @@ export function CollectionCard({ item, truncate = true }: CollectionCardProps) {
 			{/* Images */}
 			{item.images && item.images.length > 0 && (
 				<div className="mb-4">
-					<ImageCarousel images={item.images} />
+					<ImageCarousel images={item.images} showCaptions={showCaptions} />
 				</div>
 			)}
 

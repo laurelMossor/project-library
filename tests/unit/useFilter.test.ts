@@ -29,6 +29,7 @@ function makeEvent(overrides: Partial<EventItem> = {}): EventItem {
     topics: [],
     user: USER,
     page: null,
+    pinnedAt: null,
     createdAt: new Date("2024-06-01"),
     updatedAt: new Date("2024-06-01"),
     eventDateTime: new Date("2024-07-01"),
@@ -56,6 +57,7 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
     updatedAt: new Date("2024-05-01"),
     eventId: null,
     parentPostId: null,
+    pinnedAt: null,
     images: [],
     ...overrides,
   };

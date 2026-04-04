@@ -12,6 +12,9 @@ type ProfileCollectionSectionProps = {
 	title?: string;
 	emptyMessage?: string;
 	showCreateLinks?: boolean;
+	/** Set when the viewing user owns this profile/page — enables pin controls */
+	currentUserId?: string;
+	activePageId?: string | null;
 };
 
 /**
@@ -22,7 +25,9 @@ export function ProfileCollectionSection({
 	items,
 	title = "Collection",
 	emptyMessage = "Nothing here yet.",
-	showCreateLinks = true
+	showCreateLinks = true,
+	currentUserId,
+	activePageId,
 }: ProfileCollectionSectionProps) {
 	const [search, setSearch] = useState("");
 
@@ -53,6 +58,24 @@ export function ProfileCollectionSection({
 		availableTags,
 	} = useFilter(filteredBySearch);
 
+	// Post-sort: pinned items float to top of the profile view (not affected on explore page)
+	const pinnedFirstItems = useMemo(() => {
+		const pinned = filteredItems.filter((item) => item.pinnedAt !== null);
+		const unpinned = filteredItems.filter((item) => item.pinnedAt === null);
+		pinned.sort((a, b) => new Date(b.pinnedAt!).getTime() - new Date(a.pinnedAt!).getTime());
+		return [...pinned, ...unpinned];
+	}, [filteredItems]);
+
+	// Count all pinned items in the current profile scope (for pin limit enforcement in UI)
+	const pinnedCount = useMemo(
+		() => items.filter((item) => item.pinnedAt !== null).length,
+		[items]
+	);
+
+	const pinConfig = currentUserId
+		? { currentUserId, activePageId, pinnedCount }
+		: undefined;
+
 	const hasLocationData = useMemo(
 		() => items.some((item) => {
 			if ("latitude" in item && "longitude" in item) {
@@ -80,7 +103,7 @@ export function ProfileCollectionSection({
 	return (
 		<div className="mt-8 pt-8 border-t">
 			<CollectionPage
-				filteredItems={filteredItems}
+				filteredItems={pinnedFirstItems}
 				loading={false}
 				error=""
 				search={search}
@@ -96,6 +119,7 @@ export function ProfileCollectionSection({
 				onTagsChange={setSelectedTags}
 				availableTags={availableTags}
 				title={title}
+				pinConfig={pinConfig}
 			/>
 		</div>
 	);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
-import { uploadImage } from "@/lib/utils/server/storage";
+import { uploadImage, uploadImageLocally } from "@/lib/utils/server/storage";
 
 /**
  * POST /api/upload
@@ -43,13 +43,10 @@ export async function POST(request: Request) {
 		const { searchParams } = new URL(request.url);
 		const folder = searchParams.get("folder") || "user-uploads";
 
-		// Check if storage is configured before attempting upload
-		if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-			return badRequest("Image uploads are not available in this environment.");
-		}
-
-		// Upload to Supabase
-		const result = await uploadImage(file, folder);
+		// Use local filesystem in dev (no Supabase URL), Supabase in production
+		const result = process.env.NEXT_PUBLIC_SUPABASE_URL
+			? await uploadImage(file, folder)
+			: await uploadImageLocally(file, folder);
 
 		if (result.error || !result.imageUrl) {
 			return serverError(result.error || "Upload failed");

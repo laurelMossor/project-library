@@ -1,13 +1,18 @@
-// ⚠️ SERVER-ONLY: Storage utilities for Supabase
+// ⚠️ SERVER-ONLY: Storage utilities
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 //
-// Configuration:
+// In production (NEXT_PUBLIC_SUPABASE_URL set): uploads go to Supabase Storage bucket "uploads"
+// In development (no Supabase URL): uploads go to public/uploads/ and are served as static assets
+//
+// Supabase configuration:
 // - Bucket name: "uploads" (must exist in Supabase Storage and be set to PUBLIC)
 // - Supabase URL: NEXT_PUBLIC_SUPABASE_URL (e.g., https://xxxxx.supabase.co)
 // - Service Role Key: SUPABASE_SERVICE_ROLE_KEY (for server-side uploads, bypasses RLS)
 //
 // Debug mode: Set DEBUG_UPLOADS=true to see detailed upload information
 
+import fs from "fs";
+import path from "path";
 import { getSupabaseClient } from "./supabase";
 
 const BUCKET_NAME = "uploads";
@@ -149,6 +154,38 @@ export async function deleteImage(
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to delete image",
+		};
+	}
+}
+
+/**
+ * Upload an image to the local filesystem (dev only).
+ * Files are written to public/uploads/{folder}/ and served as static assets at /uploads/{folder}/filename.
+ */
+export async function uploadImageLocally(
+	file: File,
+	folder: string = "user-uploads"
+): Promise<UploadImageResult> {
+	try {
+		const timestamp = Date.now();
+		const random = Math.random().toString(36).substring(2, 9);
+		const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+		const filename = `${timestamp}-${random}.${extension}`;
+		const filepath = folder ? `${folder}/${filename}` : filename;
+
+		const uploadsDir = path.join(process.cwd(), "public", "uploads", folder);
+		fs.mkdirSync(uploadsDir, { recursive: true });
+
+		const bytes = await file.arrayBuffer();
+		fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(bytes));
+
+		return { imageUrl: `/uploads/${filepath}`, path: filepath, error: null };
+	} catch (error) {
+		console.error("Error saving image locally:", error);
+		return {
+			imageUrl: null,
+			path: null,
+			error: error instanceof Error ? error.message : "Failed to save image locally",
 		};
 	}
 }

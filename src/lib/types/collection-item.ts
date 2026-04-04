@@ -26,6 +26,7 @@ export interface BaseCollectionItem {
 	topics: string[];
 	user: { id: string; username: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };
 	page: { id: string; name: string; slug: string; avatarImageId: string | null } | null;
+	pinnedAt: Date | null;
 	createdAt: Date;
 	updatedAt: Date;
 	type: CollectionItemType;

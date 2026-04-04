@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { API_AUTH_SIGNUP, LOGIN } from "@/lib/const/routes";
+import { API_AUTH_SIGNUP, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
 
-export default function SignupPage() {
+function SignupForm() {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const inviteToken = searchParams.get(SIGNUP_INVITE_QUERY)?.trim() ?? "";
+
 	const [email, setEmail] = useState("");
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
-	const router = useRouter();
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -19,7 +22,12 @@ export default function SignupPage() {
 		const res = await fetch(API_AUTH_SIGNUP, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, username, password }),
+			body: JSON.stringify({
+				email,
+				username,
+				password,
+				invite: inviteToken,
+			}),
 		});
 
 		if (!res.ok) {
@@ -28,9 +36,28 @@ export default function SignupPage() {
 			return;
 		}
 
-		// Redirect to login after successful signup
 		router.push(LOGIN);
 	};
+
+	if (!inviteToken) {
+		return (
+			<main className="flex min-h-screen items-center justify-center p-4">
+				<div className="w-full max-w-sm space-y-4 text-center">
+					<h1 className="text-2xl font-bold">Sign up</h1>
+					<p className="text-gray-600">
+						Sign up is by invitation only. Open the link from your invitation email to
+						continue.
+					</p>
+					<p className="text-sm">
+						Already have an account?{" "}
+						<a href={LOGIN} className="underline">
+							Log in
+						</a>
+					</p>
+				</div>
+			</main>
+		);
+	}
 
 	return (
 		<main className="flex min-h-screen items-center justify-center p-4">
@@ -69,10 +96,25 @@ export default function SignupPage() {
 
 				<p className="text-sm text-center">
 					Already have an account?{" "}
-					<a href={LOGIN} className="underline">Log in</a>
+					<a href={LOGIN} className="underline">
+						Log in
+					</a>
 				</p>
 			</form>
 		</main>
 	);
 }
 
+export default function SignupPage() {
+	return (
+		<Suspense
+			fallback={
+				<main className="flex min-h-screen items-center justify-center p-4">
+					<p className="text-gray-600">Loading…</p>
+				</main>
+			}
+		>
+			<SignupForm />
+		</Suspense>
+	);
+}

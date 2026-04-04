@@ -78,7 +78,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Verify event exists and belongs to active owner
 		const existing = await prisma.event.findUnique({
 			where: { id },
-			select: { userId: true },
+			select: { userId: true, pageId: true },
 		});
 
 		if (!existing) {
@@ -93,7 +93,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, status } = data;
+		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, status, pinnedAt } = data;
 
 		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
@@ -139,6 +139,27 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 		if (status !== undefined) updateData.status = status;
+		if (pinnedAt !== undefined) {
+			if (pinnedAt !== null) {
+				// Enforce 3-pin limit before pinning
+				const pinnedEventCount = await prisma.event.count({
+					where: {
+						OR: [
+							{ userId: existing.userId },
+							...(existing.pageId ? [{ pageId: existing.pageId }] : []),
+						],
+						pinnedAt: { not: null },
+						id: { not: id },
+					},
+				});
+				if (pinnedEventCount >= 3) {
+					return badRequest("You can only pin up to 3 events.");
+				}
+				updateData.pinnedAt = new Date(pinnedAt);
+			} else {
+				updateData.pinnedAt = null;
+			}
+		}
 
 		const event = await prisma.event.update({
 			where: { id },

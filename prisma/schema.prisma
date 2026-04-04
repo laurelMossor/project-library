@@ -96,6 +96,19 @@ model User {
   @@map("users")
 }
 
+// One-time signup invitations (token delivered via ?invite= in URL; token stored as SHA-256 hex)
+model SignupInvite {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([email])
+  @@map("signup_invites")
+}
+
 // ========================
 // Pages (shared resource — replaces Org + Project)
 // ========================
@@ -211,8 +224,9 @@ model Post {
   eventId      String?
   parentPostId String?
 
-  title   String?
-  content String
+  title    String?
+  content  String
+  pinnedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -253,6 +267,7 @@ model Event {
   latitude      Float?
   longitude     Float?
   status        EventStatus @default(DRAFT)
+  pinnedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -339,6 +354,7 @@ model Image {
   url              String
   path             String
   altText          String?
+  caption          String?
   uploadedByUserId String
   createdAt        DateTime @default(now())
 
