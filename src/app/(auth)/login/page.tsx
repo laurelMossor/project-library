@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { PRIVATE_USER_PAGE, SIGNUP, HOME } from "@/lib/const/routes";
+import { InviteCTA } from "../signup/page";
 
 export default function LoginPage() {
 	const { data: session } = useSession();
@@ -35,9 +36,9 @@ export default function LoginPage() {
 
 	return (
 		<main className="flex min-h-screen items-center justify-center p-4">
-			<div className="w-full max-w-sm space-y-4">
+			<div className="w-full max-w-sm space-y-4 text-center">
 				{session && (
-					<div className="bg-gray-100 p-3 rounded text-sm text-center">
+					<div className="bg-gray-100 p-3 rounded text-sm">
 						Logged in as {session.user?.email}.{" "}
 						<a href={PRIVATE_USER_PAGE} className="underline">Go to profile</a>
 					</div>
@@ -73,6 +74,7 @@ export default function LoginPage() {
 						<a href={SIGNUP} className="underline">Sign up</a>
 					</p>
 				</form>
+				<InviteCTA />
 			</div>
 		</main>
 	);

@@ -6,6 +6,15 @@ import { Button } from "@/lib/components/ui/Button";
 import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
 import Link from "next/link";
 
+export const InviteCTA = () => {
+	return (
+		<div className="py-4 px-4 border border-gray-300 rounded-md">
+			<p className="text-sm pb-3">The Project Library is currently in pre-beta which means that things are still in development and we are not yet open to the public. Interested in an invite or becoming a beta tester? <span className="font-bold">Fill out this form!</span> </p>
+			<Link href={ACCOUNT_INTEREST_FORM} className="underline">Interest Form</Link>
+		</div>
+	);
+};
+
 function SignupForm() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -55,10 +64,7 @@ function SignupForm() {
 							Log in
 						</a>
 					</p>
-					<div className="py-4 px-4 border border-gray-300 rounded-md">
-						<p className="text-sm pb-3">The Project Library is currently in pre-beta which means that things are still in development and we are not yet open to the public. Interested in an invite or becoming a beta tester? <span className="font-bold">Fill out this form!</span> </p>
-						<Link href={ACCOUNT_INTEREST_FORM} className="underline">Interest Form</Link>
-					</div>
+					<InviteCTA />
 				</div>
 			</main>
 		);
