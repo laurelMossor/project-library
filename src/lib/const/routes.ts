@@ -101,5 +101,5 @@ export const DEV_TAXONOMY = "/dev/taxonomy";
 export const FEEDBACK_SURVEY = "https://docs.google.com/forms/d/e/1FAIpQLScQeZneNUq6QhpJ_dbIJ2-E7zr186HFer9V5x6kDSb0Bzxl8A/viewform?usp=header"
 export const BUG_REPORT_FORM = "https://docs.google.com/forms/d/e/1FAIpQLScfIyo6yd_EvuJw4xJH-FFBgNid73QIGkAWaxUHVnSpgPbE4Q/viewform?usp=dialog";
 export const GITHUB_REPO = "https://github.com/laurelMossor/project-library";
-export const INSTAGRAM = "https://instagram.com/laurelmossor";
+export const INSTAGRAM = "https://instagram.com/project.library";
 export const ACCOUNT_INTEREST_FORM = "https://forms.gle/t1qhihX7Zi99ikaB9";
