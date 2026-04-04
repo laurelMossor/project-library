@@ -13,6 +13,7 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { Session } from "next-auth";
+import { NavProfileShell } from "./NavProfileShell";
 
 interface NavProfileTagProps {
 	session: Session | null;
@@ -35,7 +36,8 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isLoggedIn]);
 
-	if (!isLoggedIn || !activeEntity) return null;
+	if (!isLoggedIn) return <NavProfileShell />;
+	if (!activeEntity) return null;
 
 	// Badge on the trigger: "me" for personal identity, role for a page
 	const activeBadge = activePageId
