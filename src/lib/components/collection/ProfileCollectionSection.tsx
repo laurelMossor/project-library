@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useState, useMemo } from "react";
-import { CollectionItem, isPost } from "@/lib/types/collection";
+import { CollectionItem } from "@/lib/types/collection";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
 import { EVENT_NEW } from "@/lib/const/routes";
-import { PostCollectionItem } from "@/lib/types/post";
 
 type ProfileCollectionSectionProps = {
 	items: CollectionItem[];
@@ -59,21 +58,17 @@ export function ProfileCollectionSection({
 		availableTags,
 	} = useFilter(filteredBySearch);
 
-	// Post-sort: pinned posts float to top of the profile view (not affected on explore page)
+	// Post-sort: pinned items float to top of the profile view (not affected on explore page)
 	const pinnedFirstItems = useMemo(() => {
-		const pinned = filteredItems.filter(
-			(item): item is PostCollectionItem => isPost(item) && item.pinnedAt !== null
-		);
-		const unpinned = filteredItems.filter(
-			(item) => !isPost(item) || item.pinnedAt === null
-		);
+		const pinned = filteredItems.filter((item) => item.pinnedAt !== null);
+		const unpinned = filteredItems.filter((item) => item.pinnedAt === null);
 		pinned.sort((a, b) => new Date(b.pinnedAt!).getTime() - new Date(a.pinnedAt!).getTime());
 		return [...pinned, ...unpinned];
 	}, [filteredItems]);
 
-	// Count pinned posts in the current profile scope (for pin limit enforcement in UI)
+	// Count all pinned items in the current profile scope (for pin limit enforcement in UI)
 	const pinnedCount = useMemo(
-		() => items.filter((item) => isPost(item) && (item as PostCollectionItem).pinnedAt !== null).length,
+		() => items.filter((item) => item.pinnedAt !== null).length,
 		[items]
 	);
 

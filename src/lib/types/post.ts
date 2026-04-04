@@ -67,7 +67,6 @@ export interface PostCollectionItem extends BaseCollectionItem {
 	type: "post";
 	eventId: string | null;
 	parentPostId: string | null;
-	pinnedAt: Date | null;
 	images: ImageItem[];
 	event?: { id: string; title: string | null } | null;
 }

@@ -12,7 +12,7 @@
  */
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CollectionItem, isEvent, isPost } from "@/lib/types/collection";
+import { CollectionItem, isEvent } from "@/lib/types/collection";
 import { ProfilePicture } from "../profile/ProfilePicture";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
@@ -41,7 +41,6 @@ type CollectionCardProps = {
 export function CollectionCard({ item, truncate = true, showCaptions = false, pinConfig }: CollectionCardProps) {
 	const router = useRouter();
 	const isEventItem = isEvent(item);
-	const isPostItem = isPost(item);
 	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : POST_DETAIL(item.id);
 
 	// Use page info if available, otherwise user info
@@ -49,18 +48,19 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	const handle = item.page ? item.page.slug : item.user.username;
 	const profileHref = item.page ? PUBLIC_PAGE(item.page.slug) : PUBLIC_USER_PAGE(item.user.username);
 
-	// Pin button logic — only for posts, only when pinConfig is provided
-	const isPinned = isPostItem ? Boolean(item.pinnedAt) : false;
-	const canPin = isPostItem && !!pinConfig && (
+	// Pin button logic — available for all collection item types when pinConfig is provided
+	const isPinned = Boolean(item.pinnedAt);
+	const canPin = !!pinConfig && (
 		pinConfig.currentUserId === item.userId ||
 		(item.page !== null && item.page?.id === pinConfig.activePageId)
 	);
 	const atPinLimit = pinConfig ? pinConfig.pinnedCount >= MAX_PINNED && !isPinned : false;
+	const apiEndpoint = isEventItem ? `/api/events/${item.id}` : `/api/posts/${item.id}`;
 
 	async function handleTogglePin() {
-		if (!isPostItem || atPinLimit) return;
+		if (atPinLimit) return;
 		try {
-			const res = await fetch(`/api/posts/${item.id}`, {
+			const res = await fetch(apiEndpoint, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ pinnedAt: isPinned ? null : new Date().toISOString() }),
