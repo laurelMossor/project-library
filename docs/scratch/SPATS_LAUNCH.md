@@ -25,7 +25,7 @@ Goal: Be able to upload, change, delete their profile picture via their profile 
 - Add a rich brown boarder around the profilepicture 
 Details: From your profile view, as the personal profile active user, you can click on the profilepicture element to spawn the photo editor modal. On it, you see the photo at a larger scale in its original form (e.g. square) along with the options. User will have the option to 'upload a photo' or 'remove photo'.
 
-Task 5 - Captions
+Task 5 - Captions (untested)
 Goal: Photos have captions 
 Details: the captions appear as opaque text on a semi-transparent banner on the bottom edge of the photos when viewed from the full page post or event, not the card.
 
