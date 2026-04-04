@@ -10,6 +10,8 @@ import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
  * 
  * Body: { url: string, path: string, altText?: string }
  */
+
+// TODO: TEST CAPTIONS AND UPLOADS
 export async function POST(request: Request) {
 	try {
 		const ctx = await getSessionContext();
