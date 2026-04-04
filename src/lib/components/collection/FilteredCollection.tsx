@@ -1,15 +1,24 @@
 import { useMemo } from "react";
-import { CollectionItem } from "@/lib/types/collection";
+import dynamic from "next/dynamic";
+import { CollectionItem, isEvent } from "@/lib/types/collection";
+import { EventItem } from "@/lib/types/event";
 import { getCollectionItemKey } from "@/lib/utils/collection";
-import { CollectionCard } from "@/lib/components/collection/CollectionCard";
+import { CollectionCard, PinConfig } from "@/lib/components/collection/CollectionCard";
 import { useColumnCount } from "@/lib/hooks/useColumnCount";
+
+// Leaflet requires browser APIs — load without SSR
+const CollectionMap = dynamic(
+	() => import("@/lib/components/map/CollectionMap").then((m) => m.CollectionMap),
+	{ ssr: false, loading: () => <div className="w-full h-96 bg-gray-100 animate-pulse rounded border border-gray-200" /> }
+);
 
 type FilteredCollectionProps = {
 	items: CollectionItem[];
 	view: "map" | "list" | "grid";
+	pinConfig?: PinConfig;
 };
 
-export function FilteredCollection({ items, view }: FilteredCollectionProps) {
+export function FilteredCollection({ items, view, pinConfig }: FilteredCollectionProps) {
 	const columnCount = useColumnCount();
 
 	// Distribute items across columns using modulo
@@ -26,13 +35,29 @@ export function FilteredCollection({ items, view }: FilteredCollectionProps) {
 	}
 
 	if (view === "map") {
+		const eventsWithLocation = items
+			.filter(isEvent)
+			.filter((e): e is EventItem & { latitude: number; longitude: number } =>
+				e.latitude !== null && e.longitude !== null
+			);
+
+		if (eventsWithLocation.length === 0) {
+			return (
+				<div className="text-center py-12">
+					<p className="text-gray-600">No events with location data to display on the map.</p>
+				</div>
+			);
+		}
+
 		return (
-			<div className="text-center py-12">
-				<p className="text-gray-600 mb-4">Map view coming soon</p>
-				<p className="text-sm text-gray-500">
-					{items.length} {items.length === 1 ? "item" : "items"} found
-				</p>
-			</div>
+			<CollectionMap
+				events={eventsWithLocation.map((e) => ({
+					id: e.id,
+					title: e.title,
+					latitude: e.latitude,
+					longitude: e.longitude,
+				}))}
+			/>
 		);
 	}
 
@@ -42,7 +67,7 @@ export function FilteredCollection({ items, view }: FilteredCollectionProps) {
 		return (
 			<div className="space-y-4">
 				{items.map((item) => (
-					<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
+					<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} pinConfig={pinConfig} />
 				))}
 			</div>
 		);
@@ -53,7 +78,7 @@ export function FilteredCollection({ items, view }: FilteredCollectionProps) {
 			{columns.map((col, colIndex) => (
 				<div key={colIndex} className="flex-1 min-w-0 space-y-6">
 					{col.map((item) => (
-						<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} />
+						<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} pinConfig={pinConfig} />
 					))}
 				</div>
 			))}

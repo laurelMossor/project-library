@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useLeaflet } from "@/lib/hooks/useLeaflet";
 
 type InteractiveMapProps = {
 	latitude: number | null;
@@ -23,52 +24,12 @@ export function InteractiveMap({
 	const mapRef = useRef<any>(null);
 	const markerRef = useRef<any>(null);
 	const onLocationChangeRef = useRef(onLocationChange);
-	const [isLoading, setIsLoading] = useState(true);
-	const [mapError, setMapError] = useState<string | null>(null);
+	const { isLoading, mapError } = useLeaflet();
 
 	// Keep callback ref up to date without triggering re-renders
 	useEffect(() => {
 		onLocationChangeRef.current = onLocationChange;
 	}, [onLocationChange]);
-
-	// Load Leaflet from CDN
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-
-		// Check if Leaflet is already loaded
-		if ((window as any).L) {
-			setIsLoading(false);
-			return;
-		}
-
-		// Load Leaflet CSS
-		const link = document.createElement("link");
-		link.rel = "stylesheet";
-		link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-		link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
-		link.crossOrigin = "";
-		document.head.appendChild(link);
-
-		// Load Leaflet JS
-		const script = document.createElement("script");
-		script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-		script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
-		script.crossOrigin = "";
-		script.onload = () => {
-			setIsLoading(false);
-		};
-		script.onerror = () => {
-			setMapError("Failed to load map library");
-			setIsLoading(false);
-		};
-		document.body.appendChild(script);
-
-		return () => {
-			// Cleanup: remove script and link on unmount
-			document.body.removeChild(script);
-			document.head.removeChild(link);
-		};
-	}, []);
 
 	// Initialize map once Leaflet is loaded (only runs once)
 	useEffect(() => {

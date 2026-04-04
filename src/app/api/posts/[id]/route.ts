@@ -3,6 +3,9 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserFields } from "@/lib/utils/server/user";
+import { canPostAsPage } from "@/lib/utils/server/permission";
+
+const MAX_PINNED_POSTS = 3;
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,6 +45,7 @@ const postFields = {
 	parentPostId: true,
 	title: true,
 	content: true,
+	pinnedAt: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
@@ -109,17 +113,22 @@ export async function PATCH(request: Request, { params }: Params) {
 
 		const { id } = await params;
 
-		// Verify post exists and belongs to user
+		// Verify post exists and check authorization
 		const existing = await prisma.post.findUnique({
 			where: { id },
-			select: { userId: true },
+			select: { userId: true, pageId: true },
 		});
 
 		if (!existing) {
 			return notFound("Post not found");
 		}
 
-		if (existing.userId !== ctx.userId) {
+		const isAuthor = existing.userId === ctx.userId;
+		const isPageEditor = existing.pageId
+			? await canPostAsPage(ctx.userId, existing.pageId)
+			: false;
+
+		if (!isAuthor && !isPageEditor) {
 			return NextResponse.json(
 				{ error: "You can only edit your own posts" },
 				{ status: 403 }
@@ -127,7 +136,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, tags, topics } = data;
+		const { title, content, tags, topics, pinnedAt } = data;
 
 		// Validate content if provided
 		const contentValidation = validatePostContent(content);
@@ -156,11 +165,26 @@ export async function PATCH(request: Request, { params }: Params) {
 			}
 		}
 
+		// Handle pinnedAt toggle — enforce 3-pin limit per user/page scope
+		if (pinnedAt !== undefined) {
+			if (pinnedAt !== null) {
+				// Pinning: count existing pinned posts in the same scope
+				const scopeWhere = existing.pageId
+					? { pageId: existing.pageId, pinnedAt: { not: null } }
+					: { userId: existing.userId, pageId: null, pinnedAt: { not: null } };
+				const pinnedCount = await prisma.post.count({ where: scopeWhere });
+				if (pinnedCount >= MAX_PINNED_POSTS) {
+					return badRequest(`You can only pin up to ${MAX_PINNED_POSTS} posts at a time`);
+				}
+			}
+		}
+
 		const updateData: Record<string, unknown> = {};
 		if (title !== undefined) updateData.title = title?.trim() || null;
 		if (content !== undefined) updateData.content = content.trim();
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
+		if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
 
 		const post = await prisma.post.update({
 			where: { id },

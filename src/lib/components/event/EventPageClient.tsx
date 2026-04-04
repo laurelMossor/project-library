@@ -164,7 +164,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					onImageUploaded={(url) => {
 						setEvent((prev) => ({
 							...prev,
-							images: [{ id: "", url, path: "", altText: null, uploadedByUserId: "", createdAt: new Date() }, ...prev.images.slice(1)],
+							images: [{ id: "", url, path: "", altText: null, caption: null, uploadedByUserId: "", createdAt: new Date() }, ...prev.images.slice(1)],
 						}));
 					}}
 				/>

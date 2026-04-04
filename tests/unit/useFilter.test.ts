@@ -56,6 +56,7 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
     updatedAt: new Date("2024-05-01"),
     eventId: null,
     parentPostId: null,
+    pinnedAt: null,
     images: [],
     ...overrides,
   };

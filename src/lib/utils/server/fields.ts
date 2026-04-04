@@ -7,6 +7,7 @@ export const imageFields = {
   url: true,
   path: true,
   altText: true,
+  caption: true,
   uploadedByUserId: true,
   createdAt: true,
 } as const;
@@ -94,6 +95,7 @@ export const postBaseFields = {
   parentPostId: true,
   title: true,
   content: true,
+  pinnedAt: true,
   tags: true,
   topics: true,
   createdAt: true,

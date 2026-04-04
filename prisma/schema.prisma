@@ -211,8 +211,9 @@ model Post {
   eventId      String?
   parentPostId String?
 
-  title   String?
-  content String
+  title    String?
+  content  String
+  pinnedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -339,6 +340,7 @@ model Image {
   url              String
   path             String
   altText          String?
+  caption          String?
   uploadedByUserId String
   createdAt        DateTime @default(now())
 

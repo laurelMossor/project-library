@@ -52,7 +52,7 @@ export default async function PostDetailPage({ params }: Props) {
 				</p>
 			)}
 
-			<CollectionCard item={postItem} truncate={false} />
+			<CollectionCard item={postItem} truncate={false} showCaptions={true} />
 
 			{/* Child updates */}
 			<PostsList collectionId={id} collectionType="post" showTitle={true} />

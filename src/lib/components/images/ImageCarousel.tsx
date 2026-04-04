@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { ImageItem } from '@/lib/types/image';
 
-const ImageCarousel = ({ images }: { images: ImageItem[] }) => {
+const ImageCarousel = ({ images, showCaptions = false }: { images: ImageItem[]; showCaptions?: boolean }) => {
 	const [currentIndex, setCurrentIndex] = useState(0);
 
 	if (!images || images.length === 0) {
@@ -23,19 +23,29 @@ const ImageCarousel = ({ images }: { images: ImageItem[] }) => {
 		setCurrentIndex(index);
 	};
 
+	const currentImage = images[currentIndex];
+	const showCaption = showCaptions && Boolean(currentImage.caption);
+
 	return (
 		<div className="relative w-full">
 			{/* Main image container */}
 			<div className="relative w-full bg-gray-100">
 				<Image
-					src={images[currentIndex].url}
-					alt={images[currentIndex].altText || `Image ${currentIndex + 1}`}
+					src={currentImage.url}
+					alt={currentImage.altText || `Image ${currentIndex + 1}`}
 					width={800}
 					height={600}
 					style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
 					unoptimized
 				/>
 			</div>
+
+			{/* Caption banner — semi-transparent overlay at bottom, detail pages only */}
+			{showCaption && (
+				<div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-sm px-3 py-2">
+					{currentImage.caption}
+				</div>
+			)}
 
 			{/* Navigation buttons */}
 			{images.length > 1 && (
@@ -74,8 +84,8 @@ const ImageCarousel = ({ images }: { images: ImageItem[] }) => {
 						</svg>
 					</button>
 
-					{/* Dot indicators */}
-					<div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+					{/* Dot indicators — raised above caption when visible */}
+					<div className={`absolute ${showCaption ? 'bottom-10' : 'bottom-4'} left-1/2 -translate-x-1/2 flex gap-2`}>
 						{images.map((_, index) => (
 							<button
 								key={index}

@@ -14,6 +14,7 @@ export interface PostItem {
 	parentPostId: string | null; // Optional - if set, this is an update to another post
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
+	pinnedAt: Date | null; // When set, post is pinned to top of profile/page collection
 	tags: string[];
 	topics: string[];
 	createdAt: Date;
@@ -43,7 +44,7 @@ export type PostCreateInput = {
  * Post data for updating an existing post
  * Only updatable fields
  */
-export type PostUpdateInput = Partial<Pick<PostItem, "title" | "content" | "tags">>;
+export type PostUpdateInput = Partial<Pick<PostItem, "title" | "content" | "tags" | "pinnedAt">>;
 
 /**
  * Type guard to check if post is an event descendant
@@ -66,6 +67,7 @@ export interface PostCollectionItem extends BaseCollectionItem {
 	type: "post";
 	eventId: string | null;
 	parentPostId: string | null;
+	pinnedAt: Date | null;
 	images: ImageItem[];
 	event?: { id: string; title: string | null } | null;
 }
@@ -90,6 +92,7 @@ export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _c
 		updatedAt: post.updatedAt,
 		eventId: post.eventId,
 		parentPostId: post.parentPostId,
+		pinnedAt: post.pinnedAt,
 		images: post.images || [],
 		event: post.event,
 		...(post._count ? { _count: { updates: post._count.updates } } : {}),

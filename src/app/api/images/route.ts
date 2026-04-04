@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 		}
 
 		const body = await request.json();
-		const { url, path, altText } = body;
+		const { url, path, altText, caption } = body;
 
 		if (!url || typeof url !== "string") {
 			return badRequest("url is required");
@@ -28,14 +28,14 @@ export async function POST(request: Request) {
 			return badRequest("path is required");
 		}
 
-		// Validate altText if provided
 		if (altText !== undefined && altText !== null) {
-			if (typeof altText !== "string") {
-				return badRequest("altText must be a string");
-			}
-			if (altText.length > 500) {
-				return badRequest("altText must be 500 characters or less");
-			}
+			if (typeof altText !== "string") return badRequest("altText must be a string");
+			if (altText.length > 500) return badRequest("altText must be 500 characters or less");
+		}
+
+		if (caption !== undefined && caption !== null) {
+			if (typeof caption !== "string") return badRequest("caption must be a string");
+			if (caption.length > 500) return badRequest("caption must be 500 characters or less");
 		}
 
 		const image = await prisma.image.create({
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
 				url,
 				path,
 				altText: altText || null,
+				caption: caption || null,
 				uploadedByUserId: ctx.userId,
 			},
 		});
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
 				url: image.url,
 				path: image.path,
 				altText: image.altText,
+				caption: image.caption,
 				uploadedByUserId: image.uploadedByUserId,
 				createdAt: image.createdAt,
 			},
