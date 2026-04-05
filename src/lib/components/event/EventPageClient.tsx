@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
+import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { CoverImageEditor } from "@/lib/components/event/CoverImageEditor";
 import { InlineDateTimePicker } from "@/lib/components/event/InlineDateTimePicker";
 import { RsvpForm } from "@/lib/components/event/RsvpForm";
@@ -185,7 +186,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 						saving={saving}
 						error={editingField === "title" ? saveError : undefined}
 						displayContent={
-							<h1 className="text-4xl font-bold text-rich-brown leading-tight">
+							<h1 className={`text-4xl leading-tight ${event.title ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
 								{event.title || (isOwner ? "Event name" : "Untitled Event")}
 							</h1>
 						}
@@ -268,9 +269,11 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 						saving={saving}
 						error={editingField === "content" ? saveError : undefined}
 						displayContent={
-							<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">
-								{event.content || (isOwner ? "What should people know?" : "")}
-							</p>
+							<div className={`p-3 rounded-lg min-h-[10rem] ${!event.content ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
+								<InlinePlaceholder value={event.content} placeholder="What should people know?">
+									<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{event.content}</p>
+								</InlinePlaceholder>
+							</div>
 						}
 						editContent={
 							<textarea
@@ -279,7 +282,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 								placeholder="What should people know?"
 								rows={6}
 								maxLength={5000}
-								className="w-full text-base leading-relaxed text-gray-700 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
+								className="w-full text-base leading-relaxed text-gray-700 border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
 								autoFocus
 							/>
 						}
