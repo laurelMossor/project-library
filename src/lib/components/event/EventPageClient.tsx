@@ -180,7 +180,9 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							setEditingField("title");
 						}}
 						onSave={async () => {
-							await saveField("title", { title: (editTitle || "").trim() });
+							const trimmed = (editTitle || "").trim();
+							if (!trimmed) { setEditingField(null); return; }
+							await saveField("title", { title: trimmed });
 						}}
 						onCancel={() => setEditingField(null)}
 						saving={saving}
@@ -312,9 +314,9 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							<div className="space-y-3">
 								<div className="rounded-xl border border-gray-200 p-4">
 									<p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Location</p>
-									<p className="text-lg font-medium text-rich-brown">
-										{event.location || (isOwner ? "Add a location" : "TBD")}
-									</p>
+									<InlinePlaceholder value={event.location} placeholder={isOwner ? "Add a location" : "TBD"}>
+										<p className="text-lg font-medium text-rich-brown">{event.location}</p>
+									</InlinePlaceholder>
 								</div>
 								{event.latitude != null && event.longitude != null && (
 									<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title || undefined} />
