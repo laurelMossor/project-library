@@ -1,7 +1,0 @@
-I'd like to take a closer look at our inline editable elements. They don't look much like their 'final' counterpoints. The goal is for the event creation form to look like the final event page, and for admins/editors to be able to click on and edit the form inline. It's mostly there, but the final elements do not resemble the editable elements.
-
-These custom inline elements will be used throughout the site, so creating solid versions for the event page will set us up for success. 
-
-Use the dolores example account for testing. Open a "New Event" from the hamburger menu, fill in the title, body, and click pubish. See how the final event elements do not align. The biggest offender is the main content body, it reads "What should people know?" as a simple sentence, no box around it, then turns into a large text box. It should ideally have a structured shape with a light border that mimics a text box and have the placeholder text be grey, italic. Same with the title. It says "Event name" in bold as would be the final title, but I'd like the placeholder text to stand out as unfinished a little more.
-
-Please reference the interface-design and frontend-design skills in order to create a plan for this task. 
