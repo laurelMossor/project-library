@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 type InlinePlaceholderProps = {
 	value: string | null | undefined;
 	placeholder: string;
-	children: ReactNode;
+	children?: ReactNode;
 };
 
 /**
