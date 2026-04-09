@@ -74,19 +74,20 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	}
 
 	return (
-		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">
+		<div
+			className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col cursor-pointer"
+			onClick={() => router.push(detailUrl)}
+		>
 			{/* Header: Profile pic + Title + Pin */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
 					<ProfilePicture entity={item.page ?? item.user} size="md" />
 					<div className="flex-1 min-w-0">
-						<Link href={detailUrl}>
-							<h2 className="text-xl font-semibold mb-2 hover:underline">{item.title || "Untitled"}</h2>
-						</Link>
+						{item.title && <h2 className="text-xl font-semibold mb-2">{item.title}</h2>}
 					</div>
 					{canPin && (
 						<button
-							onClick={handleTogglePin}
+							onClick={(e) => { e.stopPropagation(); handleTogglePin(); }}
 							disabled={atPinLimit}
 							title={atPinLimit ? `Max ${MAX_PINNED} posts pinned` : isPinned ? "Unpin" : "Pin to top of profile"}
 							className={`flex-shrink-0 p-1 rounded transition-colors ${
@@ -123,6 +124,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 						<AtSignIcon className="w-3 h-3 text-gray-500" />
 						<Link
 							href={profileHref}
+							onClick={(e) => e.stopPropagation()}
 							className="text-sm text-rich-brown hover:underline"
 						>
 							{displayName}
@@ -136,7 +138,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				const count = item._count?.updates ?? 0;
 				if (!count || count === 0) return null;
 				return (
-					<div className="mt-2 mb-2">
+					<div className="mt-2 mb-2" onClick={(e) => e.stopPropagation()}>
 						<Link href={detailUrl} className="text-xs font-medium text-gray-500 hover:text-rich-brown hover:underline">
 							{count} {count === 1 ? "update" : "updates"}
 						</Link>
@@ -153,7 +155,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 			{/* Images */}
 			{item.images && item.images.length > 0 && (
-				<div className="mb-4">
+				<div className="mb-4" onClick={(e) => e.stopPropagation()}>
 					<ImageCarousel images={item.images} showCaptions={showCaptions} />
 				</div>
 			)}

@@ -23,6 +23,8 @@ import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { DraftPageShell } from "@/lib/components/creation/DraftPageShell";
+import { DraftContentArea } from "@/lib/components/creation/DraftContentArea";
 
 type EventPageClientProps = {
 	event: EventItem;
@@ -149,8 +151,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 	};
 
 	return (
-		<main className="flex min-h-screen items-center justify-center bg-slate-50 py-8 px-4">
-			<div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-glow">
+		<DraftPageShell>
 				{/* Draft banner */}
 				{isDraft && isOwner && (
 					<div className="bg-alice-blue px-6 py-3 text-center text-sm font-medium text-whale-blue">
@@ -171,7 +172,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					}}
 				/>
 
-				<div className="px-8 py-8 space-y-8">
+				<DraftContentArea>
 					{/* Title */}
 					<InlineEditable
 						canEdit={isOwner}
@@ -422,8 +423,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							Home
 						</Link>
 					</div>
-				</div>
-			</div>
-		</main>
+			</DraftContentArea>
+		</DraftPageShell>
 	);
 }

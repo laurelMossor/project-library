@@ -24,7 +24,8 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:report": "playwright test --reporter=html"
+    "test:e2e:report": "playwright test --reporter=html",
+    "kill:dev": "lsof -ti :3000 -ti :3001 -ti :3002 2>/dev/null | xargs kill -9 2>/dev/null || true"
   },
   "keywords": [],
   "author": "",

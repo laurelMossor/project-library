@@ -76,7 +76,7 @@ test.describe("Authoring — create content", () => {
     await page.goto("/posts/new");
     await expect(page).toHaveURL(/\/posts\/new/);
 
-    await page.getByPlaceholder("Give your post a title").fill("Playwright Test Post");
+    await page.getByPlaceholder("Title (optional)").fill("Playwright Test Post");
     await page.getByPlaceholder("What are you working on or thinking about?").fill("This post was created by an automated test.");
     await page.getByRole("button", { name: "Post" }).click();
 
