@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { createPost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { POST_DETAIL, POST_NEW, LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
-import { DraftPageShell } from "@/lib/components/layout/PostPageShell";
-import { DraftContentArea } from "@/lib/components/layout/PostContentArea";
+import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { ImageUploadModal } from "@/lib/components/ui/ImageUploadModal";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
@@ -74,8 +74,8 @@ export default function NewPostPage() {
 
 	return (
 		<>
-			<DraftPageShell>
-				<DraftContentArea>
+			<PostPageShell>
+				<PostContentArea>
 					<form onSubmit={handleSubmit} className="space-y-8">
 						{/* Title */}
 						<input
@@ -156,8 +156,8 @@ export default function NewPostPage() {
 							</button>
 						</div>
 					</form>
-				</DraftContentArea>
-			</DraftPageShell>
+				</PostContentArea>
+			</PostPageShell>
 
 			<ImageUploadModal
 				isOpen={showImageModal}

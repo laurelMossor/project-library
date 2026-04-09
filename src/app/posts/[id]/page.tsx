@@ -6,8 +6,8 @@ import { postWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { DeletePostButton } from "@/lib/components/post/DeletePostButton";
-import { DraftPageShell } from "@/lib/components/layout/PostPageShell";
-import { DraftContentArea } from "@/lib/components/layout/PostContentArea";
+import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { EVENT_DETAIL, EXPLORE_PAGE } from "@/lib/const/routes";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
@@ -35,8 +35,8 @@ export default async function PostDetailPage({ params }: Props) {
 	const postTitle = post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "");
 
 	return (
-		<DraftPageShell>
-			<DraftContentArea>
+		<PostPageShell>
+			<PostContentArea>
 				{/* Breadcrumb: event link if applicable */}
 				{post.event && (
 					<p className="text-sm text-misty-forest">
@@ -96,7 +96,7 @@ export default async function PostDetailPage({ params }: Props) {
 						Explore
 					</Link>
 				</div>
-			</DraftContentArea>
-		</DraftPageShell>
+			</PostContentArea>
+		</PostPageShell>
 	);
 }
