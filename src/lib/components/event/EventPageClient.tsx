@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
+import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { CoverImageEditor } from "@/lib/components/event/CoverImageEditor";
 import { InlineDateTimePicker } from "@/lib/components/event/InlineDateTimePicker";
 import { RsvpForm } from "@/lib/components/event/RsvpForm";
@@ -13,6 +14,7 @@ import { AttendeeList } from "@/lib/components/event/AttendeeList";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
 import { Tags } from "@/lib/components/tag/Tag";
+import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
@@ -21,6 +23,8 @@ import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 
 type EventPageClientProps = {
 	event: EventItem;
@@ -41,7 +45,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 	const [editLocation, setEditLocation] = useState(event.location);
 	const [editLatitude, setEditLatitude] = useState<number | null>(event.latitude);
 	const [editLongitude, setEditLongitude] = useState<number | null>(event.longitude);
-	const [editTags, setEditTags] = useState(event.tags.join(", "));
+	const [editTagsArr, setEditTagsArr] = useState<string[]>(event.tags);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState("");
 	const [geocoding, setGeocoding] = useState(false);
@@ -147,8 +151,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 	};
 
 	return (
-		<main className="flex min-h-screen items-center justify-center bg-slate-50 py-8 px-4">
-			<div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-glow">
+		<PostPageShell>
 				{/* Draft banner */}
 				{isDraft && isOwner && (
 					<div className="bg-alice-blue px-6 py-3 text-center text-sm font-medium text-whale-blue">
@@ -169,7 +172,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					}}
 				/>
 
-				<div className="px-8 py-8 space-y-8">
+				<PostContentArea>
 					{/* Title */}
 					<InlineEditable
 						canEdit={isOwner}
@@ -179,13 +182,15 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							setEditingField("title");
 						}}
 						onSave={async () => {
-							await saveField("title", { title: (editTitle || "").trim() });
+							const trimmed = (editTitle || "").trim();
+							if (!trimmed) { setEditingField(null); return; }
+							await saveField("title", { title: trimmed });
 						}}
 						onCancel={() => setEditingField(null)}
 						saving={saving}
 						error={editingField === "title" ? saveError : undefined}
 						displayContent={
-							<h1 className="text-4xl font-bold text-rich-brown leading-tight">
+							<h1 className={`text-4xl leading-tight ${event.title ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
 								{event.title || (isOwner ? "Event name" : "Untitled Event")}
 							</h1>
 						}
@@ -268,9 +273,11 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 						saving={saving}
 						error={editingField === "content" ? saveError : undefined}
 						displayContent={
-							<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">
-								{event.content || (isOwner ? "What should people know?" : "")}
-							</p>
+							<div className={`p-3 rounded-lg min-h-[10rem] ${!event.content ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
+								<InlinePlaceholder value={event.content} placeholder="What should people know?">
+									<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{event.content}</p>
+								</InlinePlaceholder>
+							</div>
 						}
 						editContent={
 							<textarea
@@ -279,7 +286,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 								placeholder="What should people know?"
 								rows={6}
 								maxLength={5000}
-								className="w-full text-base leading-relaxed text-gray-700 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
+								className="w-full text-base leading-relaxed text-gray-700 border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
 								autoFocus
 							/>
 						}
@@ -309,9 +316,9 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							<div className="space-y-3">
 								<div className="rounded-xl border border-gray-200 p-4">
 									<p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Location</p>
-									<p className="text-lg font-medium text-rich-brown">
-										{event.location || (isOwner ? "Add a location" : "TBD")}
-									</p>
+									<InlinePlaceholder value={event.location} placeholder={isOwner ? "Add a location" : "TBD"}>
+										<p className="text-lg font-medium text-rich-brown">{event.location}</p>
+									</InlinePlaceholder>
 								</div>
 								{event.latitude != null && event.longitude != null && (
 									<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title || undefined} />
@@ -368,74 +375,31 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					)}
 
 					{/* Tags */}
-					{event.tags.length > 0 && (
-						<InlineEditable
-							canEdit={isOwner}
-							isEditing={editingField === "tags"}
-							onEditStart={() => {
-								setEditTags(event.tags.join(", "));
-								setEditingField("tags");
-							}}
-							onSave={async () => {
-								const tags = editTags
-									.split(",")
-									.map((t) => t.trim())
-									.filter(Boolean)
-									.slice(0, 10);
-								await saveField("tags", { tags });
-							}}
-							onCancel={() => setEditingField(null)}
-							saving={saving}
-							error={editingField === "tags" ? saveError : undefined}
-							displayContent={<Tags item={event} />}
-							editContent={
-								<input
-									type="text"
-									value={editTags}
-									onChange={(e) => setEditTags(e.target.value)}
-									placeholder="Tag1, Tag2, Tag3"
-									className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
-									autoFocus
-								/>
-							}
-						/>
-					)}
-
-					{/* Tags input for owner when no tags exist */}
-					{isOwner && event.tags.length === 0 && (
-						<InlineEditable
-							canEdit={isOwner}
-							isEditing={editingField === "tags"}
-							onEditStart={() => {
-								setEditTags("");
-								setEditingField("tags");
-							}}
-							onSave={async () => {
-								const tags = editTags
-									.split(",")
-									.map((t) => t.trim())
-									.filter(Boolean)
-									.slice(0, 10);
-								await saveField("tags", { tags });
-							}}
-							onCancel={() => setEditingField(null)}
-							saving={saving}
-							error={editingField === "tags" ? saveError : undefined}
-							displayContent={
-								<p className="text-sm text-gray-400">Add tags</p>
-							}
-							editContent={
-								<input
-									type="text"
-									value={editTags}
-									onChange={(e) => setEditTags(e.target.value)}
-									placeholder="Tag1, Tag2, Tag3"
-									className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
-									autoFocus
-								/>
-							}
-						/>
-					)}
+					<InlineEditable
+						canEdit={isOwner}
+						isEditing={editingField === "tags"}
+						onEditStart={() => {
+							setEditTagsArr(event.tags);
+							setEditingField("tags");
+						}}
+						onSave={async () => {
+							await saveField("tags", { tags: editTagsArr.slice(0, 10) });
+						}}
+						onCancel={() => setEditingField(null)}
+						saving={saving}
+						error={editingField === "tags" ? saveError : undefined}
+						displayContent={
+							event.tags.length > 0
+								? <Tags item={event} />
+								: <InlinePlaceholder value={null} placeholder="Add topics" />
+						}
+						editContent={
+							<TagInputField
+								tags={editTagsArr}
+								onTagsChange={setEditTagsArr}
+							/>
+						}
+					/>
 
 					{/* Posts / updates */}
 					<PostsList collectionId={event.id} collectionType="event" />
@@ -459,8 +423,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 							Home
 						</Link>
 					</div>
-				</div>
-			</div>
-		</main>
+			</PostContentArea>
+		</PostPageShell>
 	);
 }

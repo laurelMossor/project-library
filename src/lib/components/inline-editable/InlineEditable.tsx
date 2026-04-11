@@ -77,7 +77,7 @@ export function InlineEditable({
 						type="button"
 						onClick={onSave}
 						disabled={saving}
-						className="px-3 py-1 text-sm font-medium text-white bg-black rounded hover:bg-gray-800 disabled:opacity-50"
+						className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
 					>
 						{saving ? "Saving..." : "Save"}
 					</button>
@@ -85,7 +85,7 @@ export function InlineEditable({
 						type="button"
 						onClick={onCancel}
 						disabled={saving}
-						className="px-3 py-1 text-sm font-medium text-gray-700 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+						className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
 					>
 						Cancel
 					</button>
@@ -102,7 +102,7 @@ export function InlineEditable({
 	// Editable display mode: subtle edit affordance on hover
 	return (
 		<div
-			className={`group relative cursor-pointer rounded-md transition-colors hover:bg-gray-50 ${className}`}
+			className={`group relative cursor-pointer rounded-md transition-colors hover:bg-melon-green/10 ${className}`}
 			onClick={onEditStart}
 			role="button"
 			tabIndex={0}
@@ -114,7 +114,7 @@ export function InlineEditable({
 			}}
 		>
 			{displayContent}
-			<span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 text-xs pointer-events-none">
+			<span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-misty-forest/60 text-xs pointer-events-none">
 				Edit
 			</span>
 		</div>
