@@ -41,8 +41,8 @@ Sourced from `docs/scratch/SPATS_LAUNCH.md` + the [Spats Launch Notion ticket](h
 From the Beta Plan's Work Estimates table. These are not optional for release; they're just not Spats.
 
 **Testing & polish (M3):**
-- [ ] P0 & P1 design features — the plan itself says "(list them)". The list is a TODO.
-- [ ] P0 & P1 bugs — no triaged list exists yet
+- [ ] P0 & P1 design features — triaged and ranked in the Notion POLISH epic
+- [ ] P0 & P1 bugs — triaged and ranked in the Notion BUGS epic
 - [ ] N+1 refactor sweep — partial work done 2026-03-23; no systematic pass yet
 - [ ] Non-offset pagination on collections
 
@@ -78,7 +78,6 @@ Most recent first. See `JOURNAL.md` for full entries.
 
 - **Microsite refactor shape.** Task 2 is big and the schema direction (`PageElement` table per PRD) isn't committed. Needs a technical plan before implementation.
 - **P0/P1 design feature list doesn't exist.** Plan literally calls it out as a TODO — can't check off "design polish" without enumerating it first.
-- **No bug triage.** Same problem as above but for bugs. Would want a triage pass before the "done" criteria is meaningful.
 - **Caption entry point.** Image captions work but there's no UI to add them yet (Task 5).
 
 ---
