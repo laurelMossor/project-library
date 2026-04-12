@@ -96,6 +96,7 @@ export const postBaseFields = {
   parentPostId: true,
   title: true,
   content: true,
+  status: true,
   pinnedAt: true,
   tags: true,
   topics: true,

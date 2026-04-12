@@ -15,6 +15,8 @@ const postSelectFields = {
 	parentPostId: true,
 	title: true,
 	content: true,
+	status: true,
+	pinnedAt: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
@@ -79,11 +81,19 @@ export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> 
 }
 
 /**
- * Fetch a user's toplevel posts (no pageId, eventId, or parentPostId) as collection items
+ * Fetch a user's top-level published posts for public views (explore, other users' profiles).
+ * Pass `includeOwner: true` to also return drafts (for the author's own profile view).
  */
-export async function getPostsByUser(userId: string): Promise<PostCollectionItem[]> {
+export async function getPostsByUser(userId: string, { includeOwner = false } = {}): Promise<PostCollectionItem[]> {
 	const posts = await prisma.post.findMany({
-		where: { userId, pageId: null, parentPostId: null, eventId: null },
+		where: {
+			userId,
+			pageId: null,
+			parentPostId: null,
+			eventId: null,
+			// TODO: where did includeOwner come from? It's not in the plan
+			...(includeOwner ? {} : { status: "PUBLISHED" }),
+		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
@@ -99,11 +109,17 @@ export async function getPostsByUser(userId: string): Promise<PostCollectionItem
 }
 
 /**
- * Fetch all posts belonging to a page as collection items
+ * Fetch a page's top-level published posts for public views.
+ * Pass `includeOwner: true` to also return drafts (for page admins/editors).
  */
-export async function getPostsByPage(pageId: string): Promise<PostCollectionItem[]> {
+export async function getPostsByPage(pageId: string, { includeOwner = false } = {}): Promise<PostCollectionItem[]> {
 	const posts = await prisma.post.findMany({
-		where: { pageId, parentPostId: null, eventId: null },
+		where: {
+			pageId,
+			parentPostId: null,
+			eventId: null,
+			...(includeOwner ? {} : { status: "PUBLISHED" }),
+		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
@@ -258,4 +274,33 @@ export async function deletePost(postId: string): Promise<void> {
 	await prisma.post.delete({
 		where: { id: postId },
 	});
+}
+
+/**
+ * Create a minimal DRAFT post for the draft-then-inline-edit flow.
+ * Called server-side when an owner navigates to /posts/new.
+ */
+export async function createDraftPost(userId: string, pageId?: string): Promise<PostItem> {
+	const post = await prisma.post.create({
+		data: {
+			userId,
+			pageId: pageId || null,
+			content: "",
+			status: "DRAFT",
+		},
+		select: postSelectFields,
+	});
+	return post as PostItem;
+}
+
+/**
+ * Publish a post — flips status from DRAFT to PUBLISHED.
+ */
+export async function publishPost(postId: string): Promise<PostItem> {
+	const post = await prisma.post.update({
+		where: { id: postId },
+		data: { status: "PUBLISHED" },
+		select: postSelectFields,
+	});
+	return post as PostItem;
 }

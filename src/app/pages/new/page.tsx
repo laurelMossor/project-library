@@ -5,32 +5,30 @@ import { useRouter } from "next/navigation";
 import { FormLayout } from "@/lib/components/layout/FormLayout";
 import { FormField } from "@/lib/components/forms/FormField";
 import { FormInput } from "@/lib/components/forms/FormInput";
-import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
-import { API_PAGES, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { API_PAGES, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
 import { generateSlug } from "@/lib/utils/slug";
 
+/**
+ * PAGES NEW
+ *
+ * Minimal create form: only name + slug (the two required, unique identifiers).
+ * On submit: POST /api/pages to create the page, then redirect to the public
+ * profile (/p/[slug]) where the owner can inline-edit all fields.
+ */
 export default function NewPagePage() {
 	const router = useRouter();
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
-
 	const [name, setName] = useState("");
 	const [slug, setSlug] = useState("");
-	const [headline, setHeadline] = useState("");
-	const [bio, setBio] = useState("");
-	const [interests, setInterests] = useState("");
-	const [location, setLocation] = useState("");
 	const [autoGenerateSlug, setAutoGenerateSlug] = useState(true);
 
-	// Auto-generate slug from name
 	const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newName = e.target.value;
 		setName(newName);
-		if (autoGenerateSlug) {
-			setSlug(generateSlug(newName));
-		}
+		if (autoGenerateSlug) setSlug(generateSlug(newName));
 	};
 
 	const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,22 +41,16 @@ export default function NewPagePage() {
 		setSaving(true);
 		setError("");
 
+		const finalSlug = slug.trim() || generateSlug(name.trim());
+
 		const res = await fetch(API_PAGES, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				name: name.trim(),
-				slug: slug.trim() || generateSlug(name.trim()),
-				headline: headline.trim() || undefined,
-				bio: bio.trim() || undefined,
-				interests: interests.split(",").map((s) => s.trim()).filter(Boolean),
-				location: location.trim() || undefined,
-			}),
+			body: JSON.stringify({ name: name.trim(), slug: finalSlug }),
 		});
 
 		if (!res.ok) {
 			const data = await res.json();
-			// Handle auth errors
 			if (res.status === 401) {
 				router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
 				return;
@@ -68,14 +60,15 @@ export default function NewPagePage() {
 			return;
 		}
 
-		// Redirect back to user profile where they can see their new page
-		router.push(PRIVATE_USER_PAGE);
+		const page = await res.json();
+		router.push(PUBLIC_PAGE(page.slug));
 	};
 
 	return (
-		<FormLayout maxWidth="md">
+		<FormLayout maxWidth="sm">
 			<form onSubmit={handleSubmit} className="space-y-4">
 				<h1 className="text-2xl font-bold">Create Page</h1>
+				<p className="text-sm text-gray-500">You can fill in headline, bio, and other details after creating the page.</p>
 
 				<FormError error={error} />
 
@@ -90,7 +83,12 @@ export default function NewPagePage() {
 					/>
 				</FormField>
 
-				<FormField label="URL Slug" htmlFor="slug" helpText="Used in your page's URL. Only lowercase letters, numbers, and hyphens." required>
+				<FormField
+					label="URL Slug"
+					htmlFor="slug"
+					helpText="Used in your page's URL. Only lowercase letters, numbers, and hyphens."
+					required
+				>
 					<FormInput
 						id="slug"
 						type="text"
@@ -102,51 +100,11 @@ export default function NewPagePage() {
 					/>
 				</FormField>
 
-				<FormField label="Headline" htmlFor="headline">
-					<FormInput
-						id="headline"
-						type="text"
-						value={headline}
-						onChange={(e) => setHeadline(e.target.value)}
-						placeholder="e.g. Creative community space"
-					/>
-				</FormField>
-
-				<FormField label="Bio" htmlFor="bio">
-					<FormTextarea
-						id="bio"
-						value={bio}
-						onChange={(e) => setBio(e.target.value)}
-						rows={4}
-						placeholder="Tell us about your page..."
-					/>
-				</FormField>
-
-				<FormField label="Interests (comma-separated)" htmlFor="interests" helpText="Separate interests with commas">
-					<FormInput
-						id="interests"
-						type="text"
-						value={interests}
-						onChange={(e) => setInterests(e.target.value)}
-						placeholder="e.g. Art, Community, Workshops"
-					/>
-				</FormField>
-
-				<FormField label="Location" htmlFor="location" helpText="City, State or full address">
-					<FormInput
-						id="location"
-						type="text"
-						value={location}
-						onChange={(e) => setLocation(e.target.value)}
-						placeholder="e.g. Portland, OR"
-					/>
-				</FormField>
-
 				<FormActions
 					submitLabel="Create Page"
 					onCancel={() => router.push(PRIVATE_USER_PAGE)}
 					loading={saving}
-					disabled={saving}
+					disabled={saving || !name.trim() || !slug.trim()}
 				/>
 			</form>
 		</FormLayout>

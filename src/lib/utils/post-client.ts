@@ -1,5 +1,5 @@
 import { PostItem, PostCollectionItem } from "../types/post";
-import { API_POSTS, API_EVENT_POSTS } from "../const/routes";
+import { API_POSTS, API_POST, API_EVENT_POSTS } from "../const/routes";
 import { authFetch } from "./auth-client";
 
 /**
@@ -86,4 +86,43 @@ export async function createPost(data: {
 	}
 
 	return res.json();
+}
+
+/**
+ * Update a post's fields (batched patch)
+ */
+export async function updatePost(
+	id: string,
+	data: Partial<{ title: string | null; content: string; tags: string[]; status: string }>
+): Promise<PostItem> {
+	const res = await authFetch(API_POST(id), {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to update post");
+	}
+
+	return res.json();
+}
+
+/**
+ * Publish a post (flip status DRAFT → PUBLISHED)
+ */
+export async function publishPost(id: string): Promise<PostItem> {
+	return updatePost(id, { status: "PUBLISHED" });
+}
+
+/**
+ * Delete a post
+ */
+export async function deletePost(id: string): Promise<void> {
+	const res = await authFetch(API_POST(id), { method: "DELETE" });
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to delete post");
+	}
 }

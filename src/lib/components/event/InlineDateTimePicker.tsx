@@ -55,6 +55,7 @@ export function InlineDateTimePicker({ eventDateTime, canEdit, onSave }: InlineD
 			}}
 			saving={saving}
 			error={error}
+			isolate
 			displayContent={
 				<p className="text-lg font-medium text-rich-brown">
 					{formatDateTime(eventDateTime)}

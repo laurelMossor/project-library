@@ -55,6 +55,8 @@ const postFields = {
 	parentPostId: true,
 	title: true,
 	content: true,
+	status: true,
+	pinnedAt: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
@@ -120,6 +122,8 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
+	const sessionCtx = await getSessionContext();
+
 	try {
 		const posts = await prisma.post.findMany({
 			where: {
@@ -129,6 +133,10 @@ export async function GET(request: Request) {
 				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
+				// Public callers only see published posts; owner sees own drafts too
+				...((sessionCtx && userId && userId === sessionCtx.userId)
+					? {} // owner can see their own drafts
+					: { status: "PUBLISHED" }),
 			},
 			select: postCollectionFields,
 			orderBy: { createdAt: "desc" },

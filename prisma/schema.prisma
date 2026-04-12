@@ -32,6 +32,11 @@ enum EventStatus {
   PUBLISHED
 }
 
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
 enum RsvpStatus {
   GOING
   MAYBE
@@ -226,6 +231,7 @@ model Post {
 
   title    String?
   content  String
+  status   PostStatus @default(DRAFT)
   pinnedAt DateTime?
 
   createdAt DateTime @default(now())

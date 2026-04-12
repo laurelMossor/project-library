@@ -45,6 +45,7 @@ const postFields = {
 	parentPostId: true,
 	title: true,
 	content: true,
+	status: true,
 	pinnedAt: true,
 	tags: true,
 	topics: true,
@@ -136,7 +137,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, tags, topics, pinnedAt } = data;
+		const { title, content, tags, topics, pinnedAt, status } = data;
 
 		// Validate content if provided
 		const contentValidation = validatePostContent(content);
@@ -185,6 +186,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 		if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
+		if (status === "PUBLISHED" || status === "DRAFT") updateData.status = status;
 
 		const post = await prisma.post.update({
 			where: { id },

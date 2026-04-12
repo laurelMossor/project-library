@@ -1,37 +1,51 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
+import { useInlineEditSessionContext } from "./InlineEditSession";
 
 /**
  * InlineEditable — Generic base component for inline editing.
  *
- * Resource-agnostic: works for Events, User Profiles, Page Profiles, Posts.
- * The caller provides the save handler wired to the correct API endpoint.
+ * Two modes:
+ *   1. **Session mode** (when wrapped in <InlineEditSession>): no per-field
+ *      Save/Cancel buttons. The session bar handles save/cancel for the whole
+ *      resource. The parent is responsible for calling session.setDirty() when
+ *      the field value changes.
+ *   2. **Standalone mode** (no parent session): renders its own Save/Cancel
+ *      buttons using the `onSave` prop. Backward-compatible with existing use.
  *
- * Usage:
- *   <InlineEditable
- *     canEdit={isOwner}
- *     isEditing={editingField === "title"}
- *     onEditStart={() => setEditingField("title")}
- *     onSave={async () => { await patchEvent(id, { title }); }}
- *     onCancel={() => setEditingField(null)}
- *     saving={saving}
- *     error={error}
- *     displayContent={<h1>{title}</h1>}
- *     editContent={<input value={title} onChange={...} />}
- *   />
+ * Usage (session mode):
+ *   <InlineEditSession resource={event} onSave={...} canEdit={isOwner}>
+ *     <InlineEditable
+ *       canEdit={isOwner}
+ *       isEditing={editingField === "title"}
+ *       onEditStart={() => setEditingField("title")}
+ *       onCancel={() => setEditingField(null)}
+ *       displayContent={<h1>{title}</h1>}
+ *       editContent={<input value={editTitle} onChange={...} />}
+ *     />
+ *   </InlineEditSession>
  */
 
 type InlineEditableProps = {
 	canEdit: boolean;
 	isEditing: boolean;
 	onEditStart: () => void;
-	onSave: () => Promise<void>;
 	onCancel: () => void;
 	displayContent: ReactNode;
 	editContent: ReactNode;
+	/** Only used in standalone mode (no parent InlineEditSession). */
+	onSave?: () => Promise<void>;
+	/** Only used in standalone mode. */
 	saving?: boolean;
+	/** Only used in standalone mode. */
 	error?: string;
+	/**
+	 * Force standalone mode even inside an InlineEditSession.
+	 * Use for fields that save immediately and don't participate in batched save
+	 * (e.g. date/time picker, avatar upload).
+	 */
+	isolate?: boolean;
 	/** Additional class for the wrapper */
 	className?: string;
 };
@@ -40,14 +54,17 @@ export function InlineEditable({
 	canEdit,
 	isEditing,
 	onEditStart,
-	onSave,
 	onCancel,
 	displayContent,
 	editContent,
+	onSave,
 	saving = false,
 	error,
+	isolate = false,
 	className = "",
 }: InlineEditableProps) {
+	const session = useInlineEditSessionContext();
+	const standaloneMode = session === null || isolate;
 	const wrapperRef = useRef<HTMLDivElement>(null);
 
 	const handleKeyDown = useCallback(
@@ -68,29 +85,36 @@ export function InlineEditable({
 		}
 	}, [isEditing, handleKeyDown]);
 
+	// In session mode, the global Escape handler on the session itself handles
+	// cancelAll. Per-field Escape (above) still closes the individual edit UI.
+
 	if (isEditing) {
 		return (
 			<div ref={wrapperRef} className={`relative ${className}`}>
 				{editContent}
-				<div className="flex items-center gap-2 mt-2">
-					<button
-						type="button"
-						onClick={onSave}
-						disabled={saving}
-						className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
-					>
-						{saving ? "Saving..." : "Save"}
-					</button>
-					<button
-						type="button"
-						onClick={onCancel}
-						disabled={saving}
-						className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
-					>
-						Cancel
-					</button>
-				</div>
-				{error && <p className="text-sm text-alert-red mt-1">{error}</p>}
+				{standaloneMode && onSave && (
+					<div className="flex items-center gap-2 mt-2">
+						<button
+							type="button"
+							onClick={onSave}
+							disabled={saving}
+							className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
+						>
+							{saving ? "Saving..." : "Save"}
+						</button>
+						<button
+							type="button"
+							onClick={onCancel}
+							disabled={saving}
+							className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
+						>
+							Cancel
+						</button>
+					</div>
+				)}
+				{standaloneMode && error && (
+					<p className="text-sm text-alert-red mt-1">{error}</p>
+				)}
 			</div>
 		);
 	}
