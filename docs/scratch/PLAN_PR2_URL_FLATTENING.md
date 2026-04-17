@@ -1,4 +1,4 @@
-# PR 2 — URL Flattening
+# PR 2 — URL Flattening (On Deck)
 
 > Drop the `/u/` and `/p/` prefixes from user and page profile URLs so `projectlibrary.com/spats-improv` works directly. Prereq for the Microsite feature feeling like a real microsite.
 
