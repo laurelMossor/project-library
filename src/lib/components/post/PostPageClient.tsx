@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PostItem } from "@/lib/types/post";
@@ -65,19 +65,25 @@ function PostPageContent({
 	}, [cancelRevision]);
 
 
-	// Delete draft on navigate away (same pattern as events)
+	// Tracks whether this post is still a draft so the unmount cleanup always
+	// has the latest value (avoids stale closure over `isDraft`).
+	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
+	useEffect(() => {
+		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && isOwner;
+	}, [post.status, isOwner]);
+
+	// When the owner navigates away from an unpublished draft, delete it silently.
 	useEffect(() => {
 		const postId = post.id;
-		const isDraftPost = isDraft && isOwner;
 		let armed = false;
 		const armTimer = setTimeout(() => { armed = true; }, 0);
 		return () => {
 			clearTimeout(armTimer);
-			if (armed && isDraftPost) {
+			if (armed && shouldDiscardOnLeaveRef.current) {
 				deletePost(postId).catch(() => {});
 			}
 		};
-	// post.id and initial draft state are stable
+	// post.id is stable for the lifetime of this component
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -157,8 +163,8 @@ function PostPageContent({
 							<button
 								type="button"
 								onClick={handlePublish}
-								disabled={publishing || isDirty}
-								title={isDirty ? "Save your changes before publishing" : undefined}
+								disabled={publishing || isDirty || !post.content.trim()}
+								title={isDirty ? "Save your changes before publishing" : !post.content.trim() ? "Add some content before publishing" : undefined}
 								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
 							>
 								{publishing ? "Publishing..." : "Publish"}

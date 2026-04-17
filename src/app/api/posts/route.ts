@@ -124,6 +124,17 @@ export async function GET(request: Request) {
 
 	const sessionCtx = await getSessionContext();
 
+	// Determine draft visibility:
+	// - user querying their own posts: no status filter (see all own posts)
+	// - logged-in user querying anything else: see published + own drafts
+	// - anonymous: published only
+	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
+	const statusFilter = isOwnUserQuery
+		? {}
+		: sessionCtx
+			? { OR: [{ status: "PUBLISHED" as const }, { status: "DRAFT" as const, userId: sessionCtx.userId }] }
+			: { status: "PUBLISHED" as const };
+
 	try {
 		const posts = await prisma.post.findMany({
 			where: {
@@ -133,10 +144,7 @@ export async function GET(request: Request) {
 				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
-				// Public callers only see published posts; owner sees own drafts too
-				...((sessionCtx && userId && userId === sessionCtx.userId)
-					? {} // owner can see their own drafts
-					: { status: "PUBLISHED" }),
+				...statusFilter,
 			},
 			select: postCollectionFields,
 			orderBy: { createdAt: "desc" },
