@@ -2,7 +2,7 @@
 
 > Live tracker for where we are on the road to **closed beta release**. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-19
 **Overall goal:** Closed beta release — invite-only site
 **Authoritative plan:** [Closed Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw/edit) · mirrored work estimates table is the ground truth for what's left.
 **Ticket board:** [ProLib Tickets (Notion)](https://www.notion.so/2d6453d029b080e99ebffce9169b18c6)
@@ -26,8 +26,8 @@
 Sourced from `docs/scratch/SPATS_LAUNCH.md` + the [Spats Launch Notion ticket](https://www.notion.so/2e1453d029b0801c9790fa897a7332eb). Check marks reflect the journal and in-repo notes.
 
 - [ ] **Task 1 — Page roles**: decide if Pages need an ultimate Owner (vs current ADMIN/EDITOR/MEMBER). Currently leaning toward "not yet."
-- [ ] **Task 2 — Microsite features** (biggest unknown): PRD in `docs/scratch/PAGE_MICROSITE_PRD.md`. Needs technical plan for structural fields (category, pinned_post rich text) and composable PageElement table. Touches schema.
-- [ ] **Task 2a — About subpage**: distinct from profile body. Decision pending: is it a Post in disguise or its own type?
+- [ ] **Task 2 — Microsite features**: PRD in `docs/scratch/PAGE_MICROSITE_PRD.md`. Technical plan written (`PLAN_PR3_MICROSITE.md`) — `PageElement` table, `aboutContent` field, About subpage at `/[handle]/about`. Blocked on PR 1 + PR 2 landing first.
+- [ ] **Task 2a — About subpage**: decided — it is `Page.aboutContent` (longform markdown), not a Post. Plan in `PLAN_PR3_MICROSITE.md`.
 - [x] **Task 3 — Pinned posts** — schema + UI + max-3 enforcement shipped 2026-04-03
 - [x] **Task 4 — Profile pictures** — upload/remove modal + brown ring shipped 2026-04-03
 - [ ] **Task 5 — Photo captions** — implementation done, **no entry point to add captions yet**
@@ -65,12 +65,12 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-04-19** — PR #17 (spats-4) open for review: authoring unification — `InlineEditSession` batched-save context, `PostStatus` DRAFT/PUBLISHED, simplified `/posts/new` + `/pages/new` server-side create-and-redirect, deleted dedicated edit routes, new `PostPageClient`/`PageProfileClient`/`UserProfileClient`. Four issues flagged in code review; pending fixes before merge.
+- **2026-04-11** — Docs pass: STATUS.md rewritten as four-milestone beta tracker; CLAUDE.md updated with session-start bootstrap. Planning docs written for PR 1 (authoring), PR 2 (URL flattening), PR 3 (microsite) sequence.
+- **2026-04-05** — Inline editing primitives: `InlineEditable`, `InlinePlaceholder`, `TagInputField`; inline tags picker; `EventPageClient` + `FilterBoard` slimmed.
+- **2026-04-04** — Signup/login polish: signup warnings, expanded interests form, social link field, invite CTA on login page.
 - **2026-04-03** — Invite-gated signup: `SignupInvite` model, `?invite=` URL flow, `DEV_SIGNUP_BYPASS_SECRET` for local/Playwright, `npm run invite:create`
 - **2026-04-03** — SPATS Tasks 3–6: pinned posts, profile pictures, image captions (no entry point yet), map view via `CollectionMap`
-- **2026-04-02** — Unified user/page profile pages via `ProfileHeader` + `ProfileButtons` + `ProfileBody`; self-service page membership (`JoinButton`); fixed page-based messaging bug and conversation data leak
-- **2026-04-01** — Profile-scoped unread message notifications (`UnreadCountContext`, per-profile dots, 60s polling)
-- **2026-03-29** — Messages overhaul: `MessagesPageView` with `TabbedPanel`, page-vs-user identity fix
-- **2026-03-27** — Playwright E2E suite (19 tests), observability pass (`@vercel/analytics`, JSON logging, `logAction()`), profile switching via `ActiveProfileContext`
 
 ---
 
