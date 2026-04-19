@@ -50,37 +50,6 @@ function UserProfileOwnerContent({
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
 
-	useEffect(() => {
-		if (!session || editingField !== "name") return;
-		session.setDirty("firstName", editFirstName || null, user.firstName);
-		session.setDirty("lastName", editLastName || null, user.lastName);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editFirstName, editLastName]);
-
-	useEffect(() => {
-		if (!session || editingField !== "headline") return;
-		session.setDirty("headline", editHeadline || null, user.headline);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editHeadline]);
-
-	useEffect(() => {
-		if (!session || editingField !== "bio") return;
-		session.setDirty("bio", editBio || null, user.bio);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editBio]);
-
-	useEffect(() => {
-		if (!session || editingField !== "location") return;
-		session.setDirty("location", editLocation || null, user.location);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editLocation]);
-
-	useEffect(() => {
-		if (!session || editingField !== "interests") return;
-		session.setDirty("interests", editInterests, user.interests);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editInterests]);
-
 	const displayName = getUserDisplayName(user);
 	const entity = {
 		id: user.id,
@@ -122,7 +91,7 @@ function UserProfileOwnerContent({
 									<input
 										type="text"
 										value={editFirstName}
-										onChange={(e) => setEditFirstName(e.target.value)}
+										onChange={(e) => { setEditFirstName(e.target.value); session?.setDirty("firstName", e.target.value || null, user.firstName); }}
 										placeholder="First name"
 										maxLength={50}
 										className="text-3xl font-bold border-b-2 border-rich-brown/20 pb-0.5 w-32 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -131,7 +100,7 @@ function UserProfileOwnerContent({
 									<input
 										type="text"
 										value={editLastName}
-										onChange={(e) => setEditLastName(e.target.value)}
+										onChange={(e) => { setEditLastName(e.target.value); session?.setDirty("lastName", e.target.value || null, user.lastName); }}
 										placeholder="Last name"
 										maxLength={50}
 										className="text-3xl font-bold border-b-2 border-rich-brown/20 pb-0.5 w-32 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -165,7 +134,7 @@ function UserProfileOwnerContent({
 						<input
 							type="text"
 							value={editHeadline}
-							onChange={(e) => setEditHeadline(e.target.value)}
+							onChange={(e) => { setEditHeadline(e.target.value); session?.setDirty("headline", e.target.value || null, user.headline); }}
 							placeholder="Add a headline"
 							maxLength={200}
 							className="w-full text-lg border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -189,7 +158,7 @@ function UserProfileOwnerContent({
 						<input
 							type="text"
 							value={editLocation}
-							onChange={(e) => setEditLocation(e.target.value)}
+							onChange={(e) => { setEditLocation(e.target.value); session?.setDirty("location", e.target.value || null, user.location); }}
 							placeholder="Add a location"
 							maxLength={200}
 							className="w-full text-sm border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -215,7 +184,7 @@ function UserProfileOwnerContent({
 					editContent={
 						<textarea
 							value={editBio}
-							onChange={(e) => setEditBio(e.target.value)}
+							onChange={(e) => { setEditBio(e.target.value); session?.setDirty("bio", e.target.value || null, user.bio); }}
 							placeholder="Tell people about yourself"
 							rows={4}
 							maxLength={2000}
@@ -246,7 +215,7 @@ function UserProfileOwnerContent({
 					editContent={
 						<TagInputField
 							tags={editInterests}
-							onTagsChange={setEditInterests}
+							onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, user.interests); }}
 							placeholder="Add interests"
 						/>
 					}

@@ -61,53 +61,6 @@ function PageProfileOwnerContent({
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
 
-	// Push dirty state into session when field values change
-	useEffect(() => {
-		if (!session || editingField !== "name") return;
-		session.setDirty("name", editName, page.name);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editName]);
-
-	useEffect(() => {
-		if (!session || editingField !== "headline") return;
-		session.setDirty("headline", editHeadline || null, page.headline);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editHeadline]);
-
-	useEffect(() => {
-		if (!session || editingField !== "bio") return;
-		session.setDirty("bio", editBio || null, page.bio);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editBio]);
-
-	useEffect(() => {
-		if (!session || editingField !== "location") return;
-		session.setDirty("location", editLocation || null, page.location);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editLocation]);
-
-	useEffect(() => {
-		if (!session || editingField !== "interests") return;
-		session.setDirty("interests", editInterests, page.interests);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editInterests]);
-
-	useEffect(() => {
-		if (!session || editingField !== "tags") return;
-		session.setDirty("tags", editTags, page.tags);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editTags]);
-
-	useEffect(() => {
-		if (!session || editingField !== "address") return;
-		session.setDirty("addressLine1", editAddressLine1 || null, page.addressLine1);
-		session.setDirty("addressLine2", editAddressLine2 || null, page.addressLine2);
-		session.setDirty("city", editCity || null, page.city);
-		session.setDirty("state", editState || null, page.state);
-		session.setDirty("zip", editZip || null, page.zip);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editAddressLine1, editAddressLine2, editCity, editState, editZip]);
-
 	const entity = {
 		id: page.id,
 		name: page.name,
@@ -137,7 +90,7 @@ function PageProfileOwnerContent({
 								<input
 									type="text"
 									value={editName}
-									onChange={(e) => setEditName(e.target.value)}
+									onChange={(e) => { setEditName(e.target.value); session?.setDirty("name", e.target.value, page.name); }}
 									placeholder="Page name"
 									maxLength={100}
 									className="text-3xl font-bold border-b-2 border-rich-brown/20 pb-0.5 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -172,7 +125,7 @@ function PageProfileOwnerContent({
 						<input
 							type="text"
 							value={editHeadline}
-							onChange={(e) => setEditHeadline(e.target.value)}
+							onChange={(e) => { setEditHeadline(e.target.value); session?.setDirty("headline", e.target.value || null, page.headline); }}
 							placeholder="Add a headline"
 							maxLength={200}
 							className="w-full text-lg border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -196,7 +149,7 @@ function PageProfileOwnerContent({
 						<input
 							type="text"
 							value={editLocation}
-							onChange={(e) => setEditLocation(e.target.value)}
+							onChange={(e) => { setEditLocation(e.target.value); session?.setDirty("location", e.target.value || null, page.location); }}
 							placeholder="Add a location"
 							maxLength={200}
 							className="w-full text-sm border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -222,7 +175,7 @@ function PageProfileOwnerContent({
 					editContent={
 						<textarea
 							value={editBio}
-							onChange={(e) => setEditBio(e.target.value)}
+							onChange={(e) => { setEditBio(e.target.value); session?.setDirty("bio", e.target.value || null, page.bio); }}
 							placeholder="Tell people about this page"
 							rows={4}
 							maxLength={2000}
@@ -253,7 +206,7 @@ function PageProfileOwnerContent({
 					editContent={
 						<TagInputField
 							tags={editInterests}
-							onTagsChange={setEditInterests}
+							onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, page.interests); }}
 							placeholder="Add interests"
 						/>
 					}
@@ -282,7 +235,7 @@ function PageProfileOwnerContent({
 					editContent={
 						<TagInputField
 							tags={editTags}
-							onTagsChange={setEditTags}
+							onTagsChange={(tags) => { setEditTags(tags); session?.setDirty("tags", tags, page.tags); }}
 							placeholder="Add tags"
 						/>
 					}
@@ -321,12 +274,12 @@ function PageProfileOwnerContent({
 					}
 					editContent={
 						<div className="space-y-2">
-							<input type="text" value={editAddressLine1} onChange={(e) => setEditAddressLine1(e.target.value)} placeholder="Street address" className="w-full border rounded px-2 py-1 text-sm" />
-							<input type="text" value={editAddressLine2} onChange={(e) => setEditAddressLine2(e.target.value)} placeholder="Suite, apt, etc." className="w-full border rounded px-2 py-1 text-sm" />
+							<input type="text" value={editAddressLine1} onChange={(e) => { setEditAddressLine1(e.target.value); session?.setDirty("addressLine1", e.target.value || null, page.addressLine1); }} placeholder="Street address" className="w-full border rounded px-2 py-1 text-sm" />
+							<input type="text" value={editAddressLine2} onChange={(e) => { setEditAddressLine2(e.target.value); session?.setDirty("addressLine2", e.target.value || null, page.addressLine2); }} placeholder="Suite, apt, etc." className="w-full border rounded px-2 py-1 text-sm" />
 							<div className="grid grid-cols-3 gap-2">
-								<input type="text" value={editCity} onChange={(e) => setEditCity(e.target.value)} placeholder="City" className="border rounded px-2 py-1 text-sm" />
-								<input type="text" value={editState} onChange={(e) => setEditState(e.target.value)} placeholder="State" className="border rounded px-2 py-1 text-sm" />
-								<input type="text" value={editZip} onChange={(e) => setEditZip(e.target.value)} placeholder="ZIP" className="border rounded px-2 py-1 text-sm" />
+								<input type="text" value={editCity} onChange={(e) => { setEditCity(e.target.value); session?.setDirty("city", e.target.value || null, page.city); }} placeholder="City" className="border rounded px-2 py-1 text-sm" />
+								<input type="text" value={editState} onChange={(e) => { setEditState(e.target.value); session?.setDirty("state", e.target.value || null, page.state); }} placeholder="State" className="border rounded px-2 py-1 text-sm" />
+								<input type="text" value={editZip} onChange={(e) => { setEditZip(e.target.value); session?.setDirty("zip", e.target.value || null, page.zip); }} placeholder="ZIP" className="border rounded px-2 py-1 text-sm" />
 							</div>
 						</div>
 					}
