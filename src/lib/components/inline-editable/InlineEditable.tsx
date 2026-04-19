@@ -1,20 +1,16 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
-import { useInlineEditSessionContext } from "./InlineEditSession";
 
 /**
- * InlineEditable — Generic base component for inline editing.
+ * InlineEditable — Generic shell for inline editing.
  *
- * Two modes:
- *   1. **Session mode** (when wrapped in <InlineEditSession>): no per-field
- *      Save/Cancel buttons. The session bar handles save/cancel for the whole
- *      resource. The parent is responsible for calling session.setDirty() when
- *      the field value changes.
- *   2. **Standalone mode** (no parent session): renders its own Save/Cancel
- *      buttons using the `onSave` prop. Backward-compatible with existing use.
+ * Always operates in session mode: wraps content in a clickable display area,
+ * switches to edit mode on click, and delegates Save/Cancel to the parent
+ * <InlineEditSession>. The parent is responsible for calling session.setDirty()
+ * when field values change.
  *
- * Usage (session mode):
+ * Usage:
  *   <InlineEditSession resource={event} onSave={...} canEdit={isOwner}>
  *     <InlineEditable
  *       canEdit={isOwner}
@@ -34,18 +30,6 @@ type InlineEditableProps = {
 	onCancel: () => void;
 	displayContent: ReactNode;
 	editContent: ReactNode;
-	/** Only used in standalone mode (no parent InlineEditSession). */
-	onSave?: () => Promise<void>;
-	/** Only used in standalone mode. */
-	saving?: boolean;
-	/** Only used in standalone mode. */
-	error?: string;
-	/**
-	 * Force standalone mode even inside an InlineEditSession.
-	 * Use for fields that save immediately and don't participate in batched save
-	 * (e.g. date/time picker, avatar upload).
-	 */
-	isolate?: boolean;
 	/** Additional class for the wrapper */
 	className?: string;
 };
@@ -57,14 +41,8 @@ export function InlineEditable({
 	onCancel,
 	displayContent,
 	editContent,
-	onSave,
-	saving = false,
-	error,
-	isolate = false,
 	className = "",
 }: InlineEditableProps) {
-	const session = useInlineEditSessionContext();
-	const standaloneMode = session === null || isolate;
 	const wrapperRef = useRef<HTMLDivElement>(null);
 
 	const handleKeyDown = useCallback(
@@ -92,29 +70,6 @@ export function InlineEditable({
 		return (
 			<div ref={wrapperRef} className={`relative ${className}`}>
 				{editContent}
-				{standaloneMode && onSave && (
-					<div className="flex items-center gap-2 mt-2">
-						<button
-							type="button"
-							onClick={onSave}
-							disabled={saving}
-							className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
-						>
-							{saving ? "Saving..." : "Save"}
-						</button>
-						<button
-							type="button"
-							onClick={onCancel}
-							disabled={saving}
-							className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
-						>
-							Cancel
-						</button>
-					</div>
-				)}
-				{standaloneMode && error && (
-					<p className="text-sm text-alert-red mt-1">{error}</p>
-				)}
 			</div>
 		);
 	}
