@@ -37,6 +37,12 @@ export async function GET() {
  * PUT /api/me/page
  * Update the active page profile
  * Protected endpoint
+ *
+ * Out of scope (PR 2): handle renaming. This route does not accept a
+ * `handle` field today, and the PR 2 plan explicitly defers user-facing
+ * handle renames. If a future PR adds handle renaming here, the Page
+ * update and the Handle row update MUST happen in the same `$transaction`
+ * so the cross-entity uniqueness invariant cannot be broken mid-write.
  */
 export async function PUT(request: Request) {
 	try {

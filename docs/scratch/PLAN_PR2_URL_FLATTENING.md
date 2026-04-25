@@ -519,12 +519,12 @@ Land as one PR. Partial landing leaves the app in a weird mixed-URL state.
   - [x] Updated the one client-side caller (`src/lib/components/connections/AddConnectionSearch.tsx`) to fetch the new `/api/users/by-handle/...` URL.
   - **Done when:** Grep returns no hits and the route file compiles. **Confirmed: 125/125 unit tests pass, tsc 51 → 46 errors (5 fixed, all from removing the `username` field reference). All remaining errors are the expected rename-shape from task 1; tasks 11–12 sweep them.**
 
-- [ ] **Task 7 — Signup + page creation routes.**
-  - [ ] `src/app/api/auth/signup/route.ts`: uses `handle` field, calls `validateHandle`, `isReservedHandle`, `isHandleTaken`. Creates the `Handle` row in the same `prisma.$transaction` as the User. The transaction is non-negotiable — User without Handle, or Handle without User, is a broken state.
-  - [ ] `src/app/api/pages/route.ts`: same pattern for Page.
-  - [ ] `src/app/api/me/page/route.ts`: same; if it supports handle changes, validate and update the `Handle` row atomically with the Page update.
-  - [ ] Manual sanity check: trigger a signup (or run the test that does), inspect the DB — User and Handle rows both present, linked.
-  - **Done when:** All three routes use `handle`, write Handles transactionally, and a fresh signup or page creation produces both rows.
+- [x] **Task 7 — Signup + page creation routes.**
+  - [x] `src/app/api/auth/signup/route.ts`: uses `handle` field, calls `validateHandle`, `isReservedHandle`, `isHandleTaken`. Creates the `Handle` row in the same `prisma.$transaction` as the User. The transaction is non-negotiable — User without Handle, or Handle without User, is a broken state.
+  - [x] `src/app/api/pages/route.ts`: same pattern for Page.
+  - [x] `src/app/api/me/page/route.ts`: same; if it supports handle changes, validate and update the `Handle` row atomically with the Page update.
+  - [x] Manual sanity check: trigger a signup (or run the test that does), inspect the DB — User and Handle rows both present, linked.
+  - **Done when:** All three routes use `handle`, write Handles transactionally, and a fresh signup or page creation produces both rows. **Confirmed: 125/125 tests pass; sanity script proved both User+Handle and Page+Handle rows materialize linked.**
 
 ---
 
@@ -698,3 +698,31 @@ Land as one PR. Partial landing leaves the app in a weird mixed-URL state.
 3. **Two `(formerly /by-username/[username])` comments left as breadcrumbs.** One in the new route file's docblock, one inline in `AddConnectionSearch.tsx`. They're for next agent / future debugging context. Remove them at task 12 if you want a clean sweep, or leave them — small footprint.
 
 4. **`src/app/u/[username]/...` and `src/app/p/[slug]/...` still have lots of broken refs.** Tasks 6c only did the *minimum* to keep imports resolving (renamed function calls). The deeper field-shape errors (`.username`, `.slug`, ProfileEntity discriminator, etc.) persist. Don't try to "fix" those during stage 2 — they're owned by tasks 11–12, and those files get DELETED in task 14 anyway.
+
+#### 2026-04-25 — agent — Task 7 complete (signup + page creation)
+
+**Done:** Task 7 (all four sub-boxes checked). Stage 2 is now done.
+
+**Where I stopped:** Cleanly between tasks. Next agent picks up at Task 8 (`[handle]/page.tsx` router — Stage 3 begins).
+
+**Things to know for the next agent:**
+
+1. **Atomicity via Prisma nested writes, not bare `$transaction` for the User path.** The plan's "non-negotiable" requirement was that User+Handle either both exist or neither does. The seed pattern from Task 1 uses Prisma's nested-write syntax (`data: { ..., handleRecord: { create: { handle } } }`) — that compiles to a single SQL transaction at the driver layer, which satisfies the invariant without the boilerplate of an explicit `$transaction` wrapper. I used this for `createUser`. For `createPage` I kept an explicit `$transaction` because there are three writes (Page, nested Handle, creator-ADMIN Permission). For `consumeInviteAndCreateUser` I kept its existing `$transaction` and added the nested Handle create inside it. All three paths have the same invariant guarantee.
+
+2. **Email-uniqueness pre-check separated from handle-uniqueness pre-check.** The old `consumeInviteAndCreateUser` did `OR: [{ email }, { username }]`. After the rename, that conflates two checks with two different sources of truth: email lives on the user table, but handle uniqueness is now cross-entity (lives on the Handle table). I split them: email pre-check stays inside the transaction, handle pre-check is `isHandleTaken` at the route level (which queries `prisma.handle.findUnique`). The DB unique constraint on `handles.handle` is the actual gate; the route-level `isHandleTaken` is a UX pre-check that gives a friendly 400 instead of waiting for the constraint to throw.
+
+3. **P2002 race-condition handling.** Between the route's `isHandleTaken` pre-check and the actual write, a concurrent caller could grab the handle. The DB constraint will throw `P2002` if so. I catch this in three places — the signup dev-bypass branch, `consumeInviteAndCreateUser`, and the pages route — and surface a friendly "That handle is already taken" instead of leaking the Prisma error code. Without this, users would get a generic 500.
+
+4. **Lowercasing happens at the route boundary, not inside the utilities.** Per the PR 2 normalization rule. By the time `createUser` / `createPage` see the handle, it's already lowercased. The utilities trust the caller. This is consistent with the seed's pattern. The validators (`validateHandle`, `isReservedHandle`, `isHandleTaken`) all work against the lowercased canonical form.
+
+5. **`src/app/api/me/page/route.ts` got a comment, no code.** This route doesn't accept a `handle` field today, and the plan explicitly defers user-facing handle renames. The plan's sub-bullet ("if it supports handle changes...") is conditional and a future-PR placeholder. I added a comment to the PUT docblock recording that if/when handle renames are added here, the Page update and Handle row update must share a `$transaction`.
+
+6. **`createPage` lost its standalone "slug already exists" pre-check.** The old version did `prisma.page.findUnique({ where: { slug } })` before the transaction and threw if hit. That check (a) only covered Page-scoped uniqueness, missing User-Page collisions, and (b) referenced a column that no longer exists. The Handle table is the cross-entity uniqueness layer; the route-level `isHandleTaken` plus the DB constraint plus the P2002 catch fully replace it. The route's old `error.message.includes("slug already exists")` check is also gone.
+
+7. **Field-select rename in `user.ts` and `page.ts` cascaded errors back up.** Renaming `username: true` → `handle: true` and `slug: true` → `handle: true` in the field-select objects fixed the *select-side* errors (which had been `'username' does not exist in type 'UserSelect<...>'`) but exposed *caller-side* errors (everywhere downstream that reads `.username` or `.slug` on the result). Net delta: tsc 46 → 52 (+6). Six new errors but all of the same expected category, no new error patterns. These get cleaned up in tasks 11–12 as the type-definition sweep + caller sweep happens. The three Task 7 route files themselves (`signup/route.ts`, `pages/route.ts`, `me/page/route.ts`) compile cleanly — confirmed via filtered tsc grep.
+
+8. **Manual sanity check: wrote and deleted `scripts/_sanity_task7.ts`.** It calls `createUser` with a synthetic handle, queries both the user row and the handle row, confirms the link is bidirectional (Handle.userId === User.id, Handle.pageId === null, User.handle === handle), then does the same for `createPage` (Handle.pageId === Page.id, Handle.userId === null), then deletes everything. Both paths returned ✓. Cleanup ran clean. Script lived for one invocation and was deleted; no commit footprint. If you want to re-run later, the harness pattern is: `npx tsx --env-file=.env.development <script>` (the `--env-file` is required because our `prisma.ts` throws if `DATABASE_URL` isn't set, and tsx doesn't auto-load `.env*` files like next does).
+
+9. **Doomed `p/[slug]/*` callers got the minimum-viable rename.** Both `src/app/p/[slug]/page.tsx` and `src/app/p/[slug]/connections/page.tsx` had their `getPageBySlug` import + call swapped to `getPageByHandle`. The route segment is still named `[slug]` — that's a URL path variable, not a DB field, and renaming the segment is task 14's job (the whole `/p/` subtree gets deleted then). Only the function-name swap was needed to keep the project compiling.
+
+10. **Stage 2 is now complete.** Tasks 1–5 (Foundations) ✓ + Task 6 (API URL rename) ✓ + Task 7 (signup + page creation) ✓. Next agent enters Stage 3 (new route trees) — the actual `/[handle]` router gets built. From here on, the dev server becomes the smoke-test mechanism (rather than `tsc` + tests alone) since Task 8's done-when explicitly says "visiting `/<handle>` renders the same content as `/u/<handle>`."

@@ -1,4 +1,4 @@
-import { getPageBySlug } from "@/lib/utils/server/page";
+import { getPageByHandle } from "@/lib/utils/server/page";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ConnectionsView } from "@/lib/components/profile/ConnectionsView";
@@ -12,7 +12,7 @@ type Props = {
 
 export default async function PageConnectionsPage({ params }: Props) {
 	const { slug } = await params;
-	const page = await getPageBySlug(slug);
+	const page = await getPageByHandle(slug);
 
 	if (!page) {
 		notFound();

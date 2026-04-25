@@ -5,7 +5,7 @@
  * When the viewing user is an admin of this page, profile fields are
  * inline-editable via InlineEditSession. All other visitors see a read-only view.
  */
-import { getPageBySlug } from "@/lib/utils/server/page";
+import { getPageByHandle } from "@/lib/utils/server/page";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { canManagePage } from "@/lib/utils/server/permission";
@@ -29,7 +29,7 @@ export default async function PublicPageProfilePage({ params }: Props) {
 	const { slug } = await params;
 
 	const [page, session] = await Promise.all([
-		getPageBySlug(slug),
+		getPageByHandle(slug),
 		auth(),
 	]);
 
