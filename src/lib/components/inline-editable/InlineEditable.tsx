@@ -3,35 +3,33 @@
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
 
 /**
- * InlineEditable — Generic base component for inline editing.
+ * InlineEditable — Generic shell for inline editing.
  *
- * Resource-agnostic: works for Events, User Profiles, Page Profiles, Posts.
- * The caller provides the save handler wired to the correct API endpoint.
+ * Always operates in session mode: wraps content in a clickable display area,
+ * switches to edit mode on click, and delegates Save/Cancel to the parent
+ * <InlineEditSession>. The parent is responsible for calling session.setDirty()
+ * when field values change.
  *
  * Usage:
- *   <InlineEditable
- *     canEdit={isOwner}
- *     isEditing={editingField === "title"}
- *     onEditStart={() => setEditingField("title")}
- *     onSave={async () => { await patchEvent(id, { title }); }}
- *     onCancel={() => setEditingField(null)}
- *     saving={saving}
- *     error={error}
- *     displayContent={<h1>{title}</h1>}
- *     editContent={<input value={title} onChange={...} />}
- *   />
+ *   <InlineEditSession resource={event} onSave={...} canEdit={isOwner}>
+ *     <InlineEditable
+ *       canEdit={isOwner}
+ *       isEditing={editingField === "title"}
+ *       onEditStart={() => setEditingField("title")}
+ *       onCancel={() => setEditingField(null)}
+ *       displayContent={<h1>{title}</h1>}
+ *       editContent={<input value={editTitle} onChange={...} />}
+ *     />
+ *   </InlineEditSession>
  */
 
 type InlineEditableProps = {
 	canEdit: boolean;
 	isEditing: boolean;
 	onEditStart: () => void;
-	onSave: () => Promise<void>;
 	onCancel: () => void;
 	displayContent: ReactNode;
 	editContent: ReactNode;
-	saving?: boolean;
-	error?: string;
 	/** Additional class for the wrapper */
 	className?: string;
 };
@@ -40,12 +38,9 @@ export function InlineEditable({
 	canEdit,
 	isEditing,
 	onEditStart,
-	onSave,
 	onCancel,
 	displayContent,
 	editContent,
-	saving = false,
-	error,
 	className = "",
 }: InlineEditableProps) {
 	const wrapperRef = useRef<HTMLDivElement>(null);
@@ -68,29 +63,13 @@ export function InlineEditable({
 		}
 	}, [isEditing, handleKeyDown]);
 
+	// In session mode, the global Escape handler on the session itself handles
+	// cancelAll. Per-field Escape (above) still closes the individual edit UI.
+
 	if (isEditing) {
 		return (
 			<div ref={wrapperRef} className={`relative ${className}`}>
 				{editContent}
-				<div className="flex items-center gap-2 mt-2">
-					<button
-						type="button"
-						onClick={onSave}
-						disabled={saving}
-						className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
-					>
-						{saving ? "Saving..." : "Save"}
-					</button>
-					<button
-						type="button"
-						onClick={onCancel}
-						disabled={saving}
-						className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
-					>
-						Cancel
-					</button>
-				</div>
-				{error && <p className="text-sm text-alert-red mt-1">{error}</p>}
 			</div>
 		);
 	}

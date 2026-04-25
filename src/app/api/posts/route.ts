@@ -55,6 +55,8 @@ const postFields = {
 	parentPostId: true,
 	title: true,
 	content: true,
+	status: true,
+	pinnedAt: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
@@ -120,6 +122,19 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
+	const sessionCtx = await getSessionContext();
+
+	// Determine draft visibility:
+	// - user querying their own posts: no status filter (see all own posts)
+	// - logged-in user querying anything else: see published + own drafts
+	// - anonymous: published only
+	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
+	const statusFilter = isOwnUserQuery
+		? {}
+		: sessionCtx
+			? { OR: [{ status: "PUBLISHED" as const }, { status: "DRAFT" as const, userId: sessionCtx.userId }] }
+			: { status: "PUBLISHED" as const };
+
 	try {
 		const posts = await prisma.post.findMany({
 			where: {
@@ -129,6 +144,7 @@ export async function GET(request: Request) {
 				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
+				...statusFilter,
 			},
 			select: postCollectionFields,
 			orderBy: { createdAt: "desc" },

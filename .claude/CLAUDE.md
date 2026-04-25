@@ -14,7 +14,6 @@ At the start of a new session, before responding to the first substantive reques
 1. `docs/guidance/PROJECT_GUIDELINES.md` — tech stack, conventions, schema tree
 2. `docs/guidance/STATUS.md` — current milestone, what's done, what's in flight, blockers. Infer the state of active work from here rather than loading specific tickets upfront.
 3. `docs/guidance/JOURNAL.md` — most recent ~5 entries for session-over-session continuity
-4. Memory index at `~/.claude/projects/-Users-laurelmossor-Code-project-library-v1/memory/MEMORY.md` and any relevant memory files
 
 If the request touches the closed beta plan specifically, also fetch:
 - **Google Doc — Beta Launch Plan**: `1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw` (via `google_drive_fetch`)

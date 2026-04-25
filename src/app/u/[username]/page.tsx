@@ -1,11 +1,9 @@
 /**
- * PUBLIC PROFILE PAGE
+ * PUBLIC USER PROFILE PAGE
  *
- * This is the public profile view at /u/[username].
- * - Publicly accessible (no authentication required)
- * - Displays user's profile information and collections (events + posts)
- *
- * For the private settings page, see: /u/profile
+ * /u/[username] — visible to everyone.
+ * When the viewing user owns this profile, fields are inline-editable
+ * via InlineEditSession. Visitors see a read-only view.
  */
 import { getUserByUsername } from "@/lib/utils/server/user";
 import { notFound } from "next/navigation";
@@ -17,6 +15,7 @@ import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
+import { UserProfileClient } from "@/lib/components/profile/UserProfileClient";
 import { ProfileEntity } from "@/lib/types/profile";
 
 type Props = {
@@ -34,20 +33,40 @@ export default async function PublicProfilePage({ params }: Props) {
 		notFound();
 	}
 
-	const profile: ProfileEntity = { type: "USER", data: user };
 	const isOwnProfile = session?.user?.id === user.id;
 
 	const [events, posts] = await Promise.all([
 		getEventsByUser(user.id),
-		getPostsByUser(user.id),
+		// Owner sees their own drafts in the collection
+		getPostsByUser(user.id, { includeOwner: isOwnProfile }),
 	]);
 	const collectionItems = [...events, ...posts];
+
+	if (isOwnProfile) {
+		return (
+			<CenteredLayout maxWidth="6xl">
+				<div className="mb-8">
+					<UserProfileClient user={user} />
+				</div>
+
+				<ProfileCollectionSection
+					items={collectionItems}
+					title="History"
+					emptyMessage={`${username} hasn't created anything yet.`}
+					showCreateLinks={false}
+					currentUserId={user.id}
+				/>
+			</CenteredLayout>
+		);
+	}
+
+	const profile: ProfileEntity = { type: "USER", data: user };
 
 	return (
 		<CenteredLayout maxWidth="6xl">
 			<div className="flex flex-col gap-6 mb-8">
 				<div className="flex items-start justify-between gap-4">
-					<ProfileHeader profile={profile} isOwnProfile={isOwnProfile} />
+					<ProfileHeader profile={profile} isOwnProfile={false} />
 					<div className="flex flex-col gap-2 w-36 shrink-0">
 						<ProfileButtons entityId={user.id} entityType="user" />
 					</div>
@@ -60,7 +79,6 @@ export default async function PublicProfilePage({ params }: Props) {
 				title="History"
 				emptyMessage={`${username} hasn't created anything yet.`}
 				showCreateLinks={false}
-				currentUserId={isOwnProfile ? user.id : undefined}
 			/>
 		</CenteredLayout>
 	);

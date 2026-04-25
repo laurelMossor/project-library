@@ -48,26 +48,44 @@ export function InlineDateTimePicker({ eventDateTime, canEdit, onSave }: InlineD
 				setValue(toLocalDateTimeString(eventDateTime));
 				setIsEditing(true);
 			}}
-			onSave={handleSave}
 			onCancel={() => {
 				setIsEditing(false);
 				setError("");
 			}}
-			saving={saving}
-			error={error}
 			displayContent={
 				<p className="text-lg font-medium text-rich-brown">
 					{formatDateTime(eventDateTime)}
 				</p>
 			}
 			editContent={
-				<input
-					type="datetime-local"
-					value={value}
-					onChange={(e) => setValue(e.target.value)}
-					className="w-full border border-gray-300 p-2 rounded text-lg"
-					autoFocus
-				/>
+				<div>
+					<input
+						type="datetime-local"
+						value={value}
+						onChange={(e) => setValue(e.target.value)}
+						className="w-full border border-gray-300 p-2 rounded text-lg"
+						autoFocus
+					/>
+					<div className="flex items-center gap-2 mt-2">
+						<button
+							type="button"
+							onClick={handleSave}
+							disabled={saving}
+							className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
+						>
+							{saving ? "Saving..." : "Save"}
+						</button>
+						<button
+							type="button"
+							onClick={() => { setIsEditing(false); setError(""); }}
+							disabled={saving}
+							className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
+						>
+							Cancel
+						</button>
+					</div>
+					{error && <p className="text-sm text-alert-red mt-1">{error}</p>}
+				</div>
 			}
 		/>
 	);

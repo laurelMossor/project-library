@@ -80,6 +80,7 @@ export const API_POST = (id: string) => `/api/posts/${id}`;
 
 // Page API Routes
 export const API_PAGES = "/api/pages";
+export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
 
 // Follow API Routes

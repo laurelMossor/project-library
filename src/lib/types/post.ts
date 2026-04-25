@@ -1,3 +1,4 @@
+import { PostStatus } from "@prisma/client";
 import { BaseCollectionItem } from "./collection-item";
 import { ImageItem } from "./image";
 
@@ -14,6 +15,7 @@ export interface PostItem {
 	parentPostId: string | null; // Optional - if set, this is an update to another post
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
+	status: PostStatus;
 	pinnedAt: Date | null; // When set, post is pinned to top of profile/page collection
 	tags: string[];
 	topics: string[];
