@@ -45,11 +45,13 @@ export async function getUserById(id: string) {
 	});
 }
 
-// Fetch a user by username (for public profile pages)
-// Uses findFirst with mode: 'insensitive' so lookups are case-insensitive
-export async function getUserByUsername(username: string) {
+// Fetch a user by handle (formerly username; field renamed in PR 2).
+// Uses findFirst with mode: 'insensitive' so lookups are case-insensitive,
+// though stored handles are always lowercase per the PR 2 normalization rule
+// (so the case-insensitive match is mostly belt-and-suspenders).
+export async function getUserByHandle(handle: string) {
 	return prisma.user.findFirst({
-		where: { username: { equals: username, mode: "insensitive" } },
+		where: { handle: { equals: handle, mode: "insensitive" } },
 		select: publicUserFields,
 	});
 }

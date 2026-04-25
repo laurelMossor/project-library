@@ -5,7 +5,7 @@
  * When the viewing user owns this profile, fields are inline-editable
  * via InlineEditSession. Visitors see a read-only view.
  */
-import { getUserByUsername } from "@/lib/utils/server/user";
+import { getUserByHandle } from "@/lib/utils/server/user";
 import { notFound } from "next/navigation";
 import { getEventsByUser } from "@/lib/utils/server/event";
 import { getPostsByUser } from "@/lib/utils/server/post";
@@ -25,7 +25,7 @@ type Props = {
 export default async function PublicProfilePage({ params }: Props) {
 	const { username } = await params;
 	const [user, session] = await Promise.all([
-		getUserByUsername(username),
+		getUserByHandle(username),
 		auth(),
 	]);
 

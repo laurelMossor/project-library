@@ -8,7 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { API_PAGES, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
-import { generateSlug } from "@/lib/utils/slug";
+import { generateHandle } from "@/lib/utils/handle";
 
 /**
  * PAGES NEW
@@ -28,7 +28,7 @@ export default function NewPagePage() {
 	const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newName = e.target.value;
 		setName(newName);
-		if (autoGenerateSlug) setSlug(generateSlug(newName));
+		if (autoGenerateSlug) setSlug(generateHandle(newName));
 	};
 
 	const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,7 +41,7 @@ export default function NewPagePage() {
 		setSaving(true);
 		setError("");
 
-		const finalSlug = slug.trim() || generateSlug(name.trim());
+		const finalSlug = slug.trim() || generateHandle(name.trim());
 
 		const res = await fetch(API_PAGES, {
 			method: "POST",

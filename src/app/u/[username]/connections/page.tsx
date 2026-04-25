@@ -1,4 +1,4 @@
-import { getUserByUsername } from "@/lib/utils/server/user";
+import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPagesForUser } from "@/lib/utils/server/permission";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -13,7 +13,7 @@ type Props = {
 
 export default async function UserConnectionsPage({ params }: Props) {
 	const { username } = await params;
-	const user = await getUserByUsername(username);
+	const user = await getUserByHandle(username);
 
 	if (!user) {
 		notFound();

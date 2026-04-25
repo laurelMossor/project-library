@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { badRequest, serverError } from "@/lib/utils/errors";
 import {
 	validateEmail,
-	validateUsername,
+	validateHandle,
 	validatePassword,
 	validateInviteToken,
 } from "@/lib/validations";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 		}
 
 		// Validate username format
-		if (!validateUsername(username)) {
+		if (!validateHandle(username)) {
 			return badRequest("Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens");
 		}
 

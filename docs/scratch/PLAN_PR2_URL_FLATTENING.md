@@ -470,50 +470,54 @@ Land as one PR. Partial landing leaves the app in a weird mixed-URL state.
 
 ### Stage 1 — Foundations (no UI changes yet)
 
-- [ ] **Task 1 — Schema + seed.**
-  - [ ] `Handle` model added to `prisma/schema.prisma` with `@@map("handles")` and both `@unique` FKs.
-  - [ ] `User.username` renamed to `User.handle` (preserve `@unique`).
-  - [ ] `Page.slug` renamed to `Page.handle` (preserve `@unique`).
-  - [ ] Seed script (`prisma/seed.ts` or wherever it lives — find it before assuming) rewritten: uses `handle` field names, lowercases every value, creates a `Handle` row linked to every User and every Page.
-  - [ ] `npx prisma migrate reset --force` runs cleanly. Seed runs. DB shows User, Page, and Handle rows in expected counts.
-  - [ ] `npx prisma generate` produces the new client types.
-  - **Done when:** Schema and DB are in the new shape. `npx tsc --noEmit` will now FAIL across the rest of the codebase on every old `.username`/`.slug` reference — this is expected and gets fixed in tasks 11–12. Do not try to fix those errors here.
+- [x] **Task 1 — Schema + seed.**
+  - [x] `Handle` model added to `prisma/schema.prisma` with `@@map("handles")` and both `@unique` FKs.
+  - [x] `User.username` renamed to `User.handle` (preserve `@unique`).
+  - [x] `Page.slug` renamed to `Page.handle` (preserve `@unique`).
+  - [x] Seed script (`prisma/seed.ts` — found at the root, single file) rewritten: uses `handle` field names, lowercases every value, creates a `Handle` row linked to every User and every Page. Uses Prisma nested-create syntax (`handleRecord: { create: { handle } }`) so User+Handle and Page+Handle creates are atomic.
+  - [x] Migration applied: `20260425000000_pr2_url_flattening_add_handle_table` (hand-written; see "Notes from previous sessions" for why). Seed runs. DB verified: 6 users, 2 pages, 8 handles (6 user-linked + 2 page-linked). All handles lowercase.
+  - [x] `npx prisma generate` produces the new client types.
+  - **Done when:** Schema and DB are in the new shape. `npx tsc --noEmit` will now FAIL across the rest of the codebase on every old `.username`/`.slug` reference — this is expected and gets fixed in tasks 11–12. Do not try to fix those errors here. **Confirmed: 51 tsc errors, all of the expected `.username`/`.slug` shape (plus cascading collapsed-relation errors from invalid `select` blocks).**
 
-- [ ] **Task 2 — `generateHandle` + `validateHandle`.**
-  - [ ] `src/lib/utils/handle.ts` created with `generateHandle`.
-  - [ ] `src/lib/validations.ts` updated: `validateHandle` added; `validateUsername` removed.
-  - [ ] `src/lib/utils/slug.ts` deleted.
-  - [ ] Vitest unit tests cover: valid handles, too-short, too-long, uppercase normalization, special-character stripping. Reserved-handle rejection comes in task 3.
-  - **Done when:** New unit tests pass.
+- [x] **Task 2 — `generateHandle` + `validateHandle`.**
+  - [x] `src/lib/utils/handle.ts` created with `generateHandle`.
+  - [x] `src/lib/validations.ts` updated: `validateHandle` added; `validateUsername` removed. `PageCreateData.slug` → `handle`; `validatePageData` delegates the format check to `validateHandle` (one rule for handles everywhere).
+  - [x] `src/lib/utils/slug.ts` deleted. Updated the one caller (`src/app/pages/new/page.tsx`) to import `generateHandle` from the new location — minimal scope to keep tsc resolution working; the rest of that page (state names, API body, route constants) stays as-is and gets cleaned up in tasks 11–12.
+  - [x] Updated `src/app/api/auth/signup/route.ts` to import `validateHandle` instead of `validateUsername` (minimal name-only fix; the rest of signup gets rewritten in task 7).
+  - [x] Vitest unit tests cover: valid handles, too-short, too-long, uppercase rejection (validateHandle is strict — doesn't normalize), and a separate `generateHandle` block for normalization, special-char stripping, hyphen collapsing, edge-trim, length cap. Reserved-handle rejection comes in task 3.
+  - **Done when:** New unit tests pass. **Confirmed: 97/97 unit tests pass (was 87, +10 from new generateHandle/validateHandle coverage). tsc still at 51 errors — same set as end of Task 1, no new breakage introduced.**
 
-- [ ] **Task 3 — Reserved handles constant + validator wiring.**
-  - [ ] `src/lib/const/reserved-handles.ts` created with the full set from the plan (including the `TODO(PR 3)` comment).
-  - [ ] `validateProfileData` and `validatePageData` in `src/lib/validations.ts` call `isReservedHandle` and reject with a clear, user-facing error message.
-  - [ ] Unit tests: reserved words rejected, normal handles accepted.
-  - **Done when:** Tests pass.
+- [x] **Task 3 — Reserved handles constant + validator wiring.**
+  - [x] `src/lib/const/reserved-handles.ts` created with the full set from the plan (including the `TODO(PR 3)` comment). Single-letter `a–z` block includes `u` and `p` — explicitly noted in a comment so future maintainers know those reservations are doing double duty (former route prefixes + reserving single letters).
+  - [x] `validatePageData` in `src/lib/validations.ts` calls `isReservedHandle` after the format check and rejects with `"That handle is reserved. Please choose another."`. **Deviation from plan body:** `validateProfileData` is NOT wired (see deviation note below) — it has no handle field; signup carries the format + reserved + uniqueness trio inline at task 7 instead.
+  - [x] Unit tests: new `tests/unit/reserved-handles.test.ts` covers `isReservedHandle` (top-level routes, single letters, auth flows, infra paths, vanity, anti-impersonation, case-insensitivity, ordinary handles accepted, RESERVED_HANDLES set sanity). `tests/unit/validations.test.ts` extended with three new cases for `validatePageData` reservation rejection.
+  - **Done when:** Tests pass. **Confirmed: 109/109 unit tests pass (was 97, +12 new). tsc still at 51 errors — no new breakage.**
 
-- [ ] **Task 4 — CI reserved-handle script.**
-  - [ ] `scripts/ci-check-reserved-handles.ts` created. Scans top-level directories under `src/app/`. Compares against `RESERVED_HANDLES`. Exits non-zero (with a clear error listing the missing handles) if any top-level dir is not reserved. Ignores Next.js route groups (folders wrapped in parentheses, e.g., `(auth)`).
-  - [ ] Added as an `npm` script in `package.json` (e.g., `check:reserved-handles`).
-  - [ ] Wired into the CI pipeline (find existing CI config; `.github/workflows/` is the likely location).
-  - [ ] Run locally — passes against the current `src/app/` shape. Both `u/` and `p/` still exist at this point and are covered by the single-letter reservations.
-  - **Done when:** Script exits 0 locally and CI config includes the step.
+- [x] **Task 4 — CI reserved-handle script.**
+  - [x] `scripts/ci-check-reserved-handles.ts` created. Scans top-level directories under `src/app/`, ignores Next.js route groups (`(parens)`) and dotfiles, compares against `RESERVED_HANDLES`. Exits 0 with a count summary on success; exits 1 with a list of missing segments (each annotated with the `src/app/<name>/` path) and a one-line fix instruction on failure.
+  - [x] Added as `check:reserved-handles` npm script in `package.json`.
+  - [x] **Plan deviation: no CI pipeline exists in this repo yet** (no `.github/workflows/`, no `.gitlab-ci`, no `.circleci/`). The closest enforcement gate is `npm run validate` (run locally before commit per `PROJECT_GUIDELINES.md`). I wired the check into `validate` between `typecheck` and `test:unit` so failure short-circuits before the longer test runs. When CI infrastructure is added later, that's the moment to wire the same npm script into the pipeline directly. See deviation note below.
+  - [x] Run locally — passes (12 top-level segments, all reserved). Both `u/` and `p/` are still present and covered by the single-letter `a–z` reservations. Negative-tested: temporarily added `src/app/__pr2_negative_test__/`, script exited 1 with the right error message, dir was removed.
+  - **Done when:** Script exits 0 locally and validate-step config includes it. **Both confirmed.**
 
-- [ ] **Task 5 — Server utils (`isHandleTaken`, `findEntityByHandle`, `canManageEntity`).**
-  - [ ] `src/lib/utils/server/handle.ts` created with `isHandleTaken` and `findEntityByHandle`.
-  - [ ] `canManageEntity` added to `src/lib/utils/server/permission.ts`.
-  - [ ] Unit tests: `isHandleTaken` returns true/false correctly; `findEntityByHandle` returns the right entity (user-only, page-only, neither); `canManageEntity` returns true for User-self, true for Page where the user is ADMIN or EDITOR, false otherwise.
-  - **Done when:** Tests pass and `npx tsc --noEmit` is clean for these new files (existing breakage from task 1 is still expected elsewhere).
+- [x] **Task 5 — Server utils (`isHandleTaken`, `findEntityByHandle`, `canManageEntity`).**
+  - [x] `src/lib/utils/server/handle.ts` created with `isHandleTaken` and `findEntityByHandle`. Both lowercase input before lookup (handles are stored lowercase). `findEntityByHandle` returns the typed `Handle & { user: User | null; page: Page | null }` shape.
+  - [x] `canManageEntity` added to `src/lib/utils/server/permission.ts`. Accepts the `{ user?: User | null; page?: Page | null }` shape that `findEntityByHandle` returns. Short-circuits on user branch (no DB hit if entity.user is set); falls through to `hasPermission(PAGE, [ADMIN, EDITOR])` for the page branch; returns false if neither populated. Imports `Page`/`User` types from `@prisma/client`.
+  - [x] Unit tests: new `tests/unit/handle-server.test.ts` covers `isHandleTaken` (true/false/case-insensitive normalization/already-lowercase) and `findEntityByHandle` (user-only/page-only/neither/correct query shape). `tests/unit/permission.test.ts` extended with 7 new `canManageEntity` cases (user-self, page-ADMIN, page-EDITOR, no-permission, query shape, edge cases for entity-with-neither and entity-with-both).
+  - **Done when:** Tests pass and `npx tsc --noEmit` is clean for these new files (existing breakage from task 1 is still expected elsewhere). **Confirmed: 125/125 unit tests pass (was 109, +16). tsc still at 51 errors; new/touched files (`handle.ts`, `permission.ts`) are clean.**
 
 ---
 
 ### Stage 2 — API surface
 
-- [ ] **Task 6 — API URL rename.**
-  - [ ] Move `src/app/api/users/by-username/[username]/route.ts` → `src/app/api/users/by-handle/[handle]/route.ts`. Update all internal references inside the file.
-  - [ ] `rg '\?username='` across `src/` — every client-side fetch URL with that query param becomes `?handle=`.
-  - [ ] `rg 'by-username'` across `src/` — no remaining hits.
-  - **Done when:** Grep returns no hits and the route file compiles.
+- [x] **Task 6 — API URL rename.**
+  - [x] Moved `src/app/api/users/by-username/[username]/route.ts` → `src/app/api/users/by-handle/[handle]/route.ts`. Updated internal references: dynamic param key (`[username]` → `[handle]`), destructured param name, function call, doc comment. Removed empty parent dirs `by-username/[username]/` and `by-username/`.
+  - [x] Renamed `getUserByUsername` → `getUserByHandle` in `src/lib/utils/server/user.ts` and updated the prisma `where` clause from `username` to `handle` (was one of the existing 51 errors — fixing it cascaded to fix several others, see tsc note below).
+  - [x] Updated the two doomed callers in `src/app/u/[username]/page.tsx` and `src/app/u/[username]/connections/page.tsx` to use `getUserByHandle` (those files are deleted in task 14, but until then they need to keep resolving — this is purely a name swap, the deeper field-shape errors persist there until task 12).
+  - [x] `rg '\?username='` across `src/` — **no matches** (this codebase only ever used path-segment style, never query-param style for username).
+  - [x] `rg 'by-username'` across `src/` — only matches are in two `(formerly /by-username/[username])` comments I left in `route.ts` and `AddConnectionSearch.tsx` to preserve migration breadcrumbs. Both can be removed at task 12 cleanup if desired.
+  - [x] Updated the one client-side caller (`src/lib/components/connections/AddConnectionSearch.tsx`) to fetch the new `/api/users/by-handle/...` URL.
+  - **Done when:** Grep returns no hits and the route file compiles. **Confirmed: 125/125 unit tests pass, tsc 51 → 46 errors (5 fixed, all from removing the `username` field reference). All remaining errors are the expected rename-shape from task 1; tasks 11–12 sweep them.**
 
 - [ ] **Task 7 — Signup + page creation routes.**
   - [ ] `src/app/api/auth/signup/route.ts`: uses `handle` field, calls `validateHandle`, `isReservedHandle`, `isHandleTaken`. Creates the `Handle` row in the same `prisma.$transaction` as the User. The transaction is non-negotiable — User without Handle, or Handle without User, is a broken state.
@@ -605,4 +609,92 @@ Land as one PR. Partial landing leaves the app in a weird mixed-URL state.
 
 > When you stop a session — whether the work is complete, paused mid-task, or blocked — append a dated entry below. Format: date, agent (or "agent"), what was done in this session, where you stopped (use a `STOPPED HERE` marker if mid-task and reference the task number), any deviations from the plan you made or discovered, anything tricky the next agent should know.
 
-_(empty — first session has not started)_
+#### 2026-04-25 — agent — Task 1 complete (Schema + seed)
+
+**Done:** Task 1 (all sub-boxes checked). Schema, seed, and dev DB are all in the new shape. 51 tsc errors remaining across the codebase — all of the expected `.username`/`.slug` rename shape, plus cascading collapsed-relation errors from invalid `select` blocks (which fix themselves once the field references are corrected). These get cleaned up in tasks 11–12 per plan.
+
+**Where I stopped:** Cleanly between tasks. Next agent picks up at Task 2 (`generateHandle` + `validateHandle`).
+
+**Deviations + things to know for the next agent:**
+
+1. **Migration was hand-written, not autogenerated.** Prisma 7's `migrate dev` requires a TTY for any migration with destructive changes (column drops, even on an empty DB it warns about adding unique constraints), and there is no `--accept-data-loss` flag in Prisma 7 (the CLI was slimmed). `--create-only` doesn't bypass this either. I wrote `prisma/migrations/20260425000000_pr2_url_flattening_add_handle_table/migration.sql` by hand. Bonus: the hand-written version uses `ALTER TABLE … RENAME COLUMN` and `ALTER INDEX … RENAME` instead of DROP+ADD, so it's a proper rename that preserves data and indexes. (For PR 2 this is academic — data is throwaway — but it sets a good precedent for any later schema changes that touch real data.)
+
+2. **Prisma 7 has an AI-agent safety guard on `migrate reset`.** It refuses to run when invoked by Cursor unless you set `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=<user's exact consent message>`. The user said "yes" and I proceeded. Future agents picking up this work: you'll hit the same guard on any `prisma migrate reset` and need to ask for fresh consent.
+
+3. **`prisma migrate reset` does NOT auto-run the seed in Prisma 7** (or at least it didn't for me). Had to run `npm run db:seed:dev` explicitly afterward. Also: the seed will fail with "Cannot read properties of undefined (reading 'deleteMany')" until you run `npx prisma generate` — the new `Handle` model isn't in the client until then. Sequence: `migrate reset → prisma generate → npm run db:seed:dev`.
+
+4. **`Handle` rows created via Prisma nested writes.** Both User and Page now have `handleRecord Handle?` back-relations, so the seed uses `handleRecord: { create: { handle } }` inside the User/Page create — atomic at the DB level, satisfies the plan's invariant that User+Handle and Page+Handle must come into existence together. Worth following the same pattern in tasks 7 (signup + page creation routes) instead of using explicit `prisma.$transaction`, unless the route needs to run other writes in the same tx.
+
+5. **Seed JSON renamed too.** `prisma/seed-data/users.json` had `"username":` keys — those are now `"handle":` keys. The corresponding `SeedUserJson` type in `prisma/seed.ts` was updated. The page defs are inline in `seed.ts` and were renamed (`slug` → `handle`) there too.
+
+6. **No `--skip-seed` flag in Prisma 7.** If you ever need to apply migrations without seeding, the workaround is to drop the public schema first via `echo 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' | npx prisma db execute --stdin`, which is the same approach the journal records using on 2026-01-28.
+
+7. **Verified DB state before checking the box.** 6 users, 2 pages, 8 handles (6 user-linked + 2 page-linked); every user/page has a matching handle row whose handle string equals the user's/page's `handle` field; all handles are lowercase. Used a throwaway `scripts/verify-pr2-task1.ts` for this and deleted it after.
+
+#### 2026-04-25 — agent — Tasks 2 + 3 complete (handle utils + reserved handles)
+
+**Done:** Tasks 2 and 3 (all sub-boxes checked). 109/109 unit tests pass. tsc still at exactly 51 errors — same set as end of Task 1, no new breakage. Validated by counting errors before/after each change.
+
+**Where I stopped:** Cleanly between tasks. Next agent picks up at Task 4 (CI reserved-handle script).
+
+**Deviations + things to know for the next agent:**
+
+1. **Plan deviation: `validateProfileData` is NOT wired with `isReservedHandle`.** The plan body says to wire `isReservedHandle` into both `validateProfileData` and `validatePageData`, but `ProfileData` (in `src/lib/types/user.ts`) has no `handle` field — handle changes are explicitly listed as out-of-scope for PR 2 ("Handle renaming by users (not supported today, not added here)"). The only caller of `validateProfileData` is `PUT /api/me/user`, which doesn't accept a handle either. So there's literally nothing to validate. Per Task 7's own spec ("calls `validateHandle`, `isReservedHandle`, `isHandleTaken`"), signup carries that trio inline at the route level. I've left a comment in `validations.ts` near `validatePageData` documenting where the User-side equivalent lives. If a future feature adds handle changes through profile updates, that's the moment to revisit — wire the check then, with a real call site.
+
+2. **`validateHandle` is pure format; reservation is a separate gate.** Plan calls them out as separate functions and the test file structure reflects that. Callers run `validateHandle(h) → isReservedHandle(h) → isHandleTaken(h)` in order. `validatePageData` does the first two; signup (task 7) will do all three. This separation matters because the third one is async (DB hit) and the first two are pure.
+
+3. **Edge-hyphen behavior is intentional asymmetry.** `validateHandle` regex is `^[a-z0-9_-]{3,30}$` per the plan, which *allows* `-portland` and `portland-`. `generateHandle` strips them. This means anything generated from free-text input is edge-clean, but a user typing `-portland` directly into a handle field passes validation. The old `validatePageData` explicitly rejected this. There's a regression test documenting the new behavior. If product wants to tighten back up, change `validateHandle` to `/^[a-z0-9](?:[a-z0-9_-]{1,28}[a-z0-9])?$/` or similar — would need a follow-up PR. Not a blocker for PR 2.
+
+4. **Updated one out-of-scope file to keep tsc clean.** When I deleted `src/lib/utils/slug.ts`, two callers needed updating to keep tsc resolving: `src/app/pages/new/page.tsx` (`generateSlug` → `generateHandle`, swap import + 2 call sites only — the rest of the page still uses `slug` state names that get cleaned up in task 12) and `src/app/api/auth/signup/route.ts` (`validateUsername` → `validateHandle`, name only, the call expression still passes `username` which gets renamed in task 7). Both are minimum-scope edits to prevent **new** module-not-found / no-exported-member errors on top of the existing 51 from Task 1. Task 12 (sweep) will rewrite both files properly.
+
+5. **Test file split: handle utils have their own file.** `tests/unit/reserved-handles.test.ts` is new (10 tests), separate from `tests/unit/validations.test.ts`. Reserved-handles is a different module with a different responsibility; mixing them would have made `validations.test.ts` 350+ lines. Keeping them separate also means breaking `reserved-handles.ts` doesn't fail unrelated validation tests, which is nice for diagnosis.
+
+#### 2026-04-25 — agent — Task 4 complete (CI reserved-handle script)
+
+**Done:** Task 4 (all sub-boxes checked). Script verified in both directions (passes on real shape; fails with helpful error on a synthetic missing segment).
+
+**Where I stopped:** Cleanly between tasks. Next agent picks up at Task 5 (server utils).
+
+**Deviations + things to know for the next agent:**
+
+1. **Plan deviation: no CI pipeline exists in this repo.** Plan said "Wired into the CI pipeline (find existing CI config; `.github/workflows/` is the likely location)." There's no `.github/`, `.gitlab-ci`, or `.circleci/` anywhere. The repo's enforcement gate is `npm run validate`, which `PROJECT_GUIDELINES.md` says the user runs locally before committing. I wired `check:reserved-handles` into `validate` between `typecheck` and `test:unit` — failure short-circuits before the long test/build runs, which mirrors the "fast fail" property a CI pipeline would have. Same enforcement, different trigger. When CI infra is added later, the npm script is the integration point.
+
+2. **Script uses the `@/` path alias.** `import { RESERVED_HANDLES } from "@/lib/const/reserved-handles";` — works because `tsconfig.json` defines the alias and tsx respects it. If a future maintainer runs the script outside tsx (raw `node`), the alias won't resolve and they'll need to either use `tsx` or rewrite to a relative `../src/...` path.
+
+3. **Route groups are correctly ignored.** Next.js wraps non-routable grouping folders in parens, e.g., `src/app/(auth)/`. Those don't show up in URLs and so can't shadow `/[handle]`. Script filters them out. Don't add `auth` to RESERVED_HANDLES based on `(auth)` — that's not a real route segment. (`auth` happens to be reserved anyway as part of the auth-flow group.)
+
+4. **Negative test methodology, in case you want to repeat it.** `mkdir src/app/__pr2_negative_test__/`, then `npm run check:reserved-handles` (will exit 1), then `rm -rf src/app/__pr2_negative_test__/`. Note that if you run it as a chained `&&`/`||` shell command, the failing exit status from the npm script will short-circuit later commands — easier to run as separate shell calls so cleanup always happens.
+
+#### 2026-04-25 — agent — Task 5 complete (server utils)
+
+**Done:** Task 5 (all sub-boxes checked). Stage 1 ("Foundations") of the plan is now complete — all of tasks 1–5 done. Foundations stage closes out clean: 125/125 unit tests, tsc still at 51 errors (all from task 1's deliberate breakage), no new errors introduced by tasks 2–5.
+
+**Where I stopped:** Cleanly between tasks. Next agent picks up at Task 6 (API URL rename) — first task of Stage 2 (API surface).
+
+**Things to know for the next agent:**
+
+1. **`canManageEntity` shape choice.** I typed it `{ user?: User | null; page?: Page | null }` to match `findEntityByHandle`'s return shape. The plan's example used the same. The function reads only `entity.user.id` and `entity.page.id`, so any narrower shape would also work — but matching the lookup function's return type means callers don't need any massaging. If a future caller has a different shape (e.g., from a custom query), pass `{ user, page }` explicitly.
+
+2. **The User-branch short-circuit is intentional.** If an entity somehow has both `user` and `page` populated (shouldn't happen — Handle's mutually exclusive `@unique` FKs prevent it), `canManageEntity` checks the user branch only and skips the page DB query. Documented in the test "entity with both user and page → checks user branch only". This is the safe default: if a User and a Page somehow share a handle, only the user can manage their own data.
+
+3. **Unit tests cast through `as never`.** `vi.mocked(...).mockResolvedValue(...)` complains about Prisma's deeply-typed include shapes. I cast via `as unknown as never` to satisfy the mock-resolve signature while keeping the test's runtime payload realistic. Same pattern as the existing `permission.test.ts`. If you want stricter types, set up Prisma type helpers, but it's overkill for these tests.
+
+4. **No DB hit anywhere in tests.** Both new test files mock `@/lib/utils/server/prisma`. Run with `npx vitest run` — no DATABASE_URL needed. Same convention as the existing `permission.test.ts`.
+
+5. **Foundations done — Stage 2 changes the surface area.** Tasks 1–5 added the substrate (schema, validators, server utils, CI guard) without rewriting any routes. From Task 6 on, the actual route tree starts changing. Expect tsc error count to fluctuate as old code gets deleted and new code is added. Track diff against 51 to spot truly new breakage vs intentional churn.
+
+#### 2026-04-25 — agent — Task 6 complete (API URL rename)
+
+**Done:** Task 6 (all sub-boxes checked). Stage 2 first task in the bag.
+
+**Where I stopped:** Cleanly between tasks. Next agent picks up at Task 7 (signup + page creation routes).
+
+**Things to know for the next agent:**
+
+1. **tsc dropped from 51 → 46.** Fixing the `username` field reference in `getUserByHandle` (formerly `getUserByUsername`) cascaded to fix 5 errors total, not just 1. That's because the function's return type was a complex `Promise<{... select: publicUserFields ...}>` shape — once the `username` reference got out of the way, several callers that were reading `.username` on the result also stopped erroring on the *invalid* reference path. Their `.username` reads ARE still wrong (the field is now `.handle`) but tsc can't see them anymore from this function's return type because `select` discards `username`. They'll resurface at task 12 when fields rename, or stay hidden if the callers stop reading the field. Either way, expected.
+
+2. **No `?username=` query params anywhere — sub-bullet was a no-op.** Plan called for renaming `?username=` query params to `?handle=`. This codebase has none — all username lookups went through path segments (`/api/users/by-username/${...}`). The grep step is still meaningful as a safety net (catches anything I might have missed), but it returned zero hits.
+
+3. **Two `(formerly /by-username/[username])` comments left as breadcrumbs.** One in the new route file's docblock, one inline in `AddConnectionSearch.tsx`. They're for next agent / future debugging context. Remove them at task 12 if you want a clean sweep, or leave them — small footprint.
+
+4. **`src/app/u/[username]/...` and `src/app/p/[slug]/...` still have lots of broken refs.** Tasks 6c only did the *minimum* to keep imports resolving (renamed function calls). The deeper field-shape errors (`.username`, `.slug`, ProfileEntity discriminator, etc.) persist. Don't try to "fix" those during stage 2 — they're owned by tasks 11–12, and those files get DELETED in task 14 anyway.
