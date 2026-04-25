@@ -90,6 +90,7 @@ function PostPageContent({
 	const handlePublish = async () => {
 		setPublishing(true);
 		try {
+			if (isDirty) await session?.saveAll();
 			const updated = await publishPost(post.id);
 			setPost((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
@@ -133,26 +134,34 @@ function PostPageContent({
 						setEditingField(null);
 						
 					}}
-					displayContent={
-						post.title ? (
-							<h1 className="text-4xl font-bold text-rich-brown leading-tight">{post.title}</h1>
-						) : (
-							<h1 className="text-4xl leading-tight font-normal italic text-misty-forest/50">
-								{isOwner ? "Title (optional)" : "Untitled Post"}
-							</h1>
-						)
-					}
-					editContent={
-						<input
-							type="text"
-							value={editTitle || ""}
-							onChange={(e) => { setEditTitle(e.target.value); session?.setDirty("title", e.target.value, post.title); }}
-							placeholder="Title (optional)"
-							maxLength={150}
-							className="w-full text-4xl leading-tight border-none outline-none bg-transparent font-bold text-rich-brown"
-							autoFocus
-						/>
-					}
+				displayContent={
+					editTitle ? (
+						<h1 className="text-4xl font-bold text-rich-brown leading-tight">{editTitle}</h1>
+					) : isDraft && isOwner ? (
+						<h1 className="text-4xl leading-tight font-normal italic text-misty-forest/50">
+							Title (optional)
+						</h1>
+					) : null
+				}
+				editContent={
+					<input
+						type="text"
+						value={editTitle || ""}
+						onChange={(e) => { setEditTitle(e.target.value); session?.setDirty("title", e.target.value, post.title); }}
+						onBlur={() => setEditingField(null)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								setEditingField(null);
+								session?.saveAll();
+							}
+						}}
+						placeholder="Title (optional)"
+						maxLength={150}
+						className="w-full text-4xl leading-tight border-none outline-none bg-transparent font-bold text-rich-brown"
+						autoFocus
+					/>
+				}
 				/>
 
 				{/* Author + actions row */}
@@ -163,8 +172,8 @@ function PostPageContent({
 							<button
 								type="button"
 								onClick={handlePublish}
-								disabled={publishing || isDirty || !post.content.trim()}
-								title={isDirty ? "Save your changes before publishing" : !post.content.trim() ? "Add some content before publishing" : undefined}
+								disabled={publishing || !editContent.trim()}
+								title={!editContent.trim() ? "Add some content before publishing" : undefined}
 								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
 							>
 								{publishing ? "Publishing..." : "Publish"}

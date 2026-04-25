@@ -8,7 +8,7 @@ import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSe
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { CoverImageEditor } from "@/lib/components/event/CoverImageEditor";
-import { InlineDateTimePicker } from "@/lib/components/event/InlineDateTimePicker";
+import { InlineDateTimePicker } from "@/lib/components/inline-editable/InlineDateTimePicker";
 import { RsvpForm } from "@/lib/components/event/RsvpForm";
 import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
 import { AttendeeList } from "@/lib/components/event/AttendeeList";
@@ -113,6 +113,8 @@ function EventPageContent({
 	const handlePublish = async () => {
 		setPublishing(true);
 		try {
+			const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
+			if (dirtyCount > 0) await editSession?.saveAll();
 			const updated = await publishEvent(event.id);
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
@@ -191,23 +193,31 @@ function EventPageContent({
 						setEditTitle(event.title);
 						setEditingField("title");
 					}}
-				onCancel={() => setEditingField(null)}
-				displayContent={
-					<h1 className={`text-4xl leading-tight ${event.title ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
-							{event.title || (isOwner ? "Event name" : "Untitled Event")}
-						</h1>
-					}
-					editContent={
-						<input
-							type="text"
-							value={editTitle || ""}
-						onChange={(e) => { setEditTitle(e.target.value); editSession?.setDirty("title", e.target.value, event.title); }}
-						placeholder="Event name"
-							className="w-full text-4xl font-bold text-rich-brown border-b-2 border-rich-brown/20 pb-1 focus:outline-none focus:border-rich-brown bg-transparent"
-							maxLength={150}
-							autoFocus
-						/>
-					}
+			onCancel={() => setEditingField(null)}
+			displayContent={
+				<h1 className={`text-4xl leading-tight ${editTitle ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
+						{editTitle || (isOwner ? "Event name" : "Untitled Event")}
+					</h1>
+				}
+				editContent={
+					<input
+						type="text"
+						value={editTitle || ""}
+					onChange={(e) => { setEditTitle(e.target.value); editSession?.setDirty("title", e.target.value, event.title); }}
+					onBlur={() => setEditingField(null)}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							e.preventDefault();
+							setEditingField(null);
+							editSession?.saveAll();
+						}
+					}}
+					placeholder="Event name"
+						className="w-full text-4xl font-bold text-rich-brown border-b-2 border-rich-brown/20 pb-1 focus:outline-none focus:border-rich-brown bg-transparent"
+						maxLength={150}
+						autoFocus
+					/>
+				}
 				/>
 
 				{/* Date & time */}
@@ -245,8 +255,8 @@ function EventPageContent({
 							<button
 								type="button"
 								onClick={handlePublish}
-								disabled={publishing || !event.title || (editSession ? Object.keys(editSession.dirtyFields).length > 0 : false)}
-								title={editSession && Object.keys(editSession.dirtyFields).length > 0 ? "Save your changes before publishing" : undefined}
+								disabled={publishing || !editTitle}
+								title={!editTitle ? "Add an event name before publishing" : undefined}
 								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
 							>
 								{publishing ? "Publishing..." : "Publish"}
