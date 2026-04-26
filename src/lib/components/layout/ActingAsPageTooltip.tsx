@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { MANAGE_PROFILE, HOME } from "@/lib/const/routes";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 /**
@@ -14,7 +14,7 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 export function ActingAsPageTooltip() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
-	const { switchProfile, loading } = useActiveProfile();
+	const { switchProfile, currentUser, loading } = useActiveProfile();
 	const [isVisible, setIsVisible] = useState(false);
 	const [pageSlug, setPageSlug] = useState<string | null>(null);
 
@@ -35,7 +35,7 @@ export function ActingAsPageTooltip() {
 
 	const handleSwitchToUser = async () => {
 		await switchProfile(null);
-		router.push(PRIVATE_USER_PAGE);
+		router.push(currentUser ? MANAGE_PROFILE(currentUser.handle) : HOME);
 	};
 
 	if (!isVisible) return null;

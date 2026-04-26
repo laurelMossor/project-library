@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PublicPage } from "@/lib/types/page";
 import { Button } from "@/lib/components/ui/Button";
-import { API_ME_PAGE, LOGIN_WITH_CALLBACK, PRIVATE_PAGE } from "@/lib/const/routes";
+import { API_ME_PAGE, LOGIN_WITH_CALLBACK, EXPLORE_PAGE } from "@/lib/const/routes";
 
 type EditablePageProfileProps = {
 	page: PublicPage;
@@ -65,7 +65,7 @@ export function EditablePageProfile({ page: initialPage, isEditing: controlledIs
 		if (!res.ok) {
 			const data = await res.json();
 			if (res.status === 401) {
-				router.push(LOGIN_WITH_CALLBACK(PRIVATE_PAGE));
+				router.push(LOGIN_WITH_CALLBACK(EXPLORE_PAGE));
 				return;
 			}
 			setError(data.error || "Failed to save");
@@ -99,8 +99,8 @@ export function EditablePageProfile({ page: initialPage, isEditing: controlledIs
 				</div>
 
 				<div>
-					<label className="block text-sm font-medium mb-1 text-gray-500">Slug</label>
-					<p className="text-sm">/{initialPage.slug}</p>
+				<label className="block text-sm font-medium mb-1 text-gray-500">Handle</label>
+				<p className="text-sm">/{initialPage.handle}</p>
 				</div>
 
 				<div>
@@ -173,8 +173,8 @@ export function EditablePageProfile({ page: initialPage, isEditing: controlledIs
 				<p>{initialPage.name}</p>
 			</div>
 			<div>
-				<span className="text-sm text-gray-500">Slug:</span>
-				<p>/{initialPage.slug}</p>
+			<span className="text-sm text-gray-500">Handle:</span>
+			<p>/{initialPage.handle}</p>
 			</div>
 			<div>
 				<span className="text-sm text-gray-500">Headline:</span>

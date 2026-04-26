@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
 import { ProfileTag } from "./ProfileTag";
 
@@ -17,7 +17,7 @@ type ConnectionItem = {
 	followedAt: string;
 	user: {
 		id: string;
-		username: string;
+		handle: string;
 		displayName: string | null;
 		firstName: string | null;
 		lastName: string | null;
@@ -25,7 +25,7 @@ type ConnectionItem = {
 	} | null;
 	page: {
 		id: string;
-		slug: string;
+		handle: string;
 		name: string;
 		avatarImageId: string | null;
 	} | null;
@@ -116,11 +116,9 @@ export function ConnectionsView({ entityId, entityType }: ConnectionsViewProps) 
 				) : (
 					<div className="space-y-2">
 						{currentList.map((item) => {
-							const entity = item.page ?? item.user;
-							if (!entity) return null;
-							const href = 'slug' in entity
-								? PUBLIC_PAGE(entity.slug)
-								: PUBLIC_USER_PAGE(entity.username);
+						const entity = item.page ?? item.user;
+						if (!entity) return null;
+						const href = PUBLIC_PROFILE(entity.handle);
 							return (
 								<ProfileTag
 									key={item.id}

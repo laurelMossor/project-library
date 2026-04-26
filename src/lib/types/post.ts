@@ -22,8 +22,8 @@ export interface PostItem {
 	createdAt: Date;
 	updatedAt: Date;
 	// Relations (optional, loaded when needed)
-	user?: { id: string; username: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null } | null;
-	page?: { id: string; name: string; slug: string; avatarImageId: string | null } | null;
+	user?: { id: string; handle: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null } | null;
+	page?: { id: string; name: string; handle: string; avatarImageId: string | null } | null;
 	event?: { id: string; title: string | null } | null;
 }
 

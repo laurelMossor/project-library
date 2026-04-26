@@ -6,8 +6,8 @@ export interface ConversationSummary {
   participants: Array<{
     userId?: string | null;
     pageId?: string | null;
-    user?: { id: string; username: string; firstName: string | null; lastName: string | null; avatarImageId: string | null } | null;
-    page?: { id: string; name: string; slug: string; avatarImageId: string | null } | null;
+    user?: { id: string; handle: string; firstName: string | null; lastName: string | null; avatarImageId: string | null } | null;
+    page?: { id: string; name: string; handle: string; avatarImageId: string | null } | null;
   }>;
   lastMessage: {
     id: string;
@@ -52,8 +52,8 @@ export async function getConversationsForUser(userId: string): Promise<Conversat
     include: {
       participants: {
         include: {
-          user: { select: { id: true, username: true, firstName: true, lastName: true, avatarImageId: true } },
-          page: { select: { id: true, name: true, slug: true, avatarImageId: true } },
+          user: { select: { id: true, handle: true, firstName: true, lastName: true, avatarImageId: true } },
+          page: { select: { id: true, name: true, handle: true, avatarImageId: true } },
         },
       },
       messages: {

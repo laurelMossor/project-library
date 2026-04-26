@@ -6,7 +6,7 @@ export const publicPageFields = {
   id: true,
   createdByUserId: true,
   name: true,
-  slug: true,
+  handle: true,
   headline: true,
   bio: true,
   interests: true,
@@ -26,9 +26,17 @@ export const publicPageFields = {
   updatedAt: true,
 } as const;
 
-export async function getPageBySlug(slug: string) {
+/**
+ * Fetch a Page by handle (formerly `slug` — renamed in PR 2).
+ *
+ * For routes that need to resolve EITHER a User or a Page from the same
+ * `/[handle]` URL, use `findEntityByHandle` from `@/lib/utils/server/handle`.
+ * This function is Page-only and is kept for callers that specifically need
+ * the page row (e.g. server-side fetches where the type is known).
+ */
+export async function getPageByHandle(handle: string) {
   return prisma.page.findUnique({
-    where: { slug },
+    where: { handle },
     select: publicPageFields,
   });
 }
@@ -69,34 +77,43 @@ export async function updatePageProfile(
   });
 }
 
+/**
+ * Create a new Page (with companion Handle row + creator ADMIN permission).
+ *
+ * All three writes happen inside a single `$transaction`:
+ *   1. Page (with nested `handleRecord: { create }` — atomic at driver layer)
+ *   2. Permission (creator gets ADMIN role for the new page)
+ *
+ * Caller is responsible for:
+ *   - Lowercasing `handle` (per PR 2 normalization rule).
+ *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first.
+ *
+ * Race condition handling: if a concurrent caller wins the handle between
+ * `isHandleTaken` and this write, Prisma throws `P2002` on the unique
+ * constraint. The API route catches and surfaces as "handle already taken."
+ */
 export async function createPage(
   userId: string,
   data: {
     name: string;
-    slug: string;
+    handle: string;
     headline?: string;
     bio?: string;
     interests?: string[];
     location?: string;
   }
 ) {
-  const existingPage = await prisma.page.findUnique({
-    where: { slug: data.slug },
-  });
-  if (existingPage) {
-    throw new Error("A page with this slug already exists");
-  }
-
   return prisma.$transaction(async (tx) => {
     const page = await tx.page.create({
       data: {
         createdByUserId: userId,
         name: data.name.trim(),
-        slug: data.slug.trim(),
+        handle: data.handle,
         headline: data.headline?.trim() || null,
         bio: data.bio?.trim() || null,
         interests: data.interests || [],
         location: data.location?.trim() || null,
+        handleRecord: { create: { handle: data.handle } },
       },
       select: publicPageFields,
     });

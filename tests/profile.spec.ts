@@ -2,25 +2,25 @@ import { test, expect } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
 
 test.describe("Profile pages", () => {
-  test("private profile /u/profile loads for logged-in user", async ({ page }) => {
+  test("private profile /alice/profile loads for logged-in user", async ({ page }) => {
     await loginAs(page, "alice");
-    await page.goto("/u/profile");
+    await page.goto("/alice/profile");
     await expect(page).not.toHaveURL(/\/login/);
     // Private profile shows "Profile Settings" heading, not the user's name
     await expect(page.getByRole("heading", { name: "Profile Settings" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 
-  test("public profile /u/george loads and shows user info", async ({ page }) => {
-    await page.goto("/u/george");
-    await expect(page).toHaveURL(/\/u\/george/);
+  test("public profile /george loads and shows user info", async ({ page }) => {
+    await page.goto("/george");
+    await expect(page).toHaveURL(/\/george/);
     await expect(page.getByRole("heading", { name: "George Example" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 
   test("follow and unfollow another user", async ({ page }) => {
     await loginAs(page, "alice");
-    await page.goto("/u/george");
+    await page.goto("/george");
 
     const followBtn = page.getByRole("button", { name: /^Follow$/ });
     const unfollowBtn = page.getByRole("button", { name: /^Unfollow$/ });

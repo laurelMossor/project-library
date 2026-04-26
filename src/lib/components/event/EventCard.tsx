@@ -14,7 +14,7 @@ import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
 import { PostsList } from "../post/PostsList";
-import { EVENT_DETAIL, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { EVENT_DETAIL, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { getCardUserDisplayName } from "@/lib/types/card";
 import { AtSignIcon } from "../icons/icons";
 
@@ -22,8 +22,8 @@ import { AtSignIcon } from "../icons/icons";
 export const EventCard = ({ event, truncate = false }: { event: EventItem, truncate?: boolean }) => {
 	const detailUrl = EVENT_DETAIL(event.id);
 	const displayName = event.page ? event.page.name : getCardUserDisplayName(event.user);
-	const handle = event.page ? event.page.slug : event.user.username;
-	const profileHref = event.page ? PUBLIC_PAGE(event.page.slug) : PUBLIC_USER_PAGE(event.user.username);
+	const handle = event.page ? event.page.handle : event.user.handle;
+	const profileHref = PUBLIC_PROFILE(handle);
 
 	return (
 		<div className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col">

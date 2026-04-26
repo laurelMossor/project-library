@@ -20,7 +20,7 @@ export type ConnectionType = "admins" | "followers" | "following" | "members";
 // Minimal user data for card displays
 export type CardUser = {
 	id: string;
-	username: string;
+	handle: string;
 	displayName: string | null;
 	firstName: string | null;
 	lastName: string | null;
@@ -32,7 +32,7 @@ export type CardUser = {
 export type CardPage = {
 	id: string;
 	name: string;
-	slug: string;
+	handle: string;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
 };
@@ -85,16 +85,15 @@ export function isCardPost(item: CardCollectionItem): item is CardPost {
 // Entity Union
 // ============================================================================
 
-// A CardUser or CardPage — pages have `slug`, users have `username`
+// A CardUser or CardPage — pages have `name`, users have `displayName`
 export type CardEntity = CardUser | CardPage;
 
 // CardPage with the user's role on that page (ADMIN | EDITOR | MEMBER)
 // TODO consider just expanding cardpage to have role, and/or make ROLES an enum
 export type CardPageWithRole = CardPage & { role: string };
 
-// TODO mourn whatever logic created this monstrosity and fix it
 export function isCardPage(entity: CardEntity): entity is CardPage {
-	return "slug" in entity;
+	return "name" in entity;
 }
 
 // ============================================================================
@@ -107,7 +106,7 @@ export function getCardUserDisplayName(user: CardUser): string {
 		displayName: user.displayName,
 		firstName: user.firstName,
 		lastName: user.lastName,
-		username: user.username,
+		handle: user.handle,
 	});
 }
 

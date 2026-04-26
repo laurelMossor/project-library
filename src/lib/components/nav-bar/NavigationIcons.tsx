@@ -10,7 +10,7 @@ import { AboutIcon, CollectionsIcon, UserHomeIcon, MessageIcon, PencilIcon } fro
 import { LoginLogoutIcon } from "./LoginLogoutIcon";
 import { Tooltip } from "../tooltip/Tooltip";
 import { useIsMobile } from "@/lib/hooks/useDeviceType";
-import { COLLECTIONS, PUBLIC_USER_PAGE, PUBLIC_PAGE, MESSAGES } from "@/lib/const/routes";
+import { COLLECTIONS, PUBLIC_PROFILE, MESSAGES } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { API_ME_PAGE } from "@/lib/const/routes";
 import { NewItemModal } from "./NewItemModal";
@@ -45,37 +45,37 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 			const activePageId = activeSession?.user?.activePageId;
 			if (activePageId) {
 				// Fetch active page info
-				fetch(API_ME_PAGE)
-					.then((res) => res.ok ? res.json() : null)
-					.then((data) => {
-						if (data?.slug) {
-							setProfileLink(PUBLIC_PAGE(data.slug));
-							setProfileTooltip(`${data.name} Profile`);
-						}
-					})
-					.catch(() => {});
+			fetch(API_ME_PAGE)
+				.then((res) => res.ok ? res.json() : null)
+				.then((data) => {
+					if (data?.handle) {
+						setProfileLink(PUBLIC_PROFILE(data.handle));
+						setProfileTooltip(`${data.name} Profile`);
+					}
+				})
+				.catch(() => {});
 
-				// Still get username
-				fetch("/api/me/user")
-					.then((res) => res.ok ? res.json() : null)
-					.then((user) => {
-						if (user?.username) {
-							setUsername(user.username);
-						}
-					})
-					.catch(() => {});
-			} else {
-				// Link to user's public profile
-				fetch("/api/me/user")
-					.then((res) => res.ok ? res.json() : null)
-					.then((user) => {
-						if (user?.username) {
-							setProfileLink(PUBLIC_USER_PAGE(user.username));
-							setProfileTooltip("Profile Page");
-							setUsername(user.username);
-						}
-					})
-					.catch(() => {});
+			// Still get handle for About modal
+			fetch("/api/me/user")
+				.then((res) => res.ok ? res.json() : null)
+				.then((user) => {
+					if (user?.handle) {
+						setUsername(user.handle);
+					}
+				})
+				.catch(() => {});
+		} else {
+			// Link to user's public profile
+			fetch("/api/me/user")
+				.then((res) => res.ok ? res.json() : null)
+				.then((user) => {
+					if (user?.handle) {
+						setProfileLink(PUBLIC_PROFILE(user.handle));
+						setProfileTooltip("Profile Page");
+						setUsername(user.handle);
+					}
+				})
+				.catch(() => {});
 			}
 		} else {
 			setProfileLink(undefined);
@@ -95,7 +95,7 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 					<AboutIcon className={navIconStyles} />
 				</button>
 			</Tooltip>
-			<AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} username={username} />
+			<AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} handle={username} />
 
 			{/* Collections icon */}
 			<Tooltip text={"Collections"}>

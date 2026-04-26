@@ -17,8 +17,7 @@ import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
 	MESSAGES,
-	USER_PROFILE_SETTINGS,
-	PAGE_PROFILE_SETTINGS,
+	MANAGE_PROFILE,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
 } from "@/lib/const/routes";
@@ -47,7 +46,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
-	const [username, setUsername] = useState<string>('');
+	const [handle, setHandle] = useState<string>('');
 
 	useEffect(() => {
 		if (isLoggedIn) {
@@ -56,23 +55,23 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 				fetch(API_ME_PAGE)
 					.then((res) => (res.ok ? res.json() : null))
 					.then((data) => {
-						if (data?.slug) {
-							setSettingsLink(PAGE_PROFILE_SETTINGS);
+						if (data?.handle) {
+							setSettingsLink(MANAGE_PROFILE(data.handle));
 						}
 					})
 					.catch(() => {});
 
 				fetch("/api/me/user")
 					.then((r) => (r.ok ? r.json() : null))
-					.then((user) => user?.username && setUsername(user.username))
+					.then((user) => user?.handle && setHandle(user.handle))
 					.catch(() => {});
 			} else {
 				fetch("/api/me/user")
 					.then((r) => (r.ok ? r.json() : null))
 					.then((user) => {
-						if (user?.username) {
-							setSettingsLink(USER_PROFILE_SETTINGS);
-							setUsername(user.username);
+						if (user?.handle) {
+							setSettingsLink(MANAGE_PROFILE(user.handle));
+							setHandle(user.handle);
 						}
 					})
 					.catch(() => {});
@@ -105,7 +104,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const handleSettings = () => {
 		closeMenu();
 		if (!isLoggedIn || !settingsLink) {
-			router.push(LOGIN_WITH_CALLBACK(USER_PROFILE_SETTINGS));
+			router.push(LOGIN_WITH_CALLBACK(EXPLORE_PAGE));
 		}
 	};
 
@@ -190,7 +189,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 			<AboutModal
 				isOpen={isAboutModalOpen}
 				onClose={() => setIsAboutModalOpen(false)}
-				username={username}
+				handle={handle}
 			/>
 			<NewItemModal
 				isOpen={isNewItemModalOpen}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { COLLECTIONS, MESSAGES, PUBLIC_USER_PAGE } from "@/lib/const/routes";
+import { COLLECTIONS, MESSAGES, PUBLIC_PROFILE } from "@/lib/const/routes";
 
 const WELCOME_MESSAGE = `The Project Library is about process, not polish. This is a shared space for making, learning, and helping each other along the way. 
 
@@ -12,10 +12,10 @@ You can browse by topic or location, follow what's unfolding, and choose how you
 interface AboutModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	username: string | undefined;
+	handle: string | undefined;
 }
 
-export function AboutModal({ isOpen, onClose, username }: AboutModalProps) {
+export function AboutModal({ isOpen, onClose, handle }: AboutModalProps) {
 	if (!isOpen) return null;
 
 	return (
@@ -58,11 +58,11 @@ export function AboutModal({ isOpen, onClose, username }: AboutModalProps) {
 							<Link href={COLLECTIONS} className="text-whale-blue hover:underline">
 								Collections
 							</Link>
-							{username && (
-								<Link href={PUBLIC_USER_PAGE(username)} className="text-whale-blue hover:underline">
-									Your Profile
-								</Link>
-							)}
+						{handle && (
+							<Link href={PUBLIC_PROFILE(handle)} className="text-whale-blue hover:underline">
+								Your Profile
+							</Link>
+						)}
 							<Link href={MESSAGES} className="text-whale-blue hover:underline">
 								Messages
 							</Link>

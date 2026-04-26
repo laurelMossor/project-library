@@ -1,10 +1,10 @@
 import type { Page } from "@playwright/test";
 
 export const USERS = {
-  alice: { email: "alice.example@example.com", password: "alice", username: "alice" },
-  dolores: { email: "dolores.example@example.com", password: "dolores", username: "dolores" },
-  sam: { email: "sam.example@example.com", password: "Sam", username: "Sam" },
-  george: { email: "george.example@example.com", password: "george", username: "george" },
+  alice: { email: "alice.example@example.com", password: "alice", handle: "alice" },
+  dolores: { email: "dolores.example@example.com", password: "dolores", handle: "dolores" },
+  sam: { email: "sam.example@example.com", password: "Sam", handle: "sam" },
+  george: { email: "george.example@example.com", password: "george", handle: "george" },
 } as const;
 
 /**
