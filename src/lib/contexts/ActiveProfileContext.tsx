@@ -73,14 +73,14 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 			setPages(
 				data
 					.filter((p) => p.role === "ADMIN" || p.role === "EDITOR")
-					.map((p) => ({
-						id: p.id,
-						name: p.name,
-						slug: p.slug,
-						avatarImageId: p.avatarImageId,
-						avatarImage: p.avatarImage as { url: string } | null | undefined,
-						role: p.role,
-					}))
+			.map((p) => ({
+				id: p.id,
+				name: p.name,
+				handle: p.handle,
+				avatarImageId: p.avatarImageId,
+				avatarImage: p.avatarImage as { url: string } | null | undefined,
+				role: p.role,
+			}))
 			);
 		} catch {
 			// silently fail — pages list is non-critical

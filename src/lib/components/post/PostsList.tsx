@@ -6,7 +6,7 @@ import { CollectionType } from "@/lib/types/collection";
 import { getEventPosts, getPostUpdates } from "@/lib/utils/post-client";
 import { formatDateTime } from "@/lib/utils/datetime";
 import Link from "next/link";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { getUserDisplayName } from "@/lib/types/user";
 import { getCardUserInitials, getCardPageInitials } from "@/lib/types/card";
 
@@ -74,11 +74,11 @@ export function PostsList({
 						? getUserDisplayName(user)
 						: null;
 
-					const profileHref = page
-						? PUBLIC_PAGE(page.slug)
-						: user
-						? PUBLIC_USER_PAGE(user.username)
-						: "#";
+				const profileHref = page
+					? PUBLIC_PROFILE(page.handle)
+					: user
+					? PUBLIC_PROFILE(user.handle)
+					: "#";
 
 					const initials = page
 						? getCardPageInitials(page.name)

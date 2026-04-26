@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/ui/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
 import { getCardUserDisplayName } from "@/lib/types/card";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import Link from "next/link";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ type ConnectionItem = {
 	followedAt: string;
 	user: {
 		id: string;
-		username: string;
+		handle: string;
 		displayName: string | null;
 		firstName: string | null;
 		lastName: string | null;
@@ -35,7 +35,7 @@ type ConnectionItem = {
 	} | null;
 	page: {
 		id: string;
-		slug: string;
+		handle: string;
 		name: string;
 		avatarImageId: string | null;
 	} | null;
@@ -47,7 +47,7 @@ type MemberItem = {
 	role: string;
 	user: {
 		id: string;
-		username: string;
+		handle: string;
 		displayName: string | null;
 		firstName: string | null;
 		lastName: string | null;
@@ -61,7 +61,7 @@ type PageMembershipItem = {
 	role: string;
 	page: {
 		id: string;
-		slug: string;
+		handle: string;
 		name: string;
 		avatarImageId: string | null;
 	};
@@ -78,7 +78,7 @@ type ConnectionsData = {
 
 type PageEntity = {
 	id: string;
-	slug: string;
+	handle: string;
 	name: string;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
@@ -87,7 +87,7 @@ type PageEntity = {
 
 type UserEntity = {
 	id: string;
-	username: string;
+	handle: string;
 	displayName: string | null;
 	firstName: string | null;
 	lastName: string | null;
@@ -165,23 +165,23 @@ function ConnectionList({ items, emptyLabel }: { items: ConnectionItem[]; emptyL
 	return (
 		<div className="p-5 space-y-2">
 			{items.map((item) => {
-				if (item.type === "USER" && item.user) {
-					return (
-						<ProfileTag
-							key={item.id}
-							entity={item.user}
-							actions={<ViewLink href={PUBLIC_USER_PAGE(item.user.username)} />}
-						/>
-					);
-				}
-				if (item.type === "PAGE" && item.page) {
-					return (
-						<ProfileTag
-							key={item.id}
-							entity={item.page}
-							actions={<ViewLink href={PUBLIC_PAGE(item.page.slug)} />}
-						/>
-					);
+			if (item.type === "USER" && item.user) {
+				return (
+					<ProfileTag
+						key={item.id}
+						entity={item.user}
+						actions={<ViewLink href={PUBLIC_PROFILE(item.user.handle)} />}
+					/>
+				);
+			}
+			if (item.type === "PAGE" && item.page) {
+				return (
+					<ProfileTag
+						key={item.id}
+						entity={item.page}
+						actions={<ViewLink href={PUBLIC_PROFILE(item.page.handle)} />}
+					/>
+				);
 				}
 				return null;
 			})}
@@ -294,14 +294,14 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 			if (!items.length) return <EmptyMessage label="Memberships" />;
 			return (
 				<div className="p-5 space-y-2">
-					{items.map((item) => (
-						<ProfileTag
-							key={item.id}
-							entity={item.page}
-							badge={item.role.toLowerCase()}
-							actions={<ViewLink href={PUBLIC_PAGE(item.page.slug)} />}
-						/>
-					))}
+				{items.map((item) => (
+					<ProfileTag
+						key={item.id}
+						entity={item.page}
+						badge={item.role.toLowerCase()}
+						actions={<ViewLink href={PUBLIC_PROFILE(item.page.handle)} />}
+					/>
+				))}
 				</div>
 			);
 		}

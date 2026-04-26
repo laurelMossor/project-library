@@ -57,9 +57,9 @@ test.describe("Public pages — unauthenticated renders", () => {
     await expect(page.locator("body")).not.toContainText("500");
   });
 
-  test("seeded user public profile /u/alice loads", async ({ page }) => {
-    await page.goto("/u/alice");
-    await expect(page).toHaveURL(/\/u\/alice/);
+  test("seeded user public profile /alice loads", async ({ page }) => {
+    await page.goto("/alice");
+    await expect(page).toHaveURL(/\/alice/);
     await expect(page.locator("body")).toContainText("Alice");
     await expect(page.locator("body")).not.toContainText("Application error");
   });

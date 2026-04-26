@@ -30,6 +30,8 @@ function listTopLevelRouteSegments(): string[] {
 		// Next.js route groups are wrapped in parens, e.g. `(auth)`. They
 		// don't appear in the URL, so they don't shadow `/[handle]`.
 		.filter((e) => !e.name.startsWith("("))
+		// Dynamic segments like `[handle]` are the catch-all — not fixed paths.
+		.filter((e) => !e.name.startsWith("["))
 		// Hidden/dotfiles aren't routable either.
 		.filter((e) => !e.name.startsWith("."))
 		.map((e) => e.name);

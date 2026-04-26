@@ -2,7 +2,7 @@ export interface PublicPage {
   id: string;
   createdByUserId: string;
   name: string;
-  slug: string;
+  handle: string;
   headline: string | null;
   bio: string | null;
   interests: string[];

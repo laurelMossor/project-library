@@ -53,7 +53,7 @@ export const eventWithUserFields = {
     select: {
       id: true,
       name: true,
-      slug: true,
+      handle: true,
       headline: true,
       bio: true,
       interests: true,
@@ -113,7 +113,7 @@ export const postWithUserFields = {
     select: {
       id: true,
       name: true,
-      slug: true,
+      handle: true,
       avatarImageId: true,
       avatarImage: { select: { url: true } },
     },

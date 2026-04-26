@@ -13,22 +13,19 @@ export const SIGNUP_WITH_INVITE = (inviteToken: string) =>
 export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
 // ============================================================================
-// User & Profile Routes
+// Identity Routes — handle-keyed (works for User or Page)
 // ============================================================================
-export const PRIVATE_USER_PAGE = "/u/profile";
-export const USER_PROFILE_SETTINGS = "/u/profile/";
-export const USER_PROFILE_EDIT = "/u/profile#profile-section";
-export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
-export const USER_CONNECTIONS = "/u/profile/connections";
 
-// ============================================================================
-// Page Routes
-// ============================================================================
-export const PUBLIC_PAGE = (slug: string) => `/p/${slug}`;
-export const PAGE_CONNECTIONS = "/p/profile/connections";
-export const PRIVATE_PAGE = "/p/profile";
-export const PAGE_PROFILE_SETTINGS = "/p/profile";
-export const PAGE_PROFILE_EDIT = "/p/profile#profile-section";
+// Public
+export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
+export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
+
+// Manage (gated by canManageEntity)
+export const MANAGE_PROFILE = (handle: string) => `/${handle}/profile`;
+export const MANAGE_PROFILE_SETTINGS = (handle: string) => `/${handle}/profile/settings`;
+export const MANAGE_PROFILE_EDIT = (handle: string) => `/${handle}/profile#profile-section`;
+export const MANAGE_CONNECTIONS = (handle: string) => `/${handle}/connections`;
+
 export const PAGE_NEW = "/pages/new";
 
 export const WELCOME_PAGE = "/welcome";

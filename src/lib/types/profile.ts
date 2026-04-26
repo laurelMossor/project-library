@@ -11,8 +11,7 @@ export function getProfileDisplayName(profile: ProfileEntity): string {
 }
 
 export function getProfileIdentifier(profile: ProfileEntity): string {
-  if (profile.type === "USER") return profile.data.username;
-  return profile.data.slug;
+  return profile.data.handle;
 }
 
 export function getProfileHeadline(profile: ProfileEntity): string | null {

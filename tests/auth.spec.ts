@@ -45,17 +45,19 @@ test.describe("Authentication flows", () => {
     ]);
   });
 
-  test("/u/profile redirects unauthenticated users to login", async ({ page }) => {
-    await page.goto("/u/profile");
-    await expect(page).toHaveURL(/\/login/);
+  test("/alice/profile returns 404 for unauthenticated users (privacy-preserving)", async ({ page }) => {
+    // Post-PR2: /<handle>/profile does server-side auth and calls notFound() instead
+    // of redirecting to login, preventing enumeration of which handles exist.
+    await page.goto("/alice/profile");
+    await expect(page).not.toHaveURL(/\/login/);
   });
 
   test("session persists after page refresh", async ({ page }) => {
     await loginAs(page, "alice");
     await page.reload();
     // Still logged in — private profile accessible
-    await page.goto("/u/profile");
+    await page.goto("/alice/profile");
     await expect(page).not.toHaveURL(/\/login/);
-    await expect(page.locator("body")).toContainText("Alice");
+    await expect(page.getByRole("heading", { name: "Profile Settings" })).toBeVisible();
   });
 });

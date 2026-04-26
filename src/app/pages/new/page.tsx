@@ -7,7 +7,7 @@ import { FormField } from "@/lib/components/forms/FormField";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
-import { API_PAGES, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { API_PAGES, LOGIN_WITH_CALLBACK, EXPLORE_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { generateHandle } from "@/lib/utils/handle";
 
 /**
@@ -22,18 +22,18 @@ export default function NewPagePage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 	const [name, setName] = useState("");
-	const [slug, setSlug] = useState("");
-	const [autoGenerateSlug, setAutoGenerateSlug] = useState(true);
+	const [handle, setHandle] = useState("");
+	const [autoGenerateHandle, setAutoGenerateHandle] = useState(true);
 
 	const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newName = e.target.value;
 		setName(newName);
-		if (autoGenerateSlug) setSlug(generateHandle(newName));
+		if (autoGenerateHandle) setHandle(generateHandle(newName));
 	};
 
-	const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setSlug(e.target.value);
-		setAutoGenerateSlug(false);
+	const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setHandle(e.target.value);
+		setAutoGenerateHandle(false);
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -41,18 +41,18 @@ export default function NewPagePage() {
 		setSaving(true);
 		setError("");
 
-		const finalSlug = slug.trim() || generateHandle(name.trim());
+		const finalHandle = handle.trim() || generateHandle(name.trim());
 
 		const res = await fetch(API_PAGES, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name: name.trim(), slug: finalSlug }),
+			body: JSON.stringify({ name: name.trim(), handle: finalHandle }),
 		});
 
 		if (!res.ok) {
 			const data = await res.json();
 			if (res.status === 401) {
-				router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
+				router.push(LOGIN_WITH_CALLBACK(EXPLORE_PAGE));
 				return;
 			}
 			setError(data.error || "Failed to create page");
@@ -61,7 +61,7 @@ export default function NewPagePage() {
 		}
 
 		const page = await res.json();
-		router.push(PUBLIC_PAGE(page.slug));
+		router.push(PUBLIC_PROFILE(page.handle));
 	};
 
 	return (
@@ -84,16 +84,16 @@ export default function NewPagePage() {
 				</FormField>
 
 				<FormField
-					label="URL Slug"
-					htmlFor="slug"
+					label="URL Handle"
+					htmlFor="handle"
 					helpText="Used in your page's URL. Only lowercase letters, numbers, and hyphens."
 					required
 				>
 					<FormInput
-						id="slug"
+						id="handle"
 						type="text"
-						value={slug}
-						onChange={handleSlugChange}
+						value={handle}
+						onChange={handleHandleChange}
 						placeholder="e.g. portland-makers-guild"
 						pattern="[a-z0-9-]+"
 						required
@@ -102,9 +102,9 @@ export default function NewPagePage() {
 
 				<FormActions
 					submitLabel="Create Page"
-					onCancel={() => router.push(PRIVATE_USER_PAGE)}
+					onCancel={() => router.push(EXPLORE_PAGE)}
 					loading={saving}
-					disabled={saving || !name.trim() || !slug.trim()}
+					disabled={saving || !name.trim() || !handle.trim()}
 				/>
 			</form>
 		</FormLayout>

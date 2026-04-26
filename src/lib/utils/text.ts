@@ -4,11 +4,11 @@ export const truncateText = (text: string, maxLength: number = 150) => {
 };
 
 /**
- * Get initials from a user-like object (firstName, lastName, username).
+ * Get initials from a user-like object (firstName, lastName, handle).
  * Canonical initials logic lives in card.ts (getCardUserInitials / getCardPageInitials).
- * This is a convenience wrapper for objects with a `username` fallback.
+ * This is a convenience wrapper for objects with a `handle` fallback.
  */
-export function getUserInitials(user: { firstName?: string | null; lastName?: string | null; username: string }): string {
+export function getUserInitials(user: { firstName?: string | null; lastName?: string | null; handle: string }): string {
 	if (user.firstName && user.lastName) {
 		return (user.firstName[0] + user.lastName[0]).toUpperCase();
 	}
@@ -18,7 +18,7 @@ export function getUserInitials(user: { firstName?: string | null; lastName?: st
 	if (user.lastName) {
 		return user.lastName[0].toUpperCase();
 	}
-	return user.username[0].toUpperCase();
+	return user.handle[0].toUpperCase();
 }
 
 /**

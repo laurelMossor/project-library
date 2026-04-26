@@ -85,38 +85,25 @@ export default async function HandleConnectionsPage({ params }: Props) {
 						{displayName}&apos;s Connections
 					</h1>
 				</div>
-				{/*
-				 * PR2-TASK12-ALIAS: `username` and `slug` prop names below are
-				 * legacy field names from `ConnectionsPageView`. The values are
-				 * already the new `handle` field — only the prop name lags.
-				 * Task 12 must:
-				 *   (a) rename `ConnectionsPageView`'s `user.username` →
-				 *       `user.handle` and `page.slug` → `page.handle`
-				 *       (in props, types, and body usages);
-				 *   (b) replace `PUBLIC_USER_PAGE(...)` / `PUBLIC_PAGE(...)`
-				 *       inside that component with `PUBLIC_PROFILE(handle)`;
-				 *   (c) drop these alias keys here (just spread the objects).
-				 * Grep marker: `PR2-TASK12-ALIAS`.
-				 */}
-				<ConnectionsPageView
-					user={{
-						id: user.id,
-						username: user.handle,
-						displayName: user.displayName ?? null,
-						firstName: user.firstName ?? null,
-						lastName: user.lastName ?? null,
-						avatarImageId: user.avatarImageId ?? null,
-						avatarImage: user.avatarImage ?? null,
-					}}
-					pages={managedPages.map((p) => ({
-						id: p.id,
-						slug: p.handle,
-						name: p.name,
-						avatarImageId: p.avatarImageId ?? null,
-						avatarImage: p.avatarImage ?? null,
-						role: p.role,
-					}))}
-				/>
+			<ConnectionsPageView
+				user={{
+					id: user.id,
+					handle: user.handle,
+					displayName: user.displayName ?? null,
+					firstName: user.firstName ?? null,
+					lastName: user.lastName ?? null,
+					avatarImageId: user.avatarImageId ?? null,
+					avatarImage: user.avatarImage ?? null,
+				}}
+				pages={managedPages.map((p) => ({
+					id: p.id,
+					handle: p.handle,
+					name: p.name,
+					avatarImageId: p.avatarImageId ?? null,
+					avatarImage: p.avatarImage ?? null,
+					role: p.role,
+				}))}
+			/>
 			</CenteredLayout>
 		);
 	}

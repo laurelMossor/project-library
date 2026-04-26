@@ -11,7 +11,7 @@ import type { CollectionItem } from "@/lib/types/collection";
 
 const USER = {
   id: "u1",
-  username: "alice",
+  handle: "alice",
   displayName: "Alice",
   firstName: "Alice",
   lastName: null,
