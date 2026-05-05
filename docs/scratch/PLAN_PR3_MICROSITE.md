@@ -1,4 +1,4 @@
-# PR 3 — Page Microsite (SPATS Task 2 + 2a) - Pending
+# PR 3 — Page Microsite (SPATS Task 2 + 2a) - On Deck
 
 > The actual Page microsite feature: composable `PageElement`s on the public profile, an About subpage, and a synthetic About card in the collection. Implements most of `docs/scratch/PAGE_MICROSITE_PRD.md` at MVP scope.
 
