@@ -35,8 +35,8 @@ export function AddConnectionSearch({
 		setAdding(true);
 
 		try {
-			// First, find user by username
-			const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username.trim())}`);
+			// First, find user by handle (formerly /by-username/[username])
+			const userRes = await fetch(`/api/users/by-handle/${encodeURIComponent(username.trim())}`);
 			if (!userRes.ok) {
 				setError("User not found");
 				setAdding(false);

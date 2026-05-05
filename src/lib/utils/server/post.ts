@@ -24,7 +24,7 @@ const postSelectFields = {
 	user: {
 		select: {
 			id: true,
-			username: true,
+			handle: true,
 			displayName: true,
 			firstName: true,
 			lastName: true,
@@ -35,7 +35,7 @@ const postSelectFields = {
 		select: {
 			id: true,
 			name: true,
-			slug: true,
+			handle: true,
 			avatarImageId: true,
 		},
 	},

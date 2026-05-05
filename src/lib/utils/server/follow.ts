@@ -10,7 +10,7 @@ type ConnectionItem = {
 	followedAt: string;
 	user: {
 		id: string;
-		username: string;
+		handle: string;
 		displayName: string | null;
 		firstName: string | null;
 		lastName: string | null;
@@ -19,7 +19,7 @@ type ConnectionItem = {
 	} | null;
 	page: {
 		id: string;
-		slug: string;
+		handle: string;
 		name: string;
 		avatarImageId: string | null;
 		avatarImage?: { url: string } | null;
@@ -28,7 +28,7 @@ type ConnectionItem = {
 
 const followerUserSelect = {
 	id: true,
-	username: true,
+	handle: true,
 	displayName: true,
 	firstName: true,
 	lastName: true,
@@ -40,7 +40,7 @@ const followingUserSelect = followerUserSelect;
 
 const followingPageSelect = {
 	id: true,
-	slug: true,
+	handle: true,
 	name: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },

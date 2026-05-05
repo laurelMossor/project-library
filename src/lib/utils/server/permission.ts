@@ -1,6 +1,6 @@
 // ⚠️ SERVER-ONLY: Permission utility functions
 import { prisma } from "./prisma";
-import { PermissionRole, ResourceType } from "@prisma/client";
+import { PermissionRole, ResourceType, type Page, type User } from "@prisma/client";
 
 /** Check if a user has a specific permission on a resource */
 export async function hasPermission(
@@ -52,7 +52,7 @@ export async function getPagesForUser(userId: string) {
     select: {
       id: true,
       name: true,
-      slug: true,
+      handle: true,
       headline: true,
       bio: true,
       interests: true,
@@ -92,7 +92,7 @@ export async function getUserMemberships(userId: string) {
   const pageIds = permissions.map((p) => p.resourceId);
   const pages = await prisma.page.findMany({
     where: { id: { in: pageIds } },
-    select: { id: true, name: true, slug: true, avatarImageId: true, avatarImage: { select: { url: true } } },
+    select: { id: true, name: true, handle: true, avatarImageId: true, avatarImage: { select: { url: true } } },
   });
 
   return pages.map((page) => ({
@@ -138,7 +138,7 @@ export async function getResourcePermissions(
       user: {
         select: {
           id: true,
-          username: true,
+          handle: true,
           displayName: true,
           firstName: true,
           lastName: true,
@@ -149,4 +149,34 @@ export async function getResourcePermissions(
     },
     orderBy: { createdAt: "asc" },
   });
+}
+
+/**
+ * Unified manage-permission gate.
+ *
+ * Used by session-scoped manage routes (`/profile`, `/connections`, `/settings`)
+ * and any server-side code that needs to verify a user can act on an entity.
+ *
+ * Rules:
+ *   - User entity: caller must BE that user.
+ *   - Page entity: caller must have ADMIN or EDITOR on the page.
+ *   - Anything else (entity has neither, or both null): refuse.
+ *
+ * Accepts the partial-include shape from `findEntityByHandle`, which
+ * populates exactly one of `user` / `page`.
+ */
+export async function canManageEntity(
+  userId: string,
+  entity: { user?: User | null; page?: Page | null },
+): Promise<boolean> {
+  if (entity.user) return entity.user.id === userId;
+  if (entity.page) {
+    return hasPermission(
+      userId,
+      entity.page.id,
+      ResourceType.PAGE,
+      [PermissionRole.ADMIN, PermissionRole.EDITOR],
+    );
+  }
+  return false;
 }

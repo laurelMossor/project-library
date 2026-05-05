@@ -2,9 +2,9 @@
  * Playwright global teardown — runs once after all tests complete.
  *
  * Cleans up test artifacts that have no delete UI:
- *   - Pages with slug matching "playwright-test-*"
+ *   - Pages with handle matching "playwright-test-*"
  *   - Messages sent by automated tests ("Hello from Playwright…")
- *   - Users created by the signup test (username matching "tst*")
+ *   - Users created by the signup test (handle matching "tst*")
  *
  * Events, posts, and follows are cleaned up by their own tests and do not
  * need handling here.
@@ -41,9 +41,9 @@ export default async function globalTeardown() {
 
   try {
     const [pages, messages, users] = await Promise.all([
-      prisma.page.deleteMany({ where: { slug: { startsWith: "playwright-test-" } } }),
+      prisma.page.deleteMany({ where: { handle: { startsWith: "playwright-test-" } } }),
       prisma.message.deleteMany({ where: { content: { startsWith: "Hello from Playwright" } } }),
-      prisma.user.deleteMany({ where: { username: { startsWith: "tst" } } }),
+      prisma.user.deleteMany({ where: { handle: { startsWith: "tst" } } }),
     ]);
 
     console.log(

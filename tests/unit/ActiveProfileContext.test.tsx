@@ -20,7 +20,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 // Minimal shape — only fields the context reads
 const mockUser = { id: "user-1", firstName: "Alice", lastName: "Doe" };
-const mockPage = { id: "page-1", name: "Makers Guild", slug: "makers-guild" };
+const mockPage = { id: "page-1", name: "Makers Guild", handle: "makers-guild" };
 
 function mockSession(activePageId: string | null = null) {
   vi.mocked(useSession).mockReturnValue({
@@ -137,9 +137,9 @@ describe("ActiveProfileContext", () => {
   test("fetchPages → filters to ADMIN/EDITOR, excludes MEMBER", async () => {
     mockSession(null);
     const pagesData = [
-      { id: "p-1", name: "Alpha", slug: "alpha", role: "ADMIN",  avatarImageId: null, avatarImage: null },
-      { id: "p-2", name: "Beta",  slug: "beta",  role: "EDITOR", avatarImageId: null, avatarImage: null },
-      { id: "p-3", name: "Gamma", slug: "gamma", role: "MEMBER", avatarImageId: null, avatarImage: null },
+      { id: "p-1", name: "Alpha", handle: "alpha", role: "ADMIN",  avatarImageId: null, avatarImage: null },
+      { id: "p-2", name: "Beta",  handle: "beta",  role: "EDITOR", avatarImageId: null, avatarImage: null },
+      { id: "p-3", name: "Gamma", handle: "gamma", role: "MEMBER", avatarImageId: null, avatarImage: null },
     ];
     global.fetch = vi.fn()
       .mockReturnValueOnce(fetchOk(mockUser))    // initial user fetch

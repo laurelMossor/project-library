@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PublicUser } from "@/lib/types/user";
 import { Button } from "@/lib/components/ui/Button";
-import { API_ME_USER, LOGIN_WITH_CALLBACK, PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { API_ME_USER, LOGIN_WITH_CALLBACK, EXPLORE_PAGE } from "@/lib/const/routes";
 
 type EditableProfileProps = {
 	user: PublicUser;
@@ -71,7 +71,7 @@ export function EditableProfile({ user: initialUser, isEditing: controlledIsEdit
 		if (!res.ok) {
 			const data = await res.json();
 			if (res.status === 401) {
-				router.push(LOGIN_WITH_CALLBACK(PRIVATE_USER_PAGE));
+				router.push(LOGIN_WITH_CALLBACK(EXPLORE_PAGE));
 				return;
 			}
 			setError(data.error || "Failed to save");
@@ -125,8 +125,8 @@ export function EditableProfile({ user: initialUser, isEditing: controlledIsEdit
 				</div>
 
 				<div>
-					<label className="block text-sm font-medium mb-1 text-gray-500">Username</label>
-					<p className="text-sm">@{initialUser.username}</p>
+				<label className="block text-sm font-medium mb-1 text-gray-500">Handle</label>
+				<p className="text-sm">@{initialUser.handle}</p>
 				</div>
 
 				<div>
@@ -194,7 +194,7 @@ export function EditableProfile({ user: initialUser, isEditing: controlledIsEdit
 
 	const displayName = [initialUser.firstName, initialUser.middleName, initialUser.lastName]
 		.filter(Boolean)
-		.join(' ') || initialUser.username;
+		.join(' ') || initialUser.handle;
 
 	return (
 		<div className="space-y-4">
@@ -203,8 +203,8 @@ export function EditableProfile({ user: initialUser, isEditing: controlledIsEdit
 				<p>{displayName}</p>
 			</div>
 			<div>
-				<span className="text-sm text-gray-500">Username:</span>
-				<p>@{initialUser.username}</p>
+			<span className="text-sm text-gray-500">Handle:</span>
+			<p>@{initialUser.handle}</p>
 			</div>
 			<div>
 				<span className="text-sm text-gray-500">Headline:</span>

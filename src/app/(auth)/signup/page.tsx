@@ -21,7 +21,7 @@ function SignupForm() {
 	const inviteToken = searchParams.get(SIGNUP_INVITE_QUERY)?.trim() ?? "";
 
 	const [email, setEmail] = useState("");
-	const [username, setUsername] = useState("");
+	const [handle, setHandle] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 
@@ -34,7 +34,7 @@ function SignupForm() {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				email,
-				username,
+				handle,
 				password,
 				invite: inviteToken,
 			}),
@@ -85,14 +85,14 @@ function SignupForm() {
 					className="w-full border p-2 rounded"
 					required
 				/>
-				<input
-					type="text"
-					placeholder="Username"
-					value={username}
-					onChange={(e) => setUsername(e.target.value)}
-					className="w-full border p-2 rounded"
-					required
-				/>
+			<input
+				type="text"
+				placeholder="Handle"
+				value={handle}
+				onChange={(e) => setHandle(e.target.value)}
+				className="w-full border p-2 rounded"
+				required
+			/>
 				<input
 					type="password"
 					placeholder="Password"

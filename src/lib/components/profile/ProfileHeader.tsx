@@ -19,8 +19,8 @@ export function ProfileHeader({ profile, isOwnProfile = false }: ProfileHeaderPr
 	// ProfilePicture expects a CardEntity (CardUser | CardPage)
 	const entity =
 		profile.type === "PAGE"
-			? { id: profile.data.id, name: profile.data.name, slug: profile.data.slug, avatarImageId: profile.data.avatarImageId, avatarImage: profile.data.avatarImage }
-			: { id: profile.data.id, username: profile.data.username, displayName: profile.data.displayName, firstName: profile.data.firstName, lastName: profile.data.lastName, avatarImageId: profile.data.avatarImageId, avatarImage: profile.data.avatarImage };
+			? { id: profile.data.id, name: profile.data.name, handle: profile.data.handle, avatarImageId: profile.data.avatarImageId, avatarImage: profile.data.avatarImage }
+			: { id: profile.data.id, handle: profile.data.handle, displayName: profile.data.displayName, firstName: profile.data.firstName, lastName: profile.data.lastName, avatarImageId: profile.data.avatarImageId, avatarImage: profile.data.avatarImage };
 
 	return (
 		<div className="flex items-center gap-4">

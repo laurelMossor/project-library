@@ -74,8 +74,8 @@ No login required. Visits each public route and asserts it renders without a 500
 | valid login | alice | fill login form → submit | URL leaves /login |
 | invalid login | alice | wrong password → submit | "Invalid email or password" shown, stays on /login |
 | signup | new user (`tst{n}`) | fill signup form → submit | redirects to /login OR shows rate-limit message |
-| protected route redirect | unauthenticated | `GET /u/profile` | redirected to /login |
-| session persists | alice | login → reload → visit /u/profile | no redirect, "Alice" visible |
+| protected route redirect | unauthenticated | `GET /profile` | redirected to /login |
+| session persists | alice | login → reload → visit /profile | no redirect, "Profile Settings" heading visible |
 
 **Known gotcha:** `/api/auth/signup` has an in-memory rate limit of 5 signups/hr per IP. Headless Playwright sends no `X-Forwarded-For` header, so all requests share the key `signup:unknown`. The signup test accepts either a successful redirect or the rate-limit error message so it doesn't fail on repeated local runs.
 
@@ -87,7 +87,7 @@ No login required. Visits each public route and asserts it renders without a 500
 |---|---|---|
 | create, publish, and delete event | `GET /events/new` → draft → inline-edit title → inline-edit description → Publish → Delete Event → confirm → Delete | "Live" badge appears; redirects to `/collections` after delete |
 | create and delete post | `GET /posts/new` → fill title + content → Post → Delete Post → confirm → Delete | redirects to `/posts/[id]`; redirects to `/explore` after delete |
-| create a page | `GET /pages/new` → fill name + slug → Create Page → verify at `/p/[slug]` | redirects to `/u/profile`, page accessible at slug |
+| create a page | `GET /pages/new` → fill name + handle → Create Page → verify at `/[handle]` | redirects to public profile, page accessible at handle |
 
 **Event and post delete:** Both use a two-step confirm dialog — "Delete Event"/"Delete Post" button reveals "Are you sure?" with a red "Delete" confirm button.
 
@@ -114,11 +114,11 @@ The Send Message link navigates to `/messages/[georgeId]` where the ID is george
 
 | Test | Actor | Flow | Asserts |
 |---|---|---|---|
-| private profile loads | alice | login → `/u/profile` | "Profile Settings" heading visible, no redirect to /login |
-| public profile loads | unauthenticated | `/u/george` | "George Example" h1 visible |
+| private profile loads | alice | login → `/profile` | "Profile Settings" heading visible, no redirect to /login |
+| public profile loads | unauthenticated | `/george` | "George Example" h1 visible |
 | follow / unfollow | alice → george | `/u/george` → Follow → Unfollow | button toggles between Follow ↔ Unfollow |
 
-**Private profile note:** `/u/profile` renders "Profile Settings" as its heading, not the user's name. The user's name appears inside `ProfileSettingsContent` (a child component).
+**Private profile note:** `/profile` renders "Profile Settings" as its heading, not the user's name. The user's name appears inside the settings content (a child component).
 
 ---
 
@@ -167,8 +167,8 @@ DELETE FROM "User" WHERE username LIKE 'tst%';
 - **`canPostAsPage` permissions** — mid-refactor; placeholder in `unit/permission.test.ts` blocks CI
 - **RSVP flow** — public RSVP on event detail (no auth required, upserts by `[eventId, email]`)
 - **Event detail render** — visiting a published event's detail page as unauthenticated user
-- **Page profile** — `/p/[slug]` render and follow
-- **Connections** — `/u/[username]/connections`, `/u/profile/connections`
+- **Page profile** — `/[handle]` render and follow
+- **Connections** — `/connections` (session-scoped, shows active profile's connections)
 - **Inbox** — `/messages` listing (separate from a thread)
 - **Edit flows** — editing a post or event after creation
 - **Error states** — 404s, form validation errors

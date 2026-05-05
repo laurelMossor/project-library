@@ -8,7 +8,7 @@ import {
 } from "@/lib/types/profile";
 import { Tag } from "@/lib/components/tag/Tag";
 import { FollowStats } from "./FollowStats";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
 type ProfileBodyProps = {
 	profile: ProfileEntity;
@@ -22,10 +22,7 @@ export function ProfileBody({ profile }: ProfileBodyProps) {
 	const entityId = getProfileEntityId(profile);
 	const entityType = profile.type === "PAGE" ? "page" : "user";
 
-	const connectionsHref =
-		profile.type === "PAGE"
-			? PUBLIC_PAGE(profile.data.slug)
-			: PUBLIC_USER_PAGE(profile.data.username);
+	const connectionsHref = PUBLIC_PROFILE(profile.data.handle);
 
 	const headline = getProfileHeadline(profile);
 	const location = getProfileLocation(profile);

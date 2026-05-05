@@ -15,7 +15,7 @@ export interface User {
 	id: string;
 	email: string;
 	passwordHash: string;
-	username: string;
+	handle: string;
 	firstName: string | null;
 	middleName: string | null;
 	lastName: string | null;
@@ -33,7 +33,7 @@ export interface User {
 // Public user profile (excludes sensitive data like email and passwordHash)
 export interface PublicUser {
 	id: string;
-	username: string;
+	handle: string;
 	firstName: string | null;
 	middleName: string | null;
 	lastName: string | null;
@@ -47,19 +47,16 @@ export interface PublicUser {
 }
 
 // Helper to get display name from user
-// Priority: displayName > firstName + lastName > username
-export function getUserDisplayName(user: { displayName?: string | null; firstName?: string | null; middleName?: string | null; lastName?: string | null; username: string }): string {
-	// First priority: use displayName if set
+// Priority: displayName > firstName + lastName > handle
+export function getUserDisplayName(user: { displayName?: string | null; firstName?: string | null; middleName?: string | null; lastName?: string | null; handle: string }): string {
 	if (user.displayName) {
 		return user.displayName;
 	}
 
-	// Second priority: firstName + lastName (excludes middleName)
 	const nameParts = [user.firstName, user.lastName].filter(Boolean);
 	if (nameParts.length > 0) {
 		return nameParts.join(' ');
 	}
 
-	// Fallback: username
-	return user.username;
+	return user.handle;
 }

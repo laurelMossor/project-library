@@ -17,12 +17,10 @@ import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
 	MESSAGES,
-	USER_PROFILE_SETTINGS,
-	PAGE_PROFILE_SETTINGS,
+	PROFILE,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
 } from "@/lib/const/routes";
-import { API_ME_PAGE } from "@/lib/const/routes";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { hasSession } from "@/lib/utils/auth-client";
 import { MenuItem } from "./MenuItem";
@@ -46,41 +44,17 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
-	const [username, setUsername] = useState<string>('');
+	const settingsLink = isLoggedIn ? PROFILE : undefined;
+	const [handle, setHandle] = useState<string>('');
 
 	useEffect(() => {
 		if (isLoggedIn) {
-			const activePageId = activeSession?.user?.activePageId;
-			if (activePageId) {
-				fetch(API_ME_PAGE)
-					.then((res) => (res.ok ? res.json() : null))
-					.then((data) => {
-						if (data?.slug) {
-							setSettingsLink(PAGE_PROFILE_SETTINGS);
-						}
-					})
-					.catch(() => {});
-
-				fetch("/api/me/user")
-					.then((r) => (r.ok ? r.json() : null))
-					.then((user) => user?.username && setUsername(user.username))
-					.catch(() => {});
-			} else {
-				fetch("/api/me/user")
-					.then((r) => (r.ok ? r.json() : null))
-					.then((user) => {
-						if (user?.username) {
-							setSettingsLink(USER_PROFILE_SETTINGS);
-							setUsername(user.username);
-						}
-					})
-					.catch(() => {});
-			}
-		} else {
-			setSettingsLink(undefined);
+			fetch("/api/me/user")
+				.then((r) => (r.ok ? r.json() : null))
+				.then((user) => user?.handle && setHandle(user.handle))
+				.catch(() => {});
 		}
-	}, [isLoggedIn, activeSession?.user?.activePageId]);
+	}, [isLoggedIn]);
 
 	const closeMenu = () => {
 		setIsOpen(false);
@@ -105,7 +79,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const handleSettings = () => {
 		closeMenu();
 		if (!isLoggedIn || !settingsLink) {
-			router.push(LOGIN_WITH_CALLBACK(USER_PROFILE_SETTINGS));
+			router.push(LOGIN_WITH_CALLBACK(EXPLORE_PAGE));
 		}
 	};
 
@@ -190,7 +164,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 			<AboutModal
 				isOpen={isAboutModalOpen}
 				onClose={() => setIsAboutModalOpen(false)}
-				username={username}
+				handle={handle}
 			/>
 			<NewItemModal
 				isOpen={isNewItemModalOpen}

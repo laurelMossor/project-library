@@ -3,18 +3,19 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { PRIVATE_USER_PAGE } from "@/lib/const/routes";
+import { PROFILE, HOME } from "@/lib/const/routes";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 /**
- * ActingAsPageTooltip
- * Shows a dismissible tooltip when user is redirected from user profile
- * because they are acting as a page
+ * @deprecated This component is no longer used in the main navigation flow.
+ * Profile/connections/settings are now session-scoped top-level routes that
+ * read the active profile from context, removing the need for this tooltip.
+ * Will be removed in a future cleanup pass.
  */
 export function ActingAsPageTooltip() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
-	const { switchProfile, loading } = useActiveProfile();
+	const { switchProfile, currentUser, loading } = useActiveProfile();
 	const [isVisible, setIsVisible] = useState(false);
 	const [pageSlug, setPageSlug] = useState<string | null>(null);
 
@@ -35,7 +36,7 @@ export function ActingAsPageTooltip() {
 
 	const handleSwitchToUser = async () => {
 		await switchProfile(null);
-		router.push(PRIVATE_USER_PAGE);
+		router.push(currentUser ? PROFILE : HOME);
 	};
 
 	if (!isVisible) return null;

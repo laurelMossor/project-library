@@ -13,22 +13,18 @@ export const SIGNUP_WITH_INVITE = (inviteToken: string) =>
 export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
 // ============================================================================
-// User & Profile Routes
+// Identity Routes
 // ============================================================================
-export const PRIVATE_USER_PAGE = "/u/profile";
-export const USER_PROFILE_SETTINGS = "/u/profile/";
-export const USER_PROFILE_EDIT = "/u/profile#profile-section";
-export const PUBLIC_USER_PAGE = (username: string) => `/u/${username}`;
-export const USER_CONNECTIONS = "/u/profile/connections";
 
-// ============================================================================
-// Page Routes
-// ============================================================================
-export const PUBLIC_PAGE = (slug: string) => `/p/${slug}`;
-export const PAGE_CONNECTIONS = "/p/profile/connections";
-export const PRIVATE_PAGE = "/p/profile";
-export const PAGE_PROFILE_SETTINGS = "/p/profile";
-export const PAGE_PROFILE_EDIT = "/p/profile#profile-section";
+// Public — handle-keyed
+export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
+export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
+
+// Session-scoped — active profile resolved from session, no handle in URL
+export const PROFILE = "/profile";
+export const SETTINGS = "/settings";
+export const CONNECTIONS = "/connections";
+
 export const PAGE_NEW = "/pages/new";
 
 export const WELCOME_PAGE = "/welcome";

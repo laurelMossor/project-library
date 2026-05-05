@@ -90,7 +90,7 @@ const IMAGES_PATH = path.join(DATA_DIR, "images.json");
 
 type SeedUserJson = {
   email: string;
-  username: string;
+  handle: string;
   password: string;
   name: string;
   headline?: string;
@@ -179,6 +179,7 @@ async function main() {
     "post",
     "event",
     "image",
+    "handle",
     "page",
     "user",
   ] as const;
@@ -192,19 +193,22 @@ async function main() {
     }
   }
 
-  // ---- Create Users (no more Owner creation needed)
-  console.log("👤 Creating users...");
+  // ---- Create Users + Handles (mirrors the production-path invariant:
+  //      a User and its Handle row must come into existence together;
+  //      Prisma's nested create is atomic, satisfying that invariant)
+  console.log("👤 Creating users + handles...");
   const createdUsers: CreatedUser[] = [];
 
   for (const u of usersJson) {
     const { firstName, middleName, lastName } = splitName(u.name);
     const passwordHash = await bcrypt.hash(u.password, 10);
+    const handle = u.handle.toLowerCase();
 
     const user = await prisma.user.create({
       data: {
         email: u.email.toLowerCase(),
         passwordHash,
-        username: u.username,
+        handle,
         firstName: firstName ?? null,
         middleName: middleName ?? null,
         lastName: lastName ?? null,
@@ -212,6 +216,9 @@ async function main() {
         bio: u.bio ?? null,
         interests: u.interests ?? [],
         location: u.location ?? null,
+        handleRecord: {
+          create: { handle },
+        },
       },
       select: { id: true },
     });
@@ -254,12 +261,12 @@ async function main() {
     });
   }
 
-  // ---- Create Pages (replaces Orgs) + Permissions (replaces OrgMember)
-  console.log("📄 Creating pages + permissions...");
+  // ---- Create Pages (replaces Orgs) + Handles + Permissions (replaces OrgMember)
+  console.log("📄 Creating pages + handles + permissions...");
   const pageDefs = [
     {
       name: "Portland Makers Guild",
-      slug: "portland-makers-guild",
+      handle: "portland-makers-guild",
       headline: "Hands-on learning, shared tools, good people.",
       bio: "A community page for woodworking, textiles, and skill shares.",
       location: "Portland, OR",
@@ -268,7 +275,7 @@ async function main() {
     },
     {
       name: "Berkeley Builders Collective",
-      slug: "berkeley-builders-collective",
+      handle: "berkeley-builders-collective",
       headline: "Build. Make. Connect.",
       bio: "A small collective for software + craft crossover projects.",
       location: "Berkeley, CA",
@@ -279,7 +286,7 @@ async function main() {
 
   type CreatedPage = {
     id: string;
-    slug: string;
+    handle: string;
     creatorUserId: string;
   };
   const createdPages: CreatedPage[] = [];
@@ -288,17 +295,21 @@ async function main() {
     const def = pageDefs[i];
     const creatorUser = createdUsers[def.creatorUserIdx];
     if (!creatorUser) throw new Error(`Creator user index ${def.creatorUserIdx} out of range`);
+    const handle = def.handle.toLowerCase();
 
     const page = await prisma.page.create({
       data: {
         name: def.name,
-        slug: def.slug,
+        handle,
         headline: def.headline,
         bio: def.bio,
         interests: [],
         location: def.location,
         createdByUserId: creatorUser.id,
         avatarImageId: avatarPool[(i + createdUsers.length) % avatarPool.length],
+        handleRecord: {
+          create: { handle },
+        },
       },
     });
 
@@ -314,7 +325,7 @@ async function main() {
 
     createdPages.push({
       id: page.id,
-      slug: page.slug,
+      handle: page.handle,
       creatorUserId: creatorUser.id,
     });
 

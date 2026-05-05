@@ -24,7 +24,7 @@ export async function GET() {
 			where: { id: userId },
 			select: {
 				id: true,
-				username: true,
+				handle: true,
 				email: true,
 				displayName: true,
 				firstName: true,
@@ -46,7 +46,7 @@ export async function GET() {
 		return NextResponse.json({
 			user: {
 				id: user.id,
-				username: user.username,
+				handle: user.handle,
 				email: user.email,
 				displayName: user.displayName,
 				firstName: user.firstName,
@@ -56,7 +56,7 @@ export async function GET() {
 			pages: pages.map((page) => ({
 				id: page.id,
 				name: page.name,
-				slug: page.slug,
+				handle: page.handle,
 				avatarImageId: page.avatarImageId,
 				role: page.role,
 			})),

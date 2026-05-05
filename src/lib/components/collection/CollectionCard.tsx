@@ -18,7 +18,7 @@ import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
-import { EVENT_DETAIL, POST_DETAIL, PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { EVENT_DETAIL, POST_DETAIL, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { getCardUserDisplayName } from "@/lib/types/card";
 import { AtSignIcon, PinIcon } from "../icons/icons";
 
@@ -45,8 +45,8 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 	// Use page info if available, otherwise user info
 	const displayName = item.page ? item.page.name : getCardUserDisplayName(item.user);
-	const handle = item.page ? item.page.slug : item.user.username;
-	const profileHref = item.page ? PUBLIC_PAGE(item.page.slug) : PUBLIC_USER_PAGE(item.user.username);
+	const handle = item.page ? item.page.handle : item.user.handle;
+	const profileHref = PUBLIC_PROFILE(handle);
 
 	// Pin button logic — available for all collection item types when pinConfig is provided
 	const isPinned = Boolean(item.pinnedAt);

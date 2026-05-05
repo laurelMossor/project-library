@@ -5,8 +5,8 @@ import { useSession } from "next-auth/react";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { MenuItem } from "./hamburger/MenuItem";
-import { CardEntity, CardUser, CardPage, isCardPage } from "@/lib/types/card";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { CardEntity } from "@/lib/types/card";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { UserHomeIcon, AtSignIcon } from "@/lib/components/icons/icons";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
@@ -44,10 +44,8 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 		? (pages.find((p) => p.id === activePageId)?.role?.toLowerCase() ?? undefined)
 		: "me";
 
-	const isActingAsPage = isCardPage(activeEntity);
-	const profileLink = isActingAsPage
-		? PUBLIC_PAGE((activeEntity as CardPage).slug)
-		: PUBLIC_USER_PAGE((activeEntity as CardUser).username);
+	const isActingAsPage = activePageId !== null;
+	const profileLink = PUBLIC_PROFILE(activeEntity.handle);
 
 	const handleToggle = () => {
 		if (!isOpen) {

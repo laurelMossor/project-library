@@ -49,7 +49,7 @@ test.describe("Profile switching", () => {
     // "View Profile" should now link to the page's public profile
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("menuitem", { name: "View Profile" }).click();
-    await page.waitForURL(/\/p\/portland-makers-guild/, { timeout: 10_000 });
+    await page.waitForURL(/\/portland-makers-guild/, { timeout: 10_000 });
   });
 
   test("switch back to personal identity", async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe("Profile switching", () => {
     // "View Profile" should now link back to the personal user profile
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("menuitem", { name: "View Profile" }).click();
-    await page.waitForURL(/\/u\/dolores/, { timeout: 10_000 });
+    await page.waitForURL(/\/dolores/, { timeout: 10_000 });
   });
 
   test("messages inbox is scoped to active profile", async ({ page }) => {

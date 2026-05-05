@@ -1,7 +1,7 @@
 [
 	{
 		"email": "alice.example@example.com",
-		"username": "alice",
+		"handle": "alice",
 		"password": "alice",
 		"name": "Alice Example",
 		"headline": "Quilter & Textile Artist",
@@ -11,7 +11,7 @@
 	},
 	{
 		"email": "dolores.example@example.com",
-		"username": "dolores",
+		"handle": "dolores",
 		"password": "dolores",
 		"name": "Dolores Example",
 		"headline": "Regular Lady who does embroidery and pattern design",
@@ -21,7 +21,7 @@
 	},
 	{
 		"email": "sam.example@example.com",
-		"username": "sam",
+		"handle": "sam",
 		"password": "sam",
 		"name": "Sam Example",
 		"headline": "Vegetable enthusiast and Full Stack Developer",
@@ -31,7 +31,7 @@
 	},
 	{
 		"email": "fiona.example@example.com",
-		"username": "fiona",
+		"handle": "fiona",
 		"password": "fiona",
 		"name": "Fiona Example",
 		"headline": "Reddit mod",
@@ -41,7 +41,7 @@
 	},
 	{
 		"email": "george.example@example.com",
-		"username": "george",
+		"handle": "george",
 		"password": "george",
 		"name": "George Example",
 		"headline": "Furniture Maker & Woodworking Instructor",
@@ -51,7 +51,7 @@
 	},
 	{
 		"email": "iris.example@example.com",
-		"username": "iris",
+		"handle": "iris",
 		"password": "iris",
 		"name": "Iris Example",
 		"headline": "Fine Woodworker & Craftsperson",

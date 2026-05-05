@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { PRIVATE_USER_PAGE, USER_PROFILE_SETTINGS, USER_PROFILE_EDIT, PRIVATE_PAGE, PAGE_PROFILE_SETTINGS, PAGE_PROFILE_EDIT, PAGE_NEW, LOGIN, EVENT_NEW, MESSAGES } from "@/lib/const/routes";
+import { PAGE_NEW, LOGIN, EVENT_NEW, MESSAGES, PROFILE, SETTINGS, CONNECTIONS } from "@/lib/const/routes";
 
 // Next.js 16: proxy.ts replaces the deprecated middleware.ts
 // Keep this lightweight - only handle redirects, rewrites, and headers
 
-// Routes that require authentication
+// Routes that require authentication.
 const protectedRoutes = [
-	PRIVATE_USER_PAGE,
-	USER_PROFILE_SETTINGS,
-	USER_PROFILE_EDIT,
-	PRIVATE_PAGE,
-	PAGE_PROFILE_SETTINGS,
-	PAGE_PROFILE_EDIT,
 	PAGE_NEW,
 	EVENT_NEW,
 	MESSAGES,
+	PROFILE,
+	SETTINGS,
+	CONNECTIONS,
 ];
 
 // Session cookie names used by Auth.js / NextAuth

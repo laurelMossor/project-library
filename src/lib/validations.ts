@@ -2,19 +2,30 @@ import { ProfileData } from "./types/user";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
+import { isReservedHandle } from "./const/reserved-handles";
 
 // Validation utilities for user input
-// Provides reusable validation functions for email, username, password, and profile data
+// Provides reusable validation functions for email, handle, password, and profile data
 
 export function validateEmail(email: string): boolean {
 	if (!email || typeof email !== "string") return false;
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export function validateUsername(username: string): boolean {
-	if (!username || typeof username !== "string") return false;
-	// Username: alphanumeric, underscore, hyphen, 3-20 characters
-	return /^[a-zA-Z0-9_-]+$/.test(username) && username.length >= 3 && username.length <= 20;
+/**
+ * Strict handle validator: lowercase alphanumeric + `-` + `_`, 3–30 chars.
+ *
+ * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)
+ * and the inline regex inside `validatePageData` (Page-only). One rule for
+ * every handle holder so a User `foo` and a Page `foo` cannot exist
+ * simultaneously and so URLs like `/Foo` aren't accepted at signup.
+ *
+ * Pairs with `generateHandle` in `lib/utils/handle.ts` (the forgiving
+ * normalizer used to suggest a handle from free-text input).
+ */
+export function validateHandle(handle: string): boolean {
+	if (!handle || typeof handle !== "string") return false;
+	return /^[a-z0-9_-]{3,30}$/.test(handle);
 }
 
 export function validatePassword(password: string): boolean {
@@ -402,7 +413,7 @@ export function validateMessageContent(content: string): { valid: boolean; error
 
 export interface PageCreateData {
 	name: string;
-	slug: string;
+	handle: string;
 	headline?: string;
 	bio?: string;
 	interests?: string[];
@@ -421,24 +432,27 @@ export function validatePageData(data: PageCreateData): { valid: boolean; error?
 		return { valid: false, error: "Page name must be 100 characters or less" };
 	}
 
-	// Validate slug: required, 3-50 characters, alphanumeric and hyphens only
-	if (!data.slug || typeof data.slug !== "string") {
-		return { valid: false, error: "URL slug is required" };
+	// Validate handle: required + format + reserved check.
+	// Format rules in validateHandle (lowercase, alphanumeric + `-` + `_`,
+	// 3–30 chars); reserved check protects top-level routes from collision.
+	// Note: signup performs the equivalent format + reserved + uniqueness
+	// trio inline (see api/auth/signup/route.ts) since ProfileData has no
+	// handle field — handle creation/update happens at signup, not via
+	// validateProfileData.
+	if (!data.handle || typeof data.handle !== "string") {
+		return { valid: false, error: "Page handle is required" };
 	}
-	if (data.slug.trim().length === 0) {
-		return { valid: false, error: "URL slug cannot be empty" };
+	if (!validateHandle(data.handle)) {
+		return {
+			valid: false,
+			error: "Page handle must be 3–30 lowercase letters, numbers, hyphens, or underscores",
+		};
 	}
-	if (data.slug.length < 3) {
-		return { valid: false, error: "URL slug must be at least 3 characters" };
-	}
-	if (data.slug.length > 50) {
-		return { valid: false, error: "URL slug must be 50 characters or less" };
-	}
-	if (!/^[a-z0-9-]+$/.test(data.slug)) {
-		return { valid: false, error: "URL slug can only contain lowercase letters, numbers, and hyphens" };
-	}
-	if (data.slug.startsWith("-") || data.slug.endsWith("-")) {
-		return { valid: false, error: "URL slug cannot start or end with a hyphen" };
+	if (isReservedHandle(data.handle)) {
+		return {
+			valid: false,
+			error: "That handle is reserved. Please choose another.",
+		};
 	}
 
 	// Validate headline: optional, max 200 characters

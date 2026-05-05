@@ -2,12 +2,12 @@
 
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
-import { PUBLIC_PAGE } from "@/lib/const/routes";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
 export type PageItem = {
 	id: string;
 	name: string;
-	slug: string;
+	handle: string;
 	avatarImageId?: string | null;
 	avatarImage?: { url: string } | null;
 	role?: string;
@@ -35,22 +35,22 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 			</p>
 			<div className="space-y-2">
 				{pages.map((page) => (
-					<ProfileTag
-						key={page.id}
-						entity={{
-							id: page.id,
-							name: page.name,
-							slug: page.slug,
-							avatarImageId: page.avatarImageId ?? null,
-							avatarImage: page.avatarImage,
-						}}
-						badge={page.role?.toLowerCase()}
-						actions={
-							<ButtonLink
-								href={PUBLIC_PAGE(page.slug)}
-								variant="secondary"
-								size="sm"
-							>
+			<ProfileTag
+					key={page.id}
+					entity={{
+						id: page.id,
+						name: page.name,
+						handle: page.handle,
+						avatarImageId: page.avatarImageId ?? null,
+						avatarImage: page.avatarImage,
+					}}
+					badge={page.role?.toLowerCase()}
+					actions={
+						<ButtonLink
+							href={PUBLIC_PROFILE(page.handle)}
+							variant="secondary"
+							size="sm"
+						>
 								View Page
 							</ButtonLink>
 						}

@@ -34,7 +34,7 @@ test.describe("Authentication flows", () => {
       await page.goto(SIGNUP_WITH_INVITE(rawToken));
     }
     await page.getByPlaceholder("Email").fill(email);
-    await page.getByPlaceholder("Username").fill(unique);
+    await page.getByPlaceholder("Handle").fill(unique);
     await page.getByPlaceholder("Password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();
 
@@ -45,8 +45,8 @@ test.describe("Authentication flows", () => {
     ]);
   });
 
-  test("/u/profile redirects unauthenticated users to login", async ({ page }) => {
-    await page.goto("/u/profile");
+  test("/profile redirects unauthenticated users to login", async ({ page }) => {
+    await page.goto("/profile");
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -54,8 +54,8 @@ test.describe("Authentication flows", () => {
     await loginAs(page, "alice");
     await page.reload();
     // Still logged in — private profile accessible
-    await page.goto("/u/profile");
+    await page.goto("/profile");
     await expect(page).not.toHaveURL(/\/login/);
-    await expect(page.locator("body")).toContainText("Alice");
+    await expect(page.getByRole("heading", { name: "Profile Settings" })).toBeVisible();
   });
 });

@@ -58,7 +58,7 @@ const postFields = {
 		select: {
 			id: true,
 			name: true,
-			slug: true,
+			handle: true,
 			avatarImageId: true,
 		},
 	},

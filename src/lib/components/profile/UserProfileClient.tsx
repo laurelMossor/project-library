@@ -10,7 +10,7 @@ import { FollowStats } from "@/lib/components/profile/FollowStats";
 import { ClickableProfilePicture } from "@/lib/components/profile/ClickableProfilePicture";
 import { Tag } from "@/lib/components/tag/Tag";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
-import { API_ME_USER, PUBLIC_USER_PAGE } from "@/lib/const/routes";
+import { API_ME_USER, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { getUserDisplayName } from "@/lib/types/user";
 import { authFetch } from "@/lib/utils/auth-client";
@@ -53,14 +53,14 @@ function UserProfileOwnerContent({
 	const displayName = getUserDisplayName(user);
 	const entity = {
 		id: user.id,
-		username: user.username,
+		handle: user.handle,
 		displayName: user.displayName,
 		firstName: user.firstName,
 		lastName: user.lastName,
 		avatarImageId: user.avatarImageId,
 		avatarImage: user.avatarImage,
 	};
-	const connectionsHref = PUBLIC_USER_PAGE(user.username);
+	const connectionsHref = PUBLIC_PROFILE(user.handle);
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -108,7 +108,7 @@ function UserProfileOwnerContent({
 								</div>
 							}
 						/>
-						<p className="text-sm text-dusty-grey mt-0.5">@{user.username}</p>
+						<p className="text-sm text-dusty-grey mt-0.5">@{user.handle}</p>
 					</div>
 				</div>
 

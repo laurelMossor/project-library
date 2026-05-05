@@ -15,7 +15,7 @@ test.describe("Messaging", () => {
     await loginAs(page, "alice");
 
     // Navigate to george's profile to get the Send Message link
-    await page.goto("/u/george");
+    await page.goto("/george");
     await expect(page.getByRole("heading", { name: "George Example" })).toBeVisible();
 
     // Click "Message" — links to /messages/u/{id} or /messages/p/{id}
@@ -45,7 +45,7 @@ test.describe("Messaging", () => {
     const doloresCtx = await browser.newContext();
     const doloresPage = await doloresCtx.newPage();
     await loginAs(doloresPage, "dolores");
-    await doloresPage.goto("/u/alice");
+    await doloresPage.goto("/alice");
     await doloresPage.getByRole("link", { name: "Message" }).click();
     await doloresPage.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
     await doloresPage.getByPlaceholder(/Type a message/).fill("Hello from Playwright (dot test)");
@@ -81,7 +81,7 @@ test.describe("Messaging", () => {
     await loginAs(page, "dolores");
     await switchToPage(page, "Portland Makers Guild", "admin");
 
-    await page.goto("/u/george");
+    await page.goto("/george");
     await page.getByRole("link", { name: "Message" }).click();
     await page.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
 
@@ -104,7 +104,7 @@ test.describe("Messaging", () => {
     // George has no personal conversations seeded, so inbox should be empty
     // or only contain threads he's actually part of — not PMG ↔ Sam messages.
     // Open a thread with PMG by messaging the page from George's profile view.
-    await page.goto("/p/portland-makers-guild");
+    await page.goto("/portland-makers-guild");
     const sendLink = page.getByRole("link", { name: "Message" });
 
     // If there's no send message link on a page profile, navigate directly

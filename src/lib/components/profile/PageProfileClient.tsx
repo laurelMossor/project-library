@@ -12,7 +12,7 @@ import { ClickableProfilePicture } from "@/lib/components/profile/ClickableProfi
 import { Tag } from "@/lib/components/tag/Tag";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
-import { API_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { API_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
 
@@ -64,11 +64,11 @@ function PageProfileOwnerContent({
 	const entity = {
 		id: page.id,
 		name: page.name,
-		slug: page.slug,
+		handle: page.handle,
 		avatarImageId: page.avatarImageId,
 		avatarImage: page.avatarImage,
 	};
-	const connectionsHref = PUBLIC_PAGE(page.slug);
+	const connectionsHref = PUBLIC_PROFILE(page.handle);
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -98,7 +98,7 @@ function PageProfileOwnerContent({
 								/>
 							}
 						/>
-						<p className="text-sm text-dusty-grey mt-0.5">@{page.slug}</p>
+						<p className="text-sm text-dusty-grey mt-0.5">@{page.handle}</p>
 					</div>
 				</div>
 

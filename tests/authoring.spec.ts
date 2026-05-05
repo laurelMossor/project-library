@@ -100,6 +100,7 @@ test.describe("Authoring — create content", () => {
     // Save via session bar
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Playwright Test Post")).toBeVisible();
+    await expect(page.getByText(/unsaved change/)).not.toBeVisible({ timeout: 10_000 });
 
     // Publish — only enabled after save
     await page.getByRole("button", { name: "Publish" }).click();
@@ -137,16 +138,16 @@ test.describe("Authoring — create content", () => {
   // ─── Pages ────────────────────────────────────────────────────────────────
 
   test("create a page (redirects to public profile for inline editing)", async ({ page }) => {
-    const slug = `playwright-test-${Date.now()}`;
+    const handle = `playwright-test-${Date.now()}`;
     await page.goto("/pages/new");
     await expect(page).toHaveURL(/\/pages\/new/);
 
     await page.locator("#name").fill("Playwright Test Page");
-    await page.locator("#slug").fill(slug);
+    await page.locator("#handle").fill(handle);
     await page.getByRole("button", { name: "Create Page" }).click();
 
     // After creation, redirects to the public page profile for inline editing
-    await page.waitForURL(new RegExp(`/p/${slug}`), { timeout: 10_000 });
+    await page.waitForURL(new RegExp(`/${handle}`), { timeout: 10_000 });
     await expect(page.locator("body")).toContainText("Playwright Test Page");
     await expect(page.locator("body")).not.toContainText("error");
   });
@@ -155,7 +156,7 @@ test.describe("Authoring — create content", () => {
 
   test("user can inline-edit their profile on public page", async ({ page }) => {
     // Navigate to own public profile
-    await page.goto("/u/alice");
+    await page.goto("/alice");
 
     // Should see the inline-edit affordance (own profile)
     // Click on the headline field to open edit

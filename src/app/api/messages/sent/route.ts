@@ -30,7 +30,7 @@ export async function GET() {
 									select: {
 										id: true,
 										name: true,
-										slug: true,
+										handle: true,
 										avatarImageId: true,
 									},
 								},

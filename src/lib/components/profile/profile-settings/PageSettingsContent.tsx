@@ -4,22 +4,26 @@ import { useState } from "react";
 import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings";
 import { ManageAdmins } from "@/lib/components/connections";
 import { PublicPage } from "@/lib/types/page";
-import { PUBLIC_PAGE, PAGE_CONNECTIONS } from "@/lib/const/routes";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { SettingsSection } from "@/lib/components/profile/profile-settings/SettingsSection";
 import { Button } from "@/lib/components/ui/Button";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
+import { CONNECTIONS } from "@/lib/const/routes";
 
 const PAGE_DISABLED_BUTTONS = ["Privacy Settings", "Delete Page"];
 
-type PageProfileSettingsContentProps = {
+type PageSettingsContentProps = {
 	page: PublicPage;
 	pages: PageItem[];
+	publicProfileHref: string;
 };
 
-export function PageProfileSettingsContent({ page, pages }: PageProfileSettingsContentProps) {
+export function PageSettingsContent({
+	page,
+	pages,
+	publicProfileHref,
+}: PageSettingsContentProps) {
 	const [showManageAdmins, setShowManageAdmins] = useState(false);
-	const slug = page.slug || "";
 
 	return (
 		<>
@@ -27,12 +31,12 @@ export function PageProfileSettingsContent({ page, pages }: PageProfileSettingsC
 				profileType="page"
 				pages={pages}
 				settingsTitle="Page Settings"
-				viewPublicProfileHref={PUBLIC_PAGE(slug)}
+				viewPublicProfileHref={publicProfileHref}
 				viewPublicProfileLabel="View & Edit Profile"
 				disabledButtons={PAGE_DISABLED_BUTTONS}
 				additionalSettingsButtons={
 					<>
-						<ButtonLink href={PAGE_CONNECTIONS} variant="secondary" fullWidth>
+						<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
 							Manage Connections
 						</ButtonLink>
 						<Button

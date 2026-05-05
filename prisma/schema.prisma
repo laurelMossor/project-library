@@ -17,7 +17,7 @@ enum PageVisibility {
 }
 
 enum PermissionRole {
-  ADMIN  // full control: edit page, manage permissions, post as page, manage messages
+  ADMIN // full control: edit page, manage permissions, post as page, manage messages
   EDITOR // can post as page, edit content, view/send page messages
   MEMBER // basic membership (future use)
 }
@@ -63,7 +63,7 @@ model User {
 
   email        String @unique
   passwordHash String
-  username     String @unique
+  handle       String @unique
 
   firstName   String?
   middleName  String?
@@ -95,8 +95,11 @@ model User {
   followers Follow[] @relation("UserFollowers")
 
   // Messaging
-  sentMessages            Message[]                @relation("SentMessages")
+  sentMessages            Message[]                 @relation("SentMessages")
   conversationMemberships ConversationParticipant[]
+
+  // Cross-entity handle namespace (User ↔ Handle is 1:1; see Handle model)
+  handleRecord Handle?
 
   @@map("users")
 }
@@ -131,12 +134,12 @@ model Page {
   updatedAt       DateTime @updatedAt
 
   // Identity
-  name String
-  slug String @unique
+  name   String
+  handle String @unique
 
   headline   String?
   bio        String?
-  interests  String[] @default([])
+  interests  String[]       @default([])
   location   String?
   visibility PageVisibility @default(PUBLIC)
 
@@ -154,7 +157,7 @@ model Page {
 
   // Avatar
   avatarImageId String?
-  avatarImage   Image? @relation("PageAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  avatarImage   Image?  @relation("PageAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
   // Collaboration
   isOpenToCollaborators Boolean @default(false)
@@ -173,9 +176,45 @@ model Page {
   // Messaging (Page as conversation participant)
   conversations ConversationParticipant[]
 
+  // Cross-entity handle namespace (Page ↔ Handle is 1:1; see Handle model)
+  handleRecord Handle?
+
   @@index([createdByUserId])
   @@index([createdAt])
   @@map("pages")
+}
+
+// ========================
+// Handle (cross-entity URL namespace)
+// ========================
+//
+// Single source of truth for "who owns the URL /<handle>".
+// Each row links to exactly one User OR one Page (mutually exclusive via the
+// two unique partial FKs). Lookups by handle never need a UNION across users
+// and pages — one indexed lookup, one row.
+//
+// Handles are always stored lowercase (enforced at the application layer
+// on every write — signup, page creation, future handle changes).
+//
+// Used by:
+// - /[handle] route: dispatches to UserProfile or PageProfile
+// - signup + page creation: pre-check via isHandleTaken; DB unique constraint
+//   is the real guarantee against races
+//
+// Both User.handle and Page.handle still carry their own @unique constraints
+// (entity-scoped). The Handle table is the cross-entity uniqueness layer.
+
+model Handle {
+  id        String   @id @default(cuid())
+  handle    String   @unique
+  userId    String?  @unique
+  pageId    String?  @unique
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@map("handles")
 }
 
 // ========================
@@ -278,8 +317,8 @@ model Event {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  page  Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page    Page?  @relation(fields: [pageId], references: [id], onDelete: Cascade)
   updates Post[]
   rsvps   Rsvp[]
 
@@ -324,8 +363,8 @@ model Rsvp {
 // Enforce via DB CHECK constraint in migration.
 
 model Follow {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
 
   // Exactly one of these is the "follower"
   followerId     String?
@@ -335,13 +374,13 @@ model Follow {
   followingUserId String?
   followingPageId String?
 
-  follower      User? @relation("UserFollowing",  fields: [followerId],     references: [id], onDelete: Cascade)
-  followerPage  Page? @relation("PageFollowing",  fields: [followerPageId], references: [id], onDelete: Cascade)
-  followingUser User? @relation("UserFollowers",  fields: [followingUserId], references: [id], onDelete: Cascade)
-  followingPage Page? @relation("PageFollowed",   fields: [followingPageId], references: [id], onDelete: Cascade)
+  follower      User? @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followerPage  Page? @relation("PageFollowing", fields: [followerPageId], references: [id], onDelete: Cascade)
+  followingUser User? @relation("UserFollowers", fields: [followingUserId], references: [id], onDelete: Cascade)
+  followingPage Page? @relation("PageFollowed", fields: [followingPageId], references: [id], onDelete: Cascade)
 
-  @@unique([followerId,     followingUserId])
-  @@unique([followerId,     followingPageId])
+  @@unique([followerId, followingUserId])
+  @@unique([followerId, followingPageId])
   @@unique([followerPageId, followingUserId])
   @@unique([followerPageId, followingPageId])
   @@index([followerId])
@@ -367,20 +406,20 @@ model Image {
   uploadedBy User @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
 
   attachments   ImageAttachment[]
-  userAvatarFor User[] @relation("UserAvatar")
-  pageAvatarFor Page[] @relation("PageAvatar")
+  userAvatarFor User[]            @relation("UserAvatar")
+  pageAvatarFor Page[]            @relation("PageAvatar")
 
   @@index([uploadedByUserId])
   @@map("images")
 }
 
 model ImageAttachment {
-  id        String          @id @default(cuid())
+  id        String           @id @default(cuid())
   imageId   String
   type      AttachmentTarget
   targetId  String
-  sortOrder Int             @default(0)
-  createdAt DateTime        @default(now())
+  sortOrder Int              @default(0)
+  createdAt DateTime         @default(now())
 
   image Image @relation(fields: [imageId], references: [id], onDelete: Cascade)
 

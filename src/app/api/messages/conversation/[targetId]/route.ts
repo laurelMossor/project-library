@@ -77,12 +77,12 @@ export async function GET(request: Request, { params }: Params) {
 		} else {
 			const targetPage = await prisma.page.findUnique({
 				where: { id: targetId },
-				select: {
-					id: true,
-					name: true,
-					slug: true,
-					avatarImageId: true,
-				},
+		select: {
+				id: true,
+				name: true,
+				handle: true,
+				avatarImageId: true,
+			},
 			});
 			if (!targetPage) {
 				return notFound("Page not found");

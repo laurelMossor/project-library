@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { CardEntity, isCardPage } from "@/lib/types/card";
 import { getUserInitials, getPageInitials } from "@/lib/utils/text";
-import { PUBLIC_USER_PAGE, PUBLIC_PAGE } from "@/lib/const/routes";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
 type ProfilePictureProps = {
 	entity: CardEntity;
@@ -25,13 +25,13 @@ function resolveEntity(entity: CardEntity) {
 	if (isCardPage(entity)) {
 		return {
 			initials: getPageInitials(entity.name),
-			href: PUBLIC_PAGE(entity.slug),
+			href: PUBLIC_PROFILE(entity.handle),
 			avatarUrl: entity.avatarImage?.url ?? null,
 		};
 	}
 	return {
 		initials: getUserInitials(entity),
-		href: PUBLIC_USER_PAGE(entity.username),
+		href: PUBLIC_PROFILE(entity.handle),
 		avatarUrl: entity.avatarImage?.url ?? null,
 	};
 }
