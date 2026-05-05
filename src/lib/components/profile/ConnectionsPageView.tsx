@@ -1,25 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { TabbedPanel, TabDef } from "@/lib/components/ui/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
-import { getCardUserDisplayName } from "@/lib/types/card";
+import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
-import Link from "next/link";
 
-// ─── Types ─────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 type TopTab = "Followers" | "Following" | "Membership";
-
-type LeftTabId = string; // entity ID (user or page)
-
-type LeftTabMeta = TabDef<LeftTabId> & {
-	isSelf: boolean;
-	entityType: "user" | "page";
-	entityId: string;
-	role?: string; // only set for page tabs
-	entity: UserEntity | PageEntity;
-};
 
 type ConnectionItem = {
 	id: string;
@@ -41,9 +31,8 @@ type ConnectionItem = {
 	} | null;
 };
 
-// Used for page membership list (users who are members of a page)
 type MemberItem = {
-	id: string; // permission id
+	id: string;
 	role: string;
 	user: {
 		id: string;
@@ -55,9 +44,8 @@ type MemberItem = {
 	};
 };
 
-// Used for user membership list (pages the user is a member of)
 type PageMembershipItem = {
-	id: string; // permission id
+	id: string;
 	role: string;
 	page: {
 		id: string;
@@ -70,37 +58,18 @@ type PageMembershipItem = {
 type ConnectionsData = {
 	followers: ConnectionItem[];
 	following: ConnectionItem[];
-	membership: MemberItem[];          // page entity: users who are members
-	memberOf: PageMembershipItem[];    // user entity: pages user has a ROLE for the Page, e.g. Member, Admin, Editor. It will display a badge with the role
+	membership: MemberItem[];
+	memberOf: PageMembershipItem[];
 };
 
-// ─── Props ──────────────────────────────────────────────────────────────────
-
-type PageEntity = {
-	id: string;
-	handle: string;
-	name: string;
-	avatarImageId: string | null;
-	avatarImage?: { url: string } | null;
-	role: string; // user's permission role on this page
-};
-
-type UserEntity = {
-	id: string;
-	handle: string;
-	displayName: string | null;
-	firstName: string | null;
-	lastName: string | null;
-	avatarImageId: string | null;
-	avatarImage?: { url: string } | null;
-};
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 type ConnectionsPageViewProps = {
-	user: UserEntity;
-	pages: PageEntity[];
+	entity: CardEntity;
+	currentUserId: string;
 };
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const TOP_TABS: TabDef<TopTab>[] = [
 	{ id: "Followers", label: "Followers" },
@@ -108,13 +77,9 @@ const TOP_TABS: TabDef<TopTab>[] = [
 	{ id: "Membership", label: "Membership" },
 ];
 
-// ─── MemberRowActions — file-scope component to keep hooks valid ─────────────
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
-function MemberRowActions({
-	onRemove,
-}: {
-	onRemove: () => Promise<void>;
-}) {
+function MemberRowActions({ onRemove }: { onRemove: () => Promise<void> }) {
 	const [removing, setRemoving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -144,9 +109,7 @@ function MemberRowActions({
 }
 
 function EmptyMessage({ label }: { label: string }) {
-	return (
-		<p className="text-sm text-dusty-grey text-center py-12">No {label.toLowerCase()} yet.</p>
-	);
+	return <p className="text-sm text-dusty-grey text-center py-12">No {label.toLowerCase()} yet.</p>;
 }
 
 function ViewLink({ href }: { href: string }) {
@@ -165,23 +128,23 @@ function ConnectionList({ items, emptyLabel }: { items: ConnectionItem[]; emptyL
 	return (
 		<div className="p-5 space-y-2">
 			{items.map((item) => {
-			if (item.type === "USER" && item.user) {
-				return (
-					<ProfileTag
-						key={item.id}
-						entity={item.user}
-						actions={<ViewLink href={PUBLIC_PROFILE(item.user.handle)} />}
-					/>
-				);
-			}
-			if (item.type === "PAGE" && item.page) {
-				return (
-					<ProfileTag
-						key={item.id}
-						entity={item.page}
-						actions={<ViewLink href={PUBLIC_PROFILE(item.page.handle)} />}
-					/>
-				);
+				if (item.type === "USER" && item.user) {
+					return (
+						<ProfileTag
+							key={item.id}
+							entity={item.user}
+							actions={<ViewLink href={PUBLIC_PROFILE(item.user.handle)} />}
+						/>
+					);
+				}
+				if (item.type === "PAGE" && item.page) {
+					return (
+						<ProfileTag
+							key={item.id}
+							entity={item.page}
+							actions={<ViewLink href={PUBLIC_PROFILE(item.page.handle)} />}
+						/>
+					);
 				}
 				return null;
 			})}
@@ -191,124 +154,100 @@ function ConnectionList({ items, emptyLabel }: { items: ConnectionItem[]; emptyL
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
-	const leftTabs: LeftTabMeta[] = [
-		{ id: user.id, label: getCardUserDisplayName(user), isSelf: true, entityType: "user", entityId: user.id, entity: user },
-		...pages.map((p) => ({
-			id: p.id,
-			label: p.name,
-			isSelf: false,
-			entityType: "page" as const,
-			entityId: p.id,
-			role: p.role,
-			entity: p,
-		})),
-	];
+export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageViewProps) {
+	const isPage = isCardPage(entity);
+	const entityType = isPage ? "page" : "user";
+	const role = isPage ? (entity as CardPageWithRole).role : undefined;
+	const displayName = isPage ? entity.name : getCardUserDisplayName(entity);
 
-	const [data, setData] = useState<Record<string, ConnectionsData>>({});
+	const leftTabs: TabDef<string>[] = [{ id: entity.id, label: displayName }];
+
+	const [data, setData] = useState<ConnectionsData | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [errorMap, setErrorMap] = useState<Record<string, string>>({});
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		async function loadAll() {
-			await Promise.all(
-				leftTabs.map(async ({ entityId, entityType }) => {
-					try {
-						const base = entityType === "user" ? "users" : "pages";
-						const [followersRes, followingRes, membershipRes] = await Promise.all([
-							fetch(`/api/${base}/${entityId}/followers`),
-							fetch(`/api/${base}/${entityId}/following`),
-							entityType === "page"
-								? fetch(`/api/pages/${entityId}/members`)
-								: fetch(`/api/users/${entityId}/memberships`),
-						]);
+		async function load() {
+			setLoading(true);
+			setError(null);
+			try {
+				const base = entityType === "user" ? "users" : "pages";
+				const [followersRes, followingRes, membershipRes] = await Promise.all([
+					fetch(`/api/${base}/${entity.id}/followers`),
+					fetch(`/api/${base}/${entity.id}/following`),
+					entityType === "page"
+						? fetch(`/api/pages/${entity.id}/members`)
+						: fetch(`/api/users/${entity.id}/memberships`),
+				]);
 
-						const followers = followersRes.ok ? (await followersRes.json()).followers ?? [] : [];
-						const following = followingRes.ok ? (await followingRes.json()).following ?? [] : [];
+				const followers = followersRes.ok ? (await followersRes.json()).followers ?? [] : [];
+				const following = followingRes.ok ? (await followingRes.json()).following ?? [] : [];
+				let membership: MemberItem[] = [];
+				let memberOf: PageMembershipItem[] = [];
 
-						let membership: MemberItem[] = [];
-						let memberOf: PageMembershipItem[] = [];
+				if (entityType === "page" && membershipRes.ok) {
+					membership = (await membershipRes.json()) as MemberItem[];
+				} else if (entityType === "user" && membershipRes.ok) {
+					memberOf = (await membershipRes.json()).memberships ?? [];
+				}
 
-						if (entityType === "page" && membershipRes.ok) {
-							membership = (await membershipRes.json()) as MemberItem[];
-						} else if (entityType === "user" && membershipRes.ok) {
-							memberOf = (await membershipRes.json()).memberships ?? [];
-						}
+				setData({ followers, following, membership, memberOf });
+			} catch {
+				setError("Failed to load connections");
+			} finally {
+				setLoading(false);
+			}
+		}
+		load();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entity.id]);
 
-						setData((prev) => ({
-							...prev,
-							[entityId]: { followers, following, membership, memberOf },
-						}));
-					} catch {
-						setErrorMap((prev) => ({ ...prev, [entityId]: "Failed to load connections" }));
-					}
-				})
+	function removeMember(userId: string) {
+		return async () => {
+			const res = await fetch(`/api/pages/${entity.id}/members/${userId}`, { method: "DELETE" });
+			if (!res.ok) throw new Error(`Remove failed: ${res.status}`);
+			setData((prev) =>
+				prev ? { ...prev, membership: prev.membership.filter((m) => m.user.id !== userId) } : prev
 			);
-			setLoading(false);
-		}
-
-		loadAll();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	async function removeMember(pageId: string, userId: string): Promise<void> {
-		const res = await fetch(`/api/pages/${pageId}/members/${userId}`, { method: "DELETE" });
-		if (!res.ok) throw new Error(`Remove failed: ${res.status}`);
-		setData((prev) => ({
-			...prev,
-			[pageId]: {
-				...prev[pageId],
-				membership: prev[pageId].membership.filter((m) => m.user.id !== userId),
-			},
-		}));
+		};
 	}
 
-	function getCount(leftId: LeftTabId, top: TopTab): number {
-		const d = data[leftId];
-		if (!d) return 0;
-		if (top === "Followers") return d.followers.length;
-		if (top === "Following") return d.following.length;
-		const tab = leftTabs.find((t) => t.id === leftId)!;
-		return tab.entityType === "user" ? d.memberOf.length : d.membership.length;
+	function getCount(_leftId: string, top: TopTab): number {
+		if (!data) return 0;
+		if (top === "Followers") return data.followers.length;
+		if (top === "Following") return data.following.length;
+		return entityType === "user" ? data.memberOf.length : data.membership.length;
 	}
 
-	function renderContent(leftId: LeftTabId, top: TopTab) {
-		const tab = leftTabs.find((t) => t.id === leftId)!;
-		const d = data[leftId];
-		const isLoading = loading && !d;
-		const error = errorMap[leftId] ?? null;
+	function renderContent(_leftId: string, top: TopTab) {
+		if (loading) return <p className="text-sm text-dusty-grey text-center py-12">Loading...</p>;
+		if (error) return <p className="text-sm text-red-500 text-center py-12">{error}</p>;
+		if (!data) return null;
 
-		if (isLoading) {
-			return <p className="text-sm text-dusty-grey text-center py-12">Loading...</p>;
-		}
-		if (error) {
-			return <p className="text-sm text-red-500 text-center py-12">{error}</p>;
-		}
+		if (top === "Followers") return <ConnectionList items={data.followers} emptyLabel="Followers" />;
+		if (top === "Following") return <ConnectionList items={data.following} emptyLabel="Following" />;
 
-		if (top === "Followers") return <ConnectionList items={d?.followers ?? []} emptyLabel="Followers" />;
-		if (top === "Following") return <ConnectionList items={d?.following ?? []} emptyLabel="Following" />;
-
-		// Membership tab — user: pages they belong to; page: members of that page
-		if (tab.entityType === "user") {
-			const items = d?.memberOf ?? [];
+		// Membership tab
+		if (entityType === "user") {
+			const items = data.memberOf;
 			if (!items.length) return <EmptyMessage label="Memberships" />;
 			return (
 				<div className="p-5 space-y-2">
-				{items.map((item) => (
-					<ProfileTag
-						key={item.id}
-						entity={item.page}
-						badge={item.role.toLowerCase()}
-						actions={<ViewLink href={PUBLIC_PROFILE(item.page.handle)} />}
-					/>
-				))}
+					{items.map((item) => (
+						<ProfileTag
+							key={item.id}
+							entity={item.page}
+							badge={item.role.toLowerCase()}
+							actions={<ViewLink href={PUBLIC_PROFILE(item.page.handle)} />}
+						/>
+					))}
 				</div>
 			);
 		}
 
-		// Page membership — ADMIN can remove members, EDITOR is read-only
-		const items = d?.membership ?? [];
-		const isAdmin = tab.role === "ADMIN";
+		// Page: members list
+		const items = data.membership;
+		const isAdmin = role === "ADMIN";
 		if (!items.length) return <EmptyMessage label="Members" />;
 		return (
 			<div className="p-5 space-y-2">
@@ -318,8 +257,8 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 						entity={item.user}
 						badge={item.role.toLowerCase()}
 						actions={
-							isAdmin && item.user.id !== user.id ? (
-								<MemberRowActions onRemove={() => removeMember(leftId, item.user.id)} />
+							isAdmin && item.user.id !== currentUserId ? (
+								<MemberRowActions onRemove={removeMember(item.user.id)} />
 							) : undefined
 						}
 					/>
@@ -329,25 +268,22 @@ export function ConnectionsPageView({ user, pages }: ConnectionsPageViewProps) {
 	}
 
 	return (
-		<TabbedPanel<TopTab, LeftTabId>
+		<TabbedPanel<TopTab, string>
 			topTabs={TOP_TABS}
 			leftTabs={leftTabs}
 			getCount={getCount}
-			renderLeftTab={(tab) => {
-				const meta = tab as LeftTabMeta;
-				return (
-					<ProfileTag
-						entity={meta.entity}
-						badge={!meta.isSelf && meta.role ? meta.role.toLowerCase() : undefined}
-						asLink={false}
-						variant="compact"
-						align="right"
-						className="!border-0 !bg-transparent hover:!bg-transparent w-full"
-					/>
-				);
-			}}
+			renderLeftTab={() => (
+				<ProfileTag
+					entity={entity}
+					badge={isPage && role ? role.toLowerCase() : undefined}
+					asLink={false}
+					variant="compact"
+					align="right"
+					className="!border-0 !bg-transparent hover:!bg-transparent w-full"
+				/>
+			)}
 			renderContent={renderContent}
-			defaultLeft={user.id}
+			defaultLeft={entity.id}
 		/>
 	);
 }

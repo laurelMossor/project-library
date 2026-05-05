@@ -81,7 +81,7 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
       {/* overflow-hidden clips the right edge on mobile so tabs don't bleed past viewport */}
       {/* isolation: isolate ensures z-index stacking works correctly in Safari */}
       <div className="flex items-end overflow-hidden sm:overflow-visible">
-        <div className="w-28 sm:w-48 shrink-0" />
+        <div className="w-14 shrink-0" />
         <div className="flex items-end pl-1 sm:gap-1.5 sm:px-1" style={{ isolation: "isolate" }}>
           {topTabs.map((tab, i) => {
             const isActive = tab.id === activeTop;
@@ -126,19 +126,31 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
 
       {/* Main row: left tabs + panel */}
       <div className="flex items-start">
-        {/* Left tab column — no top padding keeps first tab flush with panel top border */}
-        <div className="flex flex-col gap-1.5 pb-1 w-28 sm:w-48 shrink-0">
+        {/* Left tab column — narrow; content rotated -90deg to save horizontal space */}
+        <div className="flex flex-col gap-1.5 pb-1 w-14 shrink-0">
           {leftTabs.map((tab) => {
             const isActive = tab.id === activeLeft;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveLeft(tab.id)}
-                className={`overflow-hidden rounded-l-lg border w-full text-left leading-tight transition-colors cursor-pointer select-none ${
+                className={`relative h-40 overflow-hidden rounded-l-lg border w-full transition-colors cursor-pointer select-none ${
                   isActive ? ACTIVE_LEFT : INACTIVE_LEFT
                 }`}
               >
-                {renderLeftTab ? renderLeftTab(tab) : tab.label}
+                {/* Rotate content -90deg: anchored at bottom-left, folds up to fill the button */}
+                <div
+                  style={{
+                    position: "absolute",
+                    width: "160px",
+                    left: 0,
+                    top: "100%",
+                    transformOrigin: "top left",
+                    transform: "rotate(-90deg)",
+                  }}
+                >
+                  {renderLeftTab ? renderLeftTab(tab) : tab.label}
+                </div>
               </button>
             );
           })}

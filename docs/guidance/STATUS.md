@@ -80,14 +80,13 @@ Most recent first. See `JOURNAL.md` for full entries.
 ## Blockers / open questions
 
 - **Microsite refactor shape.** Task 2 is big and the schema direction (`PageElement` table per PRD) isn't committed. Needs a technical plan before implementation.
-- **P0/P1 design feature list doesn't exist.** Plan literally calls it out as a TODO — can't check off "design polish" without enumerating it first.
 - **Caption entry point.** Image captions work but there's no UI to add them yet (Task 5).
 
 ---
 
 ## How to use this doc
 
-- **Claude reads this at session start** (configured in `.claude/CLAUDE.md`). Keep it one screen.
+- **Claude reads this at session start** (configured in `.claude/CLAUDE.md`). 
 - When something ships, move it from "In flight" to "Recently closed" with a date.
 - When a blocker lifts, delete it — don't keep "solved in 04/03" historical notes here. This is *status*, not *history*. History lives in `JOURNAL.md`.
 - When scope changes, edit the milestone section. Don't accumulate cruft.
