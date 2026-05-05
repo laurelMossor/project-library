@@ -13,18 +13,17 @@ export const SIGNUP_WITH_INVITE = (inviteToken: string) =>
 export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
 // ============================================================================
-// Identity Routes — handle-keyed (works for User or Page)
+// Identity Routes
 // ============================================================================
 
-// Public
+// Public — handle-keyed
 export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
 export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 
-// Manage (gated by canManageEntity)
-export const MANAGE_PROFILE = (handle: string) => `/${handle}/profile`;
-export const MANAGE_PROFILE_SETTINGS = (handle: string) => `/${handle}/profile/settings`;
-export const MANAGE_PROFILE_EDIT = (handle: string) => `/${handle}/profile#profile-section`;
-export const MANAGE_CONNECTIONS = (handle: string) => `/${handle}/connections`;
+// Session-scoped — active profile resolved from session, no handle in URL
+export const PROFILE = "/profile";
+export const SETTINGS = "/settings";
+export const CONNECTIONS = "/connections";
 
 export const PAGE_NEW = "/pages/new";
 

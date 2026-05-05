@@ -64,15 +64,15 @@ const postFields = {
 	user: {
 		select: publicUserFields,
 	},
-	page: {
-		select: {
-			id: true,
-			name: true,
-			slug: true,
-			avatarImageId: true,
-			avatarImage: { select: { url: true } },
+		page: {
+			select: {
+				id: true,
+				name: true,
+				handle: true,
+				avatarImageId: true,
+				avatarImage: { select: { url: true } },
+			},
 		},
-	},
 	event: {
 		select: {
 			id: true,

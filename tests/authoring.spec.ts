@@ -100,6 +100,7 @@ test.describe("Authoring — create content", () => {
     // Save via session bar
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Playwright Test Post")).toBeVisible();
+    await expect(page.getByText(/unsaved change/)).not.toBeVisible({ timeout: 10_000 });
 
     // Publish — only enabled after save
     await page.getByRole("button", { name: "Publish" }).click();

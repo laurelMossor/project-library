@@ -8,6 +8,7 @@ import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { SettingsSection } from "@/lib/components/profile/profile-settings/SettingsSection";
 import { Button } from "@/lib/components/ui/Button";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
+import { CONNECTIONS } from "@/lib/const/routes";
 
 const PAGE_DISABLED_BUTTONS = ["Privacy Settings", "Delete Page"];
 
@@ -15,14 +16,12 @@ type PageSettingsContentProps = {
 	page: PublicPage;
 	pages: PageItem[];
 	publicProfileHref: string;
-	connectionsHref: string;
 };
 
 export function PageSettingsContent({
 	page,
 	pages,
 	publicProfileHref,
-	connectionsHref,
 }: PageSettingsContentProps) {
 	const [showManageAdmins, setShowManageAdmins] = useState(false);
 
@@ -37,7 +36,7 @@ export function PageSettingsContent({
 				disabledButtons={PAGE_DISABLED_BUTTONS}
 				additionalSettingsButtons={
 					<>
-						<ButtonLink href={connectionsHref} variant="secondary" fullWidth>
+						<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
 							Manage Connections
 						</ButtonLink>
 						<Button

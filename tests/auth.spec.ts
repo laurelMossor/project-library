@@ -34,7 +34,7 @@ test.describe("Authentication flows", () => {
       await page.goto(SIGNUP_WITH_INVITE(rawToken));
     }
     await page.getByPlaceholder("Email").fill(email);
-    await page.getByPlaceholder("Username").fill(unique);
+    await page.getByPlaceholder("Handle").fill(unique);
     await page.getByPlaceholder("Password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();
 
@@ -45,18 +45,16 @@ test.describe("Authentication flows", () => {
     ]);
   });
 
-  test("/alice/profile returns 404 for unauthenticated users (privacy-preserving)", async ({ page }) => {
-    // Post-PR2: /<handle>/profile does server-side auth and calls notFound() instead
-    // of redirecting to login, preventing enumeration of which handles exist.
-    await page.goto("/alice/profile");
-    await expect(page).not.toHaveURL(/\/login/);
+  test("/profile redirects unauthenticated users to login", async ({ page }) => {
+    await page.goto("/profile");
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("session persists after page refresh", async ({ page }) => {
     await loginAs(page, "alice");
     await page.reload();
     // Still logged in — private profile accessible
-    await page.goto("/alice/profile");
+    await page.goto("/profile");
     await expect(page).not.toHaveURL(/\/login/);
     await expect(page.getByRole("heading", { name: "Profile Settings" })).toBeVisible();
   });

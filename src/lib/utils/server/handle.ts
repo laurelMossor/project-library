@@ -38,8 +38,9 @@ export async function isHandleTaken(handle: string): Promise<boolean> {
  * model — there's no tiebreaker policy because conflicts are structurally
  * impossible. Returns null if no handle matches (caller renders notFound()).
  *
- * This is the lookup that powers `[handle]/page.tsx` (and every gated
- * `[handle]/profile/...` route via `canManageEntity`).
+ * This is the lookup that powers `[handle]/page.tsx` (the public profile
+ * dispatcher). Previously also used by the now-deleted `[handle]/profile/...`
+ * routes; manage routes are now session-scoped at `/profile`, `/connections`.
  */
 export async function findEntityByHandle(
 	handle: string,

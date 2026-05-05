@@ -152,20 +152,12 @@ export async function getResourcePermissions(
 }
 
 /**
- * Unified manage-permission gate for the post-PR2 `/[handle]/...` route tree.
+ * Unified manage-permission gate.
  *
- * Both the User and Page profile trees live under `/[handle]/profile/...` and
- * `/[handle]/connections`. This helper is the single check at the top of
- * every gated server component:
+ * Used by session-scoped manage routes (`/profile`, `/connections`, `/settings`)
+ * and any server-side code that needs to verify a user can act on an entity.
  *
- *   const entity = await findEntityByHandle(params.handle);
- *   if (!entity) return notFound();
- *   const session = await auth();
- *   if (!session?.user?.id || !(await canManageEntity(session.user.id, entity))) {
- *     return notFound(); // privacy-preserving (see Risks in PR 2 plan)
- *   }
- *
- * Rules (mirrors how the old `/u/profile` and `/p/profile` trees gated):
+ * Rules:
  *   - User entity: caller must BE that user.
  *   - Page entity: caller must have ADMIN or EDITOR on the page.
  *   - Anything else (entity has neither, or both null): refuse.

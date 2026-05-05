@@ -107,7 +107,7 @@ describe("canManagePage", () => {
 });
 
 // ---------------------------------------------------------------------------
-// canManageEntity — unified gate for /[handle]/profile and /[handle]/connections
+// canManageEntity — unified permission gate for manage routes (/profile, /connections, /settings)
 // ---------------------------------------------------------------------------
 // The shape passed in matches what `findEntityByHandle` returns: exactly one
 // of `user` / `page` is populated. We test both branches plus the edge cases

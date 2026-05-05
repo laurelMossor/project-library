@@ -17,11 +17,10 @@ import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
 	MESSAGES,
-	MANAGE_PROFILE,
+	PROFILE,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
 } from "@/lib/const/routes";
-import { API_ME_PAGE } from "@/lib/const/routes";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { hasSession } from "@/lib/utils/auth-client";
 import { MenuItem } from "./MenuItem";
@@ -45,41 +44,17 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-	const [settingsLink, setSettingsLink] = useState<string | undefined>(undefined);
+	const settingsLink = isLoggedIn ? PROFILE : undefined;
 	const [handle, setHandle] = useState<string>('');
 
 	useEffect(() => {
 		if (isLoggedIn) {
-			const activePageId = activeSession?.user?.activePageId;
-			if (activePageId) {
-				fetch(API_ME_PAGE)
-					.then((res) => (res.ok ? res.json() : null))
-					.then((data) => {
-						if (data?.handle) {
-							setSettingsLink(MANAGE_PROFILE(data.handle));
-						}
-					})
-					.catch(() => {});
-
-				fetch("/api/me/user")
-					.then((r) => (r.ok ? r.json() : null))
-					.then((user) => user?.handle && setHandle(user.handle))
-					.catch(() => {});
-			} else {
-				fetch("/api/me/user")
-					.then((r) => (r.ok ? r.json() : null))
-					.then((user) => {
-						if (user?.handle) {
-							setSettingsLink(MANAGE_PROFILE(user.handle));
-							setHandle(user.handle);
-						}
-					})
-					.catch(() => {});
-			}
-		} else {
-			setSettingsLink(undefined);
+			fetch("/api/me/user")
+				.then((r) => (r.ok ? r.json() : null))
+				.then((user) => user?.handle && setHandle(user.handle))
+				.catch(() => {});
 		}
-	}, [isLoggedIn, activeSession?.user?.activePageId]);
+	}, [isLoggedIn]);
 
 	const closeMenu = () => {
 		setIsOpen(false);

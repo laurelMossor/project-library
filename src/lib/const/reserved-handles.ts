@@ -26,6 +26,7 @@ export const RESERVED_HANDLES = new Set([
 	"signup",
 	"settings",
 	"profile",
+	"connections",
 	"logout",
 	"welcome",
 	"dev",
