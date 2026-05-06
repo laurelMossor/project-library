@@ -28,6 +28,7 @@ type CollectionCardProps = {
 	pinConfig?: PinConfig;
 };
 
+// TODO: rethink about card treatment
 function AboutCard({ item }: { item: import("@/lib/types/collection").AboutCollectionItem }) {
 	return (
 		<Link

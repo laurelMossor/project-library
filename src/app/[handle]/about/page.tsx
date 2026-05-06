@@ -1,10 +1,3 @@
-/**
- * About subpage — /[handle]/about
- *
- * Works for both User and Page profiles. Displays the longform `aboutContent`
- * markdown body. If the viewer can edit, shows an inline editor. If the
- * viewer cannot edit and the content is empty/null, 404s.
- */
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -14,7 +7,6 @@ import { getPageByHandle } from "@/lib/utils/server/page";
 import { canManagePage } from "@/lib/utils/server/permission";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
-import { MarkdownBody } from "@/lib/components/markdown/MarkdownBody";
 import { AboutPageClient } from "@/lib/components/profile/AboutPageClient";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { getUserDisplayName } from "@/lib/types/user";
@@ -104,7 +96,7 @@ export default async function HandleAboutPage({ params }: Props) {
 							canEdit
 						/>
 					) : (
-						<MarkdownBody content={aboutContent!} />
+						<div className="whitespace-pre-wrap leading-relaxed">{aboutContent}</div>
 					)}
 				</div>
 			</div>

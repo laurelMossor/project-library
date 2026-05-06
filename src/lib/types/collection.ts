@@ -33,6 +33,7 @@ export type AboutCollectionItem = {
 
 export type CollectionItem = EventItem | PostCollectionItem;
 
+// TODO: rethink about card treatment
 /** Union for rendering contexts that include synthetic About cards. */
 export type AnyCollectionItem = CollectionItem | AboutCollectionItem;
 

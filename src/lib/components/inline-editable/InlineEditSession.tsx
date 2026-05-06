@@ -54,6 +54,7 @@ type InlineEditSessionProps<T extends Record<string, unknown>> = {
 	children: ReactNode;
 };
 
+// TODO create hook and utilities to break up this file
 export function InlineEditSession<T extends Record<string, unknown>>({
 	resource,
 	onSave,

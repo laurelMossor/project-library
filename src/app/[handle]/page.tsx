@@ -47,6 +47,7 @@ type Props = {
 	params: Promise<{ handle: string }>;
 };
 
+// TODO: dry this up considerably
 export default async function HandleProfilePage({ params }: Props) {
 	const { handle } = await params;
 

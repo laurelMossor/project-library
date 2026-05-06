@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MarkdownBody } from "@/lib/components/markdown/MarkdownBody";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
@@ -48,7 +47,7 @@ function AboutEditorContent({
 			onCancel={() => setIsEditing(false)}
 			displayContent={
 				hasContent ? (
-					<MarkdownBody content={displayValue!} />
+					<div className="whitespace-pre-wrap leading-relaxed">{displayValue}</div>
 				) : (
 					<p className="text-dusty-grey italic">
 						Write about yourself&hellip; Click to add.
@@ -62,7 +61,7 @@ function AboutEditorContent({
 						setEditContent(e.target.value);
 						session?.setDirty("aboutContent", e.target.value || null, aboutContent);
 					}}
-					placeholder="Write about yourself… (Markdown supported)"
+					placeholder="Write about yourself…"
 					rows={16}
 					maxLength={50000}
 					className="w-full border border-gray-300 rounded-lg p-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown resize-y min-h-[300px]"
