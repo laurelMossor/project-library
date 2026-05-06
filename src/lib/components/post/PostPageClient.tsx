@@ -220,7 +220,7 @@ function PostPageContent({
 				/>
 
 				{/* Images */}
-				{images.length > 0 && <ImageCarousel images={images} showCaptions />}
+				{images.length > 0 && <ImageCarousel images={images} showCaptions isOwner={isOwner} />}
 
 				{/* Tags */}
 				<InlineEditable

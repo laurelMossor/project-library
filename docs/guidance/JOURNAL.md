@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
 
 
+#### Entry: Wed 05/06/2026 13:12 PDT
+Four microsite UI improvements (Milestone 2 polish). **About Page entry point**: the `+ New element` dropdown (`AddElementButton`) now includes an "About Page" option (with separator) that navigates to `/{handle}/about` for inline WYSIWYG editing; the option is hidden once about content already exists. **Settings header avatar**: `ProfileSettingsBase` now accepts an `avatarEntity` and renders a `ProfilePicture` as `titleIcon` in `SettingsSection`, so both "User Settings" and "Page Settings" headers show the active profile's avatar. **NavProfileTag sizing**: trigger is now fixed at `w-[200px]` on desktop (names truncate — `truncate` added to compact-variant `ProfileTag`) and collapses to avatar-only below `sm` breakpoint via responsive show/hide wrappers. **Photo caption editing**: `ImageCarousel` now accepts `isOwner` — owners see an inline "+ Add caption" / "Edit caption" affordance below the image that PATCHes `/api/images/:id` and updates local state on save. `npm run validate` clean: 0 type errors, 125 unit tests, 32 E2E tests, build succeeds.
+
 #### Entry: Wed 05/06/2026 12:51 PDT
 RSVP form improvements: autofill + duplicate prevention for logged-in users. The event detail server page now fetches the logged-in user's name/email and checks for an existing RSVP on page load, passing all three down as optional props through `EventPageClient` to `RsvpForm`. `RsvpForm` initializes its state from those props — pre-filling name and email, and opening directly in the confirmation state if an RSVP already exists. Added `getRsvpByEmail` to `src/lib/utils/server/rsvp.ts`. Non-logged-in users are unaffected (blank form as before). `npm run validate` clean.
 

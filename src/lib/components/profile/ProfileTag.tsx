@@ -46,7 +46,7 @@ export function ProfileTag({
 	const nameBlock =
 		variant === "compact" ? (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight">{name}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{name}</p>
 				{resolvedBadge && (
 					<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize mt-1 inline-block">
 						{resolvedBadge}
