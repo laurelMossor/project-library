@@ -44,10 +44,10 @@ Each bundle = one spawned agent session.
 | **A** | Beta gating (M4) | Beta flag · Onboarding · "Something wrong?" · About page · Community guidelines · Landing page | Six release-gating content/copy/light-UX items. Scaffold routes/components in one pass. |
 | **B** | RSVP polish | RSVP-once · RSVP-autofill | Both P0, same Event RSVP form |
 | **C** | Microsite finishers | About Page entry (P0) · Page Settings naming · Mobile profile tag · ProfileTags mobile overlap · Photo captions | All profile/page UI surfaces |
-| **D** | Bug sweep | Search filter · Empty messages · Unfinished empty posts | Three independent bugs; one session per |
+| **D** | (DONE) Bug sweep | Search filter · Empty messages · Unfinished empty posts | Three independent bugs; one session per |
 | **E** | Posts UX | Edit-after-post · Draft post/event behavior | Need design call before code |
 | **F** | Map polish | Map View sub-tasks | `CollectionMap` + `useLeaflet` only |
-| **G** | N+1 sweep | Collection queries audit + fix | Backend; "biggest perf win" per beta plan |
+| **G** | (DONE) N+1 sweep | Collection queries audit + fix | Backend; "biggest perf win" per beta plan |
 | **H** | Admin tools: group members | P0 SPATS, standalone | Membership API exists; needs admin UI |
 | **I** | Share Event/Post | Small social feature | Standalone |
 

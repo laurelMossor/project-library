@@ -27,11 +27,15 @@ import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DE
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import type { RsvpStatus } from "@/lib/types/rsvp";
 
 type EventPageClientProps = {
 	event: EventItem;
 	isOwner: boolean;
 	isLoggedIn: boolean;
+	initialName?: string;
+	initialEmail?: string;
+	existingRsvpStatus?: RsvpStatus;
 };
 
 /** Inner content — must be inside <InlineEditSession> to access editSession context */
@@ -40,11 +44,17 @@ function EventPageContent({
 	setEvent,
 	isOwner,
 	isLoggedIn,
+	initialName,
+	initialEmail,
+	existingRsvpStatus,
 }: {
 	event: EventItem;
 	setEvent: React.Dispatch<React.SetStateAction<EventItem>>;
 	isOwner: boolean;
 	isLoggedIn: boolean;
+	initialName?: string;
+	initialEmail?: string;
+	existingRsvpStatus?: RsvpStatus;
 }) {
 	const router = useRouter();
 	const editSession = useInlineEditSession();
@@ -370,6 +380,9 @@ function EventPageContent({
 						<RsvpForm
 							eventId={event.id}
 							onRsvpSubmitted={() => setRsvpRefreshKey((k) => k + 1)}
+							initialName={initialName}
+							initialEmail={initialEmail}
+							existingRsvpStatus={existingRsvpStatus}
 						/>
 					</div>
 				)}
@@ -423,7 +436,7 @@ function EventPageContent({
 	);
 }
 
-export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: EventPageClientProps) {
+export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, initialName, initialEmail, existingRsvpStatus }: EventPageClientProps) {
 	const [event, setEvent] = useState(initialEvent);
 
 	return (
@@ -445,6 +458,9 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 					setEvent={setEvent}
 					isOwner={isOwner}
 					isLoggedIn={isLoggedIn}
+					initialName={initialName}
+					initialEmail={initialEmail}
+					existingRsvpStatus={existingRsvpStatus}
 				/>
 			</InlineEditSession>
 		</PostPageShell>
