@@ -15,9 +15,8 @@ interface Message {
 	readAt: string | null;
 	sender: {
 		id: string;
-		username: string;
-		firstName: string | null;
-		lastName: string | null;
+		handle: string;
+		displayName: string | null;
 	};
 }
 

@@ -22,8 +22,6 @@ export type CardUser = {
 	id: string;
 	handle: string;
 	displayName: string | null;
-	firstName: string | null;
-	lastName: string | null;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
 };
@@ -102,12 +100,7 @@ export function isCardPage(entity: CardEntity): entity is CardPage {
 
 // Get display name for a card user
 export function getCardUserDisplayName(user: CardUser): string {
-	return getUserDisplayName({
-		displayName: user.displayName,
-		firstName: user.firstName,
-		lastName: user.lastName,
-		handle: user.handle,
-	});
+	return getUserDisplayName(user);
 }
 
 // Get display name for a card page

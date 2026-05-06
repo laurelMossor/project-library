@@ -44,12 +44,10 @@ export async function PUT(request: Request) {
 	const { fields = {}, elements } = body;
 
 	const {
-		firstName, middleName, lastName, headline, bio,
+		displayName, headline, bio,
 		interests, location, isPublic, avatarImageId,
 	} = fields as {
-		firstName?: string;
-		middleName?: string;
-		lastName?: string;
+		displayName?: string;
 		headline?: string;
 		bio?: string;
 		interests?: string[];
@@ -59,7 +57,7 @@ export async function PUT(request: Request) {
 	};
 
 	// Validate profile data
-	const validation = validateProfileData({ firstName, middleName, lastName, headline, bio, interests, location, isPublic });
+	const validation = validateProfileData({ displayName, headline, bio, interests, location, isPublic });
 	if (!validation.valid) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
@@ -67,7 +65,7 @@ export async function PUT(request: Request) {
 	try {
 		const user = await prisma.$transaction(async () => {
 			await updateUserProfile(userId, {
-				firstName, middleName, lastName, headline, bio,
+				displayName, headline, bio,
 				interests, location, isPublic, avatarImageId,
 			});
 

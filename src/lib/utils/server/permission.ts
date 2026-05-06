@@ -139,8 +139,6 @@ export async function getResourcePermissions(
           id: true,
           handle: true,
           displayName: true,
-          firstName: true,
-          lastName: true,
           avatarImageId: true,
           avatarImage: { select: { url: true } },
         },

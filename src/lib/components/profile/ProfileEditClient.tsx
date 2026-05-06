@@ -266,9 +266,7 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEdi
 
 		if ("name" in fields) {
 			if (entity.type === "user") {
-				fields.firstName = fields.name;
-				fields.middleName = null;
-				fields.lastName = null;
+				fields.displayName = fields.name;
 				delete fields.name;
 			}
 			// For page, "name" is already the correct field name

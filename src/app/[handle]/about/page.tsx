@@ -51,8 +51,6 @@ export default async function HandleAboutPage({ params }: Props) {
 			id: user.id,
 			handle: user.handle,
 			displayName: user.displayName,
-			firstName: user.firstName,
-			lastName: user.lastName,
 			avatarImageId: user.avatarImageId,
 			avatarImage: user.avatarImage,
 		};

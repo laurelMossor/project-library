@@ -48,17 +48,6 @@ export interface PublicUser {
 	elements: import("./profile-element").ProfileElementItem[];
 }
 
-// Helper to get display name from user
-// Priority: displayName > firstName + lastName > handle
-export function getUserDisplayName(user: { displayName?: string | null; firstName?: string | null; middleName?: string | null; lastName?: string | null; handle: string }): string {
-	if (user.displayName) {
-		return user.displayName;
-	}
-
-	const nameParts = [user.firstName, user.lastName].filter(Boolean);
-	if (nameParts.length > 0) {
-		return nameParts.join(' ');
-	}
-
-	return user.handle;
+export function getUserDisplayName(user: { displayName?: string | null; handle: string }): string {
+	return user.displayName || user.handle;
 }

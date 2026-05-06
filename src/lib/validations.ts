@@ -44,6 +44,15 @@ export function validateInviteToken(token: unknown): token is string {
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
 
+	if (data.displayName !== undefined && data.displayName !== null) {
+		if (typeof data.displayName !== "string") {
+			return { valid: false, error: "Display name must be a string" };
+		}
+		if (data.displayName.length > 100) {
+			return { valid: false, error: "Display name must be 100 characters or less" };
+		}
+	}
+
 	if (data.firstName !== undefined && data.firstName !== null) {
 		if (typeof data.firstName !== "string") {
 			return { valid: false, error: "First name must be a string" };
