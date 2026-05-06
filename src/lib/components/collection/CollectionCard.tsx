@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AnyCollectionItem, CollectionItem, isEvent, isAbout } from "@/lib/types/collection";
+import { AnyCollectionItem, CollectionItem, isEvent, isAbout, AboutCollectionItem } from "@/lib/types/collection";
 import type { EventItem } from "@/lib/types/event";
 import { ProfilePicture } from "../profile/ProfilePicture";
 import { Tags } from "../tag/Tag";
@@ -29,7 +29,7 @@ type CollectionCardProps = {
 };
 
 // TODO: rethink about card treatment
-function AboutCard({ item }: { item: import("@/lib/types/collection").AboutCollectionItem }) {
+function AboutCard({ item }: { item: AboutCollectionItem }) {
 	return (
 		<Link
 			href={PROFILE_ABOUT(item.handle)}

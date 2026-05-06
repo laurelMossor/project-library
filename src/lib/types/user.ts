@@ -1,3 +1,5 @@
+import type { ProfileElementItem } from "./profile-element";
+
 export interface ProfileData {
 	firstName?: string;
 	middleName?: string;
@@ -45,7 +47,7 @@ export interface PublicUser {
 	aboutContent: string | null;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
-	elements: import("./profile-element").ProfileElementItem[];
+	elements: ProfileElementItem[];
 }
 
 export function getUserDisplayName(user: { displayName?: string | null; handle: string }): string {
