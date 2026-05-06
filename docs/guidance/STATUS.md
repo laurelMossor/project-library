@@ -32,7 +32,7 @@ PR1 (authoring unification) and PR2 (URL flattening) are both merged. PR3 (micro
 
 - [ ] **Task 1 — Page roles**: decide if Pages need an ultimate Owner (vs current ADMIN/EDITOR/MEMBER). Currently leaning toward "not yet."
 - [x] **Task 2 — Microsite features**: `ProfileElement` table (LINK + TEXT kinds), `aboutContent` field, per-element WYSIWYG inline editing, platform auto-detection for links — shipped 2026-05-05.
-- [ ] **Task 2a — About subpage**: `aboutContent` field exists and seeds correctly; no dedicated `/[handle]/about` route yet.
+- [x] **Task 2a — About subpage**: `aboutContent` field exists and seeds correctly; no dedicated `/[handle]/about` route yet.
 - [x] **Task 3 — Pinned posts** — schema + UI + max-3 enforcement shipped 2026-04-03
 - [x] **Task 4 — Profile pictures** — upload/remove modal + brown ring shipped 2026-04-03
 - [ ] **Task 5 — Photo captions** — implementation done, **no entry point to add captions yet**
@@ -70,6 +70,7 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-05-05 (evening)** — Profile UX overhaul: `ProfileEditClient` (unified user+page), headline/location in header, bio un-italicized, Tags/Address/`isOpenToCollaborators` removed throughout. `ProfileElementKind` → LINK+TEXT only; WYSIWYG inline element editors; `AddElementButton` uses `DropdownMenu`; `TrashIcon`/`EyeIcon` added to shared icons. Preview toggle (last in button column) hides all edit affordances via `canEdit=false`. Dev DB re-migrated and re-seeded.
 - **2026-05-05** — PR2 follow-up: `/profile`, `/settings`, `/connections` moved to session-scoped top-level routes. Old handle-keyed manage routes (`/[handle]/profile`, `/[handle]/connections`, etc.) deleted. Three new thin client wrappers (`ProfilePageView`, `SettingsPageView`, `ConnectionsPageClient`) read `useActiveProfile()` from context. `HamburgerMenu` simplified; `"connections"` added to reserved handles.
 - **2026-04-26** — PR2 URL flattening complete (all 17 tasks). `Handle` table as source of truth; `User.username` → `handle`, `Page.slug` → `handle`; unified `/[handle]/` route tree; all route constants replaced; `src/app/u/` and `src/app/p/` deleted; Playwright + Vitest tests updated throughout. `tsc`, `eslint`, and all tests clean.
 - **2026-04-19** — PR1 authoring unification merged: `InlineEditSession` batched-save context, `PostStatus` DRAFT/PUBLISHED, simplified `/posts/new` + `/pages/new` create-and-redirect, dedicated edit routes deleted, new `PostPageClient`/`PageProfileClient`/`UserProfileClient`.
