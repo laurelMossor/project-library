@@ -45,7 +45,7 @@ export async function PUT(request: Request) {
 
 	const {
 		displayName, headline, bio,
-		interests, location, isPublic, avatarImageId,
+		interests, location, isPublic, avatarImageId, aboutContent,
 	} = fields as {
 		displayName?: string;
 		headline?: string;
@@ -54,6 +54,7 @@ export async function PUT(request: Request) {
 		location?: string;
 		isPublic?: boolean;
 		avatarImageId?: string | null;
+		aboutContent?: string | null;
 	};
 
 	// Validate profile data
@@ -62,11 +63,15 @@ export async function PUT(request: Request) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
 
+	if (aboutContent !== undefined && aboutContent !== null && aboutContent.length > 50000) {
+		return badRequest("aboutContent must be 50,000 characters or fewer");
+	}
+
 	try {
 		const user = await prisma.$transaction(async () => {
 			await updateUserProfile(userId, {
 				displayName, headline, bio,
-				interests, location, isPublic, avatarImageId,
+				interests, location, isPublic, avatarImageId, aboutContent,
 			});
 
 			if (elements) {

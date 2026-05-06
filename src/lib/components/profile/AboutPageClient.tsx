@@ -5,7 +5,7 @@ import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSe
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
-import { API_PROFILE_ABOUT } from "@/lib/const/routes";
+import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 type AboutPageClientProps = {
@@ -80,12 +80,13 @@ export function AboutPageClient({
 }: AboutPageClientProps) {
 	const [aboutContent, setAboutContent] = useState(initialAboutContent);
 
+	const saveUrl = entityType === "user" ? API_ME_USER : API_PAGE(entityId);
+
 	const handleSave = async (payload: SavePayload) => {
-		const value = payload.fields.aboutContent as string | null;
-		const res = await authFetch(API_PROFILE_ABOUT(entityType, entityId), {
-			method: "PATCH",
+		const res = await authFetch(saveUrl, {
+			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ aboutContent: value }),
+			body: JSON.stringify(payload),
 		});
 		if (!res.ok) {
 			const data = await res.json().catch(() => ({}));

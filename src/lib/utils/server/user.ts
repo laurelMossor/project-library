@@ -75,6 +75,7 @@ export async function updateUserProfile(
 		location?: string;
 		isPublic?: boolean;
 		avatarImageId?: string | null;
+		aboutContent?: string | null;
 	}
 ) {
 	// Build update data object with only explicitly provided fields
@@ -90,6 +91,7 @@ export async function updateUserProfile(
 		location?: string;
 		isPublic?: boolean;
 		avatarImageId?: string | null;
+		aboutContent?: string | null;
 	} = {};
 
 	if (data.firstName !== undefined) updateData.firstName = data.firstName;
@@ -102,6 +104,7 @@ export async function updateUserProfile(
 	if (data.location !== undefined) updateData.location = data.location;
 	if (data.isPublic !== undefined) updateData.isPublic = data.isPublic;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
+	if (data.aboutContent !== undefined) updateData.aboutContent = data.aboutContent;
 
 	return prisma.user.update({
 		where: { id: userId },

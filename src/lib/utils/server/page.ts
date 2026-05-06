@@ -54,6 +54,7 @@ export async function getPageById(id: string) {
 export async function updatePageProfile(
   pageId: string,
   data: {
+    name?: string;
     headline?: string;
     bio?: string;
     interests?: string[];
@@ -65,6 +66,7 @@ export async function updatePageProfile(
     zip?: string | null;
     category?: string | null;
     avatarImageId?: string | null;
+    aboutContent?: string | null;
   }
 ) {
   const updateData: Record<string, unknown> = {};

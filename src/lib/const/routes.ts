@@ -78,9 +78,6 @@ export const API_POST = (id: string) => `/api/posts/${id}`;
 export const API_PAGES = "/api/pages";
 export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 
-// Profile About API (polymorphic: type = "user" | "page")
-export const API_PROFILE_ABOUT = (type: "user" | "page", id: string) =>
-	`/api/profiles/${type}/${id}/about`;
 export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
 
 // Follow API Routes
