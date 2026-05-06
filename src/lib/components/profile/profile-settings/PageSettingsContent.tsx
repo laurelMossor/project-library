@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings";
-import { ManageAdmins } from "@/lib/components/connections";
+import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/ProfileSettingsBase";
+import { ManageAdmins } from "@/lib/components/connections/ManageAdmins";
 import { PublicPage } from "@/lib/types/page";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { SettingsSection } from "@/lib/components/profile/profile-settings/SettingsSection";
