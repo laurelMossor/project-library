@@ -1,30 +1,20 @@
 "use client";
 
-/**
- * CollectionCard - Unified card component for all collection items
- *
- * This component handles rendering of events (and future collection types)
- * with a unified interface. It automatically detects the collection type and renders
- * appropriate fields.
- *
- * Usage:
- *   <CollectionCard item={collectionItem} truncate={true} />
- */
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CollectionItem, isEvent } from "@/lib/types/collection";
+import { AnyCollectionItem, CollectionItem, isEvent, isAbout } from "@/lib/types/collection";
+import type { EventItem } from "@/lib/types/event";
 import { ProfilePicture } from "../profile/ProfilePicture";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
-import { EVENT_DETAIL, POST_DETAIL, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { EVENT_DETAIL, POST_DETAIL, PUBLIC_PROFILE, PROFILE_ABOUT } from "@/lib/const/routes";
 import { getCardUserDisplayName } from "@/lib/types/card";
 import { AtSignIcon, PinIcon } from "../icons/icons";
 
 const MAX_PINNED = 3;
 
-/** Configuration for pin functionality — only provided on profile/page collection views */
 export type PinConfig = {
 	currentUserId: string;
 	activePageId?: string | null;
@@ -32,30 +22,53 @@ export type PinConfig = {
 };
 
 type CollectionCardProps = {
-	item: CollectionItem;
+	item: AnyCollectionItem;
 	truncate?: boolean;
 	showCaptions?: boolean;
 	pinConfig?: PinConfig;
 };
 
+function AboutCard({ item }: { item: import("@/lib/types/collection").AboutCollectionItem }) {
+	return (
+		<Link
+			href={PROFILE_ABOUT(item.handle)}
+			className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col gap-2 no-underline"
+		>
+			<p className="text-xs font-medium uppercase tracking-wide text-dusty-grey">About</p>
+			<h2 className="text-xl font-semibold">About {item.displayName}</h2>
+			{item.excerpt && (
+				<p className="text-warm-grey text-sm line-clamp-3">{item.excerpt}</p>
+			)}
+			<span className="text-sm text-moss-green hover:text-rich-brown transition-colors mt-auto">
+				Read more →
+			</span>
+		</Link>
+	);
+}
+
 export function CollectionCard({ item, truncate = true, showCaptions = false, pinConfig }: CollectionCardProps) {
 	const router = useRouter();
-	const isEventItem = isEvent(item);
-	const detailUrl = isEventItem ? EVENT_DETAIL(item.id) : POST_DETAIL(item.id);
 
-	// Use page info if available, otherwise user info
-	const displayName = item.page ? item.page.name : getCardUserDisplayName(item.user);
-	const handle = item.page ? item.page.handle : item.user.handle;
+	if (isAbout(item)) {
+		return <AboutCard item={item} />;
+	}
+
+	const ri = item as CollectionItem;
+	const isEventItem = isEvent(item);
+	const ev = isEventItem ? (ri as EventItem) : null;
+	const detailUrl = isEventItem ? EVENT_DETAIL(ri.id) : POST_DETAIL(ri.id);
+
+	const displayName = ri.page ? ri.page.name : getCardUserDisplayName(ri.user);
+	const handle = ri.page ? ri.page.handle : ri.user.handle;
 	const profileHref = PUBLIC_PROFILE(handle);
 
-	// Pin button logic — available for all collection item types when pinConfig is provided
-	const isPinned = Boolean(item.pinnedAt);
+	const isPinned = Boolean(ri.pinnedAt);
 	const canPin = !!pinConfig && (
-		pinConfig.currentUserId === item.userId ||
-		(item.page !== null && item.page?.id === pinConfig.activePageId)
+		pinConfig.currentUserId === ri.userId ||
+		(ri.page !== null && ri.page?.id === pinConfig.activePageId)
 	);
 	const atPinLimit = pinConfig ? pinConfig.pinnedCount >= MAX_PINNED && !isPinned : false;
-	const apiEndpoint = isEventItem ? `/api/events/${item.id}` : `/api/posts/${item.id}`;
+	const apiEndpoint = isEventItem ? `/api/events/${ri.id}` : `/api/posts/${ri.id}`;
 
 	async function handleTogglePin() {
 		if (atPinLimit) return;
@@ -65,9 +78,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ pinnedAt: isPinned ? null : new Date().toISOString() }),
 			});
-			if (res.ok) {
-				router.refresh();
-			}
+			if (res.ok) router.refresh();
 		} catch {
 			// silent fail — user can retry
 		}
@@ -78,12 +89,11 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 			className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col cursor-pointer"
 			onClick={() => router.push(detailUrl)}
 		>
-			{/* Header: Profile pic + Title + Pin */}
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					<ProfilePicture entity={item.page ?? item.user} size="md" />
+					<ProfilePicture entity={ri.page ?? ri.user} size="md" />
 					<div className="flex-1 min-w-0">
-						{item.title && <h2 className="text-xl font-semibold mb-2">{item.title}</h2>}
+						{ri.title && <h2 className="text-xl font-semibold mb-2">{ri.title}</h2>}
 					</div>
 					{canPin && (
 						<button
@@ -104,20 +114,17 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				</div>
 			</div>
 
-			{/* Content */}
 			<p className="text-warm-grey text-sm mb-2">
-				{truncate ? truncateText(item.content, 250) : item.content}
+				{truncate ? truncateText(ri.content, 250) : ri.content}
 			</p>
 
-			{/* Event-specific info (only for events) */}
-			{isEventItem && (
+			{ev && (
 				<div className="mb-2 text-sm text-gray-600">
-					<p className="font-medium">📅 {formatDateTime(item.eventDateTime)}</p>
-					<p className="text-xs">📍 {item.location}</p>
+					<p className="font-medium">📅 {formatDateTime(ev.eventDateTime)}</p>
+					<p className="text-xs">📍 {ev.location}</p>
 				</div>
 			)}
 
-			{/* Creator and date */}
 			{handle && (
 				<div className="flex flex-row items-center gap-2 mb-2">
 					<div className="flex items-center gap-1">
@@ -133,19 +140,18 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				</div>
 			)}
 
-			{/* Updates section, TODO: Create a component for this */}
 			{(() => {
-				const count = item._count?.updates ?? 0;
-				if (!count || count === 0) return null;
+				const count = ri._count?.updates ?? 0;
+				if (!count) return null;
 				return (
 					<div className="mt-2 mb-2" onClick={(e) => e.stopPropagation()}>
 						<Link href={detailUrl} className="text-xs font-medium text-gray-500 hover:text-rich-brown hover:underline">
 							{count} {count === 1 ? "update" : "updates"}
 						</Link>
-						{item.recentUpdate && (
+						{ri.recentUpdate && (
 							<div className="mt-1 border-l-2 border-soft-grey pl-3">
 								<p className="text-sm text-warm-grey whitespace-pre-wrap">
-									{truncate ? truncateText(item.recentUpdate.content, 120) : item.recentUpdate.content}
+									{truncate ? truncateText(ri.recentUpdate.content, 120) : ri.recentUpdate.content}
 								</p>
 							</div>
 						)}
@@ -153,15 +159,13 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				);
 			})()}
 
-			{/* Images */}
-			{item.images && item.images.length > 0 && (
+			{ri.images && ri.images.length > 0 && (
 				<div className="mb-4" onClick={(e) => e.stopPropagation()}>
-					<ImageCarousel images={item.images} showCaptions={showCaptions} />
+					<ImageCarousel images={ri.images} showCaptions={showCaptions} />
 				</div>
 			)}
 
-			{/* Tags */}
-			<Tags item={item} />
+			<Tags item={ri} />
 		</div>
 	);
 }

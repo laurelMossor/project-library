@@ -13,11 +13,13 @@ export interface PublicPage {
   city: string | null;
   state: string | null;
   zip: string | null;
-  parentTopic: string | null;
+  category: string | null;
   tags: string[];
   isOpenToCollaborators: boolean;
+  aboutContent: string | null;
   avatarImageId: string | null;
   avatarImage?: { url: string } | null;
+  elements: import("./profile-element").ProfileElementItem[];
   createdAt: Date;
   updatedAt: Date;
 }

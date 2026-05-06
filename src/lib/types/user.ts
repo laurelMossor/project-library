@@ -42,8 +42,10 @@ export interface PublicUser {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
+	aboutContent: string | null;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
+	elements: import("./profile-element").ProfileElementItem[];
 }
 
 // Helper to get display name from user

@@ -39,6 +39,9 @@ import { UserProfileClient } from "@/lib/components/profile/UserProfileClient";
 import { PageProfileClient } from "@/lib/components/profile/PageProfileClient";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
+import { getUserDisplayName } from "@/lib/types/user";
+import { truncateText } from "@/lib/utils/text";
+import type { AboutCollectionItem } from "@/lib/types/collection";
 
 type Props = {
 	params: Promise<{ handle: string }>;
@@ -64,6 +67,7 @@ export default async function HandleProfilePage({ params }: Props) {
 		}
 
 		const isOwnProfile = viewerId === user.id;
+		const userDisplayName = getUserDisplayName(user);
 
 		const [events, posts] = await Promise.all([
 			getEventsByUser(user.id),
@@ -71,6 +75,15 @@ export default async function HandleProfilePage({ params }: Props) {
 			getPostsByUser(user.id, { includeOwner: isOwnProfile }),
 		]);
 		const collectionItems = [...events, ...posts];
+
+		const aboutCard: AboutCollectionItem | null = user.aboutContent
+			? {
+				type: "about",
+				handle: user.handle,
+				displayName: userDisplayName,
+				excerpt: truncateText(user.aboutContent.replace(/[#*_`>\[\]]/g, ""), 200),
+			}
+			: null;
 
 		if (isOwnProfile) {
 			return (
@@ -81,6 +94,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						prependCards={aboutCard ? [aboutCard] : []}
 						title="History"
 						emptyMessage={`${handle} hasn't created anything yet.`}
 						showCreateLinks={false}
@@ -106,6 +120,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					prependCards={aboutCard ? [aboutCard] : []}
 					title="History"
 					emptyMessage={`${handle} hasn't created anything yet.`}
 					showCreateLinks={false}
@@ -131,6 +146,15 @@ export default async function HandleProfilePage({ params }: Props) {
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);
 
+		const pageAboutCard: AboutCollectionItem | null = page.aboutContent
+			? {
+				type: "about",
+				handle: page.handle,
+				displayName,
+				excerpt: truncateText(page.aboutContent.replace(/[#*_`>\[\]]/g, ""), 200),
+			}
+			: null;
+
 		if (isOwner) {
 			return (
 				<CenteredLayout maxWidth="6xl">
@@ -140,6 +164,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						prependCards={pageAboutCard ? [pageAboutCard] : []}
 						title={`${displayName}'s Collection`}
 						emptyMessage={`${displayName} hasn't created anything yet.`}
 						showCreateLinks={false}
@@ -166,6 +191,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					prependCards={pageAboutCard ? [pageAboutCard] : []}
 					title={`${displayName}'s Collection`}
 					emptyMessage={`${displayName} hasn't created anything yet.`}
 					showCreateLinks={false}

@@ -2,9 +2,10 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
+import { profileElementFields } from "./profile-element";
 
 // Standard fields to select when fetching a user profile
-const personalProfileFields = {
+export const personalProfileFields = {
 	id: true,
 	handle: true,
 	email: true,
@@ -17,8 +18,10 @@ const personalProfileFields = {
 	interests: true,
 	location: true,
 	isPublic: true,
+	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
+	elements: { select: profileElementFields, where: { visible: true }, orderBy: { sortOrder: "asc" as const } },
 } as const;
 
 // Public fields (excludes sensitive data like email, but includes ID for messaging)
@@ -33,8 +36,10 @@ export const publicUserFields = {
 	bio: true,
 	interests: true,
 	location: true,
+	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
+	elements: { select: profileElementFields, where: { visible: true }, orderBy: { sortOrder: "asc" as const } },
 } as const;
 
 // Fetch a user by ID (for authenticated user's own profile)

@@ -15,6 +15,7 @@ import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { API_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
+import type { SavePayload } from "@/lib/types/inline-edit";
 
 type PageProfileClientProps = {
 	page: PublicPage;
@@ -84,7 +85,7 @@ function PageProfileOwnerContent({
 							onEditStart={() => { setEditName(page.name); setEditingField("name"); }}
 							onCancel={() => { setEditingField(null);  }}
 							displayContent={
-								<h1 className="text-3xl font-bold">{page.name}</h1>
+								<h1 className="text-3xl font-bold">{(session?.dirtyFields.name as string) ?? page.name}</h1>
 							}
 							editContent={
 								<input
@@ -117,8 +118,8 @@ function PageProfileOwnerContent({
 					onEditStart={() => { setEditHeadline(page.headline || ""); setEditingField("headline"); }}
 					onCancel={() => { setEditingField(null);  }}
 					displayContent={
-						<InlinePlaceholder value={page.headline} placeholder="Add a headline">
-							<p className="text-lg">{page.headline}</p>
+						<InlinePlaceholder value={(session?.dirtyFields.headline as string) ?? page.headline} placeholder="Add a headline">
+							<p className="text-lg">{(session?.dirtyFields.headline as string) ?? page.headline}</p>
 						</InlinePlaceholder>
 					}
 					editContent={
@@ -141,8 +142,8 @@ function PageProfileOwnerContent({
 					onEditStart={() => { setEditLocation(page.location || ""); setEditingField("location"); }}
 					onCancel={() => { setEditingField(null);  }}
 					displayContent={
-						<InlinePlaceholder value={page.location} placeholder="Add a location">
-							<p className="text-sm text-gray-500">{page.location}</p>
+						<InlinePlaceholder value={(session?.dirtyFields.location as string) ?? page.location} placeholder="Add a location">
+							<p className="text-sm text-gray-500">{(session?.dirtyFields.location as string) ?? page.location}</p>
 						</InlinePlaceholder>
 					}
 					editContent={
@@ -166,9 +167,8 @@ function PageProfileOwnerContent({
 					onCancel={() => { setEditingField(null);  }}
 					displayContent={
 						<div>
-							<h2 className="text-sm font-medium text-gray-500">About</h2>
-							<InlinePlaceholder value={page.bio} placeholder="Tell people about this page">
-								<p className="mt-1">{page.bio}</p>
+							<InlinePlaceholder value={(session?.dirtyFields.bio as string) ?? page.bio} placeholder="Tell people about this page">
+								<p className="italic text-gray-600">{(session?.dirtyFields.bio as string) ?? page.bio}</p>
 							</InlinePlaceholder>
 						</div>
 					}
@@ -194,9 +194,9 @@ function PageProfileOwnerContent({
 					displayContent={
 						<div>
 							<h2 className="text-sm font-medium text-gray-500">Interests</h2>
-							{page.interests.length > 0 ? (
+							{((session?.dirtyFields.interests as string[]) ?? page.interests).length > 0 ? (
 								<div className="mt-2 flex flex-wrap gap-2">
-									{page.interests.map((i) => <Tag key={i} tag={i} />)}
+									{((session?.dirtyFields.interests as string[]) ?? page.interests).map((i) => <Tag key={i} tag={i} />)}
 								</div>
 							) : (
 								<InlinePlaceholder value={null} placeholder="Add interests" />
@@ -223,9 +223,9 @@ function PageProfileOwnerContent({
 					displayContent={
 						<div>
 							<h2 className="text-sm font-medium text-gray-500">Tags</h2>
-							{page.tags.length > 0 ? (
+							{((session?.dirtyFields.tags as string[]) ?? page.tags).length > 0 ? (
 								<div className="mt-2 flex flex-wrap gap-2">
-									{page.tags.map((t) => <Tag key={t} tag={t} />)}
+									{((session?.dirtyFields.tags as string[]) ?? page.tags).map((t) => <Tag key={t} tag={t} />)}
 								</div>
 							) : (
 								<InlinePlaceholder value={null} placeholder="Add tags" />
@@ -257,20 +257,27 @@ function PageProfileOwnerContent({
 						setEditingField(null);
 					}}
 					displayContent={
-						(page.addressLine1 || page.city) ? (
-							<div>
-								<h2 className="text-sm font-medium text-gray-500">Address</h2>
-								<div className="mt-1 text-sm text-gray-700 space-y-0.5">
-									{page.addressLine1 && <p>{page.addressLine1}</p>}
-									{page.addressLine2 && <p>{page.addressLine2}</p>}
-									{(page.city || page.state || page.zip) && (
-										<p>{[page.city, page.state, page.zip].filter(Boolean).join(", ")}</p>
-									)}
+						(() => {
+							const addr1 = (session?.dirtyFields.addressLine1 as string | null) ?? page.addressLine1;
+							const addr2 = (session?.dirtyFields.addressLine2 as string | null) ?? page.addressLine2;
+							const city = (session?.dirtyFields.city as string | null) ?? page.city;
+							const state = (session?.dirtyFields.state as string | null) ?? page.state;
+							const zip = (session?.dirtyFields.zip as string | null) ?? page.zip;
+							return (addr1 || city) ? (
+								<div>
+									<h2 className="text-sm font-medium text-gray-500">Address</h2>
+									<div className="mt-1 text-sm text-gray-700 space-y-0.5">
+										{addr1 && <p>{addr1}</p>}
+										{addr2 && <p>{addr2}</p>}
+										{(city || state || zip) && (
+											<p>{[city, state, zip].filter(Boolean).join(", ")}</p>
+										)}
+									</div>
 								</div>
-							</div>
-						) : (
-							<InlinePlaceholder value={null} placeholder="Add address" />
-						)
+							) : (
+								<InlinePlaceholder value={null} placeholder="Add address" />
+							);
+						})()
 					}
 					editContent={
 						<div className="space-y-2">
@@ -298,11 +305,11 @@ function PageProfileOwnerContent({
 export function PageProfileClient({ page: initialPage }: PageProfileClientProps) {
 	const [page, setPage] = useState(initialPage);
 
-	const handleSave = async (patch: Partial<Record<string, unknown>>) => {
+	const handleSave = async (payload: SavePayload) => {
 		const res = await authFetch(API_PAGE(page.id), {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(patch),
+			body: JSON.stringify(payload),
 		});
 		if (!res.ok) {
 			const data = await res.json().catch(() => ({}));
@@ -316,7 +323,7 @@ export function PageProfileClient({ page: initialPage }: PageProfileClientProps)
 	return (
 		<InlineEditSession
 			resource={page as unknown as Record<string, unknown>}
-			onSave={handleSave}
+			onSave={handleSave as (payload: SavePayload) => Promise<Record<string, unknown> | void>}
 			onSaved={(updated) => setPage((prev) => ({ ...prev, ...(updated as Partial<PublicPage>) }))}
 			canEdit
 		>

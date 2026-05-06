@@ -280,8 +280,8 @@ export function PostPageClient({ post: initialPost, images, isOwner }: PostPageC
 		<PostPageShell>
 			<InlineEditSession
 				resource={post as unknown as Record<string, unknown>}
-				onSave={async (patch) => {
-					const updated = await updatePost(post.id, patch as Parameters<typeof updatePost>[1]);
+				onSave={async ({ fields }) => {
+					const updated = await updatePost(post.id, fields as Parameters<typeof updatePost>[1]);
 					setPost((prev) => ({ ...prev, ...updated }));
 					return updated as unknown as Record<string, unknown>;
 				}}

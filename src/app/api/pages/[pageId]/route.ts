@@ -3,7 +3,9 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
 import { canManagePage } from "@/lib/utils/server/permission";
-import { getPageById, updatePageProfile } from "@/lib/utils/server/page";
+import { getPageById, updatePageProfile, publicPageFields } from "@/lib/utils/server/page";
+import { processElementsPayload } from "@/lib/utils/server/profile-element";
+import type { SavePayload } from "@/lib/types/inline-edit";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -30,8 +32,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 /**
  * PUT /api/pages/[pageId]
- * Update a page profile
- * Protected endpoint (requires ADMIN permission)
+ * Update a page profile. Accepts a structured SavePayload with scalar fields
+ * and optional element create/update/delete operations, all in one transaction.
+ * Protected endpoint (requires ADMIN permission).
  */
 export async function PUT(request: Request, { params }: RouteParams) {
 	try {
@@ -46,8 +49,24 @@ export async function PUT(request: Request, { params }: RouteParams) {
 			return unauthorized("You do not have permission to manage this page");
 		}
 
-		const data = await request.json();
-		const page = await updatePageProfile(pageId, data);
+		const body = (await request.json()) as SavePayload;
+		const { fields = {}, elements } = body;
+
+		const page = await prisma.$transaction(async () => {
+			// Apply scalar field updates
+			const updatedPage = await updatePageProfile(pageId, fields as Parameters<typeof updatePageProfile>[1]);
+
+			// Apply element operations
+			if (elements) {
+				await processElementsPayload({ pageId }, elements);
+			}
+
+			// Re-fetch with elements included
+			return prisma.page.findUnique({
+				where: { id: pageId },
+				select: publicPageFields,
+			});
+		});
 
 		return NextResponse.json(page);
 	} catch (error) {

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { getPageById, updatePageProfile } from "@/lib/utils/server/page";
+import { getPageById, updatePageProfile, publicPageFields } from "@/lib/utils/server/page";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { validatePageUpdateData } from "@/lib/validations";
+import { processElementsPayload } from "@/lib/utils/server/profile-element";
+import { prisma } from "@/lib/utils/server/prisma";
+import type { SavePayload } from "@/lib/types/inline-edit";
 
 /**
  * GET /api/me/page
@@ -35,14 +38,9 @@ export async function GET() {
 
 /**
  * PUT /api/me/page
- * Update the active page profile
- * Protected endpoint
- *
- * Out of scope (PR 2): handle renaming. This route does not accept a
- * `handle` field today, and the PR 2 plan explicitly defers user-facing
- * handle renames. If a future PR adds handle renaming here, the Page
- * update and the Handle row update MUST happen in the same `$transaction`
- * so the cross-entity uniqueness invariant cannot be broken mid-write.
+ * Update the active page profile. Accepts a structured SavePayload with scalar
+ * fields and optional element operations, all in one transaction.
+ * Protected endpoint.
  */
 export async function PUT(request: Request) {
 	try {
@@ -55,7 +53,6 @@ export async function PUT(request: Request) {
 			return badRequest("No active page set. Cannot update page profile.");
 		}
 
-		// Verify user has permission to manage this page
 		const allowed = await canPostAsPage(ctx.userId, ctx.activePageId);
 		if (!allowed) {
 			return NextResponse.json(
@@ -64,55 +61,54 @@ export async function PUT(request: Request) {
 			);
 		}
 
-		const body = await request.json();
-		const {
-			headline,
-			bio,
-			interests,
-			location,
-			addressLine1,
-			addressLine2,
-			city,
-			state,
-			zip,
-			parentTopic,
-			avatarImageId,
-			isOpenToCollaborators,
-		} = body;
+		const body = (await request.json()) as SavePayload;
+		const { fields = {}, elements } = body;
 
-		// Validate update data
+		const {
+			headline, bio, interests, location,
+			addressLine1, addressLine2, city, state, zip,
+			category, avatarImageId, isOpenToCollaborators,
+		} = fields as {
+			headline?: string;
+			bio?: string;
+			interests?: string[];
+			location?: string;
+			addressLine1?: string | null;
+			addressLine2?: string | null;
+			city?: string | null;
+			state?: string | null;
+			zip?: string | null;
+			category?: string | null;
+			avatarImageId?: string | null;
+			isOpenToCollaborators?: boolean;
+		};
+
 		const validation = validatePageUpdateData({
-			headline,
-			bio,
-			interests,
-			location,
-			addressLine1,
-			addressLine2,
-			city,
-			state,
-			zip,
-			parentTopic,
-			avatarImageId,
-			isOpenToCollaborators,
+			headline, bio, interests, location,
+			addressLine1, addressLine2, city, state, zip,
+			category, avatarImageId, isOpenToCollaborators,
 		});
 
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid page data");
 		}
 
-		const updatedPage = await updatePageProfile(ctx.activePageId, {
-			headline,
-			bio,
-			interests,
-			location,
-			addressLine1,
-			addressLine2,
-			city,
-			state,
-			zip,
-			parentTopic,
-			avatarImageId,
-			isOpenToCollaborators,
+		const pageId = ctx.activePageId;
+		const updatedPage = await prisma.$transaction(async () => {
+			await updatePageProfile(pageId, {
+				headline, bio, interests, location,
+				addressLine1, addressLine2, city, state, zip,
+				category, avatarImageId, isOpenToCollaborators,
+			});
+
+			if (elements) {
+				await processElementsPayload({ pageId }, elements);
+			}
+
+			return prisma.page.findUnique({
+				where: { id: pageId },
+				select: publicPageFields,
+			});
 		});
 
 		return NextResponse.json(updatedPage);

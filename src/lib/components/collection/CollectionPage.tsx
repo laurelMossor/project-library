@@ -2,7 +2,7 @@ import { FilterBoard } from "../filter-sort/FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
 import { PaginationControls } from "./PaginationControls";
 import { EmptyState } from "./EmptyState";
-import { CollectionItem, FilterCollectionType } from "@/lib/types/collection";
+import { CollectionItem, AboutCollectionItem, FilterCollectionType } from "@/lib/types/collection";
 import { SortType, ViewType } from "@/lib/hooks/useFilter";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { SearchBar } from "../search/SearchBar";
@@ -11,6 +11,7 @@ import { PinConfig } from "./CollectionCard";
 
 type CollectionPageProps = {
 	filteredItems: CollectionItem[];
+	prependItems?: AboutCollectionItem[];
 	loading: boolean;
 	error: string;
 	search: string;
@@ -33,6 +34,7 @@ type CollectionPageProps = {
 
 export function CollectionPage({
 	filteredItems,
+	prependItems = [],
 	loading,
 	error,
 	search,
@@ -110,7 +112,7 @@ export function CollectionPage({
 			{!error && filteredItems.length > 0 && (
 				<>
 					<div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
-						<FilteredCollection items={paginatedItems} view={view} pinConfig={pinConfig} />
+						<FilteredCollection items={paginatedItems} prependItems={prependItems} view={view} pinConfig={pinConfig} />
 					</div>
 					<PaginationControls
 						currentPage={currentPage}

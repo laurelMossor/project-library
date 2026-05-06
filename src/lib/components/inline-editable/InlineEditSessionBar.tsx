@@ -1,28 +1,32 @@
 "use client";
 
 type InlineEditSessionBarProps = {
-	dirtyCount: number;
+	changeCount: number;
+	pendingDeleteCount: number;
 	saving: boolean;
 	error: string | null;
 	onSave: () => void;
 	onCancel: () => void;
+	onUndo: () => void;
 };
 
 /**
  * Sticky save/cancel bar that appears at the bottom of the viewport when an
- * InlineEditSession has unsaved changes. Auto-hides when dirtyCount === 0.
+ * InlineEditSession has unsaved changes. Auto-hides when changeCount === 0.
  *
- * Craft note: warm background, subtle top border — feels like a notebook
- * margin note rather than a banner ad.
+ * Shows an Undo button when there are pending deletes, reverting the most
+ * recent deletion (stack-based, most recent first).
  */
 export function InlineEditSessionBar({
-	dirtyCount,
+	changeCount,
+	pendingDeleteCount,
 	saving,
 	error,
 	onSave,
 	onCancel,
+	onUndo,
 }: InlineEditSessionBarProps) {
-	if (dirtyCount === 0) return null;
+	if (changeCount === 0) return null;
 
 	return (
 		<div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
@@ -34,9 +38,19 @@ export function InlineEditSessionBar({
 				)}
 				<div className="bg-melon-green/95 backdrop-blur-sm border-t border-rich-brown/20 px-6 py-3 flex items-center justify-between gap-4 shadow-lg">
 					<span className="text-sm text-warm-grey">
-						{dirtyCount === 1 ? "1 unsaved change" : `${dirtyCount} unsaved changes`}
+						{changeCount === 1 ? "1 unsaved change" : `${changeCount} unsaved changes`}
 					</span>
 					<div className="flex items-center gap-3">
+						{pendingDeleteCount > 0 && (
+							<button
+								type="button"
+								onClick={onUndo}
+								disabled={saving}
+								className="px-4 py-1.5 text-sm font-medium text-warm-grey hover:text-rich-brown transition-colors disabled:opacity-50"
+							>
+								Undo
+							</button>
+						)}
 						<button
 							type="button"
 							onClick={onCancel}

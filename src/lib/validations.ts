@@ -521,7 +521,7 @@ export function validatePageUpdateData(data: {
 	city?: string | null;
 	state?: string | null;
 	zip?: string | null;
-	parentTopic?: string | null;
+	category?: string | null;
 	avatarImageId?: string | null;
 	isOpenToCollaborators?: boolean;
 }): { valid: boolean; error?: string } {
@@ -624,11 +624,11 @@ export function validatePageUpdateData(data: {
 	}
 
 	// Validate parent topic: optional, max 100 characters
-	if (data.parentTopic !== undefined && data.parentTopic !== null) {
-		if (typeof data.parentTopic !== "string") {
+	if (data.category !== undefined && data.category !== null) {
+		if (typeof data.category !== "string") {
 			return { valid: false, error: "Parent topic must be a string" };
 		}
-		if (data.parentTopic.length > 100) {
+		if (data.category.length > 100) {
 			return { valid: false, error: "Parent topic must be 100 characters or less" };
 		}
 	}

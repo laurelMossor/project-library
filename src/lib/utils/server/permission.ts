@@ -68,7 +68,7 @@ export async function getPagesForUser(userId: string) {
       city: true,
       state: true,
       zip: true,
-      parentTopic: true,
+      category: true,
       tags: true,
       isOpenToCollaborators: true,
     },

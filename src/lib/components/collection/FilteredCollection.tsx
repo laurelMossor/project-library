@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { CollectionItem, isEvent } from "@/lib/types/collection";
+import { CollectionItem, AnyCollectionItem, AboutCollectionItem, isEvent } from "@/lib/types/collection";
 import { EventItem } from "@/lib/types/event";
 import { getCollectionItemKey } from "@/lib/utils/collection";
 import { CollectionCard, PinConfig } from "@/lib/components/collection/CollectionCard";
@@ -14,23 +14,31 @@ const CollectionMap = dynamic(
 
 type FilteredCollectionProps = {
 	items: CollectionItem[];
+	/** Fixed cards prepended before the sortable/filterable items (e.g. About card). */
+	prependItems?: AboutCollectionItem[];
 	view: "map" | "list" | "grid";
 	pinConfig?: PinConfig;
 };
 
-export function FilteredCollection({ items, view, pinConfig }: FilteredCollectionProps) {
+const itemKey = (item: AnyCollectionItem): string =>
+	item.type === "about" ? `about-${item.handle}` : getCollectionItemKey(item as CollectionItem);
+
+export function FilteredCollection({ items, prependItems = [], view, pinConfig }: FilteredCollectionProps) {
 	const columnCount = useColumnCount();
+
+	const allItems: AnyCollectionItem[] = [...prependItems, ...items];
 
 	// Distribute items across columns using modulo
 	const columns = useMemo(() => {
-		const cols: CollectionItem[][] = Array.from({ length: columnCount }, () => []);
-		items.forEach((item, i) => {
+		const cols: AnyCollectionItem[][] = Array.from({ length: columnCount }, () => []);
+		allItems.forEach((item, i) => {
 			cols[i % columnCount].push(item);
 		});
 		return cols;
-	}, [items, columnCount]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [items, prependItems, columnCount]);
 
-	if (items.length === 0) {
+	if (allItems.length === 0) {
 		return null;
 	}
 
@@ -66,8 +74,8 @@ export function FilteredCollection({ items, view, pinConfig }: FilteredCollectio
 	if (view === "list") {
 		return (
 			<div className="space-y-4">
-				{items.map((item) => (
-					<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} pinConfig={pinConfig} />
+				{allItems.map((item) => (
+					<CollectionCard key={itemKey(item)} item={item} truncate={truncate} pinConfig={pinConfig} />
 				))}
 			</div>
 		);
@@ -78,7 +86,7 @@ export function FilteredCollection({ items, view, pinConfig }: FilteredCollectio
 			{columns.map((col, colIndex) => (
 				<div key={colIndex} className="flex-1 min-w-0 space-y-6">
 					{col.map((item) => (
-						<CollectionCard key={getCollectionItemKey(item)} item={item} truncate={truncate} pinConfig={pinConfig} />
+						<CollectionCard key={itemKey(item)} item={item} truncate={truncate} pinConfig={pinConfig} />
 					))}
 				</div>
 			))}

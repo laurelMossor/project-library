@@ -14,6 +14,7 @@ import { API_ME_USER, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { getUserDisplayName } from "@/lib/types/user";
 import { authFetch } from "@/lib/utils/auth-client";
+import type { SavePayload } from "@/lib/types/inline-edit";
 
 type UserProfileClientProps = {
 	user: PublicUser;
@@ -84,7 +85,9 @@ function UserProfileOwnerContent({
 								
 							}}
 							displayContent={
-								<h1 className="text-3xl font-bold">{displayName}</h1>
+								<h1 className="text-3xl font-bold">
+									{[(session?.dirtyFields.firstName as string) ?? user.firstName, (session?.dirtyFields.lastName as string) ?? user.lastName].filter(Boolean).join(" ") || displayName}
+								</h1>
 							}
 							editContent={
 								<div className="flex gap-2">
@@ -126,8 +129,8 @@ function UserProfileOwnerContent({
 					onEditStart={() => { setEditHeadline(user.headline || ""); setEditingField("headline"); }}
 					onCancel={() => { setEditingField(null);  }}
 					displayContent={
-						<InlinePlaceholder value={user.headline} placeholder="Add a headline">
-							<p className="text-lg">{user.headline}</p>
+						<InlinePlaceholder value={(session?.dirtyFields.headline as string) ?? user.headline} placeholder="Add a headline">
+							<p className="text-lg">{(session?.dirtyFields.headline as string) ?? user.headline}</p>
 						</InlinePlaceholder>
 					}
 					editContent={
@@ -150,8 +153,8 @@ function UserProfileOwnerContent({
 					onEditStart={() => { setEditLocation(user.location || ""); setEditingField("location"); }}
 					onCancel={() => { setEditingField(null);  }}
 					displayContent={
-						<InlinePlaceholder value={user.location} placeholder="Add a location">
-							<p className="text-sm text-gray-500">{user.location}</p>
+						<InlinePlaceholder value={(session?.dirtyFields.location as string) ?? user.location} placeholder="Add a location">
+							<p className="text-sm text-gray-500">{(session?.dirtyFields.location as string) ?? user.location}</p>
 						</InlinePlaceholder>
 					}
 					editContent={
@@ -175,9 +178,8 @@ function UserProfileOwnerContent({
 					onCancel={() => { setEditingField(null);  }}
 					displayContent={
 						<div>
-							<h2 className="text-sm font-medium text-gray-500">About</h2>
-							<InlinePlaceholder value={user.bio} placeholder="Tell people about yourself">
-								<p className="mt-1">{user.bio}</p>
+							<InlinePlaceholder value={(session?.dirtyFields.bio as string) ?? user.bio} placeholder="Tell people about yourself">
+								<p className="italic text-gray-600">{(session?.dirtyFields.bio as string) ?? user.bio}</p>
 							</InlinePlaceholder>
 						</div>
 					}
@@ -203,9 +205,9 @@ function UserProfileOwnerContent({
 					displayContent={
 						<div>
 							<h2 className="text-sm font-medium text-gray-500">Interests</h2>
-							{user.interests.length > 0 ? (
+							{((session?.dirtyFields.interests as string[]) ?? user.interests).length > 0 ? (
 								<div className="mt-2 flex flex-wrap gap-2">
-									{user.interests.map((i) => <Tag key={i} tag={i} />)}
+									{((session?.dirtyFields.interests as string[]) ?? user.interests).map((i) => <Tag key={i} tag={i} />)}
 								</div>
 							) : (
 								<InlinePlaceholder value={null} placeholder="Add interests" />
@@ -230,11 +232,11 @@ function UserProfileOwnerContent({
 export function UserProfileClient({ user: initialUser }: UserProfileClientProps) {
 	const [user, setUser] = useState(initialUser);
 
-	const handleSave = async (patch: Partial<Record<string, unknown>>) => {
+	const handleSave = async (payload: SavePayload) => {
 		const res = await authFetch(API_ME_USER, {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(patch),
+			body: JSON.stringify(payload),
 		});
 		if (!res.ok) {
 			const data = await res.json().catch(() => ({}));
@@ -248,7 +250,7 @@ export function UserProfileClient({ user: initialUser }: UserProfileClientProps)
 	return (
 		<InlineEditSession
 			resource={user as unknown as Record<string, unknown>}
-			onSave={handleSave}
+			onSave={handleSave as (payload: SavePayload) => Promise<Record<string, unknown> | void>}
 			onSaved={(updated) => setUser((prev) => ({ ...prev, ...(updated as Partial<PublicUser>) }))}
 			canEdit
 		>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
 	ProfileEntity,
 	getProfileHeadline,
@@ -9,15 +11,12 @@ import {
 import { Tag } from "@/lib/components/tag/Tag";
 import { FollowStats } from "./FollowStats";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
+import { ProfileElementList } from "@/lib/components/profile-element/ProfileElementList";
 
 type ProfileBodyProps = {
 	profile: ProfileEntity;
 };
 
-/**
- * Shared profile body for User and Page public profiles.
- * Renders FollowStats, shared info fields, and Page-specific fields.
- */
 export function ProfileBody({ profile }: ProfileBodyProps) {
 	const entityId = getProfileEntityId(profile);
 	const entityType = profile.type === "PAGE" ? "page" : "user";
@@ -28,18 +27,14 @@ export function ProfileBody({ profile }: ProfileBodyProps) {
 	const location = getProfileLocation(profile);
 	const bio = getProfileBio(profile);
 	const interests = getProfileInterests(profile);
+	const elements = profile.data.elements ?? [];
 
 	return (
 		<div className="space-y-4">
 			{headline && <p className="text-lg">{headline}</p>}
 			{location && <p className="text-sm text-gray-500">{location}</p>}
 
-			{bio && (
-				<div>
-					<h2 className="text-sm font-medium text-gray-500">About</h2>
-					<p className="mt-1">{bio}</p>
-				</div>
-			)}
+			{bio && <p className="italic text-gray-600">{bio}</p>}
 
 			{interests.length > 0 && (
 				<div>
@@ -96,6 +91,8 @@ export function ProfileBody({ profile }: ProfileBodyProps) {
 					)}
 				</>
 			)}
+
+			<ProfileElementList elements={elements} />
 		</div>
 	);
 }

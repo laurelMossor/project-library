@@ -52,6 +52,12 @@ enum AttachmentTarget {
   MESSAGE
 }
 
+enum ProfileElementKind {
+  SOCIAL_LINK
+  CTA
+  TEXT
+}
+
 // ========================
 // Users (identity + auth)
 // ========================
@@ -79,6 +85,9 @@ model User {
   avatarImageId String?
   avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
+  // Microsite
+  aboutContent String?
+
   // Backrefs (Prisma sugar — actual FKs live on the content tables)
   posts  Post[]
   events Event[]
@@ -100,6 +109,9 @@ model User {
 
   // Cross-entity handle namespace (User ↔ Handle is 1:1; see Handle model)
   handleRecord Handle?
+
+  // Microsite elements
+  elements ProfileElement[]
 
   @@map("users")
 }
@@ -151,9 +163,9 @@ model Page {
   zip          String?
 
   // Taxonomy
-  parentTopic String?
-  tags        String[] @default([])
-  topics      Topic[]
+  category String?
+  tags     String[] @default([])
+  topics   Topic[]
 
   // Avatar
   avatarImageId String?
@@ -161,6 +173,9 @@ model Page {
 
   // Collaboration
   isOpenToCollaborators Boolean @default(false)
+
+  // Microsite
+  aboutContent String?
 
   // Relations
   createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
@@ -178,6 +193,9 @@ model Page {
 
   // Cross-entity handle namespace (Page ↔ Handle is 1:1; see Handle model)
   handleRecord Handle?
+
+  // Microsite elements
+  elements ProfileElement[]
 
   @@index([createdByUserId])
   @@index([createdAt])
@@ -509,4 +527,37 @@ model Topic {
   pages Page[]
 
   @@map("topics")
+}
+
+// ========================
+// ProfileElement (microsite blocks)
+// ========================
+//
+// Polymorphic ownership — exactly one of userId or pageId is set.
+// Follows the same pattern as Follow and ConversationParticipant.
+
+model ProfileElement {
+  id        String             @id @default(cuid())
+  kind      ProfileElementKind
+
+  // Polymorphic ownership — exactly one must be set
+  userId    String?
+  pageId    String?
+
+  label     String?
+  value     String
+  caption   String?
+  url       String?
+  sortOrder Int
+  visible   Boolean            @default(true)
+
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page      Page?              @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+  @@index([pageId, sortOrder])
+  @@map("profile_elements")
 }

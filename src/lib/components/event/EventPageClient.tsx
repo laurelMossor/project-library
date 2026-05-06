@@ -430,8 +430,8 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn }: Ev
 		<PostPageShell>
 			<InlineEditSession
 				resource={event as unknown as Record<string, unknown>}
-				onSave={async (patch) => {
-					const updated = await updateEvent(event.id, patch as Parameters<typeof updateEvent>[1]);
+				onSave={async ({ fields }) => {
+					const updated = await updateEvent(event.id, fields as Parameters<typeof updateEvent>[1]);
 					setEvent((prev) => ({ ...prev, ...updated }));
 					return updated as unknown as Record<string, unknown>;
 				}}
