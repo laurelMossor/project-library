@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getEventById } from "@/lib/utils/server/event";
-import { getPostsForEvent, createPost } from "@/lib/utils/server/post";
+import { getEventUpdates, createPost } from "@/lib/utils/server/post";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 
 // GET /api/events/[id]/posts - Get all posts for an event
@@ -19,7 +19,7 @@ export async function GET(
 			return notFound("Event not found");
 		}
 
-		const posts = await getPostsForEvent(id);
+		const posts = await getEventUpdates(id);
 		return NextResponse.json(posts);
 	} catch (error) {
 		console.error("Error fetching posts:", error);

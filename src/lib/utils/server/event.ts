@@ -30,42 +30,6 @@ export async function getEventById(id: string): Promise<EventItem | null> {
 	return toEventItem(event, images);
 }
 
-export interface GetAllEventsOptions {
-	search?: string;
-	limit?: number;
-	offset?: number;
-}
-
-export async function getAllEvents(options?: GetAllEventsOptions): Promise<EventItem[]> {
-	const search = options?.search;
-	const where: Prisma.EventWhereInput = {
-		status: "PUBLISHED",
-		...(search
-			? {
-					OR: [
-						{ title: { contains: search, mode: "insensitive" as const } },
-						{ content: { contains: search, mode: "insensitive" as const } },
-						{ tags: { has: search } },
-					],
-			  }
-			: {}),
-	};
-
-	const events = await prisma.event.findMany({
-		where,
-		select: eventWithUserFields,
-		orderBy: { createdAt: "desc" },
-		...(options?.offset !== undefined ? { skip: options.offset } : {}),
-		...(options?.limit !== undefined ? { take: options.limit } : {}),
-	});
-
-	// Batch load images for all events (fixes N+1 query problem)
-	const eventIds = events.map(e => e.id);
-	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
-
-	return events.map((e) => toEventItem(e, imagesMap.get(e.id) || []));
-}
-
 // Fetch all events by a specific user
 export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
