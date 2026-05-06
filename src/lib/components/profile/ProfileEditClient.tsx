@@ -14,7 +14,7 @@ import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { EyeIcon } from "@/lib/components/icons/icons";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
-import { ProfileElementList } from "@/lib/components/profile-element/ProfileElementList";
+import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { getUserDisplayName } from "@/lib/types/user";

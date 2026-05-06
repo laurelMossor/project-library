@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { TabbedPanel, TabDef } from "@/lib/components/ui/TabbedPanel";
+import { TabbedPanel, TabDef } from "@/lib/components/layout/TabbedPanel";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { getUserDisplayName } from "@/lib/types/user";
 import { ConversationThread } from "./ConversationThread";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { CardUser, CardPageWithRole, getCardUserDisplayName } from "@/lib/types/card";
@@ -29,6 +30,8 @@ type Participant = {
 	user: {
 		id: string;
 		handle: string;
+		firstName: string | null;
+		lastName: string | null;
 		displayName: string | null;
 		avatarImageId: string | null;
 	} | null;
@@ -85,7 +88,7 @@ function getOtherParticipant(participants: Participant[], selfId: string, selfTy
 
 function getParticipantDisplayName(p: Participant | null): string {
 	if (!p) return "Unknown";
-	if (p.user) return p.user.displayName || p.user.handle;
+	if (p.user) return getUserDisplayName(p.user);
 	if (p.page) return p.page.name;
 	return "Unknown";
 }

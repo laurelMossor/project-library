@@ -3,18 +3,13 @@
 import { useEffect, useState } from "react";
 import type { ProfileElementItem } from "@/lib/types/profile-element";
 import type { ElementDraft } from "@/lib/types/inline-edit";
+import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { ProfileElementCard } from "./ProfileElementCard";
 import { AddElementButton } from "./AddElementButton";
-import { LinkEditor } from "./editors/LinkEditor";
-import { TextEditor } from "./editors/TextEditor";
+import { LinkEditor } from "@/lib/components/inline-editable/editors/LinkEditor";
+import { TextEditor } from "@/lib/components/inline-editable/editors/TextEditor";
 import { TrashIcon } from "@/lib/components/icons/icons";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
-
-type ProfileElementListProps = {
-	elements: ProfileElementItem[];
-};
-
-// ─── Per-kind editor dispatcher ────────────────────────────────────────────
 
 function EditorForKind({
 	element,
@@ -28,8 +23,6 @@ function EditorForKind({
 	}
 	return <TextEditor initial={element} onFieldChange={onFieldChange} />;
 }
-
-// ─── Draft editor ─────────────────────────────────────────────────────────
 
 function DraftEditorForKind({
 	draft,
@@ -46,14 +39,15 @@ function DraftEditorForKind({
 	return <TextEditor initial={initial} onFieldChange={onFieldChange} />;
 }
 
-// ─── List ──────────────────────────────────────────────────────────────────
+type ProfileElementListProps = {
+	elements: ProfileElementItem[];
+};
 
 export function ProfileElementList({ elements }: ProfileElementListProps) {
 	const session = useInlineEditSession();
 	const canEdit = !!session?.canEdit;
 	const [editingId, setEditingId] = useState<string | null>(null);
 
-	// Reset editing state when session is cancelled or canEdit changes (preview mode)
 	useEffect(() => {
 		setEditingId(null);
 	}, [session?.cancelRevision, canEdit]);
@@ -90,23 +84,27 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 				) : undefined;
 
 				return (
-					<ProfileElementCard
+					<InlineEditable
 						key={element.id}
-						element={element}
-						isPendingDelete={isPendingDelete}
+						canEdit={canEdit && !isPendingDelete}
 						isEditing={isEditing}
-						editContent={
-							isEditing ? (
-								<EditorForKind element={element} onFieldChange={onFieldChange} />
-							) : undefined
+						onEditStart={() => setEditingId(element.id)}
+						onCancel={() => setEditingId(null)}
+						displayContent={
+							<ProfileElementCard element={element} isPendingDelete={isPendingDelete} />
 						}
-						onClick={canEdit && !isPendingDelete && !isEditing ? () => setEditingId(element.id) : undefined}
-						actionSlot={trashSlot}
+						editContent={
+							<div className="flex items-start gap-2">
+								<div className="flex-1 min-w-0">
+									<EditorForKind element={element} onFieldChange={onFieldChange} />
+								</div>
+								{trashSlot && <div className="flex-shrink-0 pt-0.5">{trashSlot}</div>}
+							</div>
+						}
 					/>
 				);
 			})}
 
-			{/* Draft elements */}
 			{drafts.map((draft) => (
 				<div key={draft.tempId} className="flex items-start gap-2">
 					<div className="flex-1 min-w-0">

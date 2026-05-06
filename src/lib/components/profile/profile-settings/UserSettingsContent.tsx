@@ -1,7 +1,7 @@
 "use client";
 
 import { PublicUser } from "@/lib/types/user";
-import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings";
+import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/ProfileSettingsBase";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
 import { CONNECTIONS } from "@/lib/const/routes";

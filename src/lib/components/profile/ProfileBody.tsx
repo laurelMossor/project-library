@@ -9,7 +9,7 @@ import {
 import { Tag } from "@/lib/components/tag/Tag";
 import { FollowStats } from "./FollowStats";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
-import { ProfileElementList } from "@/lib/components/profile-element/ProfileElementList";
+import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 
 type ProfileBodyProps = {
 	profile: ProfileEntity;

@@ -50,6 +50,9 @@ export interface PublicUser {
 	elements: ProfileElementItem[];
 }
 
-export function getUserDisplayName(user: { displayName?: string | null; handle: string }): string {
-	return user.displayName || user.handle;
+export function getUserDisplayName(user: { displayName?: string | null; firstName?: string | null; lastName?: string | null; handle: string }): string {
+	if (user.displayName) return user.displayName;
+	const parts = [user.firstName, user.lastName].filter(Boolean);
+	if (parts.length > 0) return parts.join(" ");
+	return user.handle;
 }
