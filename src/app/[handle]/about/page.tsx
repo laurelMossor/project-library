@@ -19,6 +19,7 @@ import { AboutPageClient } from "@/lib/components/profile/AboutPageClient";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { getUserDisplayName } from "@/lib/types/user";
 import { getPageDisplayName } from "@/lib/types/page";
+import type { CardEntity } from "@/lib/types/card";
 
 type Props = { params: Promise<{ handle: string }> };
 
@@ -31,16 +32,22 @@ export default async function HandleAboutPage({ params }: Props) {
 	const session = await auth();
 	const viewerId = session?.user?.id;
 
-	// ── User branch ──────────────────────────────────────────────────────────
+	let canEdit: boolean;
+	let aboutContent: string | null;
+	let displayName: string;
+	let avatarEntity: CardEntity;
+	let entityType: "user" | "page";
+	let entityId: string;
+
 	if (entity.user) {
 		const user = await getUserByHandle(handle);
 		if (!user) notFound();
-
-		const canEdit = viewerId === user.id;
-		if (!canEdit && !user.aboutContent) notFound();
-
-		const displayName = getUserDisplayName(user);
-		const avatarEntity = {
+		canEdit = viewerId === user.id;
+		aboutContent = user.aboutContent;
+		displayName = getUserDisplayName(user);
+		entityType = "user";
+		entityId = user.id;
+		avatarEntity = {
 			id: user.id,
 			handle: user.handle,
 			displayName: user.displayName,
@@ -49,97 +56,60 @@ export default async function HandleAboutPage({ params }: Props) {
 			avatarImageId: user.avatarImageId,
 			avatarImage: user.avatarImage,
 		};
-
-		return (
-			<CenteredLayout maxWidth="3xl">
-				<div className="flex flex-col gap-8">
-					<div>
-						<Link
-							href={PUBLIC_PROFILE(handle)}
-							className="text-sm text-dusty-grey hover:text-rich-brown transition-colors"
-						>
-							← Back to {displayName}
-						</Link>
-					</div>
-
-					<div className="flex items-center gap-3">
-						<ProfilePicture entity={avatarEntity} size="sm" asLink={false} />
-						<div>
-							<p className="font-medium">{displayName}</p>
-							<p className="text-sm text-dusty-grey">@{handle}</p>
-						</div>
-					</div>
-
-					<div>
-						{canEdit ? (
-							<AboutPageClient
-								entityType="user"
-								entityId={user.id}
-								initialAboutContent={user.aboutContent}
-								canEdit
-							/>
-						) : (
-							<MarkdownBody content={user.aboutContent!} />
-						)}
-					</div>
-				</div>
-			</CenteredLayout>
-		);
-	}
-
-	// ── Page branch ───────────────────────────────────────────────────────────
-	if (entity.page) {
+	} else if (entity.page) {
 		const page = await getPageByHandle(handle);
 		if (!page) notFound();
-
-		const canEdit = viewerId ? await canManagePage(viewerId, page.id) : false;
-		if (!canEdit && !page.aboutContent) notFound();
-
-		const displayName = getPageDisplayName(page);
-		const avatarEntity = {
+		canEdit = viewerId ? await canManagePage(viewerId, page.id) : false;
+		aboutContent = page.aboutContent;
+		displayName = getPageDisplayName(page);
+		entityType = "page";
+		entityId = page.id;
+		avatarEntity = {
 			id: page.id,
 			name: page.name,
 			handle: page.handle,
 			avatarImageId: page.avatarImageId,
 			avatarImage: page.avatarImage,
 		};
-
-		return (
-			<CenteredLayout maxWidth="3xl">
-				<div className="flex flex-col gap-8">
-					<div>
-						<Link
-							href={PUBLIC_PROFILE(handle)}
-							className="text-sm text-dusty-grey hover:text-rich-brown transition-colors"
-						>
-							← Back to {displayName}
-						</Link>
-					</div>
-
-					<div className="flex items-center gap-3">
-						<ProfilePicture entity={avatarEntity} size="sm" asLink={false} />
-						<div>
-							<p className="font-medium">{displayName}</p>
-							<p className="text-sm text-dusty-grey">@{handle}</p>
-						</div>
-					</div>
-
-					<div>
-						{canEdit ? (
-							<AboutPageClient
-								entityType="page"
-								entityId={page.id}
-								initialAboutContent={page.aboutContent}
-								canEdit
-							/>
-						) : (
-							<MarkdownBody content={page.aboutContent!} />
-						)}
-					</div>
-				</div>
-			</CenteredLayout>
-		);
+	} else {
+		notFound();
 	}
 
-	notFound();
+	if (!canEdit && !aboutContent) notFound();
+
+	return (
+		<CenteredLayout maxWidth="3xl">
+			<div className="flex flex-col gap-8">
+				<div>
+					<Link
+						href={PUBLIC_PROFILE(handle)}
+						className="text-sm text-dusty-grey hover:text-rich-brown transition-colors"
+					>
+						← Back to {displayName}
+					</Link>
+				</div>
+
+				<div className="flex items-center gap-3">
+					<ProfilePicture entity={avatarEntity} size="sm" asLink={false} />
+					<div>
+						<p className="font-medium">{displayName}</p>
+						<p className="text-sm text-dusty-grey">@{handle}</p>
+					</div>
+				</div>
+
+				<div>
+					{canEdit ? (
+						<AboutPageClient
+							entityType={entityType}
+							entityId={entityId}
+							initialAboutContent={aboutContent}
+							canEdit
+						/>
+					) : (
+						<MarkdownBody content={aboutContent!} />
+					)}
+				</div>
+			</div>
+		</CenteredLayout>
+	);
 }
