@@ -1,3 +1,5 @@
+import type { ProfileElementItem } from "./profile-element";
+
 export interface ProfileData {
 	firstName?: string;
 	middleName?: string;
@@ -42,21 +44,12 @@ export interface PublicUser {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
+	aboutContent: string | null;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
+	elements: ProfileElementItem[];
 }
 
-// Helper to get display name from user
-// Priority: displayName > firstName + lastName > handle
-export function getUserDisplayName(user: { displayName?: string | null; firstName?: string | null; middleName?: string | null; lastName?: string | null; handle: string }): string {
-	if (user.displayName) {
-		return user.displayName;
-	}
-
-	const nameParts = [user.firstName, user.lastName].filter(Boolean);
-	if (nameParts.length > 0) {
-		return nameParts.join(' ');
-	}
-
-	return user.handle;
+export function getUserDisplayName(user: { displayName?: string | null; handle: string }): string {
+	return user.displayName || user.handle;
 }

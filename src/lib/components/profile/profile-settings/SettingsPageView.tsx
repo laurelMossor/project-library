@@ -55,8 +55,6 @@ export function SettingsPageView() {
 							id: viewer.id,
 							handle: viewer.handle,
 							displayName: viewer.displayName ?? null,
-							firstName: viewer.firstName ?? null,
-							lastName: viewer.lastName ?? null,
 							avatarImageId: viewer.avatarImageId ?? null,
 							avatarImage: viewer.avatarImage ?? null,
 						}}

@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useState, useMemo } from "react";
-import { CollectionItem } from "@/lib/types/collection";
+import { CollectionItem, AboutCollectionItem } from "@/lib/types/collection";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
 import { EVENT_NEW } from "@/lib/const/routes";
 
 type ProfileCollectionSectionProps = {
 	items: CollectionItem[];
+	/** Synthetic cards prepended before the filterable collection (e.g. About card). */
+	prependCards?: AboutCollectionItem[];
 	title?: string;
 	emptyMessage?: string;
 	showCreateLinks?: boolean;
@@ -23,6 +25,7 @@ type ProfileCollectionSectionProps = {
  */
 export function ProfileCollectionSection({
 	items,
+	prependCards = [],
 	title = "Collection",
 	emptyMessage = "Nothing here yet.",
 	showCreateLinks = true,
@@ -86,7 +89,7 @@ export function ProfileCollectionSection({
 		[items]
 	);
 
-	if (items.length === 0) {
+	if (items.length === 0 && prependCards.length === 0) {
 		return (
 			<div className="mt-8 pt-8 border-t">
 				<h2 className="text-xl font-semibold mb-4">{title}</h2>
@@ -104,6 +107,7 @@ export function ProfileCollectionSection({
 		<div className="mt-8 pt-8 border-t">
 			<CollectionPage
 				filteredItems={pinnedFirstItems}
+				prependItems={prependCards}
 				loading={false}
 				error=""
 				search={search}

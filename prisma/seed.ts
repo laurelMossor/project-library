@@ -581,6 +581,81 @@ async function main() {
     }
   }
 
+  // ---- Seed ProfileElements + aboutContent
+  console.log("🧩 Seeding profile elements + about content...");
+
+  const [user0, user1] = createdUsers;
+  const [page0, page1] = createdPages;
+
+  if (user0) {
+    await prisma.user.update({
+      where: { id: user0.id },
+      data: {
+        aboutContent: `I'm a maker and educator based in Portland. I teach woodworking at the community makerspace and help people build things with their hands.
+
+My current focus is on accessible tool design — making shop tools easier to use for people with varying mobility.`,
+      },
+    });
+    await prisma.profileElement.createMany({
+      data: [
+        { userId: user0.id, kind: "LINK", value: "https://instagram.com/laurel.makes", url: "https://instagram.com/laurel.makes", sortOrder: 0 },
+        { userId: user0.id, kind: "TEXT", value: "Open to teaching gigs, residencies, and collaboration on accessible design projects.", label: "What I'm looking for", sortOrder: 1 },
+      ],
+    });
+  }
+
+  if (user1) {
+    await prisma.user.update({
+      where: { id: user1.id },
+      data: {
+        aboutContent: `Software generalist with a background in civic tech. I like systems that help communities coordinate without requiring everyone to be an expert.`,
+      },
+    });
+    await prisma.profileElement.createMany({
+      data: [
+        { userId: user1.id, kind: "LINK", value: "https://github.com/example", url: "https://github.com/example", sortOrder: 0 },
+        { userId: user1.id, kind: "TEXT", value: "Hire me for your next civic tech project", caption: "Available for contract work through end of year.", label: "Work with me", sortOrder: 1 },
+      ],
+    });
+  }
+
+  if (page0) {
+    await prisma.page.update({
+      where: { id: page0.id },
+      data: {
+        aboutContent: `The Portland Makers Guild is a volunteer-run community of builders, tinkerers, and craftspeople.
+
+We run monthly skill shares, host open shop nights, and maintain a shared tool library available to all members.
+
+**Membership** is $30/month and includes unlimited shop access and one free skill share per quarter.`,
+      },
+    });
+    await prisma.profileElement.createMany({
+      data: [
+        { pageId: page0.id, kind: "LINK", value: "https://instagram.com/pdxmakersguild", url: "https://instagram.com/pdxmakersguild", sortOrder: 0 },
+        { pageId: page0.id, kind: "LINK", value: "https://example.com/join", url: "https://example.com/join", label: "Become a member", sortOrder: 1 },
+        { pageId: page0.id, kind: "TEXT", value: "Next open shop night: every Thursday, 6–9pm at our NE Portland space.", label: "Open shop hours", sortOrder: 2 },
+      ],
+    });
+  }
+
+  if (page1) {
+    await prisma.page.update({
+      where: { id: page1.id },
+      data: {
+        aboutContent: `Berkeley Builders Collective is a small group working at the intersection of software and physical making.
+
+We meet bi-weekly to share projects, swap skills, and occasionally collaborate on builds.`,
+      },
+    });
+    await prisma.profileElement.createMany({
+      data: [
+        { pageId: page1.id, kind: "LINK", value: "https://twitter.com/berkbuild", url: "https://twitter.com/berkbuild", sortOrder: 0 },
+        { pageId: page1.id, kind: "TEXT", value: "We meet every other Wednesday evening. Location shared in our Signal group.", label: "Meeting schedule", sortOrder: 1 },
+      ],
+    });
+  }
+
   console.log("✅ Seed complete.");
 }
 

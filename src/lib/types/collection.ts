@@ -10,6 +10,7 @@ export type { BaseCollectionItem } from "./collection-item";
 export const COLLECTION_TYPES = {
 	EVENT: "event",
 	POST: "post",
+	ABOUT: "about",
 } as const;
 
 export const FILTER_COLLECTION_TYPES = {
@@ -22,17 +23,33 @@ export type CollectionType = typeof COLLECTION_TYPES[keyof typeof COLLECTION_TYP
 
 export type FilterCollectionType = (typeof FILTER_COLLECTION_TYPES)[keyof typeof FILTER_COLLECTION_TYPES];
 
+/** Synthetic About card — not a DB record, generated from aboutContent. */
+export type AboutCollectionItem = {
+	type: "about";
+	handle: string;
+	displayName: string;
+	excerpt: string;
+};
+
 export type CollectionItem = EventItem | PostCollectionItem;
+
+// TODO: rethink about card treatment
+/** Union for rendering contexts that include synthetic About cards. */
+export type AnyCollectionItem = CollectionItem | AboutCollectionItem;
 
 /**
  * Type guard for EventItem - uses discriminator field for type safety
  */
-export function isEvent(item: CollectionItem): item is EventItem {
+export function isEvent(item: AnyCollectionItem): item is EventItem {
 	return item.type === COLLECTION_TYPES.EVENT;
 }
 
-export function isPost(item: CollectionItem): item is PostCollectionItem {
+export function isPost(item: AnyCollectionItem): item is PostCollectionItem {
 	return item.type === COLLECTION_TYPES.POST;
+}
+
+export function isAbout(item: AnyCollectionItem): item is AboutCollectionItem {
+	return item.type === COLLECTION_TYPES.ABOUT;
 }
 
 /**

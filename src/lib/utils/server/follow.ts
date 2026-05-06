@@ -12,8 +12,6 @@ type ConnectionItem = {
 		id: string;
 		handle: string;
 		displayName: string | null;
-		firstName: string | null;
-		lastName: string | null;
 		avatarImageId: string | null;
 		avatarImage?: { url: string } | null;
 	} | null;
@@ -30,8 +28,6 @@ const followerUserSelect = {
 	id: true,
 	handle: true,
 	displayName: true,
-	firstName: true,
-	lastName: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
 } as const;

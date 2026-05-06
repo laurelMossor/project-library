@@ -27,8 +27,6 @@ export async function GET() {
 				handle: true,
 				email: true,
 				displayName: true,
-				firstName: true,
-				lastName: true,
 				avatarImageId: true,
 			},
 		});
@@ -49,8 +47,6 @@ export async function GET() {
 				handle: user.handle,
 				email: user.email,
 				displayName: user.displayName,
-				firstName: user.firstName,
-				lastName: user.lastName,
 				avatarImageId: user.avatarImageId,
 			},
 			pages: pages.map((page) => ({

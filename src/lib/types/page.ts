@@ -1,3 +1,5 @@
+import type { ProfileElementItem } from "./profile-element";
+
 export interface PublicPage {
   id: string;
   createdByUserId: string;
@@ -13,11 +15,12 @@ export interface PublicPage {
   city: string | null;
   state: string | null;
   zip: string | null;
-  parentTopic: string | null;
+  category: string | null;
   tags: string[];
-  isOpenToCollaborators: boolean;
+  aboutContent: string | null;
   avatarImageId: string | null;
   avatarImage?: { url: string } | null;
+  elements: ProfileElementItem[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -28,16 +28,14 @@ type Participant = {
 	id: string;
 	user: {
 		id: string;
-		username: string;
-		firstName: string | null;
-		lastName: string | null;
+		handle: string;
 		displayName: string | null;
 		avatarImageId: string | null;
 	} | null;
 	page: {
 		id: string;
 		name: string;
-		slug: string;
+		handle: string;
 		avatarImageId: string | null;
 	} | null;
 };
@@ -87,7 +85,7 @@ function getOtherParticipant(participants: Participant[], selfId: string, selfTy
 
 function getParticipantDisplayName(p: Participant | null): string {
 	if (!p) return "Unknown";
-	if (p.user) return [p.user.firstName, p.user.lastName].filter(Boolean).join(" ") || p.user.username;
+	if (p.user) return p.user.displayName || p.user.handle;
 	if (p.page) return p.page.name;
 	return "Unknown";
 }

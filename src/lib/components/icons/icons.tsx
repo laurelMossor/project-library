@@ -213,6 +213,22 @@ export function UserMinusSignIcon({ className }: IconProps) {
 	);
 }
 
+export function TrashIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className={className} fill="currentColor">
+			<path d="M135.2 17.7C140.6 6.8 151.7 0 163.8 0L284.2 0c12.1 0 23.2 6.8 28.6 17.7L320 32l80 0c26.5 0 48 21.5 48 48s-21.5 48-48 48L48 128C21.5 128 0 106.5 0 80S21.5 32 48 32l80 0 7.2-14.3zM32 160l384 0 0 304c0 26.5-21.5 48-48 48L80 512c-26.5 0-48-21.5-48-48l0-304z"/>
+		</svg>
+	);
+}
+
+export function EyeIcon({ className }: IconProps) {
+	return (
+		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className={className} fill="currentColor">
+			<path d="M320 96C185.6 96 69.5 177.5 16 294.4C9.9 307.1 9.9 322 16 334.7C69.5 451.5 185.6 544 320 544C454.4 544 570.5 451.5 624 334.7C630.1 322 630.1 307.1 624 294.4C570.5 177.5 454.4 96 320 96zM320 464C249.3 464 192 406.7 192 336C192 265.3 249.3 208 320 208C390.7 208 448 265.3 448 336C448 406.7 390.7 464 320 464zM320 272C284.7 272 256 300.7 256 336C256 371.3 284.7 400 320 400C355.3 400 384 371.3 384 336C384 300.7 355.3 272 320 272z"/>
+		</svg>
+	);
+}
+
 /** Pin icon — filled when pinned, outlined when not */
 export function PinIcon({ className, pinned = false }: IconProps & { pinned?: boolean }) {
 	if (pinned) {

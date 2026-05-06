@@ -35,15 +35,19 @@ import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
-import { UserProfileClient } from "@/lib/components/profile/UserProfileClient";
-import { PageProfileClient } from "@/lib/components/profile/PageProfileClient";
+import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
+import { getUserDisplayName } from "@/lib/types/user";
+import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
+import { truncateText } from "@/lib/utils/text";
+import type { AboutCollectionItem } from "@/lib/types/collection";
 
 type Props = {
 	params: Promise<{ handle: string }>;
 };
 
+// TODO: dry this up considerably
 export default async function HandleProfilePage({ params }: Props) {
 	const { handle } = await params;
 
@@ -64,6 +68,7 @@ export default async function HandleProfilePage({ params }: Props) {
 		}
 
 		const isOwnProfile = viewerId === user.id;
+		const userDisplayName = getUserDisplayName(user);
 
 		const [events, posts] = await Promise.all([
 			getEventsByUser(user.id),
@@ -72,15 +77,25 @@ export default async function HandleProfilePage({ params }: Props) {
 		]);
 		const collectionItems = [...events, ...posts];
 
+		const aboutCard: AboutCollectionItem | null = user.aboutContent
+			? {
+				type: "about",
+				handle: user.handle,
+				displayName: userDisplayName,
+				excerpt: truncateText(user.aboutContent.replace(/[#*_`>\[\]]/g, ""), 200),
+			}
+			: null;
+
 		if (isOwnProfile) {
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<UserProfileClient user={user} />
+						<ProfileEditClient entity={{ type: "user", data: user }} saveUrl={API_ME_USER} />
 					</div>
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						prependCards={aboutCard ? [aboutCard] : []}
 						title="History"
 						emptyMessage={`${handle} hasn't created anything yet.`}
 						showCreateLinks={false}
@@ -106,6 +121,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					prependCards={aboutCard ? [aboutCard] : []}
 					title="History"
 					emptyMessage={`${handle} hasn't created anything yet.`}
 					showCreateLinks={false}
@@ -131,15 +147,25 @@ export default async function HandleProfilePage({ params }: Props) {
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);
 
+		const pageAboutCard: AboutCollectionItem | null = page.aboutContent
+			? {
+				type: "about",
+				handle: page.handle,
+				displayName,
+				excerpt: truncateText(page.aboutContent.replace(/[#*_`>\[\]]/g, ""), 200),
+			}
+			: null;
+
 		if (isOwner) {
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<PageProfileClient page={page} />
+						<ProfileEditClient entity={{ type: "page", data: page }} saveUrl={API_PAGE(page.id)} />
 					</div>
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						prependCards={pageAboutCard ? [pageAboutCard] : []}
 						title={`${displayName}'s Collection`}
 						emptyMessage={`${displayName} hasn't created anything yet.`}
 						showCreateLinks={false}
@@ -166,6 +192,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					prependCards={pageAboutCard ? [pageAboutCard] : []}
 					title={`${displayName}'s Collection`}
 					emptyMessage={`${displayName} hasn't created anything yet.`}
 					showCreateLinks={false}

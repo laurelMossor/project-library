@@ -2,6 +2,8 @@
 import { prisma } from "./prisma";
 import { PermissionRole, ResourceType } from "@prisma/client";
 
+import { profileElementFields } from "./profile-element";
+
 export const publicPageFields = {
   id: true,
   createdByUserId: true,
@@ -17,11 +19,12 @@ export const publicPageFields = {
   city: true,
   state: true,
   zip: true,
-  parentTopic: true,
+  category: true,
   tags: true,
-  isOpenToCollaborators: true,
+  aboutContent: true,
   avatarImageId: true,
   avatarImage: { select: { url: true } },
+  elements: { select: profileElementFields, where: { visible: true }, orderBy: { sortOrder: "asc" as const } },
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -51,6 +54,7 @@ export async function getPageById(id: string) {
 export async function updatePageProfile(
   pageId: string,
   data: {
+    name?: string;
     headline?: string;
     bio?: string;
     interests?: string[];
@@ -60,9 +64,9 @@ export async function updatePageProfile(
     city?: string | null;
     state?: string | null;
     zip?: string | null;
-    parentTopic?: string | null;
+    category?: string | null;
     avatarImageId?: string | null;
-    isOpenToCollaborators?: boolean;
+    aboutContent?: string | null;
   }
 ) {
   const updateData: Record<string, unknown> = {};

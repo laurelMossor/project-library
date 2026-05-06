@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserById, updateUserProfile } from "@/lib/utils/server/user";
+import { getUserById, updateUserProfile, personalProfileFields } from "@/lib/utils/server/user";
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProfileData } from "@/lib/validations";
+import { processElementsPayload } from "@/lib/utils/server/profile-element";
+import { prisma } from "@/lib/utils/server/prisma";
+import type { SavePayload } from "@/lib/types/inline-edit";
 
 /**
  * GET /api/me/user
@@ -26,8 +29,8 @@ export async function GET() {
 
 /**
  * PUT /api/me/user
- * Update current user's profile
- * Note: DELETE operation is intentionally omitted - account deletion is not part of MVP
+ * Update current user's profile. Accepts a structured SavePayload with scalar
+ * fields and optional element operations.
  */
 export async function PUT(request: Request) {
 	const session = await auth();
@@ -36,26 +39,49 @@ export async function PUT(request: Request) {
 		return unauthorized();
 	}
 
-	const data = await request.json();
-	const { firstName, middleName, lastName, headline, bio, interests, location, isPublic, avatarImageId } = data;
+	const userId = session.user.id;
+	const body = (await request.json()) as SavePayload;
+	const { fields = {}, elements } = body;
+
+	const {
+		displayName, headline, bio,
+		interests, location, isPublic, avatarImageId, aboutContent,
+	} = fields as {
+		displayName?: string;
+		headline?: string;
+		bio?: string;
+		interests?: string[];
+		location?: string;
+		isPublic?: boolean;
+		avatarImageId?: string | null;
+		aboutContent?: string | null;
+	};
 
 	// Validate profile data
-	const validation = validateProfileData({ firstName, middleName, lastName, headline, bio, interests, location, isPublic });
+	const validation = validateProfileData({ displayName, headline, bio, interests, location, isPublic });
 	if (!validation.valid) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
 
+	if (aboutContent !== undefined && aboutContent !== null && aboutContent.length > 50000) {
+		return badRequest("aboutContent must be 50,000 characters or fewer");
+	}
+
 	try {
-		const user = await updateUserProfile(session.user.id, {
-			firstName,
-			middleName,
-			lastName,
-			headline,
-			bio,
-			interests,
-			location,
-			isPublic,
-			avatarImageId,
+		const user = await prisma.$transaction(async () => {
+			await updateUserProfile(userId, {
+				displayName, headline, bio,
+				interests, location, isPublic, avatarImageId, aboutContent,
+			});
+
+			if (elements) {
+				await processElementsPayload({ userId }, elements);
+			}
+
+			return prisma.user.findUnique({
+				where: { id: userId },
+				select: personalProfileFields,
+			});
 		});
 
 		return NextResponse.json(user);

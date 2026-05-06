@@ -44,6 +44,15 @@ export function validateInviteToken(token: unknown): token is string {
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
 
+	if (data.displayName !== undefined && data.displayName !== null) {
+		if (typeof data.displayName !== "string") {
+			return { valid: false, error: "Display name must be a string" };
+		}
+		if (data.displayName.length > 100) {
+			return { valid: false, error: "Display name must be 100 characters or less" };
+		}
+	}
+
 	if (data.firstName !== undefined && data.firstName !== null) {
 		if (typeof data.firstName !== "string") {
 			return { valid: false, error: "First name must be a string" };
@@ -521,9 +530,8 @@ export function validatePageUpdateData(data: {
 	city?: string | null;
 	state?: string | null;
 	zip?: string | null;
-	parentTopic?: string | null;
+	category?: string | null;
 	avatarImageId?: string | null;
-	isOpenToCollaborators?: boolean;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -624,19 +632,12 @@ export function validatePageUpdateData(data: {
 	}
 
 	// Validate parent topic: optional, max 100 characters
-	if (data.parentTopic !== undefined && data.parentTopic !== null) {
-		if (typeof data.parentTopic !== "string") {
+	if (data.category !== undefined && data.category !== null) {
+		if (typeof data.category !== "string") {
 			return { valid: false, error: "Parent topic must be a string" };
 		}
-		if (data.parentTopic.length > 100) {
+		if (data.category.length > 100) {
 			return { valid: false, error: "Parent topic must be 100 characters or less" };
-		}
-	}
-
-	// Validate isOpenToCollaborators: optional boolean
-	if (data.isOpenToCollaborators !== undefined && data.isOpenToCollaborators !== null) {
-		if (typeof data.isOpenToCollaborators !== "boolean") {
-			return { valid: false, error: "isOpenToCollaborators must be a boolean" };
 		}
 	}
 

@@ -19,8 +19,6 @@ type ConnectionItem = {
 		id: string;
 		handle: string;
 		displayName: string | null;
-		firstName: string | null;
-		lastName: string | null;
 		avatarImageId: string | null;
 	} | null;
 	page: {
@@ -38,8 +36,6 @@ type MemberItem = {
 		id: string;
 		handle: string;
 		displayName: string | null;
-		firstName: string | null;
-		lastName: string | null;
 		avatarImageId: string | null;
 	};
 };

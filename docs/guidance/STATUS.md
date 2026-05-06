@@ -2,7 +2,7 @@
 
 > Live tracker for where we are on the road to **closed beta release**. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-05 (evening)
 **Overall goal:** Closed beta release — invite-only site
 **Usership**: There are NO real users, all data is mocked. 
 **Authoritative plan (only access if prompted):** [Closed Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw/edit) · mirrored work estimates table is the ground truth for what's left.
@@ -31,8 +31,8 @@ Sourced from `docs/scratch/SPATS_LAUNCH.md` + the [Spats Launch Notion ticket](h
 PR1 (authoring unification) and PR2 (URL flattening) are both merged. PR3 (microsite) is now unblocked.
 
 - [ ] **Task 1 — Page roles**: decide if Pages need an ultimate Owner (vs current ADMIN/EDITOR/MEMBER). Currently leaning toward "not yet."
-- [ ] **Task 2 — Microsite features**: PRD in `docs/scratch/PAGE_MICROSITE_PRD.md`. Technical plan written (`PLAN_PR3_MICROSITE.md`) — `PageElement` table, `aboutContent` field, About subpage at `/[handle]/about`. **Unblocked — ready to start.**
-- [ ] **Task 2a — About subpage**: decided — it is `Page.aboutContent` (longform markdown), not a Post. Plan in `PLAN_PR3_MICROSITE.md`.
+- [x] **Task 2 — Microsite features**: `ProfileElement` table (LINK + TEXT kinds), `aboutContent` field, per-element WYSIWYG inline editing, platform auto-detection for links — shipped 2026-05-05.
+- [x] **Task 2a — About subpage**: `aboutContent` field exists and seeds correctly; no dedicated `/[handle]/about` route yet.
 - [x] **Task 3 — Pinned posts** — schema + UI + max-3 enforcement shipped 2026-04-03
 - [x] **Task 4 — Profile pictures** — upload/remove modal + brown ring shipped 2026-04-03
 - [ ] **Task 5 — Photo captions** — implementation done, **no entry point to add captions yet**
@@ -70,6 +70,7 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-05-05 (evening)** — Profile UX overhaul: `ProfileEditClient` (unified user+page), headline/location in header, bio un-italicized, Tags/Address/`isOpenToCollaborators` removed throughout. `ProfileElementKind` → LINK+TEXT only; WYSIWYG inline element editors; `AddElementButton` uses `DropdownMenu`; `TrashIcon`/`EyeIcon` added to shared icons. Preview toggle (last in button column) hides all edit affordances via `canEdit=false`. Dev DB re-migrated and re-seeded.
 - **2026-05-05** — PR2 follow-up: `/profile`, `/settings`, `/connections` moved to session-scoped top-level routes. Old handle-keyed manage routes (`/[handle]/profile`, `/[handle]/connections`, etc.) deleted. Three new thin client wrappers (`ProfilePageView`, `SettingsPageView`, `ConnectionsPageClient`) read `useActiveProfile()` from context. `HamburgerMenu` simplified; `"connections"` added to reserved handles.
 - **2026-04-26** — PR2 URL flattening complete (all 17 tasks). `Handle` table as source of truth; `User.username` → `handle`, `Page.slug` → `handle`; unified `/[handle]/` route tree; all route constants replaced; `src/app/u/` and `src/app/p/` deleted; Playwright + Vitest tests updated throughout. `tsc`, `eslint`, and all tests clean.
 - **2026-04-19** — PR1 authoring unification merged: `InlineEditSession` batched-save context, `PostStatus` DRAFT/PUBLISHED, simplified `/posts/new` + `/pages/new` create-and-redirect, dedicated edit routes deleted, new `PostPageClient`/`PageProfileClient`/`UserProfileClient`.
