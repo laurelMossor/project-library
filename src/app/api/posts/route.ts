@@ -4,9 +4,8 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-import { publicUserFields } from "@/lib/utils/server/user";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { postCollectionFields } from "@/lib/utils/server/fields";
+import { postCollectionFields, postWithUserFields } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -46,46 +45,6 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
 	}
 	return { valid: true };
 }
-
-const postFields = {
-	id: true,
-	userId: true,
-	pageId: true,
-	eventId: true,
-	parentPostId: true,
-	title: true,
-	content: true,
-	status: true,
-	pinnedAt: true,
-	tags: true,
-	topics: true,
-	createdAt: true,
-	updatedAt: true,
-	user: {
-		select: publicUserFields,
-	},
-		page: {
-			select: {
-				id: true,
-				name: true,
-				handle: true,
-				avatarImageId: true,
-				avatarImage: { select: { url: true } },
-			},
-		},
-	event: {
-		select: {
-			id: true,
-			title: true,
-		},
-	},
-	parentPost: {
-		select: {
-			id: true,
-			title: true,
-		},
-	},
-};
 
 /**
  * GET /api/posts
@@ -263,7 +222,7 @@ export async function POST(request: Request) {
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
 			},
-			select: postFields,
+			select: postWithUserFields,
 		});
 
 		logAction("post.created", ctx.userId, {
