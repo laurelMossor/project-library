@@ -598,7 +598,7 @@ My current focus is on accessible tool design — making shop tools easier to us
     });
     await prisma.profileElement.createMany({
       data: [
-        { userId: user0.id, kind: "SOCIAL_LINK", value: "https://instagram.com", url: "https://instagram.com/laurel.makes", label: "Instagram", sortOrder: 0 },
+        { userId: user0.id, kind: "LINK", value: "https://instagram.com/laurel.makes", url: "https://instagram.com/laurel.makes", sortOrder: 0 },
         { userId: user0.id, kind: "TEXT", value: "Open to teaching gigs, residencies, and collaboration on accessible design projects.", label: "What I'm looking for", sortOrder: 1 },
       ],
     });
@@ -613,8 +613,8 @@ My current focus is on accessible tool design — making shop tools easier to us
     });
     await prisma.profileElement.createMany({
       data: [
-        { userId: user1.id, kind: "SOCIAL_LINK", value: "https://github.com", url: "https://github.com/example", label: "GitHub", sortOrder: 0 },
-        { userId: user1.id, kind: "CTA", value: "Hire me for your next civic tech project", caption: "Available for contract work through end of year.", url: "mailto:example@example.com", label: "Work with me", sortOrder: 1 },
+        { userId: user1.id, kind: "LINK", value: "https://github.com/example", url: "https://github.com/example", sortOrder: 0 },
+        { userId: user1.id, kind: "TEXT", value: "Hire me for your next civic tech project", caption: "Available for contract work through end of year.", label: "Work with me", sortOrder: 1 },
       ],
     });
   }
@@ -632,8 +632,8 @@ We run monthly skill shares, host open shop nights, and maintain a shared tool l
     });
     await prisma.profileElement.createMany({
       data: [
-        { pageId: page0.id, kind: "SOCIAL_LINK", value: "https://instagram.com", url: "https://instagram.com/pdxmakersguild", label: "Instagram", sortOrder: 0 },
-        { pageId: page0.id, kind: "CTA", value: "Join the Guild", caption: "Membership is open. $30/month, cancel any time.", url: "https://example.com/join", label: "Become a member", sortOrder: 1 },
+        { pageId: page0.id, kind: "LINK", value: "https://instagram.com/pdxmakersguild", url: "https://instagram.com/pdxmakersguild", sortOrder: 0 },
+        { pageId: page0.id, kind: "LINK", value: "https://example.com/join", url: "https://example.com/join", label: "Become a member", sortOrder: 1 },
         { pageId: page0.id, kind: "TEXT", value: "Next open shop night: every Thursday, 6–9pm at our NE Portland space.", label: "Open shop hours", sortOrder: 2 },
       ],
     });
@@ -650,7 +650,7 @@ We meet bi-weekly to share projects, swap skills, and occasionally collaborate o
     });
     await prisma.profileElement.createMany({
       data: [
-        { pageId: page1.id, kind: "SOCIAL_LINK", value: "https://twitter.com", url: "https://twitter.com/berkbuild", label: "Twitter / X", sortOrder: 0 },
+        { pageId: page1.id, kind: "LINK", value: "https://twitter.com/berkbuild", url: "https://twitter.com/berkbuild", sortOrder: 0 },
         { pageId: page1.id, kind: "TEXT", value: "We meet every other Wednesday evening. Location shared in our Signal group.", label: "Meeting schedule", sortOrder: 1 },
       ],
     });

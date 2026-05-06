@@ -5,20 +5,17 @@ import { useEffect, useRef, useState } from "react";
 type Props = {
 	initial: { label?: string | null; value: string; url?: string | null };
 	onFieldChange: (field: string, value: unknown, original?: unknown) => void;
-	onCancel?: () => void;
 };
 
-export function SocialLinkEditor({ initial, onFieldChange, onCancel }: Props) {
+export function LinkEditor({ initial, onFieldChange }: Props) {
 	const [url, setUrl] = useState(initial.url ?? initial.value ?? "");
 	const [label, setLabel] = useState(initial.label ?? "");
 	const urlRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => { urlRef.current?.focus(); }, []);
 
-	const cls = "w-full text-sm border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-moss-green";
-
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="flex flex-col gap-1">
 			<input
 				ref={urlRef}
 				type="url"
@@ -29,7 +26,7 @@ export function SocialLinkEditor({ initial, onFieldChange, onCancel }: Props) {
 					onFieldChange("value", e.target.value, initial.value);
 				}}
 				placeholder="https://..."
-				className={cls}
+				className="text-sm font-medium text-moss-green bg-transparent border-b border-transparent focus:border-moss-green focus:outline-none py-0.5 w-full"
 			/>
 			<input
 				type="text"
@@ -39,13 +36,8 @@ export function SocialLinkEditor({ initial, onFieldChange, onCancel }: Props) {
 					onFieldChange("label", e.target.value || null, initial.label ?? null);
 				}}
 				placeholder="Display label (optional)"
-				className={cls}
+				className="text-xs text-dusty-grey bg-transparent border-b border-transparent focus:border-moss-green focus:outline-none py-0.5 w-full"
 			/>
-			{onCancel && (
-				<button type="button" onClick={onCancel} className="self-start text-xs text-dusty-grey hover:text-rich-brown transition-colors">
-					Discard
-				</button>
-			)}
 		</div>
 	);
 }

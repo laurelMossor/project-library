@@ -5,69 +5,45 @@ import type { ProfileElementItem } from "@/lib/types/profile-element";
 import type { ElementDraft } from "@/lib/types/inline-edit";
 import { ProfileElementCard } from "./ProfileElementCard";
 import { AddElementButton } from "./AddElementButton";
-import { SocialLinkEditor } from "./editors/SocialLinkEditor";
-import { CtaEditor } from "./editors/CtaEditor";
+import { LinkEditor } from "./editors/LinkEditor";
 import { TextEditor } from "./editors/TextEditor";
+import { TrashIcon } from "@/lib/components/icons/icons";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 
 type ProfileElementListProps = {
 	elements: ProfileElementItem[];
 };
 
-// ─── Trash icon ────────────────────────────────────────────────────────────
-
-function TrashIcon() {
-	return (
-		<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-			<polyline points="3 6 5 6 21 6" />
-			<path d="M19 6l-1 14H6L5 6" />
-			<path d="M10 11v6M14 11v6" />
-			<path d="M9 6V4h6v2" />
-		</svg>
-	);
-}
-
 // ─── Per-kind editor dispatcher ────────────────────────────────────────────
 
 function EditorForKind({
 	element,
 	onFieldChange,
-	onCancel,
 }: {
 	element: ProfileElementItem;
 	onFieldChange: (field: string, value: unknown, original?: unknown) => void;
-	onCancel?: () => void;
 }) {
-	if (element.kind === "SOCIAL_LINK") {
-		return <SocialLinkEditor initial={element} onFieldChange={onFieldChange} onCancel={onCancel} />;
+	if (element.kind === "LINK") {
+		return <LinkEditor initial={element} onFieldChange={onFieldChange} />;
 	}
-	if (element.kind === "CTA") {
-		return <CtaEditor initial={element} onFieldChange={onFieldChange} onCancel={onCancel} />;
-	}
-	return <TextEditor initial={element} onFieldChange={onFieldChange} onCancel={onCancel} />;
+	return <TextEditor initial={element} onFieldChange={onFieldChange} />;
 }
 
-// ─── Draft card (always in edit mode) ─────────────────────────────────────
+// ─── Draft editor ─────────────────────────────────────────────────────────
 
 function DraftEditorForKind({
 	draft,
 	onFieldChange,
-	onCancel,
 }: {
 	draft: ElementDraft;
 	onFieldChange: (field: string, value: unknown) => void;
-	onCancel: () => void;
 }) {
 	const initial = { label: draft.label, value: draft.value, caption: draft.caption, url: draft.url };
-	const wrap = (field: string, value: unknown) => onFieldChange(field, value);
 
-	if (draft.kind === "SOCIAL_LINK") {
-		return <SocialLinkEditor initial={initial} onFieldChange={wrap} onCancel={onCancel} />;
+	if (draft.kind === "LINK") {
+		return <LinkEditor initial={initial} onFieldChange={onFieldChange} />;
 	}
-	if (draft.kind === "CTA") {
-		return <CtaEditor initial={initial} onFieldChange={wrap} onCancel={onCancel} />;
-	}
-	return <TextEditor initial={initial} onFieldChange={wrap} onCancel={onCancel} />;
+	return <TextEditor initial={initial} onFieldChange={onFieldChange} />;
 }
 
 // ─── List ──────────────────────────────────────────────────────────────────
@@ -77,10 +53,10 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 	const canEdit = !!session?.canEdit;
 	const [editingId, setEditingId] = useState<string | null>(null);
 
-	// Reset editing state when the session is cancelled
+	// Reset editing state when session is cancelled or canEdit changes (preview mode)
 	useEffect(() => {
 		setEditingId(null);
-	}, [session?.cancelRevision]);
+	}, [session?.cancelRevision, canEdit]);
 
 	const drafts = session?.pendingCreates ?? [];
 
@@ -98,7 +74,7 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 					session?.setDirty(`element:${element.id}:${field}`, value, original ?? null);
 				};
 
-				const trashSlot = canEdit && !isPendingDelete ? (
+				const trashSlot = canEdit && isEditing ? (
 					<button
 						type="button"
 						onClick={(e) => {
@@ -109,7 +85,7 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 						className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded"
 						aria-label="Delete element"
 					>
-						<TrashIcon />
+						<TrashIcon className="w-3.5 h-3.5" />
 					</button>
 				) : undefined;
 
@@ -121,11 +97,7 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 						isEditing={isEditing}
 						editContent={
 							isEditing ? (
-								<EditorForKind
-									element={element}
-									onFieldChange={onFieldChange}
-									onCancel={() => setEditingId(null)}
-								/>
+								<EditorForKind element={element} onFieldChange={onFieldChange} />
 							) : undefined
 						}
 						onClick={canEdit && !isPendingDelete && !isEditing ? () => setEditingId(element.id) : undefined}
@@ -134,17 +106,23 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 				);
 			})}
 
-			{/* Draft elements — always in edit mode */}
+			{/* Draft elements */}
 			{drafts.map((draft) => (
-				<div
-					key={draft.tempId}
-					className="border border-moss-green/40 rounded-lg p-3 ring-1 ring-moss-green/30"
-				>
-					<DraftEditorForKind
-						draft={draft}
-						onFieldChange={(field, value) => session?.updateCreate(draft.tempId, field, value)}
-						onCancel={() => session?.removeCreate(draft.tempId)}
-					/>
+				<div key={draft.tempId} className="flex items-start gap-2">
+					<div className="flex-1 min-w-0">
+						<DraftEditorForKind
+							draft={draft}
+							onFieldChange={(field, value) => session?.updateCreate(draft.tempId, field, value)}
+						/>
+					</div>
+					<button
+						type="button"
+						onClick={() => session?.removeCreate(draft.tempId)}
+						className="p-1 text-gray-400 hover:text-red-500 transition-colors rounded flex-shrink-0 pt-0.5"
+						aria-label="Remove draft"
+					>
+						<TrashIcon className="w-3.5 h-3.5" />
+					</button>
 				</div>
 			))}
 

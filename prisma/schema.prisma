@@ -53,8 +53,7 @@ enum AttachmentTarget {
 }
 
 enum ProfileElementKind {
-  SOCIAL_LINK
-  CTA
+  LINK
   TEXT
 }
 
@@ -170,9 +169,6 @@ model Page {
   // Avatar
   avatarImageId String?
   avatarImage   Image?  @relation("PageAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
-
-  // Collaboration
-  isOpenToCollaborators Boolean @default(false)
 
   // Microsite
   aboutContent String?

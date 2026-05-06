@@ -2,7 +2,7 @@
 
 > Live tracker for where we are on the road to **closed beta release**. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-05-05
+**Last updated:** 2026-05-05 (evening)
 **Overall goal:** Closed beta release — invite-only site
 **Usership**: There are NO real users, all data is mocked. 
 **Authoritative plan (only access if prompted):** [Closed Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw/edit) · mirrored work estimates table is the ground truth for what's left.
@@ -31,8 +31,8 @@ Sourced from `docs/scratch/SPATS_LAUNCH.md` + the [Spats Launch Notion ticket](h
 PR1 (authoring unification) and PR2 (URL flattening) are both merged. PR3 (microsite) is now unblocked.
 
 - [ ] **Task 1 — Page roles**: decide if Pages need an ultimate Owner (vs current ADMIN/EDITOR/MEMBER). Currently leaning toward "not yet."
-- [ ] **Task 2 — Microsite features**: PRD in `docs/scratch/PAGE_MICROSITE_PRD.md`. Technical plan written (`PLAN_PR3_MICROSITE.md`) — `PageElement` table, `aboutContent` field, About subpage at `/[handle]/about`. **Unblocked — ready to start.**
-- [ ] **Task 2a — About subpage**: decided — it is `Page.aboutContent` (longform markdown), not a Post. Plan in `PLAN_PR3_MICROSITE.md`.
+- [x] **Task 2 — Microsite features**: `ProfileElement` table (LINK + TEXT kinds), `aboutContent` field, per-element WYSIWYG inline editing, platform auto-detection for links — shipped 2026-05-05.
+- [ ] **Task 2a — About subpage**: `aboutContent` field exists and seeds correctly; no dedicated `/[handle]/about` route yet.
 - [x] **Task 3 — Pinned posts** — schema + UI + max-3 enforcement shipped 2026-04-03
 - [x] **Task 4 — Profile pictures** — upload/remove modal + brown ring shipped 2026-04-03
 - [ ] **Task 5 — Photo captions** — implementation done, **no entry point to add captions yet**

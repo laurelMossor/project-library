@@ -2,8 +2,6 @@
 
 import {
 	ProfileEntity,
-	getProfileHeadline,
-	getProfileLocation,
 	getProfileBio,
 	getProfileInterests,
 	getProfileEntityId,
@@ -23,18 +21,13 @@ export function ProfileBody({ profile }: ProfileBodyProps) {
 
 	const connectionsHref = PUBLIC_PROFILE(profile.data.handle);
 
-	const headline = getProfileHeadline(profile);
-	const location = getProfileLocation(profile);
 	const bio = getProfileBio(profile);
 	const interests = getProfileInterests(profile);
 	const elements = profile.data.elements ?? [];
 
 	return (
 		<div className="space-y-4">
-			{headline && <p className="text-lg">{headline}</p>}
-			{location && <p className="text-sm text-gray-500">{location}</p>}
-
-			{bio && <p className="italic text-gray-600">{bio}</p>}
+			{bio && <p className="text-gray-600">{bio}</p>}
 
 			{interests.length > 0 && (
 				<div>
@@ -47,52 +40,13 @@ export function ProfileBody({ profile }: ProfileBodyProps) {
 				</div>
 			)}
 
+			<ProfileElementList elements={elements} />
+
 			<FollowStats
 				entityId={entityId}
 				entityType={entityType}
 				connectionsHref={connectionsHref}
 			/>
-
-			{/* Page-specific fields */}
-			{profile.type === "PAGE" && (
-				<>
-					{profile.data.tags && profile.data.tags.length > 0 && (
-						<div>
-							<h2 className="text-sm font-medium text-gray-500">Tags</h2>
-							<div className="mt-2 flex flex-wrap gap-2">
-								{profile.data.tags.map((tag) => (
-									<Tag key={tag} tag={tag} />
-								))}
-							</div>
-						</div>
-					)}
-
-					{(profile.data.addressLine1 || profile.data.city) && (
-						<div>
-							<h2 className="text-sm font-medium text-gray-500">Address</h2>
-							<div className="mt-1 text-sm text-gray-700 space-y-0.5">
-								{profile.data.addressLine1 && <p>{profile.data.addressLine1}</p>}
-								{profile.data.addressLine2 && <p>{profile.data.addressLine2}</p>}
-								{(profile.data.city || profile.data.state || profile.data.zip) && (
-									<p>
-										{[profile.data.city, profile.data.state, profile.data.zip]
-											.filter(Boolean)
-											.join(", ")}
-									</p>
-								)}
-							</div>
-						</div>
-					)}
-
-					{profile.data.isOpenToCollaborators && (
-						<span className="inline-block text-xs px-2 py-1 rounded border border-soft-grey/60 text-dusty-grey">
-							Open to collaborators
-						</span>
-					)}
-				</>
-			)}
-
-			<ProfileElementList elements={elements} />
 		</div>
 	);
 }

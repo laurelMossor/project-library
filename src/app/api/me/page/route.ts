@@ -67,7 +67,7 @@ export async function PUT(request: Request) {
 		const {
 			headline, bio, interests, location,
 			addressLine1, addressLine2, city, state, zip,
-			category, avatarImageId, isOpenToCollaborators,
+			category, avatarImageId,
 		} = fields as {
 			headline?: string;
 			bio?: string;
@@ -80,13 +80,12 @@ export async function PUT(request: Request) {
 			zip?: string | null;
 			category?: string | null;
 			avatarImageId?: string | null;
-			isOpenToCollaborators?: boolean;
 		};
 
 		const validation = validatePageUpdateData({
 			headline, bio, interests, location,
 			addressLine1, addressLine2, city, state, zip,
-			category, avatarImageId, isOpenToCollaborators,
+			category, avatarImageId,
 		});
 
 		if (!validation.valid) {
@@ -98,7 +97,7 @@ export async function PUT(request: Request) {
 			await updatePageProfile(pageId, {
 				headline, bio, interests, location,
 				addressLine1, addressLine2, city, state, zip,
-				category, avatarImageId, isOpenToCollaborators,
+				category, avatarImageId,
 			});
 
 			if (elements) {

@@ -2,62 +2,52 @@
 
 import type { ProfileElementItem, ProfileElementKind } from "@/lib/types/profile-element";
 
+// ─── Platform detection ───────────────────────────────────────────────────
+
+const PLATFORMS: Record<string, string> = {
+	"instagram.com": "Instagram",
+	"twitter.com": "Twitter / X",
+	"x.com": "Twitter / X",
+	"github.com": "GitHub",
+	"linkedin.com": "LinkedIn",
+	"youtube.com": "YouTube",
+	"tiktok.com": "TikTok",
+	"facebook.com": "Facebook",
+	"threads.net": "Threads",
+	"bsky.app": "Bluesky",
+};
+
 // ─── Per-kind read-only renderers ─────────────────────────────────────────
 
-function SocialLinkDisplay({ element }: { element: ProfileElementItem }) {
-	let domainLabel = element.label;
-	if (!domainLabel && element.url) {
+function LinkDisplay({ element }: { element: ProfileElementItem }) {
+	const url = element.url ?? element.value;
+	let displayLabel = element.label;
+	if (!displayLabel) {
 		try {
-			domainLabel = new URL(element.url).hostname.replace(/^www\./, "");
+			const hostname = new URL(url).hostname.replace(/^www\./, "");
+			displayLabel = PLATFORMS[hostname] ?? hostname;
 		} catch {
-			domainLabel = element.url;
+			displayLabel = url;
 		}
 	}
 
 	return (
 		<a
-			href={element.url ?? element.value}
+			href={url}
 			target="_blank"
 			rel="noopener noreferrer"
-			className="flex items-center gap-2 text-moss-green hover:text-rich-brown transition-colors group"
+			className="flex items-center gap-2 text-moss-green hover:text-rich-brown transition-colors group/link"
 			onClick={(e) => e.stopPropagation()}
 		>
-			<span className="text-sm font-medium">{domainLabel ?? element.value}</span>
-			<span className="text-xs opacity-0 group-hover:opacity-60 transition-opacity">↗</span>
+			<span className="text-sm font-medium">{displayLabel}</span>
+			<span className="text-xs opacity-0 group-hover/link:opacity-60 transition-opacity">↗</span>
 		</a>
-	);
-}
-
-function CtaDisplay({ element }: { element: ProfileElementItem }) {
-	return (
-		<div className="flex flex-col gap-1">
-			{element.label && (
-				<p className="text-xs font-semibold uppercase tracking-wider text-dusty-grey">
-					{element.label}
-				</p>
-			)}
-			<p className="font-semibold text-base">{element.value}</p>
-			{element.caption && (
-				<p className="text-sm text-dusty-grey">{element.caption}</p>
-			)}
-			{element.url && (
-				<a
-					href={element.url}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="mt-2 inline-block text-sm font-medium text-white bg-moss-green rounded-full px-4 py-1.5 hover:bg-rich-brown transition-colors self-start"
-					onClick={(e) => e.stopPropagation()}
-				>
-					{element.label ?? "Learn more"} →
-				</a>
-			)}
-		</div>
 	);
 }
 
 function TextDisplay({ element }: { element: ProfileElementItem }) {
 	return (
-		<div className="flex flex-col gap-1">
+		<div className="flex flex-col gap-0.5">
 			{element.label && (
 				<p className="text-xs font-medium text-dusty-grey uppercase tracking-wider">
 					{element.label}
@@ -71,22 +61,19 @@ function TextDisplay({ element }: { element: ProfileElementItem }) {
 	);
 }
 
-// ─── Shared card frame ────────────────────────────────────────────────────
+// ─── Shared element wrapper ──────────────────────────────────────────────
 
 type ProfileElementCardProps = {
 	element: ProfileElementItem;
 	isPendingDelete?: boolean;
 	isEditing?: boolean;
 	editContent?: React.ReactNode;
-	/** Controls slot rendered to the right of the content (e.g. trash icon). */
 	actionSlot?: React.ReactNode;
-	/** When true, the card body is clickable (triggers edit mode). */
 	onClick?: () => void;
 };
 
 const KIND_DISPLAY: Record<ProfileElementKind, React.ComponentType<{ element: ProfileElementItem }>> = {
-	SOCIAL_LINK: SocialLinkDisplay,
-	CTA: CtaDisplay,
+	LINK: LinkDisplay,
 	TEXT: TextDisplay,
 };
 
@@ -100,27 +87,41 @@ export function ProfileElementCard({
 }: ProfileElementCardProps) {
 	const Display = KIND_DISPLAY[element.kind];
 
-	return (
-		<div
-			className={`relative border rounded-lg p-3 transition-all ${
-				isPendingDelete
-					? "opacity-40 bg-gray-100 pointer-events-none"
-					: isEditing
-					? "ring-1 ring-moss-green"
-					: onClick
-					? "cursor-pointer hover:bg-melon-green/5 group"
-					: ""
-			}`}
-			onClick={!isEditing ? onClick : undefined}
-		>
-			<div className="flex items-start gap-2">
-				<div className="flex-1 min-w-0">
-					{isEditing && editContent ? editContent : <Display element={element} />}
-				</div>
-				{!isPendingDelete && actionSlot && (
-					<div className="flex-shrink-0">{actionSlot}</div>
-				)}
+	if (isPendingDelete) {
+		return (
+			<div className="opacity-40 pointer-events-none">
+				<Display element={element} />
 			</div>
-		</div>
-	);
+		);
+	}
+
+	if (isEditing && editContent) {
+		return (
+			<div className="flex items-start gap-2">
+				<div className="flex-1 min-w-0">{editContent}</div>
+				{actionSlot && <div className="flex-shrink-0 pt-0.5">{actionSlot}</div>}
+			</div>
+		);
+	}
+
+	if (onClick) {
+		return (
+			<div
+				className="group relative cursor-pointer rounded-md transition-colors hover:bg-melon-green/10"
+				onClick={onClick}
+				role="button"
+				tabIndex={0}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
+				}}
+			>
+				<Display element={element} />
+				<span className="absolute top-0 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-misty-forest/60 text-xs pointer-events-none">
+					Edit
+				</span>
+			</div>
+		);
+	}
+
+	return <Display element={element} />;
 }

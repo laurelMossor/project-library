@@ -15,7 +15,6 @@ export interface PublicPage {
   zip: string | null;
   category: string | null;
   tags: string[];
-  isOpenToCollaborators: boolean;
   aboutContent: string | null;
   avatarImageId: string | null;
   avatarImage?: { url: string } | null;

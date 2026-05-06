@@ -21,7 +21,6 @@ export const publicPageFields = {
   zip: true,
   category: true,
   tags: true,
-  isOpenToCollaborators: true,
   aboutContent: true,
   avatarImageId: true,
   avatarImage: { select: { url: true } },
@@ -66,7 +65,6 @@ export async function updatePageProfile(
     zip?: string | null;
     category?: string | null;
     avatarImageId?: string | null;
-    isOpenToCollaborators?: boolean;
   }
 ) {
   const updateData: Record<string, unknown> = {};

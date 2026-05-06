@@ -70,7 +70,6 @@ export async function getPagesForUser(userId: string) {
       zip: true,
       category: true,
       tags: true,
-      isOpenToCollaborators: true,
     },
   });
 

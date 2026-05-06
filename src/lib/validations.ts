@@ -523,7 +523,6 @@ export function validatePageUpdateData(data: {
 	zip?: string | null;
 	category?: string | null;
 	avatarImageId?: string | null;
-	isOpenToCollaborators?: boolean;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -630,13 +629,6 @@ export function validatePageUpdateData(data: {
 		}
 		if (data.category.length > 100) {
 			return { valid: false, error: "Parent topic must be 100 characters or less" };
-		}
-	}
-
-	// Validate isOpenToCollaborators: optional boolean
-	if (data.isOpenToCollaborators !== undefined && data.isOpenToCollaborators !== null) {
-		if (typeof data.isOpenToCollaborators !== "boolean") {
-			return { valid: false, error: "isOpenToCollaborators must be a boolean" };
 		}
 	}
 
