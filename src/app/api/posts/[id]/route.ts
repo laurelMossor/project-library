@@ -117,7 +117,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Verify post exists and check authorization
 		const existing = await prisma.post.findUnique({
 			where: { id },
-			select: { userId: true, pageId: true },
+			select: { userId: true, pageId: true, content: true },
 		});
 
 		if (!existing) {
@@ -186,7 +186,16 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 		if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
-		if (status === "PUBLISHED" || status === "DRAFT") updateData.status = status;
+		if (status === "PUBLISHED" || status === "DRAFT") {
+			if (status === "PUBLISHED") {
+				// Use incoming content if being set now, otherwise check current content
+				const publishContent = content !== undefined ? content.trim() : existing.content;
+				if (!publishContent || publishContent.trim().length === 0) {
+					return badRequest("Cannot publish a post with empty content");
+				}
+			}
+			updateData.status = status;
+		}
 
 		const post = await prisma.post.update({
 			where: { id },

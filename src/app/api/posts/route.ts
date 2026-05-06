@@ -73,6 +73,7 @@ export async function GET(request: Request) {
 	const eventId = searchParams.get("eventId") || undefined;
 	const parentPostId = searchParams.get("parentPostId") || undefined;
 	const toplevel = searchParams.get("toplevel"); // "true" to exclude child/event posts
+	const search = searchParams.get("search") || undefined;
 	const limit = parseNumber(searchParams.get("limit"));
 	const offset = parseNumber(searchParams.get("offset"));
 
@@ -103,6 +104,10 @@ export async function GET(request: Request) {
 				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
+				...(search ? { OR: [
+					{ title: { contains: search, mode: "insensitive" as const } },
+					{ content: { contains: search, mode: "insensitive" as const } },
+				]} : {}),
 				...statusFilter,
 			},
 			select: postCollectionFields,

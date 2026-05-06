@@ -519,14 +519,14 @@ async function main() {
 
   // ---- Create Conversations + Messages
   console.log("💬 Creating conversations + messages...");
-  if (createdUsers.length >= 2) {
-    // User-to-user DM
+  if (createdUsers.length >= 5) {
+    // User-to-user DM: alice (users[0]) + george (users[4])
     const dmConvo = await prisma.conversation.create({
       data: {
         participants: {
           create: [
             { userId: createdUsers[0].id },
-            { userId: createdUsers[1].id },
+            { userId: createdUsers[4].id },
           ],
         },
       },
@@ -543,7 +543,7 @@ async function main() {
     await prisma.message.create({
       data: {
         conversationId: dmConvo.id,
-        senderId: createdUsers[1].id,
+        senderId: createdUsers[4].id,
         content: "Yeah totally. Also: your photos are rad. How did you approach the pattern?",
       },
     });
