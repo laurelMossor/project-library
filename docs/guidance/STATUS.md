@@ -2,7 +2,7 @@
 
 > Live tracker for where we are on the road to **closed beta release**. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-05-06 (evening)
+**Last updated:** 2026-05-06
 **Overall goal:** Closed beta release — invite-only site
 **Usership**: There are NO real users, all data is mocked. 
 **Authoritative plan (only access if prompted):** [Closed Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw/edit) · mirrored work estimates table is the ground truth for what's left.
