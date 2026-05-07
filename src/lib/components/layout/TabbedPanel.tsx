@@ -157,7 +157,7 @@ export function TabbedPanel<TTop extends string, TLeft extends string>({
         </div>
 
         {/* Panel */}
-        <div className="border border-soft-grey rounded-b-xl rounded-tr-xl bg-grey-white shadow-glow min-h-96 flex-1 overflow-hidden">
+        <div className="border border-soft-grey rounded-b-xl rounded-tr-xl bg-grey-white shadow-glow min-h-96 flex-1">
           {renderContent(activeLeft, activeTop)}
         </div>
       </div>

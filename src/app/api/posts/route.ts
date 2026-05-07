@@ -4,9 +4,8 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-import { publicUserFields } from "@/lib/utils/server/user";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { postCollectionFields } from "@/lib/utils/server/fields";
+import { postCollectionFields, postWithUserFields } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -47,46 +46,6 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
 	return { valid: true };
 }
 
-const postFields = {
-	id: true,
-	userId: true,
-	pageId: true,
-	eventId: true,
-	parentPostId: true,
-	title: true,
-	content: true,
-	status: true,
-	pinnedAt: true,
-	tags: true,
-	topics: true,
-	createdAt: true,
-	updatedAt: true,
-	user: {
-		select: publicUserFields,
-	},
-		page: {
-			select: {
-				id: true,
-				name: true,
-				handle: true,
-				avatarImageId: true,
-				avatarImage: { select: { url: true } },
-			},
-		},
-	event: {
-		select: {
-			id: true,
-			title: true,
-		},
-	},
-	parentPost: {
-		select: {
-			id: true,
-			title: true,
-		},
-	},
-};
-
 /**
  * GET /api/posts
  * List posts with optional filters
@@ -114,6 +73,7 @@ export async function GET(request: Request) {
 	const eventId = searchParams.get("eventId") || undefined;
 	const parentPostId = searchParams.get("parentPostId") || undefined;
 	const toplevel = searchParams.get("toplevel"); // "true" to exclude child/event posts
+	const search = searchParams.get("search") || undefined;
 	const limit = parseNumber(searchParams.get("limit"));
 	const offset = parseNumber(searchParams.get("offset"));
 
@@ -129,11 +89,22 @@ export async function GET(request: Request) {
 	// - logged-in user querying anything else: see published + own drafts
 	// - anonymous: published only
 	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
-	const statusFilter = isOwnUserQuery
-		? {}
-		: sessionCtx
-			? { OR: [{ status: "PUBLISHED" as const }, { status: "DRAFT" as const, userId: sessionCtx.userId }] }
-			: { status: "PUBLISHED" as const };
+
+	// Both status and search may need an OR clause — collect them in AND to avoid
+	// the two OR keys clobbering each other when spread into the same object.
+	const andConditions: object[] = [];
+
+	// Non-own queries always see published only — drafts are only visible on your own profile page
+	if (!isOwnUserQuery) {
+		andConditions.push({ status: "PUBLISHED" as const });
+	}
+
+	if (search) {
+		andConditions.push({ OR: [
+			{ title: { contains: search, mode: "insensitive" as const } },
+			{ content: { contains: search, mode: "insensitive" as const } },
+		]});
+	}
 
 	try {
 		const posts = await prisma.post.findMany({
@@ -144,7 +115,7 @@ export async function GET(request: Request) {
 				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
-				...statusFilter,
+				...(andConditions.length > 0 ? { AND: andConditions } : {}),
 			},
 			select: postCollectionFields,
 			orderBy: { createdAt: "desc" },
@@ -187,12 +158,14 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { content, title, pageId, eventId, parentPostId, tags, topics } = data;
+		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
 
-		// Validate content
-		const contentValidation = validatePostContent(content);
-		if (!contentValidation.valid) {
-			return badRequest(contentValidation.error || "Invalid post content");
+		// Draft creation (from /posts/new) skips content validation — content starts empty
+		if (!isDraft) {
+			const contentValidation = validatePostContent(content);
+			if (!contentValidation.valid) {
+				return badRequest(contentValidation.error || "Invalid post content");
+			}
 		}
 
 		// Validate title if provided
@@ -255,15 +228,16 @@ export async function POST(request: Request) {
 		const post = await prisma.post.create({
 			data: {
 				userId: ctx.userId,
-				content: content.trim(),
+				content: content?.trim() || "",
 				title: title?.trim() || null,
 				pageId: pageId || null,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
+				...(isDraft ? { status: "DRAFT" } : {}),
 			},
-			select: postFields,
+			select: postWithUserFields,
 		});
 
 		logAction("post.created", ctx.userId, {

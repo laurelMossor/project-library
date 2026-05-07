@@ -32,11 +32,25 @@ export default [
 		rules: {
 			// Basic rules
 			"no-unused-vars": "off",
-			"@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+			"@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
 			"no-console": "warn",
 			"react/react-in-jsx-scope": "off", // Not needed in Next.js
 			"react-hooks/rules-of-hooks": "error",
 			"react-hooks/exhaustive-deps": "warn",
+		},
+	},
+	// Server-side code: console.error/log is intentional structured logging
+	{
+		files: [
+			"src/app/api/**",
+			"src/lib/utils/server/**",
+			"src/lib/auth.ts",
+			"src/proxy.ts",
+			"scripts/**",
+			"tests/**",
+		],
+		rules: {
+			"no-console": "off",
 		},
 	},
 ];

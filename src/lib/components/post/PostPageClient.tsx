@@ -11,13 +11,16 @@ import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { DeletePostButton } from "@/lib/components/post/DeletePostButton";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
+import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { Tag } from "@/lib/components/tag/Tag";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { updatePost, publishPost, deletePost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
-import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL } from "@/lib/const/routes";
+import { PencilIcon } from "@/lib/components/icons/icons";
+import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { ImageItem } from "@/lib/types/image";
 
@@ -25,6 +28,7 @@ type PostPageClientProps = {
 	post: PostItem;
 	images: ImageItem[];
 	isOwner: boolean;
+	isLoggedIn: boolean;
 };
 
 /** Inner content — must be inside <InlineEditSession> to access session context */
@@ -33,11 +37,13 @@ function PostPageContent({
 	setPost,
 	images,
 	isOwner,
+	isLoggedIn,
 }: {
 	post: PostItem;
 	setPost: React.Dispatch<React.SetStateAction<PostItem>>;
 	images: ImageItem[];
 	isOwner: boolean;
+	isLoggedIn: boolean;
 }) {
 	const router = useRouter();
 	const session = useInlineEditSession();
@@ -47,10 +53,25 @@ function PostPageContent({
 	const [editTitle, setEditTitle] = useState(post.title);
 	const [editContent, setEditContent] = useState(post.content);
 	const [editTagsArr, setEditTagsArr] = useState<string[]>(post.tags);
+	const [isEditing, setIsEditing] = useState(post.status === "DRAFT");
 
 	const isDraft = post.status === "DRAFT";
+	const isPublished = post.status === "PUBLISHED";
 	const entity = post.page ?? post.user!;
 	const isDirty = session ? Object.keys(session.dirtyFields).length > 0 : false;
+
+	const handleAuthError = () => {
+		router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
+	};
+
+	const handleAuthorSwitch = async (pageId: string | null) => {
+		try {
+			const updated = await updatePost(post.id, { pageId });
+			setPost((prev) => ({ ...prev, ...updated }));
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
+		}
+	};
 
 	// When session cancels, revert all field states
 	const cancelRevision = session?.cancelRevision ?? 0;
@@ -93,10 +114,9 @@ function PostPageContent({
 			if (isDirty) await session?.saveAll();
 			const updated = await publishPost(post.id);
 			setPost((prev) => ({ ...prev, ...updated }));
+			setIsEditing(false);
 		} catch (err) {
-			if (err instanceof AuthError) {
-				router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
-			}
+			if (err instanceof AuthError) handleAuthError();
 		} finally {
 			setPublishing(false);
 		}
@@ -124,7 +144,7 @@ function PostPageContent({
 
 				{/* Title */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "title"}
 					onEditStart={() => {
 						setEditTitle(post.title);
@@ -165,9 +185,27 @@ function PostPageContent({
 				/>
 
 				{/* Author + actions row */}
-				<div className="flex items-center justify-between gap-4">
-					<ProfileTag entity={entity} size="md" asLink />
-					<div className="flex gap-3 items-center">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex-1">
+						{isOwner && isDraft ? (
+							<DropdownProfileSelector
+								initialPageId={post.page?.id ?? null}
+								onChange={handleAuthorSwitch}
+							/>
+						) : (
+							<ProfileTag entity={entity} size="md" asLink />
+						)}
+					</div>
+					<div className="flex flex-wrap gap-3 items-center">
+						{isPublished && <ShareButton />}
+						{isLoggedIn && !isOwner && (
+							<Link
+								href={MESSAGE_CONVERSATION({ id: post.userId, type: "user" })}
+								className="px-3 py-1 text-sm font-medium border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+							>
+								Message
+							</Link>
+						)}
 						{isOwner && isDraft && (
 							<button
 								type="button"
@@ -179,7 +217,7 @@ function PostPageContent({
 								{publishing ? "Publishing..." : "Publish"}
 							</button>
 						)}
-						{!isDraft && isOwner && (
+						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
 								Live
 							</span>
@@ -189,7 +227,7 @@ function PostPageContent({
 
 				{/* Content */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "content"}
 					onEditStart={() => {
 						setEditContent(post.content);
@@ -220,11 +258,11 @@ function PostPageContent({
 				/>
 
 				{/* Images */}
-				{images.length > 0 && <ImageCarousel images={images} showCaptions />}
+				{images.length > 0 && <ImageCarousel images={images} showCaptions isOwner={isOwner && isEditing} />}
 
 				{/* Tags */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "tags"}
 					onEditStart={() => {
 						setEditTagsArr(post.tags);
@@ -254,30 +292,47 @@ function PostPageContent({
 				)}
 
 				{/* Footer actions */}
-				<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-					{isOwner && (
+				{isOwner && (
+					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
 						<DeletePostButton
 							postId={post.id}
 							postTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
 						/>
-					)}
-					<Link
-						href={EXPLORE_PAGE}
-						className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"
-					>
-						Explore
-					</Link>
-				</div>
+						{isPublished && !isEditing && (
+							<button
+								type="button"
+								onClick={() => setIsEditing(true)}
+								className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-rich-brown transition-colors cursor-pointer"
+							>
+								<PencilIcon className="w-3.5 h-3.5" />
+								Edit
+							</button>
+						)}
+						{isPublished && isEditing && (
+							<button
+								type="button"
+								onClick={async () => { if (isDirty) await session?.saveAll(); setIsEditing(false); }}
+								className="text-sm font-medium text-moss-green hover:text-rich-brown transition-colors cursor-pointer"
+							>
+								Done
+							</button>
+						)}
+					</div>
+				)}
 			</PostContentArea>
 		</>
 	);
 }
 
-export function PostPageClient({ post: initialPost, images, isOwner }: PostPageClientProps) {
+export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
 
 	return (
-		<PostPageShell>
+		<PostPageShell breadcrumb={
+			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+				&larr; Back to Explore
+			</Link>
+		}>
 			<InlineEditSession
 				resource={post as unknown as Record<string, unknown>}
 				onSave={async ({ fields }) => {
@@ -295,6 +350,7 @@ export function PostPageClient({ post: initialPost, images, isOwner }: PostPageC
 					setPost={setPost}
 					images={images}
 					isOwner={isOwner}
+					isLoggedIn={isLoggedIn}
 				/>
 			</InlineEditSession>
 		</PostPageShell>

@@ -58,6 +58,7 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
     eventId: null,
     parentPostId: null,
     pinnedAt: null,
+    status: "PUBLISHED" as const,
     images: [],
     ...overrides,
   };

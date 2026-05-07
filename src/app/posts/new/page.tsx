@@ -1,22 +1,55 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { createDraftPost } from "@/lib/utils/server/post";
-import { LOGIN_WITH_CALLBACK, POST_NEW, POST_DETAIL } from "@/lib/const/routes";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createDraftPost } from "@/lib/utils/post-client";
+import { AuthError } from "@/lib/utils/auth-client";
+import { POST_DETAIL, LOGIN_WITH_CALLBACK, POST_NEW } from "@/lib/const/routes";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 /**
- * POST NEW
- *
- * Server action page: creates a minimal DRAFT post then redirects to the
- * detail route, which is the single editing surface for all post authoring.
- * There is no create form — all fields are filled in via inline editing.
+ * /posts/new — Creates a draft post pre-populated with the active profile,
+ * then redirects to the post page for inline editing.
  */
-export default async function NewPostPage() {
-	const session = await auth();
+export default function NewPostPage() {
+	const router = useRouter();
+	const { activePageId } = useActiveProfile();
+	const [error, setError] = useState("");
 
-	if (!session?.user?.id) {
-		redirect(LOGIN_WITH_CALLBACK(POST_NEW));
+	useEffect(() => {
+		createDraftPost(activePageId ?? undefined)
+			.then((post) => {
+				router.replace(POST_DETAIL(post.id));
+			})
+			.catch((err) => {
+				if (err instanceof AuthError) {
+					router.push(LOGIN_WITH_CALLBACK(POST_NEW));
+					return;
+				}
+				setError(err instanceof Error ? err.message : "Failed to create post");
+			});
+	}, [router, activePageId]);
+
+	if (error) {
+		return (
+			<main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+				<div className="text-center space-y-4">
+					<p className="text-alert-red">{error}</p>
+					<button
+						type="button"
+						onClick={() => router.back()}
+						className="text-sm font-medium text-gray-500 underline underline-offset-2"
+					>
+						Go back
+					</button>
+				</div>
+			</main>
+		);
 	}
 
-	const post = await createDraftPost(session.user.id);
-	redirect(POST_DETAIL(post.id));
+	return (
+		<main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+			<p className="text-gray-500">Creating your post...</p>
+		</main>
+	);
 }

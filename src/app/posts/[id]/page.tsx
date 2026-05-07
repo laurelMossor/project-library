@@ -23,6 +23,7 @@ export default async function PostDetailPage({ params }: Props) {
 	}
 
 	const isOwner = session?.user?.id === post.userId;
+	const isLoggedIn = !!session?.user?.id;
 
 	// Non-owners cannot see DRAFT posts
 	if (post.status === "DRAFT" && !isOwner) {
@@ -36,6 +37,7 @@ export default async function PostDetailPage({ params }: Props) {
 			post={post}
 			images={images}
 			isOwner={isOwner}
+			isLoggedIn={isLoggedIn}
 		/>
 	);
 }

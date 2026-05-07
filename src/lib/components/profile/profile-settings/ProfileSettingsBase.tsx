@@ -7,6 +7,8 @@ import { SettingsSection } from "./SettingsSection";
 import { DisabledSettingsButton } from "./DisabledSettingsButton";
 import { UserPageSettings } from "./UserPageSettings";
 import { PageItem } from "./PageSwitcher";
+import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
+import type { CardEntity } from "@/lib/types/card";
 
 type ProfileType = "user" | "page";
 
@@ -14,6 +16,7 @@ type ProfileSettingsBaseProps = {
 	profileType: ProfileType;
 	pages?: PageItem[];
 	settingsTitle: string;
+	avatarEntity?: CardEntity;
 	viewPublicProfileHref: string;
 	viewPublicProfileLabel?: string;
 	disabledButtons?: string[];
@@ -29,13 +32,17 @@ export function ProfileSettingsBase({
 	profileType,
 	pages,
 	settingsTitle,
+	avatarEntity,
 	viewPublicProfileHref,
 	viewPublicProfileLabel = "View Public Profile",
 	disabledButtons = [],
 	additionalSettingsButtons,
 }: ProfileSettingsBaseProps) {
 	return (
-		<SettingsSection title={settingsTitle}>
+		<SettingsSection
+			title={settingsTitle}
+			titleIcon={avatarEntity ? <ProfilePicture entity={avatarEntity} size="sm" asLink={false} /> : undefined}
+		>
 			<div className="flex flex-col gap-3">
 				<ButtonLink href={viewPublicProfileHref} variant="secondary" fullWidth>
 					{viewPublicProfileLabel}

@@ -41,9 +41,11 @@ function DraftEditorForKind({
 
 type ProfileElementListProps = {
 	elements: ProfileElementItem[];
+	handle?: string;
+	hasAboutContent?: boolean;
 };
 
-export function ProfileElementList({ elements }: ProfileElementListProps) {
+export function ProfileElementList({ elements, handle, hasAboutContent }: ProfileElementListProps) {
 	const session = useInlineEditSession();
 	const canEdit = !!session?.canEdit;
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -128,6 +130,8 @@ export function ProfileElementList({ elements }: ProfileElementListProps) {
 				<AddElementButton
 					onAdd={(draft) => session?.addCreate(draft)}
 					nextSortOrder={elements.length + drafts.length}
+					handle={handle}
+					hasAboutContent={hasAboutContent}
 				/>
 			)}
 		</div>

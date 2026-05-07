@@ -141,6 +141,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
 
 		return null;
 	} catch (error) {
+		// eslint-disable-next-line no-console
 		console.error("Geocoding error:", error);
 		return null;
 	}

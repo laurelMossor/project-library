@@ -54,7 +54,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
 		const page = await prisma.$transaction(async () => {
 			// Apply scalar field updates
-			const updatedPage = await updatePageProfile(pageId, fields as Parameters<typeof updatePageProfile>[1]);
+			await updatePageProfile(pageId, fields as Parameters<typeof updatePageProfile>[1]);
 
 			// Apply element operations
 			if (elements) {

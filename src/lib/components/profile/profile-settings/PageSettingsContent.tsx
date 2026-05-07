@@ -31,6 +31,7 @@ export function PageSettingsContent({
 				profileType="page"
 				pages={pages}
 				settingsTitle="Page Settings"
+				avatarEntity={page}
 				viewPublicProfileHref={publicProfileHref}
 				viewPublicProfileLabel="View & Edit Profile"
 				disabledButtons={PAGE_DISABLED_BUTTONS}

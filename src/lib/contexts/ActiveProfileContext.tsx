@@ -63,7 +63,6 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 			.catch(() => {});
 	}, [currentUser, activePageId]);
 
-	// eslint-disable-next-line react-hooks/exhaustive-deps
 	async function fetchPages() {
 		try {
 			const r = await fetch(API_ME_PAGES);

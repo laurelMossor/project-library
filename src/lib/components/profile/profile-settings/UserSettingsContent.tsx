@@ -19,7 +19,7 @@ type UserSettingsContentProps = {
 };
 
 export function UserSettingsContent({
-	user: _user,
+	user,
 	pages,
 	publicProfileHref,
 }: UserSettingsContentProps) {
@@ -28,6 +28,7 @@ export function UserSettingsContent({
 			profileType="user"
 			pages={pages}
 			settingsTitle="User Settings"
+			avatarEntity={user}
 			viewPublicProfileHref={publicProfileHref}
 			viewPublicProfileLabel="View & Edit Profile"
 			disabledButtons={USER_DISABLED_BUTTONS}

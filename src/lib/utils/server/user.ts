@@ -136,7 +136,11 @@ export async function createUser(data: {
 	firstName?: string;
 	middleName?: string;
 	lastName?: string;
+	displayName?: string;
 }): Promise<{ userId: string }> {
+	const names = [data.firstName, data.lastName].filter(Boolean).join(" ");
+	const displayName = data.displayName ?? (names || null);
+
 	const user = await prisma.user.create({
 		data: {
 			email: data.email,
@@ -145,9 +149,38 @@ export async function createUser(data: {
 			firstName: data.firstName ?? null,
 			middleName: data.middleName ?? null,
 			lastName: data.lastName ?? null,
+			displayName,
 			handleRecord: { create: { handle: data.handle } },
 		},
 		select: { id: true },
 	});
 	return { userId: user.id };
+}
+
+const searchUserFields = {
+	id: true,
+	handle: true,
+	displayName: true,
+	avatarImageId: true,
+	avatarImage: { select: { url: true } },
+} as const;
+
+export async function searchUsers(query: string, limit = 8) {
+	if (query.length < 2) return [];
+
+	const filter = { startsWith: query, mode: "insensitive" as const };
+
+	return prisma.user.findMany({
+		where: {
+			OR: [
+				{ handle: filter },
+				{ displayName: filter },
+				{ firstName: filter },
+				{ lastName: filter },
+			],
+		},
+		select: searchUserFields,
+		take: limit,
+		orderBy: { displayName: "asc" },
+	});
 }

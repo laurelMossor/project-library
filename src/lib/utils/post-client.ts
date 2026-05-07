@@ -89,11 +89,29 @@ export async function createPost(data: {
 }
 
 /**
+ * Create a minimal draft post — called from /posts/new (client component).
+ */
+export async function createDraftPost(pageId?: string): Promise<PostItem> {
+	const res = await authFetch(API_POSTS, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}) }),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to create draft post");
+	}
+
+	return res.json();
+}
+
+/**
  * Update a post's fields (batched patch)
  */
 export async function updatePost(
 	id: string,
-	data: Partial<{ title: string | null; content: string; tags: string[]; status: string }>
+	data: Partial<{ title: string | null; content: string; tags: string[]; status: string; pageId: string | null }>
 ): Promise<PostItem> {
 	const res = await authFetch(API_POST(id), {
 		method: "PATCH",

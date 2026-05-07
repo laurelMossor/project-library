@@ -35,31 +35,31 @@ test.describe("Messaging", () => {
     await loginAs(page, "alice");
     await page.goto("/messages");
 
-    // The seeded alice ↔ dolores DM should appear in the inbox
-    await expect(page.getByText("Dolores Example")).toBeVisible({ timeout: 10_000 });
+    // The seeded alice ↔ george DM should appear in the inbox
+    await expect(page.getByText("George Example")).toBeVisible({ timeout: 10_000 });
   });
 
   test("notification dot clears after opening a thread", async ({ page, browser }) => {
-    // Send a fresh message as dolores to alice so the unread state is deterministic
+    // Send a fresh message as george to alice so the unread state is deterministic
     // (seeded readAt values may already be set from prior sessions).
-    const doloresCtx = await browser.newContext();
-    const doloresPage = await doloresCtx.newPage();
-    await loginAs(doloresPage, "dolores");
-    await doloresPage.goto("/alice");
-    await doloresPage.getByRole("link", { name: "Message" }).click();
-    await doloresPage.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
-    await doloresPage.getByPlaceholder(/Type a message/).fill("Hello from Playwright (dot test)");
-    await doloresPage.getByRole("button", { name: "Send" }).click();
-    await expect(doloresPage.getByText("Hello from Playwright (dot test)")).toBeVisible({ timeout: 10_000 });
-    await doloresCtx.close();
+    const georgeCtx = await browser.newContext();
+    const georgePage = await georgeCtx.newPage();
+    await loginAs(georgePage, "george");
+    await georgePage.goto("/alice");
+    await georgePage.getByRole("link", { name: "Message" }).click();
+    await georgePage.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
+    await georgePage.getByPlaceholder(/Type a message/).fill("Hello from Playwright (dot test)");
+    await georgePage.getByRole("button", { name: "Send" }).click();
+    await expect(georgePage.getByText("Hello from Playwright (dot test)")).toBeVisible({ timeout: 10_000 });
+    await georgeCtx.close();
 
-    // Alice logs in — dolores's message is unread, dot should appear on the hamburger
+    // Alice logs in — george's message is unread, dot should appear on the hamburger
     await loginAs(page, "alice");
     await expect(page.locator('button[aria-label="Menu"] span.bg-novel-red')).toBeVisible({ timeout: 10_000 });
 
-    // Open messages and click on the dolores conversation
+    // Open messages and click on the george conversation
     await page.goto("/messages");
-    await page.getByText("Dolores Example").click();
+    await page.getByText("George Example").click();
 
     // After the thread opens, mark-as-read fires and the context refreshes — dot disappears
     await expect(page.locator('button[aria-label="Menu"] span.bg-novel-red')).not.toBeVisible({ timeout: 10_000 });
@@ -69,8 +69,8 @@ test.describe("Messaging", () => {
     await loginAs(page, "alice");
     await page.goto("/messages");
 
-    // Click on the dolores conversation row to open the thread
-    await page.getByText("Dolores Example").click();
+    // Click on the george conversation row to open the thread
+    await page.getByText("George Example").click();
 
     // The first seeded message (sent by alice) should be visible in the thread
     await expect(page.getByText("Hey! Saw your work")).toBeVisible({ timeout: 10_000 });
@@ -95,7 +95,7 @@ test.describe("Messaging", () => {
     await expect(page.getByText("George Example")).toBeVisible({ timeout: 10_000 });
   });
 
-  test("page admin cannot see another page conversation through personal inbox", async ({ page, browser }) => {
+  test("page admin cannot see another page conversation through personal inbox", async ({ page }) => {
     // George is EDITOR of PMG. The seeded PMG ↔ Sam conversation should NOT
     // leak into George's personal thread with PMG.
     await loginAs(page, "george");

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { MenuItem } from "./hamburger/MenuItem";
 import { CardEntity } from "@/lib/types/card";
@@ -76,7 +77,14 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 			triggerAriaLabel="Profile menu"
 			containerClassName="w-[260px]"
 			trigger={
-				<ProfileTag entity={activeEntity} size="md" asLink={false} variant="compact" badge={activeBadge} className="border-none bg-transparent hover:bg-transparent" />
+				<>
+					{/* Mobile: avatar only */}
+					<ProfilePicture entity={activeEntity} size="sm" asLink={false} className="sm:hidden" />
+					{/* Desktop: fixed-width profile tag so layout never shifts with name length */}
+					<div className="hidden sm:block w-[200px]">
+						<ProfileTag entity={activeEntity} size="md" asLink={false} variant="compact" badge={activeBadge} className="border-none bg-transparent hover:bg-transparent" />
+					</div>
+				</>
 			}
 		>
 			<MenuItem

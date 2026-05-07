@@ -39,6 +39,7 @@ export function FollowStats({ entityId, entityType, connectionsHref }: FollowSta
 					setFollowingCount(data.following?.length ?? 0);
 				}
 			} catch (err) {
+				// eslint-disable-next-line no-console
 				console.error("[FollowStats] Error fetching counts:", err);
 			} finally {
 				setLoading(false);

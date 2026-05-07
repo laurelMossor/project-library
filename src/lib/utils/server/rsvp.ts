@@ -32,6 +32,20 @@ export async function createOrUpdateRsvp(eventId: string, data: RsvpCreateInput)
 }
 
 /**
+ * Get a single RSVP by eventId + email, or null if none exists.
+ */
+export async function getRsvpByEmail(eventId: string, email: string): Promise<RsvpItem | null> {
+	return prisma.rsvp.findUnique({
+		where: {
+			eventId_email: {
+				eventId,
+				email: email.trim().toLowerCase(),
+			},
+		},
+	});
+}
+
+/**
  * Get all RSVPs for an event, ordered by most recent first.
  */
 export async function getRsvpsByEvent(eventId: string): Promise<RsvpItem[]> {

@@ -212,6 +212,7 @@ async function main() {
         firstName: firstName ?? null,
         middleName: middleName ?? null,
         lastName: lastName ?? null,
+        displayName: u.name,
         headline: u.headline ?? null,
         bio: u.bio ?? null,
         interests: u.interests ?? [],
@@ -466,6 +467,7 @@ async function main() {
         title: p.title,
         content: p.description,
         tags: p.tags ?? [],
+        status: "PUBLISHED",
       },
       select: { id: true, userId: true, title: true },
     });
@@ -513,20 +515,21 @@ async function main() {
         pageId: page.id,
         title: "Page bulletin",
         content: "Announcements, calls for help, and what we're building together.",
+        status: "PUBLISHED",
       },
     });
   }
 
   // ---- Create Conversations + Messages
   console.log("💬 Creating conversations + messages...");
-  if (createdUsers.length >= 2) {
-    // User-to-user DM
+  if (createdUsers.length >= 5) {
+    // User-to-user DM: alice (users[0]) + george (users[4])
     const dmConvo = await prisma.conversation.create({
       data: {
         participants: {
           create: [
             { userId: createdUsers[0].id },
-            { userId: createdUsers[1].id },
+            { userId: createdUsers[4].id },
           ],
         },
       },
@@ -543,8 +546,36 @@ async function main() {
     await prisma.message.create({
       data: {
         conversationId: dmConvo.id,
-        senderId: createdUsers[1].id,
+        senderId: createdUsers[4].id,
         content: "Yeah totally. Also: your photos are rad. How did you approach the pattern?",
+      },
+    });
+
+    // User-to-user DM: dolores (users[1]) + alice (users[0])
+    const doloresAliceDm = await prisma.conversation.create({
+      data: {
+        participants: {
+          create: [
+            { userId: createdUsers[1].id },
+            { userId: createdUsers[0].id },
+          ],
+        },
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: doloresAliceDm.id,
+        senderId: createdUsers[0].id,
+        content: "Hey Dolores! Love what you're doing with the Guild. Want to collaborate on a workshop?",
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: doloresAliceDm.id,
+        senderId: createdUsers[1].id,
+        content: "Absolutely! Let's set something up for next month.",
       },
     });
 

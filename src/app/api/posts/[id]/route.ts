@@ -60,6 +60,7 @@ const postFields = {
 			name: true,
 			handle: true,
 			avatarImageId: true,
+			avatarImage: { select: { url: true } },
 		},
 	},
 	event: {
@@ -117,7 +118,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Verify post exists and check authorization
 		const existing = await prisma.post.findUnique({
 			where: { id },
-			select: { userId: true, pageId: true },
+			select: { userId: true, pageId: true, content: true },
 		});
 
 		if (!existing) {
@@ -137,7 +138,20 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, tags, topics, pinnedAt, status } = data;
+		const { title, content, tags, topics, pinnedAt, status, pageId } = data;
+
+		// If switching author page, verify permission for the new page
+		if (pageId !== undefined) {
+			if (pageId !== null) {
+				const allowed = await canPostAsPage(ctx.userId, pageId);
+				if (!allowed) {
+					return badRequest("You don't have permission to post as this page");
+				}
+			} else if (existing.userId !== ctx.userId) {
+				// Switching to personal identity — only the post author can do this
+				return NextResponse.json({ error: "Only the post author can change the posting identity" }, { status: 403 });
+			}
+		}
 
 		// Validate content if provided
 		const contentValidation = validatePostContent(content);
@@ -181,12 +195,22 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const updateData: Record<string, unknown> = {};
+		if (pageId !== undefined) updateData.pageId = pageId;
 		if (title !== undefined) updateData.title = title?.trim() || null;
 		if (content !== undefined) updateData.content = content.trim();
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 		if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
-		if (status === "PUBLISHED" || status === "DRAFT") updateData.status = status;
+		if (status === "PUBLISHED" || status === "DRAFT") {
+			if (status === "PUBLISHED") {
+				// Use incoming content if being set now, otherwise check current content
+				const publishContent = content !== undefined ? content.trim() : existing.content;
+				if (!publishContent || publishContent.trim().length === 0) {
+					return badRequest("Cannot publish a post with empty content");
+				}
+			}
+			updateData.status = status;
+		}
 
 		const post = await prisma.post.update({
 			where: { id },

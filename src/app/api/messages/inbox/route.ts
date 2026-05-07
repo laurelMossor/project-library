@@ -41,8 +41,9 @@ export async function GET() {
 		}
 
 		// Fetch conversations with participants and last message
+		// Filter to conversations that have at least one message (empty conversations shouldn't appear in inbox)
 		const conversations = await prisma.conversation.findMany({
-			where: { id: { in: conversationIds } },
+			where: { id: { in: conversationIds }, messages: { some: {} } },
 			include: {
 				participants: {
 					include: {

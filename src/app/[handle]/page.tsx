@@ -71,9 +71,8 @@ export default async function HandleProfilePage({ params }: Props) {
 		const userDisplayName = getUserDisplayName(user);
 
 		const [events, posts] = await Promise.all([
-			getEventsByUser(user.id),
-			// Owner sees their own drafts in the collection
-			getPostsByUser(user.id, { includeOwner: isOwnProfile }),
+			getEventsByUser(user.id, { includeDrafts: isOwnProfile }),
+			getPostsByUser(user.id, { includeDrafts: isOwnProfile }),
 		]);
 		const collectionItems = [...events, ...posts];
 
@@ -140,9 +139,8 @@ export default async function HandleProfilePage({ params }: Props) {
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
 		const [events, posts] = await Promise.all([
-			getEventsByPage(page.id),
-			// Owners see their own drafts in the collection
-			getPostsByPage(page.id, { includeOwner: isOwner }),
+			getEventsByPage(page.id, { includeDrafts: isOwner }),
+			getPostsByPage(page.id, { includeDrafts: isOwner }),
 		]);
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);

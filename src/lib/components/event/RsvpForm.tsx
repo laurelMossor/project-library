@@ -7,6 +7,9 @@ import type { RsvpStatus } from "@/lib/types/rsvp";
 type RsvpFormProps = {
 	eventId: string;
 	onRsvpSubmitted?: () => void;
+	initialName?: string;
+	initialEmail?: string;
+	existingRsvpStatus?: RsvpStatus;
 };
 
 const STATUS_OPTIONS: { value: RsvpStatus; label: string }[] = [
@@ -15,14 +18,14 @@ const STATUS_OPTIONS: { value: RsvpStatus; label: string }[] = [
 	{ value: "CANT_MAKE_IT", label: "Can't make it" },
 ];
 
-export function RsvpForm({ eventId, onRsvpSubmitted }: RsvpFormProps) {
-	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
-	const [status, setStatus] = useState<RsvpStatus>("GOING");
+export function RsvpForm({ eventId, onRsvpSubmitted, initialName, initialEmail, existingRsvpStatus }: RsvpFormProps) {
+	const [name, setName] = useState(initialName ?? "");
+	const [email, setEmail] = useState(initialEmail ?? "");
+	const [status, setStatus] = useState<RsvpStatus>(existingRsvpStatus ?? "GOING");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
-	const [submitted, setSubmitted] = useState(false);
-	const [submittedStatus, setSubmittedStatus] = useState<RsvpStatus | null>(null);
+	const [submitted, setSubmitted] = useState(!!existingRsvpStatus);
+	const [submittedStatus, setSubmittedStatus] = useState<RsvpStatus | null>(existingRsvpStatus ?? null);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();

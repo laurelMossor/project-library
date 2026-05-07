@@ -246,7 +246,11 @@ function ProfileOwnerContent({
 				/>
 
 				{/* Profile elements */}
-				<ProfileElementList elements={entity.data.elements ?? []} />
+				<ProfileElementList
+					elements={entity.data.elements ?? []}
+					handle={entity.data.handle}
+					hasAboutContent={!!entity.data.aboutContent}
+				/>
 
 				{/* Follow stats — always last */}
 				<FollowStats entityId={entityId} entityType={entityType} connectionsHref={connectionsHref} />

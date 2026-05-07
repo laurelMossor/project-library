@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
+import { getEventsByPage } from "@/lib/utils/server/event";
 import { serverError } from "@/lib/utils/errors";
-import { eventWithUserFields } from "@/lib/utils/server/fields";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -13,13 +12,7 @@ type RouteParams = { params: Promise<{ pageId: string }> };
 export async function GET(_request: Request, { params }: RouteParams) {
 	try {
 		const { pageId } = await params;
-
-		const events = await prisma.event.findMany({
-			where: { pageId },
-			select: eventWithUserFields,
-			orderBy: { eventDateTime: "asc" },
-		});
-
+		const events = await getEventsByPage(pageId);
 		return NextResponse.json(events);
 	} catch (error) {
 		console.error("GET /api/pages/[pageId]/events error:", error);
