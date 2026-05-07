@@ -48,7 +48,7 @@ Each bundle = one spawned agent session.
 | **E** | Posts UX | Edit-after-post · Draft post/event behavior | Need design call before code |
 | **F** | Map polish | Map View sub-tasks | `CollectionMap` + `useLeaflet` only |
 | **G** | (DONE) N+1 sweep | Collection queries audit + fix | Backend; "biggest perf win" per beta plan |
-| **H** | Admin tools: group members | P0 SPATS, standalone | Membership API exists; needs admin UI |
+| **H** | (DONE) Admin tools: group members | P0 SPATS, standalone | Membership API exists; needs admin UI |
 | **I** | Share Event/Post | Small social feature | Standalone |
 
 **Suggested first moves:** **D** + **G** can dispatch in parallel right now — both well scoped, no design calls. **B** + **C** are small contained next steps. **A** is the biggest M4 arc. **E** waits on a design call.
