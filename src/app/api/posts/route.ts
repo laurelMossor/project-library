@@ -89,11 +89,22 @@ export async function GET(request: Request) {
 	// - logged-in user querying anything else: see published + own drafts
 	// - anonymous: published only
 	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
-	const statusFilter = isOwnUserQuery
-		? {}
-		: sessionCtx
-			? { OR: [{ status: "PUBLISHED" as const }, { status: "DRAFT" as const, userId: sessionCtx.userId }] }
-			: { status: "PUBLISHED" as const };
+
+	// Both status and search may need an OR clause — collect them in AND to avoid
+	// the two OR keys clobbering each other when spread into the same object.
+	const andConditions: object[] = [];
+
+	// Non-own queries always see published only — drafts are only visible on your own profile page
+	if (!isOwnUserQuery) {
+		andConditions.push({ status: "PUBLISHED" as const });
+	}
+
+	if (search) {
+		andConditions.push({ OR: [
+			{ title: { contains: search, mode: "insensitive" as const } },
+			{ content: { contains: search, mode: "insensitive" as const } },
+		]});
+	}
 
 	try {
 		const posts = await prisma.post.findMany({
@@ -104,11 +115,7 @@ export async function GET(request: Request) {
 				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
-				...(search ? { OR: [
-					{ title: { contains: search, mode: "insensitive" as const } },
-					{ content: { contains: search, mode: "insensitive" as const } },
-				]} : {}),
-				...statusFilter,
+				...(andConditions.length > 0 ? { AND: andConditions } : {}),
 			},
 			select: postCollectionFields,
 			orderBy: { createdAt: "desc" },

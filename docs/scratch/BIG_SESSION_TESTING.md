@@ -31,7 +31,7 @@ Accumulated from orchestrator session dispatches. Test after merging each bundle
 - [ ] "About Page" option hidden if about content already exists
 - [ ] Visitors can reach existing About pages from the profile collection card
 - [ ] **Settings avatar:** settings page headers show the active profile's avatar next to "User Settings" / "Page Settings"
-- [ ] **NavProfileTag fixed width:** desktop — trigger doesn't shift width when switching between profiles with short/long names
-- [ ] **NavProfileTag mobile:** at 375px, trigger collapses to avatar only; dropdown still opens normally
+- [x] **NavProfileTag fixed width:** desktop — trigger doesn't shift width when switching between profiles with short/long names
+- [x] **NavProfileTag mobile:** at 375px, trigger collapses to avatar only; dropdown still opens normally
 - [ ] **Photo captions:** on own post detail page, can add a caption below an image; caption persists on reload
 - [ ] Editing an existing caption works; caption displays for visitors
