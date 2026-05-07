@@ -49,9 +49,9 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 - [x] P0 & P1 bugs — three BUGS-epic tickets closed 2026-05-06: search filtering, empty message thread, empty posts guard
 - [x] N+1 refactor sweep — systematic pass shipped 2026-05-06; three API routes consolidated, dead exports removed, shared field selectors extended. Follow-on: `FollowStats` still fetches full arrays for `.length` (should use `_count`)
 - [ ] Non-offset pagination on collections
-- [ ] Edit posts after posting (Bundle E — needs design call)
-- [ ] Draft post/event behavior (Bundle E — needs design call)
-- [ ] Share Event/Post (Bundle I — standalone, not started)
+- [x] Edit posts after posting (Bundle E — needs design call)
+- [x] Draft post/event behavior (Bundle E — needs design call)
+- [x] Share Event/Post (Bundle I — standalone, not started)
 - [ ] Event form required-field hints on Publish
 
 **Beta details (M4):**
