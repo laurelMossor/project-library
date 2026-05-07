@@ -45,7 +45,7 @@ Each bundle = one spawned agent session.
 | **B** | (DONE) RSVP polish | RSVP-once · RSVP-autofill | Both P0, same Event RSVP form |
 | **C** | (DONE) Microsite finishers | About Page entry (P0) · Page Settings naming · Mobile profile tag · ProfileTags mobile overlap · Photo captions | All profile/page UI surfaces |
 | **D** | (DONE) Bug sweep | Search filter · Empty messages · Unfinished empty posts | Three independent bugs; one session per |
-| **E** | Posts UX | Edit-after-post · Draft post/event behavior | Need design call before code |
+| **E** | (DONE) Posts UX | Edit-after-post · Draft post/event behavior | Need design call before code |
 | **F** | Map polish | Map View sub-tasks | `CollectionMap` + `useLeaflet` only |
 | **G** | (DONE) N+1 sweep | Collection queries audit + fix | Backend; "biggest perf win" per beta plan |
 | **H** | (DONE) Admin tools: group members | P0 SPATS, standalone | Membership API exists; needs admin UI |
