@@ -19,7 +19,8 @@ import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { updatePost, publishPost, deletePost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
-import { EXPLORE_PAGE, HOME, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { PencilIcon } from "@/lib/components/icons/icons";
+import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { ImageItem } from "@/lib/types/image";
 
@@ -52,6 +53,7 @@ function PostPageContent({
 	const [editTitle, setEditTitle] = useState(post.title);
 	const [editContent, setEditContent] = useState(post.content);
 	const [editTagsArr, setEditTagsArr] = useState<string[]>(post.tags);
+	const [isEditing, setIsEditing] = useState(post.status === "DRAFT");
 
 	const isDraft = post.status === "DRAFT";
 	const isPublished = post.status === "PUBLISHED";
@@ -112,6 +114,7 @@ function PostPageContent({
 			if (isDirty) await session?.saveAll();
 			const updated = await publishPost(post.id);
 			setPost((prev) => ({ ...prev, ...updated }));
+			setIsEditing(false);
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
 		} finally {
@@ -141,7 +144,7 @@ function PostPageContent({
 
 				{/* Title */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "title"}
 					onEditStart={() => {
 						setEditTitle(post.title);
@@ -224,7 +227,7 @@ function PostPageContent({
 
 				{/* Content */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "content"}
 					onEditStart={() => {
 						setEditContent(post.content);
@@ -255,11 +258,11 @@ function PostPageContent({
 				/>
 
 				{/* Images */}
-				{images.length > 0 && <ImageCarousel images={images} showCaptions isOwner={isOwner} />}
+				{images.length > 0 && <ImageCarousel images={images} showCaptions isOwner={isOwner && isEditing} />}
 
 				{/* Tags */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "tags"}
 					onEditStart={() => {
 						setEditTagsArr(post.tags);
@@ -289,26 +292,33 @@ function PostPageContent({
 				)}
 
 				{/* Footer actions */}
-				<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-					{isOwner && (
+				{isOwner && (
+					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
 						<DeletePostButton
 							postId={post.id}
 							postTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
 						/>
-					)}
-					<Link
-						href={EXPLORE_PAGE}
-						className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"
-					>
-						Explore
-					</Link>
-					<Link
-						href={HOME}
-						className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"
-					>
-						Home
-					</Link>
-				</div>
+						{isPublished && !isEditing && (
+							<button
+								type="button"
+								onClick={() => setIsEditing(true)}
+								className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-rich-brown transition-colors cursor-pointer"
+							>
+								<PencilIcon className="w-3.5 h-3.5" />
+								Edit
+							</button>
+						)}
+						{isPublished && isEditing && (
+							<button
+								type="button"
+								onClick={async () => { if (isDirty) await session?.saveAll(); setIsEditing(false); }}
+								className="text-sm font-medium text-moss-green hover:text-rich-brown transition-colors cursor-pointer"
+							>
+								Done
+							</button>
+						)}
+					</div>
+				)}
 			</PostContentArea>
 		</>
 	);
@@ -318,7 +328,11 @@ export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn 
 	const [post, setPost] = useState(initialPost);
 
 	return (
-		<PostPageShell>
+		<PostPageShell breadcrumb={
+			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+				&larr; Back to Explore
+			</Link>
+		}>
 			<InlineEditSession
 				resource={post as unknown as Record<string, unknown>}
 				onSave={async ({ fields }) => {

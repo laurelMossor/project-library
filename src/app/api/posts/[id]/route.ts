@@ -60,6 +60,7 @@ const postFields = {
 			name: true,
 			handle: true,
 			avatarImageId: true,
+			avatarImage: { select: { url: true } },
 		},
 	},
 	event: {

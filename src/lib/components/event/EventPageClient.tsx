@@ -23,7 +23,8 @@ import { updateEvent, publishEvent, deleteEvent } from "@/lib/utils/event-client
 import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
-import { MESSAGE_CONVERSATION, EXPLORE_PAGE, HOME, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { PencilIcon } from "@/lib/components/icons/icons";
+import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
@@ -70,6 +71,7 @@ function EventPageContent({
 	const [editLongitude, setEditLongitude] = useState<number | null>(event.longitude);
 	const [editTagsArr, setEditTagsArr] = useState<string[]>(event.tags);
 	const [geocoding, setGeocoding] = useState(false);
+	const [isEditing, setIsEditing] = useState(event.status === "DRAFT");
 
 	const isDraft = event.status === "DRAFT";
 	const isPublished = event.status === "PUBLISHED";
@@ -128,6 +130,7 @@ function EventPageContent({
 			if (dirtyCount > 0) await editSession?.saveAll();
 			const updated = await publishEvent(event.id);
 			setEvent((prev) => ({ ...prev, ...updated }));
+			setIsEditing(false);
 		} catch (err) {
 			if (err instanceof AuthError) {
 				handleAuthError();
@@ -186,7 +189,7 @@ function EventPageContent({
 			<CoverImageEditor
 				eventId={event.id}
 				imageUrl={coverImageUrl}
-				canEdit={isOwner}
+				canEdit={isOwner && isEditing}
 				onImageUploaded={(url) => {
 					setEvent((prev) => ({
 						...prev,
@@ -198,7 +201,7 @@ function EventPageContent({
 			<PostContentArea>
 				{/* Title */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "title"}
 					onEditStart={() => {
 						setEditTitle(event.title);
@@ -235,7 +238,7 @@ function EventPageContent({
 				<InlineDateTimePicker
 					eventId={event.id}
 					eventDateTime={event.eventDateTime}
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					onSave={handleDateSave}
 				/>
 
@@ -283,7 +286,7 @@ function EventPageContent({
 
 				{/* Description */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "content"}
 					onEditStart={() => {
 						setEditContent(event.content);
@@ -312,7 +315,7 @@ function EventPageContent({
 
 				{/* Location */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "location"}
 					onEditStart={() => {
 						setEditLocation(event.location);
@@ -390,7 +393,7 @@ function EventPageContent({
 
 				{/* Tags */}
 				<InlineEditable
-					canEdit={isOwner}
+					canEdit={isOwner && isEditing}
 					isEditing={editingField === "tags"}
 					onEditStart={() => {
 						setEditTagsArr(event.tags);
@@ -417,21 +420,34 @@ function EventPageContent({
 				{isOwner && isPublished && <AttendeeList eventId={event.id} />}
 
 				{/* Footer actions */}
-				<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-					{isOwner && <DeleteEventButton eventId={event.id} eventTitle={event.title || "Untitled Event"} />}
-					<Link
-						href={EXPLORE_PAGE}
-						className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"
-					>
-						Explore
-					</Link>
-					<Link
-						href={HOME}
-						className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"
-					>
-						Home
-					</Link>
-				</div>
+				{isOwner && (
+					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
+						<DeleteEventButton eventId={event.id} eventTitle={event.title || "Untitled Event"} />
+						{isPublished && !isEditing && (
+							<button
+								type="button"
+								onClick={() => setIsEditing(true)}
+								className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-rich-brown transition-colors cursor-pointer"
+							>
+								<PencilIcon className="w-3.5 h-3.5" />
+								Edit
+							</button>
+						)}
+						{isPublished && isEditing && (
+							<button
+								type="button"
+								onClick={async () => {
+									const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
+									if (dirtyCount > 0) await editSession?.saveAll();
+									setIsEditing(false);
+								}}
+								className="text-sm font-medium text-moss-green hover:text-rich-brown transition-colors cursor-pointer"
+							>
+								Done
+							</button>
+						)}
+					</div>
+				)}
 			</PostContentArea>
 		</>
 	);
@@ -441,7 +457,11 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 	const [event, setEvent] = useState(initialEvent);
 
 	return (
-		<PostPageShell>
+		<PostPageShell breadcrumb={
+			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+				&larr; Back to Explore
+			</Link>
+		}>
 			<InlineEditSession
 				resource={event as unknown as Record<string, unknown>}
 				onSave={async ({ fields }) => {

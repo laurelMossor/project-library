@@ -551,6 +551,34 @@ async function main() {
       },
     });
 
+    // User-to-user DM: dolores (users[1]) + alice (users[0])
+    const doloresAliceDm = await prisma.conversation.create({
+      data: {
+        participants: {
+          create: [
+            { userId: createdUsers[1].id },
+            { userId: createdUsers[0].id },
+          ],
+        },
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: doloresAliceDm.id,
+        senderId: createdUsers[0].id,
+        content: "Hey Dolores! Love what you're doing with the Guild. Want to collaborate on a workshop?",
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        conversationId: doloresAliceDm.id,
+        senderId: createdUsers[1].id,
+        content: "Absolutely! Let's set something up for next month.",
+      },
+    });
+
     // User messages a Page
     if (createdPages.length > 0) {
       const pageConvo = await prisma.conversation.create({
