@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AnyCollectionItem, CollectionItem, isEvent, isAbout, AboutCollectionItem } from "@/lib/types/collection";
+import { AnyCollectionItem, CollectionItem, isEvent, isAbout, isPastEvent, AboutCollectionItem } from "@/lib/types/collection";
 import type { EventItem } from "@/lib/types/event";
 import { ProfilePicture } from "../profile/ProfilePicture";
 import { Tags } from "../tag/Tag";
@@ -65,6 +65,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 	const isPinned = Boolean(ri.pinnedAt);
 	const isDraft = ri.status === "DRAFT";
+	const isPast = isPastEvent(ri);
 	const canPin = !!pinConfig && (
 		pinConfig.currentUserId === ri.userId ||
 		(ri.page !== null && ri.page?.id === pinConfig.activePageId)
@@ -88,7 +89,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 	return (
 		<div
-			className="border rounded p-4 hover:shadow-lg transition-shadow flex flex-col cursor-pointer"
+			className={`border rounded p-4 hover:shadow-lg transition-shadow flex flex-col cursor-pointer${isPast ? " opacity-50" : ""}`}
 			onClick={() => router.push(detailUrl)}
 		>
 			<div className="mb-4">
@@ -127,7 +128,10 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 			{ev && (
 				<div className="mb-2 text-sm text-gray-600">
-					<p className="font-medium">📅 {formatDateTime(ev.eventDateTime)}</p>
+					<p className="font-medium flex items-center gap-2">
+						📅 {formatDateTime(ev.eventDateTime)}
+						{isPast && <span className="text-xs font-medium uppercase tracking-wide text-dusty-grey border border-dusty-grey rounded px-1.5 py-0.5">Past</span>}
+					</p>
 					<p className="text-xs">📍 {ev.location}</p>
 				</div>
 			)}

@@ -30,7 +30,7 @@ export function useFilter(items: CollectionItem[], initialValues?: FilterInitial
 		
 		// Sort items (relevance is handled by API search, so no sorting needed)
 		if (sort === "newest" || sort === "oldest") {
-			return sortCollectionItemsByDate(filtered, sort);
+			return sortCollectionItemsByDate(filtered, sort, collectionTypeFilter);
 		}
 		
 		return filtered;

@@ -72,3 +72,16 @@ export function getCollectionItemDate(item: CollectionItem): Date {
 	if (typeof dateValue === "string") return new Date(dateValue);
 	return new Date();
 }
+
+export function getCollectionItemCreatedAt(item: CollectionItem): Date {
+	const dateValue = item.createdAt;
+	if (dateValue instanceof Date) return dateValue;
+	if (typeof dateValue === "string") return new Date(dateValue);
+	return new Date();
+}
+
+export function isPastEvent(item: CollectionItem): boolean {
+	if (!isEvent(item)) return false;
+	const eventDate = getCollectionItemDate(item);
+	return eventDate.getTime() < Date.now();
+}
