@@ -2,8 +2,8 @@
   "follows": [
     { "follower": "alice", "following": "sam" },
     { "follower": "sam", "following": "alice" },
-    { "follower": "alice", "following": "berkeley-tech-meetup" },
-    { "follower": "sam", "following": "berkeley-tech-meetup" }
+    { "follower": "alice", "following": "portland-makers-guild" },
+    { "follower": "sam", "following": "portland-makers-guild" }
   ],
   "conversations": [
     {
@@ -28,16 +28,16 @@
       ]
     },
     {
-      "participants": ["alice", "berkeley-tech-meetup"],
+      "participants": ["sam", "portland-makers-guild"],
       "messages": [
         {
-          "senderHandle": "alice",
-          "content": "Hi! I'm not a developer but I do a lot of creative work with technology — computational textile design, generative patterns, that kind of thing. Would a talk like that be a good fit for your meetup?"
+          "senderHandle": "sam",
+          "content": "Hi! I'm interested in joining your next workshop. Any spots open?"
         },
         {
-          "senderHandle": "sam",
-          "asPageHandle": "berkeley-tech-meetup",
-          "content": "That sounds fantastic! We love cross-disciplinary talks. The August meetup has an open speaker slot — let's set it up."
+          "senderHandle": "alice",
+          "asPageHandle": "portland-makers-guild",
+          "content": "Welcome! We have a few spots open for next Saturday. Sign up at the door or message us here to reserve."
         }
       ]
     }

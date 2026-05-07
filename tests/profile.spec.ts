@@ -11,19 +11,23 @@ test.describe("Profile pages", () => {
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 
-  test("public profile /george loads and shows user info", async ({ page }) => {
-    await page.goto("/george");
-    await expect(page).toHaveURL(/\/george/);
-    await expect(page.getByRole("heading", { name: "George Example" })).toBeVisible();
+  test("public profile /sam loads and shows user info", async ({ page }) => {
+    await page.goto("/sam");
+    await expect(page).toHaveURL(/\/sam/);
+    await expect(page.getByRole("heading", { name: "Sam Example", exact: true })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 
   test("follow and unfollow another user", async ({ page }) => {
     await loginAs(page, "alice");
-    await page.goto("/george");
+    await page.goto("/sam");
+    await page.waitForLoadState("networkidle");
 
     const followBtn = page.getByRole("button", { name: /^Follow$/ });
     const unfollowBtn = page.getByRole("button", { name: /^Unfollow$/ });
+
+    // Wait for the follow button to settle (needs auth state to determine follow status)
+    await expect(followBtn.or(unfollowBtn)).toBeVisible({ timeout: 8_000 });
 
     // Ensure we start from a known state: if already following, unfollow first
     if (await unfollowBtn.isVisible()) {
