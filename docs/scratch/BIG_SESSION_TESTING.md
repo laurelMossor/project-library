@@ -35,3 +35,14 @@ Accumulated from orchestrator session dispatches. Test after merging each bundle
 - [x] **NavProfileTag mobile:** at 375px, trigger collapses to avatar only; dropdown still opens normally
 - [ ] **Photo captions:** on own post detail page, can add a caption below an image; caption persists on reload
 - [ ] Editing an existing caption works; caption displays for visitors
+
+## Bundle H — Admin Tools (Manage Admins + Connections View)
+
+- [ ] **Connections — no "View" buttons:** clicking the ProfileTag itself navigates to the profile
+- [ ] **Expandable actions:** each USER row has an icon; clicking it expands inline actions; clicking "x" or expanding another row collapses it
+- [ ] **Followers tab:** "Remove Follower" removes the row
+- [ ] **Following tab:** "Unfollow" removes the row
+- [ ] **Membership tab (as user):** "Leave Group" removes the membership
+- [ ] **Membership tab (as page admin):** "Remove from group" removes the member; last-admin removal shows inline error
+- [ ] **Membership tab (as page admin):** "Add members" button shows `ProfileSearchDropdown`; selecting a user adds them and refreshes the list
+- [ ] **Manage Admins (settings):** search dropdown finds users by partial name/handle; selecting adds as admin; already-admins excluded from results
