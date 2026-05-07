@@ -11,13 +11,15 @@ import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { DeletePostButton } from "@/lib/components/post/DeletePostButton";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
+import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
+import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { Tag } from "@/lib/components/tag/Tag";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { updatePost, publishPost, deletePost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
-import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL } from "@/lib/const/routes";
+import { EXPLORE_PAGE, HOME, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { ImageItem } from "@/lib/types/image";
 
@@ -25,6 +27,7 @@ type PostPageClientProps = {
 	post: PostItem;
 	images: ImageItem[];
 	isOwner: boolean;
+	isLoggedIn: boolean;
 };
 
 /** Inner content — must be inside <InlineEditSession> to access session context */
@@ -33,11 +36,13 @@ function PostPageContent({
 	setPost,
 	images,
 	isOwner,
+	isLoggedIn,
 }: {
 	post: PostItem;
 	setPost: React.Dispatch<React.SetStateAction<PostItem>>;
 	images: ImageItem[];
 	isOwner: boolean;
+	isLoggedIn: boolean;
 }) {
 	const router = useRouter();
 	const session = useInlineEditSession();
@@ -49,8 +54,22 @@ function PostPageContent({
 	const [editTagsArr, setEditTagsArr] = useState<string[]>(post.tags);
 
 	const isDraft = post.status === "DRAFT";
+	const isPublished = post.status === "PUBLISHED";
 	const entity = post.page ?? post.user!;
 	const isDirty = session ? Object.keys(session.dirtyFields).length > 0 : false;
+
+	const handleAuthError = () => {
+		router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
+	};
+
+	const handleAuthorSwitch = async (pageId: string | null) => {
+		try {
+			const updated = await updatePost(post.id, { pageId });
+			setPost((prev) => ({ ...prev, ...updated }));
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
+		}
+	};
 
 	// When session cancels, revert all field states
 	const cancelRevision = session?.cancelRevision ?? 0;
@@ -94,9 +113,7 @@ function PostPageContent({
 			const updated = await publishPost(post.id);
 			setPost((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
-			if (err instanceof AuthError) {
-				router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
-			}
+			if (err instanceof AuthError) handleAuthError();
 		} finally {
 			setPublishing(false);
 		}
@@ -165,9 +182,27 @@ function PostPageContent({
 				/>
 
 				{/* Author + actions row */}
-				<div className="flex items-center justify-between gap-4">
-					<ProfileTag entity={entity} size="md" asLink />
-					<div className="flex gap-3 items-center">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex-1">
+						{isOwner && isDraft ? (
+							<DropdownProfileSelector
+								initialPageId={post.page?.id ?? null}
+								onChange={handleAuthorSwitch}
+							/>
+						) : (
+							<ProfileTag entity={entity} size="md" asLink />
+						)}
+					</div>
+					<div className="flex flex-wrap gap-3 items-center">
+						{isPublished && <ShareButton />}
+						{isLoggedIn && !isOwner && (
+							<Link
+								href={MESSAGE_CONVERSATION({ id: post.userId, type: "user" })}
+								className="px-3 py-1 text-sm font-medium border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+							>
+								Message
+							</Link>
+						)}
 						{isOwner && isDraft && (
 							<button
 								type="button"
@@ -179,7 +214,7 @@ function PostPageContent({
 								{publishing ? "Publishing..." : "Publish"}
 							</button>
 						)}
-						{!isDraft && isOwner && (
+						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
 								Live
 							</span>
@@ -267,13 +302,19 @@ function PostPageContent({
 					>
 						Explore
 					</Link>
+					<Link
+						href={HOME}
+						className="text-sm font-medium text-gray-500 hover:text-rich-brown underline underline-offset-2"
+					>
+						Home
+					</Link>
 				</div>
 			</PostContentArea>
 		</>
 	);
 }
 
-export function PostPageClient({ post: initialPost, images, isOwner }: PostPageClientProps) {
+export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
 
 	return (
@@ -295,6 +336,7 @@ export function PostPageClient({ post: initialPost, images, isOwner }: PostPageC
 					setPost={setPost}
 					images={images}
 					isOwner={isOwner}
+					isLoggedIn={isLoggedIn}
 				/>
 			</InlineEditSession>
 		</PostPageShell>

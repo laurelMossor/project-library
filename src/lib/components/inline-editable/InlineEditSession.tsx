@@ -56,7 +56,7 @@ type InlineEditSessionProps<T extends Record<string, unknown>> = {
 
 // TODO create hook and utilities to break up this file
 export function InlineEditSession<T extends Record<string, unknown>>({
-	resource,
+	resource: _resource,
 	onSave,
 	onSaved,
 	canEdit,

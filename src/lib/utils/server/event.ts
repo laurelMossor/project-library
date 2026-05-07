@@ -31,9 +31,12 @@ export async function getEventById(id: string): Promise<EventItem | null> {
 }
 
 // Fetch all events by a specific user
-export async function getEventsByUser(userId: string): Promise<EventItem[]> {
+export async function getEventsByUser(userId: string, { includeDrafts = false } = {}): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
-		where: { userId },
+		where: {
+			userId,
+			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+		},
 		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
@@ -50,9 +53,12 @@ export async function getEventsByUser(userId: string): Promise<EventItem[]> {
 }
 
 // Fetch all events for a page
-export async function getEventsByPage(pageId: string): Promise<EventItem[]> {
+export async function getEventsByPage(pageId: string, { includeDrafts = false } = {}): Promise<EventItem[]> {
 	const events = await prisma.event.findMany({
-		where: { pageId },
+		where: {
+			pageId,
+			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+		},
 		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});

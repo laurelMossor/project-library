@@ -14,6 +14,8 @@ export function useBreakpoint<T>(getter: () => T, initialValue: T): T {
 		handle();
 		window.addEventListener("resize", handle);
 		return () => window.removeEventListener("resize", handle);
+	// getter is a stable callback from the call site; re-running on every reference change would thrash
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return value;

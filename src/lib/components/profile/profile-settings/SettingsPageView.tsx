@@ -35,6 +35,8 @@ export function SettingsPageView() {
 			})
 			.catch(() => {})
 			.finally(() => setDataLoading(false));
+	// currentUser?.id tracks identity changes; adding the full object would re-run on every reference change
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentUser?.id]);
 
 	if (profileLoading || !currentUser) {

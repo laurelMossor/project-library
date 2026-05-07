@@ -120,7 +120,6 @@ export function MessagesPageView() {
 		}
 		prevEntityId.current = activeEntity.id;
 		fetchInbox();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [activeEntity?.id]);
 
 	async function fetchInbox() {

@@ -29,16 +29,16 @@ export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> 
 
 /**
  * Fetch a user's top-level published posts for public views (explore, other users' profiles).
- * Pass `includeOwner: true` to also return drafts (for the author's own profile view).
+ * Pass `includeDrafts: true` to also return drafts (for the author's own profile view).
  */
-export async function getPostsByUser(userId: string, { includeOwner = false } = {}): Promise<PostCollectionItem[]> {
+export async function getPostsByUser(userId: string, { includeDrafts = false } = {}): Promise<PostCollectionItem[]> {
 	const posts = await prisma.post.findMany({
 		where: {
 			userId,
 			pageId: null,
 			parentPostId: null,
 			eventId: null,
-			...(includeOwner ? {} : { status: "PUBLISHED" }),
+			...(includeDrafts ? {} : { status: "PUBLISHED" }),
 		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -56,15 +56,15 @@ export async function getPostsByUser(userId: string, { includeOwner = false } = 
 
 /**
  * Fetch a page's top-level published posts for public views.
- * Pass `includeOwner: true` to also return drafts (for page admins/editors).
+ * Pass `includeDrafts: true` to also return drafts (for page admins/editors).
  */
-export async function getPostsByPage(pageId: string, { includeOwner = false } = {}): Promise<PostCollectionItem[]> {
+export async function getPostsByPage(pageId: string, { includeDrafts = false } = {}): Promise<PostCollectionItem[]> {
 	const posts = await prisma.post.findMany({
 		where: {
 			pageId,
 			parentPostId: null,
 			eventId: null,
-			...(includeOwner ? {} : { status: "PUBLISHED" }),
+			...(includeDrafts ? {} : { status: "PUBLISHED" }),
 		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },

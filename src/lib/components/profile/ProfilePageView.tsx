@@ -49,6 +49,8 @@ export function ProfilePageView() {
 			})
 			.catch(() => setError("Failed to load profile data"))
 			.finally(() => setDataLoading(false));
+	// activeEntity?.id tracks identity changes; adding the full object would re-run on every reference change
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [activeEntity?.id, activePageId]);
 
 	if (profileLoading || !currentUser || !activeEntity) {

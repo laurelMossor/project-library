@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Create a signup invite and print the URL to share (e.g. from personal email).
  *

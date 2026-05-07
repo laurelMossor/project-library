@@ -80,7 +80,7 @@ test.describe("Authoring — create content", () => {
   test("create, publish, and delete a post (draft-then-inline-edit)", async ({ page }) => {
     // /posts/new creates a DRAFT and immediately redirects to the post detail page
     await page.goto("/posts/new");
-    await page.waitForURL(/\/posts\/[^/]+$/, { timeout: 15_000 });
+    await page.waitForURL(/\/posts\/(?!new$)[^/]+$/, { timeout: 15_000 });
 
     // Draft banner should be visible
     await expect(page.getByText("Draft — only you can see this")).toBeVisible();
@@ -119,7 +119,7 @@ test.describe("Authoring — create content", () => {
   test("draft post is not visible to public", async ({ page, browser }) => {
     // Create a draft post as alice
     await page.goto("/posts/new");
-    await page.waitForURL(/\/posts\/[^/]+$/, { timeout: 15_000 });
+    await page.waitForURL(/\/posts\/(?!new$)[^/]+$/, { timeout: 15_000 });
     const postUrl = page.url();
 
     // A fresh (unauthenticated) browser context should see 404 for the draft

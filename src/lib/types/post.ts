@@ -84,6 +84,7 @@ export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _c
 		userId: post.userId,
 		title: post.title,
 		content: post.content,
+		status: post.status,
 		tags: post.tags,
 		topics: post.topics,
 		type: "post",

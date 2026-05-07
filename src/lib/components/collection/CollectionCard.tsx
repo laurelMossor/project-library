@@ -64,6 +64,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	const profileHref = PUBLIC_PROFILE(handle);
 
 	const isPinned = Boolean(ri.pinnedAt);
+	const isDraft = ri.status === "DRAFT";
 	const canPin = !!pinConfig && (
 		pinConfig.currentUserId === ri.userId ||
 		(ri.page !== null && ri.page?.id === pinConfig.activePageId)
@@ -96,6 +97,11 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 					<div className="flex-1 min-w-0">
 						{ri.title && <h2 className="text-xl font-semibold mb-2">{ri.title}</h2>}
 					</div>
+					{pinConfig && isDraft && (
+						<span className="flex-shrink-0 text-xs font-medium uppercase tracking-wide text-dusty-grey border border-dusty-grey rounded px-1.5 py-0.5">
+							Draft
+						</span>
+					)}
 					{canPin && (
 						<button
 							onClick={(e) => { e.stopPropagation(); handleTogglePin(); }}

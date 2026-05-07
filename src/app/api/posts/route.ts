@@ -158,12 +158,14 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { content, title, pageId, eventId, parentPostId, tags, topics } = data;
+		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
 
-		// Validate content
-		const contentValidation = validatePostContent(content);
-		if (!contentValidation.valid) {
-			return badRequest(contentValidation.error || "Invalid post content");
+		// Draft creation (from /posts/new) skips content validation — content starts empty
+		if (!isDraft) {
+			const contentValidation = validatePostContent(content);
+			if (!contentValidation.valid) {
+				return badRequest(contentValidation.error || "Invalid post content");
+			}
 		}
 
 		// Validate title if provided
@@ -226,13 +228,14 @@ export async function POST(request: Request) {
 		const post = await prisma.post.create({
 			data: {
 				userId: ctx.userId,
-				content: content.trim(),
+				content: content?.trim() || "",
 				title: title?.trim() || null,
 				pageId: pageId || null,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
+				...(isDraft ? { status: "DRAFT" } : {}),
 			},
 			select: postWithUserFields,
 		});

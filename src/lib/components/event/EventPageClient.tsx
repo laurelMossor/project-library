@@ -108,6 +108,7 @@ function EventPageContent({
 		return () => {
 			clearTimeout(armTimer);
 			if (armed && shouldDiscardOnLeaveRef.current) {
+				// eslint-disable-next-line no-console
 				console.log("TODO: show discard-draft popup — deleting draft event on navigation away:", eventId);
 				deleteEvent(eventId).catch(() => {});
 			}

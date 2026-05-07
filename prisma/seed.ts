@@ -467,6 +467,7 @@ async function main() {
         title: p.title,
         content: p.description,
         tags: p.tags ?? [],
+        status: "PUBLISHED",
       },
       select: { id: true, userId: true, title: true },
     });
@@ -514,6 +515,7 @@ async function main() {
         pageId: page.id,
         title: "Page bulletin",
         content: "Announcements, calls for help, and what we're building together.",
+        status: "PUBLISHED",
       },
     });
   }
