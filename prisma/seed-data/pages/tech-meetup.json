@@ -1,0 +1,48 @@
+{
+  "name": "Berkeley Tech Meetup",
+  "handle": "berkeley-tech-meetup",
+  "headline": "Monthly talks, demos, and workshops for Bay Area developers.",
+  "bio": "A community-run meetup for developers, designers, and makers in the East Bay. We meet monthly to share projects, learn new tools, and connect with people building interesting things.",
+  "interests": ["Web Development", "React", "TypeScript", "Open Source", "Community"],
+  "location": "Berkeley, CA",
+  "aboutContent": "Berkeley Tech Meetup started as a handful of developers meeting at a coffee shop to talk about React. It's grown into a monthly gathering of 30-50 people covering web development, open source, accessibility, and the intersection of tech and community.\n\nWe meet on the second Tuesday of every month at the Berkeley Tech Hub. Talks are 15-20 minutes, followed by open discussion and project demos. All experience levels welcome.\n\nWant to give a talk? Message us — we're always looking for speakers on web dev, design, accessibility, or creative coding.",
+  "avatarImage": "construction-exmple.png",
+  "profileElements": [
+    {
+      "kind": "LINK",
+      "value": "https://meetup.com/berkeley-tech",
+      "url": "https://meetup.com/berkeley-tech",
+      "label": "Meetup page",
+      "sortOrder": 0
+    },
+    {
+      "kind": "TEXT",
+      "value": "Second Tuesday of every month, 6:30pm at Berkeley Tech Hub (5678 Telegraph Ave).",
+      "label": "When & where",
+      "sortOrder": 1
+    }
+  ],
+  "creatorHandle": "sam",
+  "editors": ["alice"],
+  "members": "*",
+  "posts": [
+    {
+      "title": "June Meetup Recap",
+      "content": "Great turnout last night — thanks to everyone who came! We had talks on WebAssembly performance, accessible form design, and a live demo of a local-first sync engine.\n\nSlides and links are in our Signal group. Next meetup is July 8th.",
+      "tags": ["Meetup", "Recap", "Web Development"],
+      "status": "PUBLISHED"
+    }
+  ],
+  "events": [
+    {
+      "title": "July Meetup: React Server Components",
+      "content": "This month we're diving into React Server Components — what they are, when to use them, and how they change the way we think about data fetching.\n\nTwo short talks followed by open discussion. Bring your questions and your laptop if you want to follow along.",
+      "eventDateTime": "2026-07-08T18:30:00Z",
+      "location": "Berkeley Tech Hub, 5678 Telegraph Ave, Berkeley, CA",
+      "latitude": 37.8651,
+      "longitude": -122.2571,
+      "tags": ["React", "Server Components", "Tech Meetup"],
+      "status": "PUBLISHED"
+    }
+  ]
+}

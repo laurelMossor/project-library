@@ -1,0 +1,54 @@
+{
+  "follows": [
+    { "follower": "alice", "following": "sam" },
+    { "follower": "sam", "following": "alice" },
+    { "follower": "alice", "following": "berkeley-tech-meetup" },
+    { "follower": "sam", "following": "berkeley-tech-meetup" }
+  ],
+  "conversations": [
+    {
+      "participants": ["alice", "sam"],
+      "messages": [
+        {
+          "senderHandle": "alice",
+          "content": "Hey Sam! Saw your raised bed post — those look great. I've been thinking about growing some dye plants for my textile work. Any tips for a first-time gardener?"
+        },
+        {
+          "senderHandle": "sam",
+          "content": "Thanks! Dye plants are a great idea. Marigolds and indigo are pretty forgiving for beginners. Happy to share some seedlings if you want a head start."
+        },
+        {
+          "senderHandle": "alice",
+          "content": "That would be amazing! I'll bring some fabric scraps to the next meetup so you can see what I'm working on."
+        },
+        {
+          "senderHandle": "sam",
+          "content": "Sounds good. I'll bring the seedlings. See you there!"
+        }
+      ]
+    },
+    {
+      "participants": ["alice", "berkeley-tech-meetup"],
+      "messages": [
+        {
+          "senderHandle": "alice",
+          "content": "Hi! I'm not a developer but I do a lot of creative work with technology — computational textile design, generative patterns, that kind of thing. Would a talk like that be a good fit for your meetup?"
+        },
+        {
+          "senderHandle": "sam",
+          "asPageHandle": "berkeley-tech-meetup",
+          "content": "That sounds fantastic! We love cross-disciplinary talks. The August meetup has an open speaker slot — let's set it up."
+        }
+      ]
+    }
+  ],
+  "rsvps": [
+    {
+      "eventOwnerHandle": "sam",
+      "eventIndex": 0,
+      "name": "Alice Example",
+      "email": "alice@example.com",
+      "status": "GOING"
+    }
+  ]
+}
