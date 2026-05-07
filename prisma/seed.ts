@@ -212,6 +212,7 @@ async function main() {
         firstName: firstName ?? null,
         middleName: middleName ?? null,
         lastName: lastName ?? null,
+        displayName: u.name,
         headline: u.headline ?? null,
         bio: u.bio ?? null,
         interests: u.interests ?? [],

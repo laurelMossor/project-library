@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/lib/components/ui/Button";
 import { ConnectionListItem, ConnectionUser } from "./ConnectionListItem";
-import { AddConnectionSearch } from "./AddConnectionSearch";
+import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
 import { ConnectionType } from "@/lib/types/card";
 
 export type { ConnectionType } from "@/lib/types/card";
@@ -151,30 +151,28 @@ export function ManageConnections({
 		loadItems();
 	}, [checkPermission, loadItems]);
 
-	const handleAdd = async (userId: string) => {
+	const handleAdd = async (user: SearchResultUser) => {
 		if (!addEndpoint) return;
 
 		setError("");
-		
+
 		try {
 			const res = await fetch(addEndpoint, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId }),
+				body: JSON.stringify({ userId: user.id }),
 			});
 
 			if (!res.ok) {
 				const data = await res.json();
 				setError(data.error || "Failed to add");
-				throw new Error(data.error || "Failed to add");
+				return;
 			}
 
 			await loadItems();
-		} catch (err) {
-			if (err instanceof Error) {
-				setError(err.message);
-			}
-			throw err;
+			setShowAddForm(false);
+		} catch {
+			setError("Failed to add");
 		}
 	};
 
@@ -233,12 +231,11 @@ export function ManageConnections({
 				</h2>
 				{addEndpoint && hasPermission && (
 					<Button
-						onClick={() => setShowAddForm(true)}
+						onClick={() => setShowAddForm((prev) => !prev)}
 						variant="secondary"
 						size="sm"
-						disabled={showAddForm}
 					>
-						{addButtonLabel}
+						{showAddForm ? "Cancel" : addButtonLabel}
 					</Button>
 				)}
 			</div>
@@ -248,14 +245,6 @@ export function ManageConnections({
 					{error}
 				</div>
 			)}
-
-			<AddConnectionSearch
-				onAdd={handleAdd}
-				placeholder={addSearchPlaceholder}
-				buttonLabel={addButtonLabel}
-				isOpen={showAddForm}
-				onClose={() => setShowAddForm(false)}
-			/>
 
 			{items.length === 0 ? (
 				<p className="text-gray-500 mt-4">{emptyMessage}</p>
@@ -277,6 +266,16 @@ export function ManageConnections({
 							/>
 						);
 					})}
+				</div>
+			)}
+
+			{showAddForm && (
+				<div className="mt-4">
+					<ProfileSearchDropdown
+						onSelect={handleAdd}
+						placeholder={addSearchPlaceholder}
+						excludeUserIds={items.map((item) => item.userId)}
+					/>
 				</div>
 			)}
 		</div>
