@@ -14,7 +14,6 @@ const devPath = resolve(root, ".env.development");
 if (existsSync(devPath)) {
 	config({ path: devPath, override: true });
 }
-// Optional — many setups only use .env + .env.development; skip if you have no .env.local
 const localPath = resolve(root, ".env.local");
 if (existsSync(localPath)) {
 	config({ path: localPath, override: true });

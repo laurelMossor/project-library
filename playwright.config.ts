@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testIgnore: "**/unit/**",
+  globalSetup: "./tests/global-setup.ts",
   globalTeardown: "./tests/global-teardown.ts",
   timeout: 30_000,
   retries: 0,

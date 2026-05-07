@@ -165,6 +165,7 @@ const searchUserFields = {
 	avatarImage: { select: { url: true } },
 } as const;
 
+// TODO: I feel like this should be under search by handle and then filter by page or user if necessary
 export async function searchUsers(query: string, limit = 8) {
 	if (query.length < 2) return [];
 

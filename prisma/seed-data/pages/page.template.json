@@ -1,0 +1,51 @@
+{
+  "name": "Page Display Name",
+  "handle": "page-handle",
+  "headline": "One-line description shown under the page name",
+  "bio": "A few sentences about the page.",
+  "interests": ["Interest One", "Interest Two"],
+  "location": "City, ST",
+  "aboutContent": "Longer text shown on the About page. Supports newlines.\n\nUse \\n\\n for paragraph breaks.",
+  "avatarImage": "filename.png",
+  "profileElements": [
+    {
+      "kind": "LINK",
+      "value": "https://example.com",
+      "url": "https://example.com",
+      "label": "Link label (optional)",
+      "sortOrder": 0
+    },
+    {
+      "kind": "TEXT",
+      "value": "The text content of this block.",
+      "label": "Block heading (optional)",
+      "caption": "Smaller caption text below the value (optional)",
+      "sortOrder": 1
+    }
+  ],
+  "creatorHandle": "handle-of-user-who-owns-this-page",
+  "editors": ["handle-of-editor"],
+  "members": "*",
+  "posts": [
+    {
+      "title": "Post title (optional)",
+      "content": "Post body text.",
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    }
+  ],
+  "events": [
+    {
+      "title": "Event title (optional)",
+      "content": "Event description.",
+      "eventDateTime": "2026-09-01T18:00:00Z",
+      "location": "Venue Name, Street Address, City, ST",
+      "latitude": 0.0,
+      "longitude": 0.0,
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    }
+  ]
+}

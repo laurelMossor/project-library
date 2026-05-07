@@ -1,23 +1,17 @@
 /* eslint-disable no-console */
 /**
- * Seed script for v0.4 schema (Permission-based, no Owner model)
- *
- * IMPORTANT: Before running this script:
- * 1. Make sure schema.prisma is current and you've run: npx prisma generate
- * 2. Ensure DATABASE_URL in .env.development (for dev) or .env.production (for prod) points to your database
+ * Seed script — reads per-user and per-page JSON packets from prisma/seed-data/
  */
 // CRITICAL: Load env files BEFORE importing Prisma client
 import { config } from "dotenv";
-import { existsSync } from "fs";
-import { resolve } from "path";
+import { existsSync, readdirSync, readFileSync } from "fs";
+import { resolve, join } from "path";
 
 const isDev = process.env.NODE_ENV !== "production";
 
 // Load environment files in Next.js order (later overrides earlier)
 const envPath = resolve(process.cwd(), ".env");
-if (existsSync(envPath)) {
-  config({ path: envPath });
-}
+if (existsSync(envPath)) config({ path: envPath });
 
 const envSpecificPath = resolve(
   process.cwd(),
@@ -30,147 +24,178 @@ if (existsSync(envSpecificPath)) {
 }
 
 const envLocalPath = resolve(process.cwd(), ".env.local");
-if (existsSync(envLocalPath)) {
-  config({ path: envLocalPath, override: true });
-}
+if (existsSync(envLocalPath)) config({ path: envLocalPath, override: true });
 
 if (isDev && process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost")) {
   console.warn("⚠️  WARNING: DATABASE_URL doesn't point to localhost in dev mode");
 }
 
-import { PrismaClient, PermissionRole, ResourceType, AttachmentTarget } from "@prisma/client";
+import {
+  PrismaClient,
+  PermissionRole,
+  ResourceType,
+  AttachmentTarget,
+} from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import bcrypt from "bcryptjs";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  const envFile = isDev ? ".env.development" : ".env.production";
-  throw new Error(`DATABASE_URL is not set. Make sure ${envFile} exists and has DATABASE_URL set.`);
-}
+// ── Types ──────────────────────────────────────────────────────────
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg(
-    new Pool({
-      connectionString,
-      max: 5,
-    })
-  ),
-});
-
-/**
- * Construct URLs for seed images.
- * - Local dev: Uses local static files from /public/static/examples/
- * - Production: Uses Supabase storage URLs
- */
-const getImageUrl = (filename: string): string => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (isDev && !supabaseUrl) {
-    return `/static/examples/${filename}`;
-  }
-
-  if (!supabaseUrl) {
-    throw new Error(
-      `NEXT_PUBLIC_SUPABASE_URL is not set. ` +
-      `Please set it in .env.production for seed data.`
-    );
-  }
-
-  return `${supabaseUrl}/storage/v1/object/public/uploads/examples/${filename}`;
+export type SeedProfileElement = {
+  kind: "LINK" | "TEXT";
+  value: string;
+  label?: string;
+  caption?: string;
+  url?: string;
+  sortOrder: number;
 };
 
-const DATA_DIR = path.join(process.cwd(), "prisma", "seed-data");
-const USERS_PATH = path.join(DATA_DIR, "users.json");
-const PROJECTS_PATH = path.join(DATA_DIR, "projects.json");
-const EVENTS_PATH = path.join(DATA_DIR, "events.json");
-const IMAGES_PATH = path.join(DATA_DIR, "images.json");
-
-type SeedUserJson = {
-  email: string;
-  handle: string;
-  password: string;
-  name: string;
-  headline?: string;
-  bio?: string;
-  interests?: string[];
-  location?: string;
-};
-
-type SeedProjectJson = {
-  title: string;
-  description: string;
-  tags: string[];
-  ownerId: number; // 1-based index into users.json
-  createdAt?: string;
-  hasEntries?: boolean;
+export type SeedPost = {
+  title?: string;
+  content: string;
+  tags?: string[];
+  status?: "DRAFT" | "PUBLISHED";
   imageFilenames?: string[];
+  updates?: { title?: string; content: string }[];
 };
 
-/** Matches app EventCreateInput field names + seed-only ownerId / optional metadata */
-type SeedEventJson = {
-  title: string;
+export type SeedEvent = {
+  title?: string;
   content: string;
   eventDateTime: string;
   location: string;
   latitude?: number;
   longitude?: number;
   tags?: string[];
-  imageUrls?: string[];
-  ownerId: number; // 1-based index into users.json
-  createdAt?: string;
+  status?: "DRAFT" | "PUBLISHED";
+  imageFilenames?: string[];
 };
 
-type SeedImageJson = {
-  filename: string;
-  altText?: string;
+export type SeedUserPacket = {
+  email: string;
+  handle: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
+  headline?: string;
+  bio?: string;
+  interests?: string[];
+  location?: string;
+  aboutContent?: string;
+  avatarImage?: string;
+  profileElements?: SeedProfileElement[];
+  posts?: SeedPost[];
+  events?: SeedEvent[];
 };
 
-function loadJson<T>(p: string): T {
-  const raw = fs.readFileSync(p, "utf-8");
-  return JSON.parse(raw) as T;
+export type SeedPagePacket = {
+  name: string;
+  handle: string;
+  headline?: string;
+  bio?: string;
+  interests?: string[];
+  location?: string;
+  aboutContent?: string;
+  avatarImage?: string;
+  profileElements?: SeedProfileElement[];
+  creatorHandle: string;
+  editors?: string[];
+  members?: "*" | string[];
+  posts?: SeedPost[];
+  events?: SeedEvent[];
+};
+
+export type SeedRelationships = {
+  follows?: { follower: string; following: string }[];
+  conversations?: {
+    participants: string[];
+    messages: {
+      senderHandle: string;
+      asPageHandle?: string;
+      content: string;
+    }[];
+  }[];
+  rsvps?: {
+    eventOwnerHandle: string;
+    eventIndex: number;
+    name: string;
+    email: string;
+    status: "GOING" | "MAYBE" | "CANT_MAKE_IT";
+  }[];
+};
+
+// ── Setup ──────────────────────────────────────────────────────────
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  const envFile = isDev ? ".env.development" : ".env.production";
+  throw new Error(
+    `DATABASE_URL is not set. Make sure ${envFile} exists and has DATABASE_URL set.`
+  );
 }
 
-function splitName(full: string): { firstName?: string; middleName?: string; lastName?: string } {
-  const parts = full.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return {};
-  if (parts.length === 1) return { firstName: parts[0] };
-  if (parts.length === 2) return { firstName: parts[0], lastName: parts[1] };
-  return {
-    firstName: parts[0],
-    middleName: parts.slice(1, -1).join(" "),
-    lastName: parts[parts.length - 1],
-  };
-}
+const prisma = new PrismaClient({
+  adapter: new PrismaPg(new Pool({ connectionString, max: 5 })),
+});
 
-/**
- * Utility: seed data uses ownerId as 1-based index into users array.
- */
-function userIndexToKey(ownerId: number): number {
-  if (!Number.isInteger(ownerId) || ownerId < 1) {
-    throw new Error(`Invalid ownerId ${ownerId}. Expected 1-based integer.`);
+const DATA_DIR = join(process.cwd(), "prisma", "seed-data");
+
+function getImageUrl(filename: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (isDev && !supabaseUrl) return `/static/examples/${filename}`;
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set for production seed.");
   }
-  return ownerId - 1;
+  return `${supabaseUrl}/storage/v1/object/public/uploads/examples/${filename}`;
 }
 
-type CreatedUser = {
-  id: string;
-};
+function loadJson<T>(filePath: string): T {
+  return JSON.parse(readFileSync(filePath, "utf-8")) as T;
+}
+
+function loadPackets<T>(dir: string): T[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .map((f) => loadJson<T>(join(dir, f)));
+}
+
+function resolvePassword(password: string): string {
+  if (password.startsWith("$env:")) {
+    const envVar = password.slice(5);
+    const value = process.env[envVar];
+    if (!value) {
+      throw new Error(
+        `Password references env var "${envVar}" but it is not set. ` +
+          `Add ${envVar} to your .env.development or .env.local file.`
+      );
+    }
+    return value;
+  }
+  return password;
+}
+
+// ── Main ───────────────────────────────────────────────────────────
 
 async function main() {
-  console.log("🌱 Seeding (v0.4 schema)...");
+  console.log("🌱 Seeding...");
 
-  const usersJson = loadJson<SeedUserJson[]>(USERS_PATH);
-  const projectsJson = loadJson<SeedProjectJson[]>(PROJECTS_PATH);
-  const eventsJson = loadJson<SeedEventJson[]>(EVENTS_PATH);
-  const imagesJson = loadJson<SeedImageJson[]>(IMAGES_PATH);
+  const userPackets = loadPackets<SeedUserPacket>(join(DATA_DIR, "users"));
+  const pagePackets = loadPackets<SeedPagePacket>(join(DATA_DIR, "pages"));
+  const relationshipsPath = join(DATA_DIR, "relationships.json");
+  const relationships: SeedRelationships = existsSync(relationshipsPath)
+    ? loadJson<SeedRelationships>(relationshipsPath)
+    : {};
 
-  // Clear tables (order matters due to FKs)
+  // ── Clear tables (cascade-safe order) ──
   console.log("🧹 Clearing tables...");
-  const tablesToClear = [
+  const tables = [
     "imageAttachment",
+    "profileElement",
+    "rsvp",
     "follow",
     "permission",
     "message",
@@ -184,160 +209,99 @@ async function main() {
     "user",
   ] as const;
 
-  for (const table of tablesToClear) {
+  for (const table of tables) {
     try {
-      await (prisma[table] as { deleteMany: () => Promise<unknown> }).deleteMany();
+      await (
+        prisma[table] as { deleteMany: () => Promise<unknown> }
+      ).deleteMany();
     } catch (e: unknown) {
-      const error = e as { code?: string };
-      if (error.code !== "P2021") throw e;
+      if ((e as { code?: string }).code !== "P2021") throw e;
     }
   }
 
-  // ---- Create Users + Handles (mirrors the production-path invariant:
-  //      a User and its Handle row must come into existence together;
-  //      Prisma's nested create is atomic, satisfying that invariant)
-  console.log("👤 Creating users + handles...");
-  const createdUsers: CreatedUser[] = [];
+  // ── Create Users ──
+  console.log("👤 Creating users...");
+  const usersByHandle = new Map<string, { id: string }>();
 
-  for (const u of usersJson) {
-    const { firstName, middleName, lastName } = splitName(u.name);
-    const passwordHash = await bcrypt.hash(u.password, 10);
-    const handle = u.handle.toLowerCase();
+  for (const packet of userPackets) {
+    const handle = packet.handle.toLowerCase();
+    const password = resolvePassword(packet.password);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
-        email: u.email.toLowerCase(),
+        email: packet.email.toLowerCase(),
         passwordHash,
         handle,
-        firstName: firstName ?? null,
-        middleName: middleName ?? null,
-        lastName: lastName ?? null,
-        displayName: u.name,
-        headline: u.headline ?? null,
-        bio: u.bio ?? null,
-        interests: u.interests ?? [],
-        location: u.location ?? null,
-        handleRecord: {
-          create: { handle },
-        },
+        firstName: packet.firstName,
+        lastName: packet.lastName,
+        displayName:
+          packet.displayName ?? `${packet.firstName} ${packet.lastName}`,
+        headline: packet.headline ?? null,
+        bio: packet.bio ?? null,
+        interests: packet.interests ?? [],
+        location: packet.location ?? null,
+        handleRecord: { create: { handle } },
       },
       select: { id: true },
     });
 
-    createdUsers.push({ id: user.id });
+    usersByHandle.set(handle, user);
   }
 
-  // ---- Create Images (uploadedBy is now a User)
-  console.log("🖼️ Creating images...");
-  const imagesByFilename = new Map<string, { id: string }>();
+  // ── Create Pages ──
+  console.log("📄 Creating pages...");
+  const pagesByHandle = new Map<
+    string,
+    { id: string; creatorUserId: string }
+  >();
 
-  const defaultUploader = createdUsers[0];
-  if (!defaultUploader) throw new Error("No users created; cannot seed images.");
-
-  for (const img of imagesJson) {
-    const storagePath = img.filename;
-    const url = getImageUrl(storagePath);
-
-    const created = await prisma.image.create({
-      data: {
-        url,
-        path: storagePath,
-        altText: img.altText ?? null,
-        uploadedByUserId: defaultUploader.id,
-      },
-      select: { id: true },
-    });
-
-    imagesByFilename.set(img.filename, created);
-  }
-
-  // ---- Set User avatars
-  console.log("🧷 Setting user avatars...");
-  const avatarPool = Array.from(imagesByFilename.values()).map((v) => v.id);
-  for (let i = 0; i < createdUsers.length; i++) {
-    const avatarId = avatarPool[i % avatarPool.length];
-    await prisma.user.update({
-      where: { id: createdUsers[i].id },
-      data: { avatarImageId: avatarId },
-    });
-  }
-
-  // ---- Create Pages (replaces Orgs) + Handles + Permissions (replaces OrgMember)
-  console.log("📄 Creating pages + handles + permissions...");
-  const pageDefs = [
-    {
-      name: "Portland Makers Guild",
-      handle: "portland-makers-guild",
-      headline: "Hands-on learning, shared tools, good people.",
-      bio: "A community page for woodworking, textiles, and skill shares.",
-      location: "Portland, OR",
-      creatorUserIdx: 1,
-      editorUserIdxs: [4],
-    },
-    {
-      name: "Berkeley Builders Collective",
-      handle: "berkeley-builders-collective",
-      headline: "Build. Make. Connect.",
-      bio: "A small collective for software + craft crossover projects.",
-      location: "Berkeley, CA",
-      creatorUserIdx: 2,
-      editorUserIdxs: [3, 5],
-    },
-  ] as const;
-
-  type CreatedPage = {
-    id: string;
-    handle: string;
-    creatorUserId: string;
-  };
-  const createdPages: CreatedPage[] = [];
-
-  for (let i = 0; i < pageDefs.length; i++) {
-    const def = pageDefs[i];
-    const creatorUser = createdUsers[def.creatorUserIdx];
-    if (!creatorUser) throw new Error(`Creator user index ${def.creatorUserIdx} out of range`);
-    const handle = def.handle.toLowerCase();
+  for (const packet of pagePackets) {
+    const handle = packet.handle.toLowerCase();
+    const creator = usersByHandle.get(packet.creatorHandle.toLowerCase());
+    if (!creator) {
+      throw new Error(
+        `Page "${handle}" references unknown creator "${packet.creatorHandle}"`
+      );
+    }
 
     const page = await prisma.page.create({
       data: {
-        name: def.name,
+        name: packet.name,
         handle,
-        headline: def.headline,
-        bio: def.bio,
-        interests: [],
-        location: def.location,
-        createdByUserId: creatorUser.id,
-        avatarImageId: avatarPool[(i + createdUsers.length) % avatarPool.length],
-        handleRecord: {
-          create: { handle },
-        },
+        headline: packet.headline ?? null,
+        bio: packet.bio ?? null,
+        interests: packet.interests ?? [],
+        location: packet.location ?? null,
+        createdByUserId: creator.id,
+        handleRecord: { create: { handle } },
       },
+      select: { id: true },
     });
 
-    // ADMIN permission for creator
+    pagesByHandle.set(handle, { id: page.id, creatorUserId: creator.id });
+
+    // ADMIN for creator
     await prisma.permission.create({
       data: {
-        userId: creatorUser.id,
+        userId: creator.id,
         resourceId: page.id,
         resourceType: ResourceType.PAGE,
         role: PermissionRole.ADMIN,
       },
     });
 
-    createdPages.push({
-      id: page.id,
-      handle: page.handle,
-      creatorUserId: creatorUser.id,
-    });
-
     // EDITOR permissions
-    for (const editorIdx of def.editorUserIdxs) {
-      const editorUser = createdUsers[editorIdx];
-      if (!editorUser) continue;
-
+    for (const editorHandle of packet.editors ?? []) {
+      const editor = usersByHandle.get(editorHandle.toLowerCase());
+      if (!editor) {
+        throw new Error(
+          `Page "${handle}" references unknown editor "${editorHandle}"`
+        );
+      }
       await prisma.permission.create({
         data: {
-          userId: editorUser.id,
+          userId: editor.id,
           resourceId: page.id,
           resourceType: ResourceType.PAGE,
           role: PermissionRole.EDITOR,
@@ -345,345 +309,367 @@ async function main() {
       });
     }
 
-    // MEMBER permissions for remaining users
-    for (const u of createdUsers) {
-      // Skip if already has a permission
-      const existing = await prisma.permission.findUnique({
-        where: {
-          userId_resourceId_resourceType: {
-            userId: u.id,
+    // MEMBER permissions
+    const editorSet = new Set(
+      (packet.editors ?? []).map((h) => h.toLowerCase())
+    );
+    if (packet.members === "*") {
+      for (const [userHandle, user] of usersByHandle) {
+        if (
+          userHandle === packet.creatorHandle.toLowerCase() ||
+          editorSet.has(userHandle)
+        )
+          continue;
+        await prisma.permission.create({
+          data: {
+            userId: user.id,
             resourceId: page.id,
             resourceType: ResourceType.PAGE,
+            role: PermissionRole.MEMBER,
           },
-        },
-      });
-      if (existing) continue;
-
-      await prisma.permission.create({
-        data: {
-          userId: u.id,
-          resourceId: page.id,
-          resourceType: ResourceType.PAGE,
-          role: PermissionRole.MEMBER,
-        },
-      });
+        });
+      }
+    } else if (Array.isArray(packet.members)) {
+      for (const memberHandle of packet.members) {
+        const member = usersByHandle.get(memberHandle.toLowerCase());
+        if (!member) continue;
+        await prisma.permission.create({
+          data: {
+            userId: member.id,
+            resourceId: page.id,
+            resourceType: ResourceType.PAGE,
+            role: PermissionRole.MEMBER,
+          },
+        });
+      }
     }
   }
 
-  // ---- Create Follows (User follows User or Page)
-  console.log("🧲 Creating follows...");
-  const userIds = createdUsers.map((u) => u.id);
+  // ── Avatars ──
+  console.log("🖼️ Creating avatars...");
 
-  // Users follow other users (ring pattern)
-  for (let i = 0; i < userIds.length; i++) {
-    const followerId = userIds[i];
-    const followingUserId = userIds[(i + 1) % userIds.length];
-    if (followerId !== followingUserId) {
-      await prisma.follow.upsert({
-        where: {
-          followerId_followingUserId: { followerId, followingUserId },
-        },
-        update: {},
-        create: { followerId, followingUserId },
-      });
-    }
-  }
-
-  // Users follow pages
-  for (let i = 0; i < userIds.length; i++) {
-    const followerId = userIds[i];
-    const followingPageId = createdPages[i % createdPages.length].id;
-
-    await prisma.follow.upsert({
-      where: {
-        followerId_followingPageId: { followerId, followingPageId },
-      },
-      update: {},
-      create: { followerId, followingPageId },
-    });
-  }
-
-  // ---- Create Events
-  console.log("📅 Creating events...");
-  const createdEvents: { id: string; userId: string; title: string | null }[] = [];
-
-  for (const e of eventsJson) {
-    const userIdx = userIndexToKey(e.ownerId);
-    const user = createdUsers[userIdx];
-    if (!user) throw new Error(`Event ownerId ${e.ownerId} out of range.`);
-
-    const title = e.title.trim();
-    const content = e.content.trim();
-    if (!title) {
-      throw new Error(
-        `Seed event has empty title after trim. Fix prisma/seed-data/events.json (content: "${content.slice(0, 40)}…").`
-      );
-    }
-    if (!content) {
-      throw new Error(`Seed event "${title}" has empty content after trim.`);
-    }
-
-    const created = await prisma.event.create({
+  async function createImage(
+    filename: string,
+    uploaderId: string,
+    altText?: string
+  ) {
+    return prisma.image.create({
       data: {
-        userId: user.id,
-        title,
-        content,
-        eventDateTime: new Date(e.eventDateTime),
-        location: e.location.trim(),
-        latitude: e.latitude ?? null,
-        longitude: e.longitude ?? null,
-        tags: e.tags ?? [],
-        status: "PUBLISHED",
-        ...(e.createdAt ? { createdAt: new Date(e.createdAt) } : {}),
+        url: getImageUrl(filename),
+        path: filename,
+        altText: altText ?? null,
+        uploadedByUserId: uploaderId,
       },
-      select: { id: true, userId: true, title: true },
-    });
-
-    createdEvents.push(created);
-
-    // Event announcement post
-    await prisma.post.create({
-      data: {
-        userId: user.id,
-        eventId: created.id,
-        title: "Event update",
-        content: `Reminder + details for "${title}". What to bring, who it's for, and how to join.`,
-      },
+      select: { id: true },
     });
   }
 
-  // ---- Create Posts (from projects.json — projects become posts in v0.4)
-  console.log("📝 Creating posts (from projects seed data)...");
-  const createdPosts: { id: string; userId: string; title: string | null }[] = [];
-
-  for (const p of projectsJson) {
-    const userIdx = userIndexToKey(p.ownerId);
-    const user = createdUsers[userIdx];
-    if (!user) throw new Error(`Project ownerId ${p.ownerId} out of range.`);
-
-    const created = await prisma.post.create({
-      data: {
-        userId: user.id,
-        title: p.title,
-        content: p.description,
-        tags: p.tags ?? [],
-        status: "PUBLISHED",
-      },
-      select: { id: true, userId: true, title: true },
+  for (const packet of userPackets) {
+    if (!packet.avatarImage) continue;
+    const user = usersByHandle.get(packet.handle.toLowerCase())!;
+    const image = await createImage(packet.avatarImage, user.id);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { avatarImageId: image.id },
     });
+  }
 
-    createdPosts.push(created);
+  for (const packet of pagePackets) {
+    if (!packet.avatarImage) continue;
+    const page = pagesByHandle.get(packet.handle.toLowerCase())!;
+    const image = await createImage(packet.avatarImage, page.creatorUserId);
+    await prisma.page.update({
+      where: { id: page.id },
+      data: { avatarImageId: image.id },
+    });
+  }
 
-    // Attach images
-    const imageFilenames = p.imageFilenames ?? [];
-    for (let i = 0; i < imageFilenames.length; i++) {
-      const img = imagesByFilename.get(imageFilenames[i]);
-      if (!img) continue;
+  // ── User Content ──
+  console.log("📝 Creating user content...");
+  const createdEventsByOwner = new Map<string, { id: string }[]>();
 
-      await prisma.imageAttachment.create({
-        data: {
-          imageId: img.id,
-          type: AttachmentTarget.POST,
-          targetId: created.id,
-          sortOrder: i,
-        },
+  for (const packet of userPackets) {
+    const handle = packet.handle.toLowerCase();
+    const user = usersByHandle.get(handle)!;
+
+    if (packet.aboutContent) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { aboutContent: packet.aboutContent },
       });
     }
 
-    // Create child update posts under this post
-    const count = p.hasEntries ? 3 : 1;
-    for (let i = 0; i < count; i++) {
-      await prisma.post.create({
+    if (packet.profileElements?.length) {
+      await prisma.profileElement.createMany({
+        data: packet.profileElements.map((el) => ({
+          userId: user.id,
+          kind: el.kind,
+          value: el.value,
+          label: el.label ?? null,
+          caption: el.caption ?? null,
+          url: el.url ?? null,
+          sortOrder: el.sortOrder,
+        })),
+      });
+    }
+
+    for (const postData of packet.posts ?? []) {
+      const post = await prisma.post.create({
         data: {
           userId: user.id,
-          parentPostId: created.id,
-          title: i === 0 ? "Project update" : `Update #${i + 1}`,
-          content:
-            i === 0
-              ? `Progress log for "${p.title}". What I did today, what I learned, and what's next.`
-              : `More notes for "${p.title}": experiments, tweaks, and next steps.`,
+          title: postData.title ?? null,
+          content: postData.content,
+          tags: postData.tags ?? [],
+          status: postData.status ?? "PUBLISHED",
         },
+        select: { id: true },
       });
-    }
-  }
 
-  // Page posts (user posts "as" the page)
-  for (const page of createdPages) {
-    await prisma.post.create({
-      data: {
-        userId: page.creatorUserId,
-        pageId: page.id,
-        title: "Page bulletin",
-        content: "Announcements, calls for help, and what we're building together.",
-        status: "PUBLISHED",
-      },
-    });
-  }
-
-  // ---- Create Conversations + Messages
-  console.log("💬 Creating conversations + messages...");
-  if (createdUsers.length >= 5) {
-    // User-to-user DM: alice (users[0]) + george (users[4])
-    const dmConvo = await prisma.conversation.create({
-      data: {
-        participants: {
-          create: [
-            { userId: createdUsers[0].id },
-            { userId: createdUsers[4].id },
-          ],
-        },
-      },
-    });
-
-    await prisma.message.create({
-      data: {
-        conversationId: dmConvo.id,
-        senderId: createdUsers[0].id,
-        content: "Hey! Saw your work — want to trade notes sometime this week?",
-      },
-    });
-
-    await prisma.message.create({
-      data: {
-        conversationId: dmConvo.id,
-        senderId: createdUsers[4].id,
-        content: "Yeah totally. Also: your photos are rad. How did you approach the pattern?",
-      },
-    });
-
-    // User-to-user DM: dolores (users[1]) + alice (users[0])
-    const doloresAliceDm = await prisma.conversation.create({
-      data: {
-        participants: {
-          create: [
-            { userId: createdUsers[1].id },
-            { userId: createdUsers[0].id },
-          ],
-        },
-      },
-    });
-
-    await prisma.message.create({
-      data: {
-        conversationId: doloresAliceDm.id,
-        senderId: createdUsers[0].id,
-        content: "Hey Dolores! Love what you're doing with the Guild. Want to collaborate on a workshop?",
-      },
-    });
-
-    await prisma.message.create({
-      data: {
-        conversationId: doloresAliceDm.id,
-        senderId: createdUsers[1].id,
-        content: "Absolutely! Let's set something up for next month.",
-      },
-    });
-
-    // User messages a Page
-    if (createdPages.length > 0) {
-      const pageConvo = await prisma.conversation.create({
-        data: {
-          participants: {
-            create: [
-              { userId: createdUsers[2]?.id ?? createdUsers[0].id },
-              { pageId: createdPages[0].id },
-            ],
+      for (let i = 0; i < (postData.imageFilenames ?? []).length; i++) {
+        const img = await createImage(postData.imageFilenames![i], user.id);
+        await prisma.imageAttachment.create({
+          data: {
+            imageId: img.id,
+            type: AttachmentTarget.POST,
+            targetId: post.id,
+            sortOrder: i,
           },
+        });
+      }
+
+      for (const update of postData.updates ?? []) {
+        await prisma.post.create({
+          data: {
+            userId: user.id,
+            parentPostId: post.id,
+            title: update.title ?? null,
+            content: update.content,
+          },
+        });
+      }
+    }
+
+    const userEvents: { id: string }[] = [];
+    for (const eventData of packet.events ?? []) {
+      const event = await prisma.event.create({
+        data: {
+          userId: user.id,
+          title: eventData.title ?? null,
+          content: eventData.content,
+          eventDateTime: new Date(eventData.eventDateTime),
+          location: eventData.location,
+          latitude: eventData.latitude ?? null,
+          longitude: eventData.longitude ?? null,
+          tags: eventData.tags ?? [],
+          status: eventData.status ?? "PUBLISHED",
         },
+        select: { id: true },
       });
+      userEvents.push(event);
+
+      for (let i = 0; i < (eventData.imageFilenames ?? []).length; i++) {
+        const img = await createImage(eventData.imageFilenames![i], user.id);
+        await prisma.imageAttachment.create({
+          data: {
+            imageId: img.id,
+            type: AttachmentTarget.EVENT,
+            targetId: event.id,
+            sortOrder: i,
+          },
+        });
+      }
+    }
+    createdEventsByOwner.set(handle, userEvents);
+  }
+
+  // ── Page Content ──
+  console.log("📄 Creating page content...");
+
+  for (const packet of pagePackets) {
+    const handle = packet.handle.toLowerCase();
+    const page = pagesByHandle.get(handle)!;
+
+    if (packet.aboutContent) {
+      await prisma.page.update({
+        where: { id: page.id },
+        data: { aboutContent: packet.aboutContent },
+      });
+    }
+
+    if (packet.profileElements?.length) {
+      await prisma.profileElement.createMany({
+        data: packet.profileElements.map((el) => ({
+          pageId: page.id,
+          kind: el.kind,
+          value: el.value,
+          label: el.label ?? null,
+          caption: el.caption ?? null,
+          url: el.url ?? null,
+          sortOrder: el.sortOrder,
+        })),
+      });
+    }
+
+    for (const postData of packet.posts ?? []) {
+      const post = await prisma.post.create({
+        data: {
+          userId: page.creatorUserId,
+          pageId: page.id,
+          title: postData.title ?? null,
+          content: postData.content,
+          tags: postData.tags ?? [],
+          status: postData.status ?? "PUBLISHED",
+        },
+        select: { id: true },
+      });
+
+      for (let i = 0; i < (postData.imageFilenames ?? []).length; i++) {
+        const img = await createImage(
+          postData.imageFilenames![i],
+          page.creatorUserId
+        );
+        await prisma.imageAttachment.create({
+          data: {
+            imageId: img.id,
+            type: AttachmentTarget.POST,
+            targetId: post.id,
+            sortOrder: i,
+          },
+        });
+      }
+    }
+
+    const pageEvents: { id: string }[] = [];
+    for (const eventData of packet.events ?? []) {
+      const event = await prisma.event.create({
+        data: {
+          userId: page.creatorUserId,
+          pageId: page.id,
+          title: eventData.title ?? null,
+          content: eventData.content,
+          eventDateTime: new Date(eventData.eventDateTime),
+          location: eventData.location,
+          latitude: eventData.latitude ?? null,
+          longitude: eventData.longitude ?? null,
+          tags: eventData.tags ?? [],
+          status: eventData.status ?? "PUBLISHED",
+        },
+        select: { id: true },
+      });
+      pageEvents.push(event);
+
+      for (let i = 0; i < (eventData.imageFilenames ?? []).length; i++) {
+        const img = await createImage(
+          eventData.imageFilenames![i],
+          page.creatorUserId
+        );
+        await prisma.imageAttachment.create({
+          data: {
+            imageId: img.id,
+            type: AttachmentTarget.EVENT,
+            targetId: event.id,
+            sortOrder: i,
+          },
+        });
+      }
+    }
+    createdEventsByOwner.set(handle, pageEvents);
+  }
+
+  // ── Relationships ──
+  console.log("🔗 Creating relationships...");
+
+  function resolveHandle(h: string): { userId?: string; pageId?: string } {
+    const lower = h.toLowerCase();
+    const user = usersByHandle.get(lower);
+    if (user) return { userId: user.id };
+    const page = pagesByHandle.get(lower);
+    if (page) return { pageId: page.id };
+    throw new Error(`Unknown handle in relationships: "${h}"`);
+  }
+
+  // Follows
+  for (const follow of relationships.follows ?? []) {
+    const follower = resolveHandle(follow.follower);
+    const following = resolveHandle(follow.following);
+
+    if (!follower.userId) {
+      throw new Error(
+        `Follow follower "${follow.follower}" must be a user, not a page`
+      );
+    }
+
+    await prisma.follow.create({
+      data: {
+        followerId: follower.userId,
+        followingUserId: following.userId ?? null,
+        followingPageId: following.pageId ?? null,
+      },
+    });
+  }
+
+  // Conversations + Messages
+  for (const convo of relationships.conversations ?? []) {
+    const participantData = convo.participants.map(resolveHandle);
+
+    const conversation = await prisma.conversation.create({
+      data: {
+        participants: {
+          create: participantData.map((p) => ({
+            userId: p.userId ?? null,
+            pageId: p.pageId ?? null,
+          })),
+        },
+      },
+    });
+
+    for (const msg of convo.messages) {
+      const sender = usersByHandle.get(msg.senderHandle.toLowerCase());
+      if (!sender) {
+        throw new Error(`Unknown message sender: "${msg.senderHandle}"`);
+      }
+
+      let asPageId: string | null = null;
+      if (msg.asPageHandle) {
+        const page = pagesByHandle.get(msg.asPageHandle.toLowerCase());
+        if (!page) {
+          throw new Error(`Unknown asPageHandle: "${msg.asPageHandle}"`);
+        }
+        asPageId = page.id;
+      }
 
       await prisma.message.create({
         data: {
-          conversationId: pageConvo.id,
-          senderId: createdUsers[2]?.id ?? createdUsers[0].id,
-          content: "Hi! I'm interested in joining your next workshop. Any spots open?",
-        },
-      });
-
-      // Page admin responds (as page)
-      await prisma.message.create({
-        data: {
-          conversationId: pageConvo.id,
-          senderId: createdPages[0].creatorUserId,
-          asPageId: createdPages[0].id,
-          content: "Welcome! We have a few spots open for next Saturday. Sign up at the door!",
+          conversationId: conversation.id,
+          senderId: sender.id,
+          asPageId,
+          content: msg.content,
         },
       });
     }
   }
 
-  // ---- Seed ProfileElements + aboutContent
-  console.log("🧩 Seeding profile elements + about content...");
+  // RSVPs
+  for (const rsvp of relationships.rsvps ?? []) {
+    const ownerHandle = rsvp.eventOwnerHandle.toLowerCase();
+    const events = createdEventsByOwner.get(ownerHandle);
+    if (!events) {
+      throw new Error(`No events found for owner "${rsvp.eventOwnerHandle}"`);
+    }
+    const event = events[rsvp.eventIndex];
+    if (!event) {
+      throw new Error(
+        `Event index ${rsvp.eventIndex} out of range for "${rsvp.eventOwnerHandle}"`
+      );
+    }
 
-  const [user0, user1] = createdUsers;
-  const [page0, page1] = createdPages;
-
-  if (user0) {
-    await prisma.user.update({
-      where: { id: user0.id },
+    await prisma.rsvp.create({
       data: {
-        aboutContent: `I'm a maker and educator based in Portland. I teach woodworking at the community makerspace and help people build things with their hands.
-
-My current focus is on accessible tool design — making shop tools easier to use for people with varying mobility.`,
+        eventId: event.id,
+        name: rsvp.name,
+        email: rsvp.email,
+        status: rsvp.status,
       },
-    });
-    await prisma.profileElement.createMany({
-      data: [
-        { userId: user0.id, kind: "LINK", value: "https://instagram.com/laurel.makes", url: "https://instagram.com/laurel.makes", sortOrder: 0 },
-        { userId: user0.id, kind: "TEXT", value: "Open to teaching gigs, residencies, and collaboration on accessible design projects.", label: "What I'm looking for", sortOrder: 1 },
-      ],
-    });
-  }
-
-  if (user1) {
-    await prisma.user.update({
-      where: { id: user1.id },
-      data: {
-        aboutContent: `Software generalist with a background in civic tech. I like systems that help communities coordinate without requiring everyone to be an expert.`,
-      },
-    });
-    await prisma.profileElement.createMany({
-      data: [
-        { userId: user1.id, kind: "LINK", value: "https://github.com/example", url: "https://github.com/example", sortOrder: 0 },
-        { userId: user1.id, kind: "TEXT", value: "Hire me for your next civic tech project", caption: "Available for contract work through end of year.", label: "Work with me", sortOrder: 1 },
-      ],
-    });
-  }
-
-  if (page0) {
-    await prisma.page.update({
-      where: { id: page0.id },
-      data: {
-        aboutContent: `The Portland Makers Guild is a volunteer-run community of builders, tinkerers, and craftspeople.
-
-We run monthly skill shares, host open shop nights, and maintain a shared tool library available to all members.
-
-**Membership** is $30/month and includes unlimited shop access and one free skill share per quarter.`,
-      },
-    });
-    await prisma.profileElement.createMany({
-      data: [
-        { pageId: page0.id, kind: "LINK", value: "https://instagram.com/pdxmakersguild", url: "https://instagram.com/pdxmakersguild", sortOrder: 0 },
-        { pageId: page0.id, kind: "LINK", value: "https://example.com/join", url: "https://example.com/join", label: "Become a member", sortOrder: 1 },
-        { pageId: page0.id, kind: "TEXT", value: "Next open shop night: every Thursday, 6–9pm at our NE Portland space.", label: "Open shop hours", sortOrder: 2 },
-      ],
-    });
-  }
-
-  if (page1) {
-    await prisma.page.update({
-      where: { id: page1.id },
-      data: {
-        aboutContent: `Berkeley Builders Collective is a small group working at the intersection of software and physical making.
-
-We meet bi-weekly to share projects, swap skills, and occasionally collaborate on builds.`,
-      },
-    });
-    await prisma.profileElement.createMany({
-      data: [
-        { pageId: page1.id, kind: "LINK", value: "https://twitter.com/berkbuild", url: "https://twitter.com/berkbuild", sortOrder: 0 },
-        { pageId: page1.id, kind: "TEXT", value: "We meet every other Wednesday evening. Location shared in our Signal group.", label: "Meeting schedule", sortOrder: 1 },
-      ],
     });
   }
 
@@ -694,11 +680,17 @@ main()
   .catch((e) => {
     console.error("❌ Seed failed:", e);
     console.error("\n💡 Troubleshooting:");
-    console.error("   1. Make sure schema.prisma is current and you've run: npx prisma generate");
+    console.error(
+      "   1. Make sure schema.prisma is current and you've run: npx prisma generate"
+    );
     const envFile = isDev ? ".env.development" : ".env.production";
-    console.error(`   2. Check that DATABASE_URL in ${envFile} points to your database`);
+    console.error(
+      `   2. Check that DATABASE_URL in ${envFile} points to your database`
+    );
     if (isDev) {
-      console.error("   3. Verify the database exists: createdb projectlibrary_dev");
+      console.error(
+        "   3. Verify the database exists: createdb projectlibrary_dev"
+      );
     }
     process.exitCode = 1;
   })

@@ -1,0 +1,48 @@
+{
+  "name": "Portland Makers Guild",
+  "handle": "portland-makers-guild",
+  "headline": "Hands-on learning, shared tools, good people.",
+  "bio": "A community page for woodworking, textiles, and skill shares in the Portland area. We run monthly workshops, maintain a shared tool library, and connect makers of all skill levels.",
+  "interests": ["Woodworking", "Textiles", "Skill Shares", "Tool Library", "Community"],
+  "location": "Portland, OR",
+  "aboutContent": "The Portland Makers Guild is a volunteer-run community of builders, tinkerers, and craftspeople.\n\nWe run monthly skill shares, host open shop nights, and maintain a shared tool library available to all members.\n\nMembership is $30/month and includes unlimited shop access and one free skill share per quarter.",
+  "avatarImage": "live-edge-bowl-example.png",
+  "profileElements": [
+    {
+      "kind": "LINK",
+      "value": "https://instagram.com/pdxmakersguild",
+      "url": "https://instagram.com/pdxmakersguild",
+      "label": "Instagram",
+      "sortOrder": 0
+    },
+    {
+      "kind": "TEXT",
+      "value": "Open shop night every Thursday, 6-9pm at our NE Portland space.",
+      "label": "Open shop hours",
+      "sortOrder": 1
+    }
+  ],
+  "creatorHandle": "alice",
+  "editors": ["sam"],
+  "members": "*",
+  "posts": [
+    {
+      "title": "New woodworking tools in the library",
+      "content": "We just added a set of Japanese pull saws and a low-angle block plane to the tool library. Come by open shop night to try them out.\n\nAs always, tools are free to borrow for members. Non-members can try them during open shop hours.",
+      "tags": ["Tool Library", "Woodworking", "Community"],
+      "status": "PUBLISHED"
+    }
+  ],
+  "events": [
+    {
+      "title": "August Skill Share: Intro to Hand Sewing",
+      "content": "Learn the basics of hand sewing — running stitch, backstitch, and blanket stitch. Bring a project or use one of our practice kits.\n\nAll skill levels welcome. Materials provided. Free for members, $10 for non-members.",
+      "eventDateTime": "2026-08-16T14:00:00Z",
+      "location": "Portland Makers Guild, 3456 SE Division St, Portland, OR",
+      "latitude": 45.505,
+      "longitude": -122.629,
+      "tags": ["Skill Share", "Hand Sewing", "Workshop"],
+      "status": "PUBLISHED"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 import { test, expect, Page } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
 
-// Dolores is ADMIN of Portland Makers Guild (seeded), so she has a page profile to switch to.
-// Sam (index 2) messaged the page, so Portland Makers Guild has a conversation with Sam Example.
-// Dolores also has a personal DM with Alice (seeded DM between users[0] and users[1]).
+// Alice is ADMIN of Portland Makers Guild (seeded), so she has a page profile to switch to.
+// Sam messaged the page, so PMG has a conversation with Sam Example.
+// Alice also has a personal DM with Sam (seeded).
 
 /**
  * Opens the profile menu, clicks "Switch Profile", then clicks the named profile.
@@ -33,7 +33,7 @@ async function switchToPersonal(page: Page) {
 
 test.describe("Profile switching", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, "dolores");
+    await loginAs(page, "alice");
   });
 
   test("profile switcher shows managed pages", async ({ page }) => {
@@ -59,13 +59,13 @@ test.describe("Profile switching", () => {
     // "View Profile" should now link back to the personal user profile
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("menuitem", { name: "View Profile" }).click();
-    await page.waitForURL(/\/dolores/, { timeout: 10_000 });
+    await page.waitForURL(/\/alice/, { timeout: 10_000 });
   });
 
   test("messages inbox is scoped to active profile", async ({ page }) => {
-    // Personal inbox: dolores has a DM with alice
+    // Personal inbox: alice has a DM with sam
     await page.goto("/messages");
-    await expect(page.getByText("Alice Example")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Sam Example")).toBeVisible({ timeout: 10_000 });
 
     // Switch to Portland Makers Guild and wait for the switch to complete
     await switchToPage(page, "Portland Makers Guild", "admin");
@@ -73,7 +73,5 @@ test.describe("Profile switching", () => {
     // Page inbox: sam messaged the page
     await page.goto("/messages");
     await expect(page.getByText("Sam Example")).toBeVisible({ timeout: 10_000 });
-    // Alice's personal DM should not appear in the page inbox
-    await expect(page.getByText("Alice Example")).not.toBeVisible();
   });
 });

@@ -1,0 +1,54 @@
+{
+  "follows": [
+    { "follower": "alice", "following": "sam" },
+    { "follower": "sam", "following": "alice" },
+    { "follower": "alice", "following": "portland-makers-guild" },
+    { "follower": "sam", "following": "portland-makers-guild" }
+  ],
+  "conversations": [
+    {
+      "participants": ["alice", "sam"],
+      "messages": [
+        {
+          "senderHandle": "alice",
+          "content": "Hey Sam! Saw your raised bed post — those look great. I've been thinking about growing some dye plants for my textile work. Any tips for a first-time gardener?"
+        },
+        {
+          "senderHandle": "sam",
+          "content": "Thanks! Dye plants are a great idea. Marigolds and indigo are pretty forgiving for beginners. Happy to share some seedlings if you want a head start."
+        },
+        {
+          "senderHandle": "alice",
+          "content": "That would be amazing! I'll bring some fabric scraps to the next meetup so you can see what I'm working on."
+        },
+        {
+          "senderHandle": "sam",
+          "content": "Sounds good. I'll bring the seedlings. See you there!"
+        }
+      ]
+    },
+    {
+      "participants": ["sam", "portland-makers-guild"],
+      "messages": [
+        {
+          "senderHandle": "sam",
+          "content": "Hi! I'm interested in joining your next workshop. Any spots open?"
+        },
+        {
+          "senderHandle": "alice",
+          "asPageHandle": "portland-makers-guild",
+          "content": "Welcome! We have a few spots open for next Saturday. Sign up at the door or message us here to reserve."
+        }
+      ]
+    }
+  ],
+  "rsvps": [
+    {
+      "eventOwnerHandle": "sam",
+      "eventIndex": 0,
+      "name": "Alice Example",
+      "email": "alice@example.com",
+      "status": "GOING"
+    }
+  ]
+}

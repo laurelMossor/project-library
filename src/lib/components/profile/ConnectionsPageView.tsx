@@ -247,6 +247,7 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entity.id]);
 
+	// TODO: These should be shared utilities, add if they don't already exist and use the existing one if it does. All instances of add/remove follower should share utilities. 
 	async function removeFollower(item: ConnectionItem) {
 		const type = isPage ? "page" : "user";
 		const res = await fetch(

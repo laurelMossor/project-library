@@ -1,0 +1,62 @@
+{
+  "email": "sam@example.com",
+  "handle": "sam",
+  "password": "sam",
+  "firstName": "Sam",
+  "lastName": "Example",
+  "headline": "Full Stack Developer & Gardener",
+  "bio": "Software engineer by day, vegetable gardener by evening. I build web apps with React and TypeScript, grow unreasonable amounts of tomatoes, and volunteer teaching beginners to code.",
+  "interests": ["React", "TypeScript", "Node.js", "Programming", "Gardening", "Vegetables"],
+  "location": "Berkeley, CA",
+  "aboutContent": "I've been writing software for about eight years, mostly full-stack web work with React, Node, and PostgreSQL. Before that I studied computer science and worked in civic tech.\n\nOutside of work I maintain a fairly ambitious backyard garden — raised beds, a small greenhouse, and more tomato varieties than any reasonable person needs. I like the overlap between debugging code and debugging why my basil keeps bolting.\n\nI volunteer with a local group that teaches coding fundamentals to people making career changes.",
+  "avatarImage": "tech-talk-example.png",
+  "profileElements": [
+    {
+      "kind": "LINK",
+      "value": "https://github.com/sam-example",
+      "url": "https://github.com/sam-example",
+      "label": "GitHub",
+      "sortOrder": 0
+    },
+    {
+      "kind": "TEXT",
+      "value": "Available for freelance web development and open to mentoring early-career developers.",
+      "label": "Work with me",
+      "caption": "Especially interested in civic tech and community-oriented projects.",
+      "sortOrder": 1
+    }
+  ],
+  "posts": [
+    {
+      "title": "Raised Bed Garden Build",
+      "content": "Built three new raised beds this spring using cedar planks. Each one is 4x8 feet, filled with a mix of compost, peat moss, and vermiculite. Already planted tomatoes, peppers, basil, and a few experimental squash varieties.\n\nThe cedar should last 10-15 years without treatment, and the height makes weeding much easier on the back.",
+      "tags": ["Gardening", "Raised Beds", "DIY", "Vegetables"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["large-wood-shop-example.png"],
+      "updates": [
+        {
+          "title": "First harvest",
+          "content": "The basil and lettuce are producing way more than I can eat. Gave a big bag of each to my neighbor. Tomatoes are still green but sizing up nicely — another few weeks."
+        }
+      ]
+    },
+    {
+      "title": "Building Accessible Component Libraries",
+      "content": "Notes from a talk I gave at our local meetup about building React component libraries with accessibility baked in from the start.\n\nKey takeaways: use semantic HTML before reaching for ARIA, test with a screen reader during development (not after), and make keyboard navigation a first-class concern in every interactive component.",
+      "tags": ["React", "Accessibility", "TypeScript", "Component Libraries"],
+      "status": "PUBLISHED"
+    }
+  ],
+  "events": [
+    {
+      "title": "Community Craft Fair 2026",
+      "content": "Join us for our annual community craft fair featuring local artisans, workshops, and live demonstrations. Vendors will showcase handmade goods from across the East Bay.\n\nFree admission. Food trucks on site. Great for families and anyone curious about local craft.",
+      "eventDateTime": "2026-06-15T10:00:00Z",
+      "location": "Berkeley Community Center, 1234 University Ave, Berkeley, CA",
+      "latitude": 37.8715,
+      "longitude": -122.273,
+      "tags": ["Craft Fair", "Community Event", "Artisan Market"],
+      "status": "PUBLISHED"
+    }
+  ]
+}

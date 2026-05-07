@@ -17,7 +17,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-// Load env files in the same order as prisma.config.ts
+// Load env files in the same order as prisma/seed.ts
 function loadEnv() {
   const cwd = process.cwd();
   const files = [".env", ".env.development", ".env.local"];
