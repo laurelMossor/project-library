@@ -158,7 +158,7 @@ function loadJson<T>(filePath: string): T {
 function loadPackets<T>(dir: string): T[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => f.endsWith(".json"))
+    .filter((f) => f.endsWith(".json") && !f.endsWith(".template.json"))
     .sort()
     .map((f) => loadJson<T>(join(dir, f)));
 }
