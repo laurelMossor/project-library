@@ -6,7 +6,7 @@ import { getCollectionItemKey } from "@/lib/utils/collection";
 import { CollectionCard, PinConfig } from "@/lib/components/collection/CollectionCard";
 import { useColumnCount } from "@/lib/hooks/useColumnCount";
 import { MapControls } from "@/lib/components/map/MapControls";
-import { geocodeAddress } from "@/lib/components/map/InteractiveMap";
+import type { LocationResult } from "@/lib/components/map/LocationSearchInput";
 
 // Leaflet requires browser APIs — load without SSR
 const CollectionMap = dynamic(
@@ -49,15 +49,9 @@ export function FilteredCollection({ items, prependItems = [], view, pinConfig }
 	// Map filter state
 	const [centerLocation, setCenterLocation] = useState<{ lat: number; lng: number; label: string } | null>(null);
 	const [radiusMiles, setRadiusMiles] = useState(10);
-	const [isGeocoding, setIsGeocoding] = useState(false);
 
-	const handleLocationSearch = useCallback(async (query: string) => {
-		setIsGeocoding(true);
-		const result = await geocodeAddress(query);
-		setIsGeocoding(false);
-		if (result) {
-			setCenterLocation({ lat: result.lat, lng: result.lng, label: query });
-		}
+	const handleLocationSelect = useCallback((result: LocationResult) => {
+		setCenterLocation({ lat: result.lat, lng: result.lng, label: result.displayName });
 	}, []);
 
 	const handleClear = useCallback(() => {
@@ -114,10 +108,9 @@ export function FilteredCollection({ items, prependItems = [], view, pinConfig }
 				<MapControls
 					locationLabel={centerLocation?.label ?? ""}
 					radiusMiles={radiusMiles}
-					onLocationSearch={handleLocationSearch}
+					onLocationSelect={handleLocationSelect}
 					onRadiusChange={setRadiusMiles}
 					onClear={handleClear}
-					isGeocoding={isGeocoding}
 					hasActiveFilter={centerLocation !== null}
 				/>
 				{filteredEvents.length === 0 ? (

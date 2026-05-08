@@ -1,17 +1,17 @@
 {
-  "name": "The Project Library (Official)",
+  "name": "The Project Library",
   "handle": "theprojectlibrary",
   "headline": "Homegrown tools for community building in the modern age",
   "bio": "",
   "interests": ["Community Building"],
   "location": "Berkeley, CA",
-  "aboutContent": "",
-  "avatarImage": "filename.png",
+  "aboutContent": "The Project Library is a website for you and me.",
+  "avatarImage": "Project_Library_Compact_Logo-1.PNG",
   "profileElements": [
     {
       "kind": "LINK",
-      "value": "https://www.instagram.com/project.library?igsh=NTc4MTIwNjQ2YQ%3D%3D&utm_source=qr",
-      "url": "https://www.instagram.com/project.library?igsh=NTc4MTIwNjQ2YQ%3D%3D&utm_source=qr",
+      "value": "https://www.instagram.com/project.library",
+      "url": "https://www.instagram.com/project.library",
       "label": "Instagram",
       "sortOrder": 0
     }

@@ -59,7 +59,7 @@ test.describe("Profile switching", () => {
     // "View Profile" should now link back to the personal user profile
     await page.getByRole("button", { name: "Profile menu" }).click();
     await page.getByRole("menuitem", { name: "View Profile" }).click();
-    await page.waitForURL(/\/alice/, { timeout: 10_000 });
+    await page.waitForURL(/\/alice\.example/, { timeout: 10_000 });
   });
 
   test("messages inbox is scoped to active profile", async ({ page }) => {

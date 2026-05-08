@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 
 export const USERS = {
-  alice: { email: "alice@example.com", password: "alice", handle: "alice" },
-  sam: { email: "sam@example.com", password: "sam", handle: "sam" },
+  alice: { email: "alice@example.com", password: "alice", handle: "alice.example" },
+  sam: { email: "sam@example.com", password: "sam", handle: "sam.example" },
 } as const;
 
 /**

@@ -12,15 +12,15 @@ test.describe("Profile pages", () => {
   });
 
   test("public profile /sam loads and shows user info", async ({ page }) => {
-    await page.goto("/sam");
-    await expect(page).toHaveURL(/\/sam/);
+    await page.goto("/sam.example");
+    await expect(page).toHaveURL(/\/sam\.example/);
     await expect(page.getByRole("heading", { name: "Sam Example", exact: true })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 
   test("follow and unfollow another user", async ({ page }) => {
     await loginAs(page, "alice");
-    await page.goto("/sam");
+    await page.goto("/sam.example");
     await page.waitForLoadState("networkidle");
 
     const followBtn = page.getByRole("button", { name: /^Follow$/ });

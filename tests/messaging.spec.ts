@@ -14,7 +14,7 @@ test.describe("Messaging", () => {
   test("send a message to another user", async ({ page }) => {
     await loginAs(page, "alice");
 
-    await page.goto("/sam");
+    await page.goto("/sam.example");
     await expect(page.getByRole("heading", { name: "Sam Example", exact: true })).toBeVisible();
 
     await page.getByRole("link", { name: "Message" }).click();
@@ -40,7 +40,7 @@ test.describe("Messaging", () => {
     const samCtx = await browser.newContext();
     const samPage = await samCtx.newPage();
     await loginAs(samPage, "sam");
-    await samPage.goto("/alice");
+    await samPage.goto("/alice.example");
     await samPage.getByRole("link", { name: "Message" }).click();
     await samPage.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
     await samPage.getByPlaceholder(/Type a message/).fill("Hello from Playwright (dot test)");
@@ -75,7 +75,7 @@ test.describe("Messaging", () => {
     await loginAs(page, "alice");
     await switchToPage(page, "Portland Makers Guild", "admin");
 
-    await page.goto("/sam");
+    await page.goto("/sam.example");
     await page.getByRole("link", { name: "Message" }).click();
     await page.waitForURL(/\/messages\/(u|p)\/[^/]+$/, { timeout: 10_000 });
 

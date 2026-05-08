@@ -4,55 +4,40 @@
   "password": "$env:SEED_ADMIN_PASSWORD",
   "firstName": "Laurel",
   "lastName": "Mossor",
-  "displayName": "Optional display name — omit to use firstName + lastName",
-  "headline": "One-line description shown under your name",
+  "displayName": "Laurel Mossor",
+  "headline": "Creator of the Project Library",
   "bio": "A few sentences about you.",
-  "interests": ["Interest One", "Interest Two"],
-  "location": "City, ST",
-  "aboutContent": "Longer text shown on your About page. Supports newlines.\n\nUse \\n\\n for paragraph breaks.",
-  "avatarImage": "filename.png",
+  "interests": ["Improv", "Software Development", "Animals", "Community Building"],
+  "location": "Berkeley, CA",
+  "avatarImage": "IMG_2455.png",
   "profileElements": [
     {
       "kind": "LINK",
-      "value": "https://example.com",
-      "url": "https://example.com",
-      "label": "Link label (optional)",
+      "value": "https://www.instagram.com/laurelmossor",
+      "url": "https://www.instagram.com/laurelmossor",
+      "label": "Instagram",
       "sortOrder": 0
     },
     {
-      "kind": "TEXT",
-      "value": "The text content of this block.",
-      "label": "Block heading (optional)",
-      "caption": "Smaller caption text below the value (optional)",
+      "kind": "LINK",
+      "value": "https://www.linkedin.com/in/laurelmossor/",
+      "url": "https://www.linkedin.com/in/laurelmossor/",
+      "label": "LinkedIn",
       "sortOrder": 1
-    }
-  ],
-  "posts": [
+    },
     {
-      "title": "Post title (optional)",
-      "content": "Post body text.",
-      "tags": ["Tag One", "Tag Two"],
-      "status": "PUBLISHED",
-      "imageFilenames": ["filename.png"],
-      "updates": [
-        {
-          "title": "Update title (optional)",
-          "content": "Update body text."
-        }
-      ]
-    }
-  ],
-  "events": [
+      "kind": "LINK",
+      "value": "https://www.theprojectlibrary.com/spatsimprov",
+      "url": "https://www.theprojectlibrary.com/spatsimprov",
+      "label": "Spats Improv",
+      "sortOrder": 2
+    },
     {
-      "title": "Event title (optional)",
-      "content": "Event description.",
-      "eventDateTime": "2026-09-01T18:00:00Z",
-      "location": "Venue Name, Street Address, City, ST",
-      "latitude": 0.0,
-      "longitude": 0.0,
-      "tags": ["Tag One", "Tag Two"],
-      "status": "PUBLISHED",
-      "imageFilenames": ["filename.png"]
+      "kind": "LINK",
+      "value": "https://www.theprojectlibrary.com/theprojectlibrary",
+      "url": "https://www.theprojectlibrary.com/theprojectlibrary",
+      "label": "The Project Library (Official)",
+      "sortOrder": 3
     }
   ]
 }
