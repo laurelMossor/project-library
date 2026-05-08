@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { ProfileTag } from "../ProfileTag";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
-import { API_ME_USER, API_ME_PAGES, PROFILE, PUBLIC_PROFILE, HOME } from "@/lib/const/routes";
+import { API_ME_USER, API_ME_PAGES, PROFILE, PERSONAL_INFO, PUBLIC_PROFILE, HOME } from "@/lib/const/routes";
 import type { PublicUser } from "@/lib/types/user";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
 
@@ -61,9 +61,14 @@ export function SettingsPageView() {
 							avatarImage: viewer.avatarImage ?? null,
 						}}
 						actions={
-							<ButtonLink href={PROFILE} variant="secondary" size="sm">
-								Manage
-							</ButtonLink>
+							<div className="flex gap-2">
+								<ButtonLink href={PROFILE} variant="secondary" size="sm">
+									Manage
+								</ButtonLink>
+								<ButtonLink href={PERSONAL_INFO} variant="secondary" size="sm">
+									Personal Info
+								</ButtonLink>
+							</div>
 						}
 					/>
 				</div>

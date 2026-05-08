@@ -9,7 +9,7 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { PostsList } from "@/lib/components/post/PostsList";
-import { DeletePostButton } from "@/lib/components/post/DeletePostButton";
+import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
@@ -208,15 +208,19 @@ function PostPageContent({
 							</Link>
 						)}
 						{isOwner && isDraft && (
-							<button
-								type="button"
-								onClick={handlePublish}
-								disabled={publishing || !editContent.trim()}
-								title={!editContent.trim() ? "Add some content before publishing" : undefined}
-								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-							>
-								{publishing ? "Publishing..." : "Publish"}
-							</button>
+							<div className="flex flex-col items-start gap-1">
+								<button
+									type="button"
+									onClick={handlePublish}
+									disabled={publishing || !editContent.trim()}
+									className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
+								>
+									{publishing ? "Publishing..." : "Publish"}
+								</button>
+								{!editContent.trim() && !publishing && (
+									<p className="text-xs text-dusty-grey">Add some content to publish</p>
+								)}
+							</div>
 						)}
 						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
@@ -295,9 +299,18 @@ function PostPageContent({
 				{/* Footer actions */}
 				{isOwner && (
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-						<DeletePostButton
-							postId={post.id}
-							postTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
+						<DeleteConfirmButton
+							label="Delete Post"
+							itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
+							onDelete={async () => {
+								try {
+									await deletePost(post.id);
+									router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+								} catch (err) {
+									if (err instanceof AuthError) { handleAuthError(); return; }
+									throw err;
+								}
+							}}
 						/>
 						{isPublished && !isEditing && (
 							<button

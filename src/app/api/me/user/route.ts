@@ -44,9 +44,13 @@ export async function PUT(request: Request) {
 	const { fields = {}, elements } = body;
 
 	const {
+		firstName, middleName, lastName,
 		displayName, headline, bio,
 		interests, location, isPublic, avatarImageId, aboutContent,
 	} = fields as {
+		firstName?: string;
+		middleName?: string;
+		lastName?: string;
 		displayName?: string;
 		headline?: string;
 		bio?: string;
@@ -63,6 +67,12 @@ export async function PUT(request: Request) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
 
+	for (const [name, value] of Object.entries({ firstName, middleName, lastName })) {
+		if (value !== undefined && value.length > 100) {
+			return badRequest(`${name} must be 100 characters or fewer`);
+		}
+	}
+
 	if (aboutContent !== undefined && aboutContent !== null && aboutContent.length > 50000) {
 		return badRequest("aboutContent must be 50,000 characters or fewer");
 	}
@@ -70,6 +80,7 @@ export async function PUT(request: Request) {
 	try {
 		const user = await prisma.$transaction(async () => {
 			await updateUserProfile(userId, {
+				firstName, middleName, lastName,
 				displayName, headline, bio,
 				interests, location, isPublic, avatarImageId, aboutContent,
 			});

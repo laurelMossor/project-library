@@ -47,6 +47,50 @@ Accumulated from orchestrator session dispatches. Test after merging each bundle
 - [ ] **Membership tab (as page admin):** "Add members" button shows `ProfileSearchDropdown`; selecting a user adds them and refreshes the list
 - [ ] **Manage Admins (settings):** search dropdown finds users by partial name/handle; selecting adds as admin; already-admins excluded from results
 
+## Bundle A — Collection UX Polish (shipped 2026-05-08)
+
+**URL param persistence (P0):**
+- [ ] Change a filter/sort/view on `/explore` — URL updates in real time
+- [ ] Refresh the page — filters restored from URL
+- [ ] Open a post from a filtered explore view → hit Back → filters preserved
+- [ ] "← Back to Explore" breadcrumb on post/event detail pages returns to last filtered state (not bare `/explore`)
+- [ ] Visit a URL like `/explore?type=event&sort=newest&view=map&tags=improv` — renders with those filters active
+- [ ] Default state (`/explore` with no params) — no clutter in the URL bar
+
+**Pin icon hover (P1):**
+- [ ] Pin icon on CollectionCards is invisible by default
+- [ ] Hovering a card reveals the pin icon
+- [ ] Already-pinned items always show the pin icon (no hover required)
+
+**Profile empty states (P1):**
+- [ ] Profile with no content shows contextual empty message
+- [ ] Filter to "Events" on a profile that only has posts — says "No events yet" (not generic)
+- [ ] Filter to "Posts" on a profile that only has events — says "No posts yet"
+
+## Bundle B+E — Form, Edit & About Polish (shipped 2026-05-08)
+
+**About Page delete (P0):**
+- [ ] On `/{handle}/about` with existing content, a Delete button is visible
+- [ ] Clicking Delete shows confirmation, then clears content and redirects to profile
+- [ ] Revisiting `/{handle}/about` after delete — no stale content
+
+**Publish validation hints (P1):**
+- [ ] Create a draft event, leave title empty, click Publish — hint text appears explaining what's missing
+- [ ] Create a draft post, leave content empty, click Publish — hint text appears
+- [ ] Fill in required fields — hint disappears and Publish enables
+
+**Image auto-compression (P1):**
+- [ ] Upload an image larger than 5MB (e.g. iPhone photo) — uploads successfully after compression
+- [ ] Amber notice appears when compression occurred
+- [ ] Upload an image under 5MB — no compression, no notice
+- [ ] Test on both cover image (event) and avatar upload
+
+**Edit Personal Info (P1):**
+- [ ] User settings page has a link/button to "Edit Personal Info"
+- [ ] Form at `/settings/personal-info` shows first/middle/last name fields
+- [ ] Saving persists changes (reload and verify)
+- [ ] Switch to a Page identity — personal info shows "Coming soon"
+
 ## Bundle F — Map View Polish
 
 - [ ] Map aspect ratio feels intentional and works responsively (not the current stretched rectangle)

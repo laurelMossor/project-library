@@ -17,7 +17,7 @@ type CoverImageEditorProps = {
  */
 export function CoverImageEditor({ eventId, imageUrl, canEdit, onImageUploaded }: CoverImageEditorProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const { imagePreview, error: imageError, handleImageChange } = useImageUpload(imageUrl);
+	const { imagePreview, error: imageError, wasCompressed, handleImageChange } = useImageUpload(imageUrl);
 	const [uploading, setUploading] = useState(false);
 	const [error, setError] = useState("");
 
@@ -116,6 +116,11 @@ export function CoverImageEditor({ eventId, imageUrl, canEdit, onImageUploaded }
 			{(error || imageError) && (
 				<p className="absolute bottom-4 left-4 text-sm text-white bg-alert-red/90 px-3 py-1 rounded">
 					{error || imageError}
+				</p>
+			)}
+			{wasCompressed && !error && !imageError && (
+				<p className="absolute bottom-4 left-4 text-xs text-amber-600 bg-white/90 px-3 py-1 rounded">
+					Image was automatically resized to fit the 5MB limit
 				</p>
 			)}
 		</div>

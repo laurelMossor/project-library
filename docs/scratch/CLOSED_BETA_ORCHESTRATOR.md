@@ -29,21 +29,23 @@ When work involves specific Notion tickets, pull them via the REST API pattern i
 
 ## How to draft an agent brief
 
-When Laurel picks a bundle (or you recommend one), produce a **self-contained prompt** formatted for pasting into a fresh Claude Code session:
+When Laurel picks a bundle (or you recommend one), produce a **self-contained prompt** in a copiable code block in the chat (not in this doc — briefs live in the conversation only).
 
+**Structure:**
 1. **Goal** — one-sentence outcome
-2. **Context** — brief project description, tech stack, enough for a cold start
-3. **Session bootstrap** — which docs to read first (always include PROJECT_GUIDELINES.md and STATUS.md)
-4. **Scope** — specific tickets/tasks with:
-   - What the problem is and what the fix should do
+2. **Session bootstrap** — which docs to read first (always include PROJECT_GUIDELINES.md and STATUS.md)
+3. **Context** — brief project description, tech stack, enough for a cold start
+4. **Scope** — numbered tasks, each with:
+   - What the problem is
    - File paths *verified live* via Read/Grep (don't trust this doc or memory — check the codebase before writing the brief)
-   - Implementation notes where the approach isn't obvious
-5. **Acceptance criteria** — including manual smoke tests for UI work, `npm run validate` for all work
+5. **Acceptance criteria** — checkboxes, including `npm run validate` for all work
 6. **Out of scope** — explicit exclusions to prevent scope creep
 
-**Skill invocation:** When a bundle involves UI design work, tell the agent which `/skill` to invoke and at which phase (planning vs. implementation). For example: "Use the `/interface-design` skill during the planning phase before writing code."
+**Tone:** Describe the problem and point at the relevant files, then get out of the way. Don't prescribe implementation details or dictate the approach — the receiving agent should think critically about *how* to solve it. Keep the brief concise; a wall of implementation notes pigeonholes the agent and prevents it from finding better solutions.
 
-**Adapting to agent context:** If a bundle is going to the same agent that just finished a related bundle, write a shorter follow-up prompt that builds on the context they already have. If it's a fresh agent, the prompt must be fully self-contained.
+**Skill invocation:** When a bundle involves UI design work, tell the agent which `/skill` to invoke and at which phase (planning vs. implementation).
+
+**Adapting to agent context:** If a bundle is going to the same agent that just finished a related bundle, write a shorter follow-up prompt. If it's a fresh agent, the prompt must be fully self-contained.
 
 ## How to maintain session artifacts
 
@@ -87,13 +89,16 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
-### Bundle B — About Page Completion (M3, P0, small scope)
+### Bundle B+E — Form, Edit & About Polish (M3)
 
-**Shared surface:** `[handle]/about/page.tsx`, `AboutPageClient`, `AddElementButton`
+**Shared surface:** `EventPageClient`, `PostPageClient`, `AboutPageClient`, form components, profile edit/settings views
 
 | Pri | Ticket | Key detail |
 |---|---|---|
-| P0 | [About Page — entry point, add, delete, edit](https://www.notion.so/358453d029b08036b60aeb8666687292) | Route + edit + entry point exist. Remaining: verify entry point works from AddElementButton, add a way to delete/clear about content, verify edit saves correctly. |
+| P0 | [About Page — delete interface](https://www.notion.so/358453d029b08036b60aeb8666687292) | About page works for add/edit. Missing: a way to delete/clear about content. |
+| P1 | [Publish validation hints](https://www.notion.so/338453d029b080bcbe54d1e3e10c3979) | When you click Publish on an event/post with missing required fields, nothing tells you what's wrong. Need inline field-level error hints. |
+| P1 | [Event page banner size limit too small](https://www.notion.so/357453d029b0804c823bd7118619a8c2) | 5MB limit rejects iPhone photos. Needs auto-compression. |
+| P1 | [Edit Personal Info](https://www.notion.so/359453d029b08056af79e2b781d1a29b) | Private personal info form accessible from user settings. "Coming soon" for Pages. |
 
 **Parallelizable with:** A, C
 
@@ -105,25 +110,11 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 | Pri | Ticket | Key detail |
 |---|---|---|
-| P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists (used by ProfileSearchDropdown). Need a user-facing search UI — likely a nav search icon → search page/overlay, querying both users and pages. |
+| P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists (used by ProfileSearchDropdown). Need a user-facing search UI. |
 
-**⚠️ Needs `/interface-design` input before dispatch.** Search placement, interaction pattern (overlay vs. dedicated page vs. nav dropdown), and result presentation all need design direction.
+**⚠️ Needs `/interface-design` input before dispatch.** Search placement, interaction pattern, and result presentation all need design direction.
 
-**Parallelizable with:** A, B
-
----
-
-### Bundle E — Form & Edit Polish (M3)
-
-**Shared surface:** `EventPageClient`, `PostPageClient`, form components, profile edit views
-
-| Pri | Ticket | Key detail |
-|---|---|---|
-| P1 | [Publish validation hints](https://www.notion.so/338453d029b080bcbe54d1e3e10c3979) | When you click Publish on an event/post with missing required fields, nothing tells you what's wrong. Need inline field-level error hints. |
-| P1 | [Event page banner size limit too small](https://www.notion.so/357453d029b0804c823bd7118619a8c2) | Event banner image upload rejects files that are a reasonable size. Need to increase the limit. |
-| P1 | [Edit Personal Info](https://www.notion.so/359453d029b08056af79e2b781d1a29b) | Users need a way to edit their personal info (name, headline, bio, location, interests) from their profile. |
-
-**Deps:** None, but best scheduled after Bundle A since they share some card/collection adjacency.
+**Parallelizable with:** A, B+E
 
 ---
 
@@ -164,11 +155,10 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 ### Recommended dispatch order
 
 ```
-Phase 1 (parallel, no deps):     A + B              ← P0s, ready now
+Phase 1 (parallel, no deps):     A + B+E            ← ready now
 Phase 2 (needs design input):    C                  ← P0 search, needs /interface-design
-Phase 3 (no deps):               E                  ← P1 form polish
-Phase 4 (needs design calls):    F                  ← landing & onboarding
-Phase 5 (needs Laurel's copy):   G                  ← content pages
+Phase 3 (needs design calls):    F                  ← landing & onboarding
+Phase 4 (needs Laurel's copy):   G                  ← content pages
 ```
 
-A and B can dispatch immediately to separate agents. C is also P0 but needs interface-design input on search UX before the brief is written. E can start whenever. F and G need Laurel's input before briefs can be written.
+A and B+E can dispatch to separate agents in parallel. C needs interface-design input first. F and G need Laurel's input before briefs can be written.

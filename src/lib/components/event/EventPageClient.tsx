@@ -13,7 +13,7 @@ import { RsvpForm } from "@/lib/components/event/RsvpForm";
 import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
 import { AttendeeList } from "@/lib/components/event/AttendeeList";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
-import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
+import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { Tags } from "@/lib/components/tag/Tag";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EventMap } from "@/lib/components/map/EventMap";
@@ -260,15 +260,19 @@ function EventPageContent({
 							</Link>
 						)}
 						{isOwner && isDraft && (
-							<button
-								type="button"
-								onClick={handlePublish}
-								disabled={publishing || !editTitle}
-								title={!editTitle ? "Add an event name before publishing" : undefined}
-								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-							>
-								{publishing ? "Publishing..." : "Publish"}
-							</button>
+							<div className="flex flex-col items-start gap-1">
+								<button
+									type="button"
+									onClick={handlePublish}
+									disabled={publishing || !editTitle}
+									className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
+								>
+									{publishing ? "Publishing..." : "Publish"}
+								</button>
+								{!editTitle && !publishing && (
+									<p className="text-xs text-dusty-grey">Add an event name to publish</p>
+								)}
+							</div>
 						)}
 						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
@@ -400,7 +404,19 @@ function EventPageContent({
 				{/* Footer actions */}
 				{isOwner && (
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-						<DeleteEventButton eventId={event.id} eventTitle={event.title || "Untitled Event"} />
+						<DeleteConfirmButton
+							label="Delete Event"
+							itemTitle={event.title || "Untitled Event"}
+							onDelete={async () => {
+								try {
+									await deleteEvent(event.id);
+									router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+								} catch (err) {
+									if (err instanceof AuthError) { router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id))); return; }
+									throw err;
+								}
+							}}
+						/>
 						{isPublished && !isEditing && (
 							<button
 								type="button"

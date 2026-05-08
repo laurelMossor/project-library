@@ -17,7 +17,7 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 
-	const { imageFile, imagePreview, error: uploadError, handleImageChange, clearImage } = useImageUpload(currentAvatarUrl);
+	const { imageFile, imagePreview, error: uploadError, wasCompressed, handleImageChange, clearImage } = useImageUpload(currentAvatarUrl);
 
 	if (!isOpen) return null;
 
@@ -108,6 +108,11 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 
 				{(error || uploadError) && (
 					<p className="text-red-500 text-sm mb-4 text-center">{error || uploadError}</p>
+				)}
+				{wasCompressed && !error && !uploadError && (
+					<p className="text-xs text-amber-600 mb-4 text-center">
+						Image was automatically resized to fit the 5MB limit
+					</p>
 				)}
 
 				<div className="flex flex-col gap-3">

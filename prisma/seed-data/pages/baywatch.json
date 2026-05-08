@@ -1,0 +1,21 @@
+{
+  "name": "Baywatch Events",
+  "handle": "baywatch",
+  "headline": "An event curation page for things happening the San Francisco Bay Area.",
+  "bio": "",
+  "interests": ["Events"],
+  "location": "Bay Area, CA",
+  "avatarImage": "filename.png",
+  "creatorHandle": "laurel",
+  "events": [
+    {
+      "title": "Event title (optional)",
+      "content": "Event description.",
+      "eventDateTime": "2026-09-01T18:00:00Z",
+      "location": "Venue Name, Street Address, City, ST",
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    }
+  ]
+}

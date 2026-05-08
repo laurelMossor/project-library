@@ -26,19 +26,10 @@
 
 ## In flight (Polish Launch)
 
-**Bundle planning complete** — 17 active P0/P1 tickets organized into 7 bundles (see `docs/scratch/CLOSED_BETA_ORCHESTRATOR.md` for full breakdown). Phase 1 (A–D) covers all P0 items and can dispatch in parallel.
-
-**P0 tickets (3):**
-- [ ] URL params not updating on sort/filter change (Bundle A — Collections)
-- [ ] About Page — verify entry point, add delete, confirm edit (Bundle B — small scope, close to done)
+**P0 tickets (1 remaining):**
 - [ ] Global search for users/pages (Bundle C — needs interface-design input)
 
-**P1 tickets — M3 (6):**
-- [ ] Publish validation hints on event/post forms (Bundle E)
-- [ ] Event page banner size limit too small (Bundle E)
-- [ ] Edit Personal Info (Bundle E)
-- [ ] Pin icon — hidden by default, show on hover (Bundle A)
-- [ ] Empty states on profile collection views (Bundle A)
+**P1 tickets — M3 (1 remaining):**
 - [~] Photo captions — likely shipped 05/06, needs verify-and-close
 
 **P1 tickets — M4 (6):**
@@ -64,7 +55,7 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 - [x] Edit posts after posting — edit mode gating shipped 2026-05-07 (read-only default + Edit/Done toggle for owners)
 - [x] Draft post/event behavior — shipped 2026-05-07 (published = read-only, draft = editable)
 - [x] Share Event/Post — `ShareButton` shipped 2026-05-06
-- [ ] Event form required-field hints on Publish
+- [x] Event form required-field hints on Publish — shipped 2026-05-08 (Bundle B+E)
 - [x] Seed system rewrite — per-user/page JSON packets, `$env:` password support, Playwright globalSetup auto-seeds — shipped 2026-05-07
 - [x] Explore page sorting — events intermixed by `createdAt`, Events tab sorts upcoming-first, past events greyed out — shipped 2026-05-07
 
@@ -87,12 +78,13 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-05-08** — Bundle B+E (Form, Edit & About Polish): `DeleteConfirmButton` shared component replacing duplicate delete buttons. About Page delete with redirect to profile. Publish validation hints on post/event drafts. Image auto-compression via Canvas API (`compressImage()` + `useImageUpload` hook). Edit Personal Info form at `/settings/personal-info` with first/middle/last name fields.
+- **2026-05-08** — Bundle A (Collection UX Polish): `useFilterParams` made bidirectional — URL updates on every filter/sort/view/search change via `router.replace()`. `sessionStorage`-backed explore URL persistence for breadcrumb back-links. Pin icon hover via Tailwind `group`/`opacity` pattern. Filter-aware empty states on profile collections.
 - **2026-05-07** — Map View polish: `MapControls` with Nominatim geocoding + radius pills, Haversine client-side filtering, viewport-aware count, `LeafletMap` base component, shared `LocationSearchInput` for event forms + map. Leaflet CSS race condition fixed. Seed auto-geocoding added.
 - **2026-05-07** — Seed system rewrite: per-user/page JSON packets, `$env:` password support, Playwright globalSetup auto-seeds. Explore sorting reworked (upcoming-first, past events greyed out).
 - **2026-05-07** — Connections view rework (Bundle H2): expandable inline actions (Remove Follower, Unfollow, Leave Group, Remove from group + last-admin guard), Add Members via `ProfileSearchDropdown`. Edit mode gating on posts/events (read-only default + Edit/Done toggle). Back-to-Explore breadcrumb.
 - **2026-05-06** — Big orchestrator session: Bundles G, D, B, C, H all shipped. N+1 sweep, bug fixes (search/empty messages/empty posts), RSVP autofill/dedup, About Page entry point, NavProfileTag sizing, photo caption editing, ProfileSearchDropdown + ManageAdmins. PostPageClient parity with EventPageClient. Seed + lint + E2E fixes.
 - **2026-05-05** — Profile UX overhaul + session-scoped route refactor.
-- **2026-04-26** — PR2 URL flattening complete. Unified `/[handle]/` route tree.
 
 ---
 

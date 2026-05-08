@@ -1,44 +1,45 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { deleteEvent } from "@/lib/utils/event-client";
-import { AuthError } from "@/lib/utils/auth-client";
-import { COLLECTIONS, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 
-type Props = {
-	eventId: string;
-	eventTitle: string;
+type DeleteConfirmButtonProps = {
+	label: string;
+	itemTitle?: string;
+	onDelete: () => Promise<void>;
+	confirmLabel?: string;
+	variant?: "destructive" | "subtle";
 };
 
-export function DeleteEventButton({ eventId, eventTitle }: Props) {
-	const router = useRouter();
-	const [isDeleting, setIsDeleting] = useState(false);
+export function DeleteConfirmButton({
+	label,
+	itemTitle,
+	onDelete,
+	confirmLabel = "Delete",
+	variant = "destructive",
+}: DeleteConfirmButtonProps) {
 	const [showConfirm, setShowConfirm] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
 	const [error, setError] = useState("");
 
 	const handleDelete = async () => {
 		setIsDeleting(true);
 		setError("");
-
 		try {
-			await deleteEvent(eventId);
-			router.push(COLLECTIONS);
+			await onDelete();
 		} catch (err) {
-			if (err instanceof AuthError) {
-				router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(eventId)));
-				return;
-			}
-			setError(err instanceof Error ? err.message : "Failed to delete event");
+			setError(err instanceof Error ? err.message : "Something went wrong");
 			setIsDeleting(false);
-			setShowConfirm(false);
 		}
 	};
 
 	if (showConfirm) {
 		return (
 			<div className="flex flex-col gap-2">
-				<p className="text-sm text-gray-700">Are you sure you want to delete '{eventTitle}'?</p>
+				{itemTitle && (
+					<p className="text-sm text-gray-700">
+						Are you sure you want to delete &apos;{itemTitle}&apos;?
+					</p>
+				)}
 				{error && <p className="text-sm text-red-600">{error}</p>}
 				<div className="flex gap-2">
 					<button
@@ -46,7 +47,7 @@ export function DeleteEventButton({ eventId, eventTitle }: Props) {
 						disabled={isDeleting}
 						className="rounded border border-red-600 bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
 					>
-						{isDeleting ? "Deleting..." : "Delete"}
+						{isDeleting ? "Deleting..." : confirmLabel}
 					</button>
 					<button
 						onClick={() => {
@@ -63,13 +64,14 @@ export function DeleteEventButton({ eventId, eventTitle }: Props) {
 		);
 	}
 
+	const triggerClass =
+		variant === "destructive"
+			? "rounded border border-red-600 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+			: "rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:border-red-400 hover:text-red-600";
+
 	return (
-		<button
-			onClick={() => setShowConfirm(true)}
-			className="rounded border border-red-600 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
-		>
-			Delete Event
+		<button onClick={() => setShowConfirm(true)} className={triggerClass}>
+			{label}
 		</button>
 	);
 }
-
