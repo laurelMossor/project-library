@@ -21,7 +21,6 @@ export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
 export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 
 // Session-scoped — active profile resolved from session, no handle in URL
-export const PROFILE = "/profile";
 export const SETTINGS = "/settings";
 export const PERSONAL_INFO = "/settings/personal-info";
 export const CONNECTIONS = "/connections";

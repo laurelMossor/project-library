@@ -18,7 +18,7 @@ import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
 	MESSAGES,
-	PROFILE,
+	SETTINGS,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
 	SEARCH,
@@ -46,7 +46,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-	const settingsLink = isLoggedIn ? PROFILE : undefined;
+	const settingsLink = isLoggedIn ? SETTINGS : undefined;
 	const [handle, setHandle] = useState<string>('');
 
 	useEffect(() => {

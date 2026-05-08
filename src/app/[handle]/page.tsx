@@ -35,7 +35,7 @@ import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
-import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
+import { OwnProfileView } from "@/lib/components/profile/OwnProfileView";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 import { getUserDisplayName } from "@/lib/types/user";
@@ -45,11 +45,13 @@ import type { AboutCollectionItem } from "@/lib/types/collection";
 
 type Props = {
 	params: Promise<{ handle: string }>;
+	searchParams: Promise<{ edit?: string }>;
 };
 
 // TODO: dry this up considerably
-export default async function HandleProfilePage({ params }: Props) {
+export default async function HandleProfilePage({ params, searchParams }: Props) {
 	const { handle } = await params;
+	const { edit } = await searchParams;
 
 	const entity = await findEntityByHandle(handle);
 	if (!entity) {
@@ -85,11 +87,19 @@ export default async function HandleProfilePage({ params }: Props) {
 			}
 			: null;
 
+		const profile: ProfileEntity = { type: "USER", data: user };
+
 		if (isOwnProfile) {
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<ProfileEditClient entity={{ type: "user", data: user }} saveUrl={API_ME_USER} />
+						<OwnProfileView
+							profile={profile}
+							editEntity={{ type: "user", data: user }}
+							saveUrl={API_ME_USER}
+							showJoinButton={false}
+							initialEditMode={edit === "true"}
+						/>
 					</div>
 
 					<ProfileCollectionSection
@@ -103,8 +113,6 @@ export default async function HandleProfilePage({ params }: Props) {
 				</CenteredLayout>
 			);
 		}
-
-		const profile: ProfileEntity = { type: "USER", data: user };
 
 		return (
 			<CenteredLayout maxWidth="6xl">
@@ -154,11 +162,19 @@ export default async function HandleProfilePage({ params }: Props) {
 			}
 			: null;
 
+		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
+
 		if (isOwner) {
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<ProfileEditClient entity={{ type: "page", data: page }} saveUrl={API_PAGE(page.id)} />
+						<OwnProfileView
+							profile={pageProfile}
+							editEntity={{ type: "page", data: page }}
+							saveUrl={API_PAGE(page.id)}
+							showJoinButton={true}
+							initialEditMode={edit === "true"}
+						/>
 					</div>
 
 					<ProfileCollectionSection
@@ -173,19 +189,17 @@ export default async function HandleProfilePage({ params }: Props) {
 			);
 		}
 
-		const profile: ProfileEntity = { type: "PAGE", data: page };
-
 		return (
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
 					<div className="flex items-start justify-between gap-4">
-						<ProfileHeader profile={profile} />
+						<ProfileHeader profile={pageProfile} />
 						<div className="flex flex-col gap-2 w-36 shrink-0">
 							<ProfileButtons entityId={page.id} entityType="page" />
 							<JoinButton pageId={page.id} />
 						</div>
 					</div>
-					<ProfileBody profile={profile} />
+					<ProfileBody profile={pageProfile} />
 				</div>
 
 				<ProfileCollectionSection

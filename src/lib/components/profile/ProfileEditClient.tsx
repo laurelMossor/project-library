@@ -28,6 +28,7 @@ export type ProfileEditEntity =
 type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
 	saveUrl: string;
+	onPreview?: () => void;
 };
 
 // ─── Inner content (needs session context) ────────────────────────────────────
@@ -36,10 +37,12 @@ function ProfileOwnerContent({
 	entity,
 	previewMode,
 	setPreviewMode,
+	onPreview,
 }: {
 	entity: ProfileEditEntity;
 	previewMode: boolean;
 	setPreviewMode: (v: boolean) => void;
+	onPreview?: () => void;
 }) {
 	const session = useInlineEditSession();
 	const [editingField, setEditingField] = useState<string | null>(null);
@@ -184,9 +187,9 @@ function ProfileOwnerContent({
 					<ProfileButtons entityId={entityId} entityType={entityType} />
 					{entity.type === "page" && <JoinButton pageId={entity.data.id} />}
 					<TransparentCTAButton
-						label={previewMode ? "Back to editing" : "Preview"}
-						icon={previewMode ? undefined : <EyeIcon className="w-4 h-4" />}
-						onClick={() => setPreviewMode(!previewMode)}
+						label={onPreview ? "Preview" : (previewMode ? "Back to editing" : "Preview")}
+						icon={<EyeIcon className="w-4 h-4" />}
+						onClick={onPreview ? onPreview : () => setPreviewMode(!previewMode)}
 						className="w-full"
 					/>
 				</div>
@@ -261,7 +264,7 @@ function ProfileOwnerContent({
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
 
-export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEditClientProps) {
+export function ProfileEditClient({ entity: initialEntity, saveUrl, onPreview }: ProfileEditClientProps) {
 	const [entity, setEntity] = useState(initialEntity);
 	const [previewMode, setPreviewMode] = useState(false);
 
@@ -305,6 +308,7 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEdi
 				entity={entity}
 				previewMode={previewMode}
 				setPreviewMode={setPreviewMode}
+				onPreview={onPreview}
 			/>
 		</InlineEditSession>
 	);

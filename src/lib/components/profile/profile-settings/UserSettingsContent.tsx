@@ -4,7 +4,7 @@ import { PublicUser } from "@/lib/types/user";
 import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/ProfileSettingsBase";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
-import { CONNECTIONS } from "@/lib/const/routes";
+import { CONNECTIONS, PERSONAL_INFO } from "@/lib/const/routes";
 
 const USER_DISABLED_BUTTONS = [
 	"Privacy Settings",
@@ -29,13 +29,18 @@ export function UserSettingsContent({
 			pages={pages}
 			settingsTitle="User Settings"
 			avatarEntity={user}
-			viewPublicProfileHref={publicProfileHref}
-			viewPublicProfileLabel="View & Edit Profile"
+			viewPublicProfileHref={`${publicProfileHref}?edit=true`}
+			viewPublicProfileLabel="Edit Public Profile"
 			disabledButtons={USER_DISABLED_BUTTONS}
 			additionalSettingsButtons={
-				<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
-					Manage Connections
-				</ButtonLink>
+				<>
+					<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
+						Edit Personal Information
+					</ButtonLink>
+					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
+						Manage Connections
+					</ButtonLink>
+				</>
 			}
 		/>
 	);
