@@ -2,7 +2,7 @@
 
 > Live tracker for where we are on the road to **closed beta release**. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-05-07
+**Last updated:** 2026-05-08
 **Overall goal:** Closed beta release — invite-only site
 **Usership**: There are NO real users, all data is mocked. 
 **Authoritative plan (only access if prompted):** [Closed Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw/edit) · mirrored work estimates table is the ground truth for what's left.
@@ -25,7 +25,30 @@
 ---
 
 ## In flight (Polish Launch)
-- TODO, list current tasks and tickets grouped into chunks
+
+**Bundle planning complete** — 17 active P0/P1 tickets organized into 7 bundles (see `docs/scratch/CLOSED_BETA_ORCHESTRATOR.md` for full breakdown). Phase 1 (A–D) covers all P0 items and can dispatch in parallel.
+
+**P0 tickets (4):**
+- [ ] URL params not updating on sort/filter change (Bundle A — Collections)
+- [ ] About Page — verify entry point, add delete, confirm edit (Bundle B — small scope, close to done)
+- [ ] Global search for users/pages (Bundle C)
+- [ ] Improved post/event sharing + OG metadata (Bundle D)
+
+**P1 tickets — M3 (6):**
+- [ ] Publish validation hints on event/post forms (Bundle E)
+- [ ] Event page banner size limit too small (Bundle E)
+- [ ] Edit Personal Info (Bundle E)
+- [ ] Pin icon — hidden by default, show on hover (Bundle A)
+- [ ] Empty states on profile collection views (Bundle A)
+- [~] Photo captions — likely shipped 05/06, needs verify-and-close
+
+**P1 tickets — M4 (6):**
+- [~] Landing page — headers/CTAs needed (Bundle F, in progress, needs design direction)
+- [ ] Beta flag + notes at login/signup (Bundle F)
+- [ ] Onboarding "what is this?" (Bundle F)
+- [ ] PL About page — site-level (Bundle G, needs Laurel's copy)
+- [ ] Community guidelines page + content (Bundle G, needs Laurel's copy)
+- [ ] "Something wrong?" escape hatch (Bundle G)
 
 
 ---
