@@ -43,7 +43,9 @@
     {
       "title": "August Skill Share: Intro to Hand Sewing (Example Event)",
       "content": "📌 This is an example event showing what page-hosted events look like on the Project Library.\n\nLearn the basics of hand sewing — running stitch, backstitch, and blanket stitch. Bring a project or use one of our practice kits.\n\nAll skill levels welcome. Materials provided. Free for members, $10 for non-members.",
-      "eventDateTime": "2026-08-16T14:00:00Z",
+      "eventDate": "2026-08-16",
+      "eventStartTime": "2:00 PM",
+      "eventTimezone": "PST",
       "location": "Portland Makers Guild, 3456 SE Division St, Portland, OR",
       "latitude": 45.505,
       "longitude": -122.629,

@@ -132,6 +132,11 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 	return { valid: true };
 }
 
+const validTimezones = new Set(Intl.supportedValuesOf("timeZone"));
+function isValidTimezone(tz: string): boolean {
+	return validTimezones.has(tz);
+}
+
 function isValidFutureDate(value: Date | undefined | null): boolean {
 	if (!value) return false;
 	if (!(value instanceof Date) || Number.isNaN(value.getTime())) return false;
@@ -161,6 +166,12 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 
 	if (!isValidFutureDate(data.eventDateTime)) {
 		return { valid: false, error: "Event date must be in the future" };
+	}
+
+	if (data.eventTimezone !== undefined && data.eventTimezone !== null) {
+		if (typeof data.eventTimezone !== "string" || !isValidTimezone(data.eventTimezone)) {
+			return { valid: false, error: "Invalid timezone" };
+		}
 	}
 
 	if (!data.location || typeof data.location !== "string") {
@@ -230,6 +241,12 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 
 	if (data.eventDateTime !== undefined && !isValidFutureDate(data.eventDateTime)) {
 		return { valid: false, error: "Event date must be in the future" };
+	}
+
+	if (data.eventTimezone !== undefined && data.eventTimezone !== null) {
+		if (typeof data.eventTimezone !== "string" || !isValidTimezone(data.eventTimezone)) {
+			return { valid: false, error: "Invalid timezone" };
+		}
 	}
 
 	if (data.location !== undefined) {

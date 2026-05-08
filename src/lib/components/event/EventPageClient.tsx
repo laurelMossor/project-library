@@ -173,10 +173,9 @@ function EventPageContent({
 		}
 	};
 
-	// InlineDateTimePicker saves its own field (date change is deliberate & isolated)
-	const handleDateSave = async (dateTime: Date) => {
+	const handleDateSave = async (dateTime: Date, timezone: string) => {
 		try {
-			const updated = await updateEvent(event.id, { eventDateTime: dateTime });
+			const updated = await updateEvent(event.id, { eventDateTime: dateTime, eventTimezone: timezone });
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
@@ -245,6 +244,7 @@ function EventPageContent({
 				<InlineDateTimePicker
 					eventId={event.id}
 					eventDateTime={event.eventDateTime}
+					eventTimezone={event.eventTimezone}
 					canEdit={isOwner && isEditing}
 					onSave={handleDateSave}
 				/>

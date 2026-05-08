@@ -38,7 +38,9 @@
     {
       "title": "Event title (optional)",
       "content": "Event description.",
-      "eventDateTime": "2026-09-01T18:00:00Z",
+      "eventDate": "2026-09-01",
+      "eventStartTime": "6:00 PM",
+      "eventTimezone": "PST",
       "location": "Venue Name, Street Address, City, ST",
       "tags": ["Tag One", "Tag Two"],
       "status": "PUBLISHED",
@@ -47,7 +49,9 @@
         {
       "title": "Event title (optional)",
       "content": "Event description.",
-      "eventDateTime": "2026-09-01T18:00:00Z",
+      "eventDate": "2026-09-01",
+      "eventStartTime": "6:00 PM",
+      "eventTimezone": "PST",
       "location": "Venue Name, Street Address, City, ST",
       "tags": ["Tag One", "Tag Two"],
       "status": "PUBLISHED",
@@ -56,7 +60,9 @@
         {
       "title": "Event title (optional)",
       "content": "Event description.",
-      "eventDateTime": "2026-09-01T18:00:00Z",
+      "eventDate": "2026-09-01",
+      "eventStartTime": "6:00 PM",
+      "eventTimezone": "PST",
       "location": "Venue Name, Street Address, City, ST",
       "tags": ["Tag One", "Tag Two"],
       "status": "PUBLISHED",

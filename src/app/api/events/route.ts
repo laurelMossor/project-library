@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, isDraft, pageId } = data;
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, isDraft, pageId } = data;
 
 		// If posting as a page, verify permission
 		if (pageId) {
@@ -129,6 +129,7 @@ export async function POST(request: Request) {
 					title: (title || "").trim(),
 					content: (content || "").trim(),
 					eventDateTime: parsedDateTime,
+					eventTimezone: eventTimezone || null,
 					location: (location || "").trim(),
 					status: "DRAFT",
 					tags: [],
@@ -194,6 +195,7 @@ export async function POST(request: Request) {
 				title: title.trim(),
 				content: content.trim(),
 				eventDateTime: parsedDateTime,
+				eventTimezone: eventTimezone || null,
 				location: location.trim(),
 				latitude: parsedLatitude,
 				longitude: parsedLongitude,

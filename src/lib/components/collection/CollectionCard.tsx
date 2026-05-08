@@ -129,7 +129,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 			{ev && (
 				<div className="mb-2 text-sm text-gray-600">
 					<p className="font-medium flex items-center gap-2">
-						📅 {formatDateTime(ev.eventDateTime)}
+						📅 {formatDateTime(ev.eventDateTime, ev.eventTimezone)}
 						{isPast && <span className="text-xs font-medium uppercase tracking-wide text-dusty-grey border border-dusty-grey rounded px-1.5 py-0.5">Past</span>}
 					</p>
 					<p className="text-xs">📍 {ev.location}</p>

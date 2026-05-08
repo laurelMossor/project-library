@@ -63,14 +63,16 @@ export type SeedPost = {
 export type SeedEvent = {
   title?: string;
   content: string;
-  eventDateTime: string;
   location: string;
   latitude?: number;
   longitude?: number;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
   imageFilenames?: string[];
-};
+} & (
+  | { eventDate: string; eventStartTime: string; eventTimezone: string; eventDateTime?: never }
+  | { eventDateTime: string; eventDate?: never; eventStartTime?: never; eventTimezone?: string }
+);
 
 export type SeedUserPacket = {
   email: string;
@@ -176,6 +178,81 @@ function resolvePassword(password: string): string {
     return value;
   }
   return password;
+}
+
+// ── Timezone helpers ──────────────────────────────────────────────
+
+const TZ_ALIASES: Record<string, string> = {
+  PST: "America/Los_Angeles",
+  PDT: "America/Los_Angeles",
+  MST: "America/Denver",
+  MDT: "America/Denver",
+  CST: "America/Chicago",
+  CDT: "America/Chicago",
+  EST: "America/New_York",
+  EDT: "America/New_York",
+  HST: "Pacific/Honolulu",
+  AKST: "America/Anchorage",
+  AKDT: "America/Anchorage",
+  UTC: "UTC",
+};
+
+function resolveTimezone(tz: string): string {
+  return TZ_ALIASES[tz.toUpperCase()] ?? tz;
+}
+
+function parseTime12h(time: string): { hour: number; minute: number } {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) throw new Error(`Invalid time format "${time}" — expected "H:MM AM/PM"`);
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return { hour, minute };
+}
+
+function getTimezoneOffsetMs(utcDate: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric", month: "numeric", day: "numeric",
+    hour: "numeric", minute: "numeric", second: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(utcDate);
+  const get = (type: string) => {
+    let v = parseInt(parts.find(p => p.type === type)?.value ?? "0", 10);
+    if (type === "hour" && v === 24) v = 0;
+    return v;
+  };
+  const localAsUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return localAsUtc - utcDate.getTime();
+}
+
+function composeDatetime(date: string, time: string, tz: string): Date {
+  const iana = resolveTimezone(tz);
+  const { hour, minute } = parseTime12h(time);
+  const [y, m, d] = date.split("-").map(Number);
+  // Treat the user's input as UTC to get a reference point
+  const asUtcMs = Date.UTC(y, m - 1, d, hour, minute);
+  // Find the timezone's offset at that instant
+  const offsetMs = getTimezoneOffsetMs(new Date(asUtcMs), iana);
+  // Subtract the offset to get the true UTC instant
+  return new Date(asUtcMs - offsetMs);
+}
+
+function resolveSeedEventDatetime(eventData: SeedEvent): { eventDateTime: Date; eventTimezone: string | null } {
+  if (eventData.eventDate) {
+    const iana = resolveTimezone(eventData.eventTimezone);
+    return {
+      eventDateTime: composeDatetime(eventData.eventDate, eventData.eventStartTime, eventData.eventTimezone),
+      eventTimezone: iana,
+    };
+  }
+  return {
+    eventDateTime: new Date(eventData.eventDateTime!),
+    eventTimezone: eventData.eventTimezone ? resolveTimezone(eventData.eventTimezone) : null,
+  };
 }
 
 // ── Geocoding ─────────────────────────────────────────────────────
@@ -501,12 +578,14 @@ async function main() {
     const userEvents: { id: string }[] = [];
     for (const eventData of packet.events ?? []) {
       const coords = await resolveEventCoords(eventData);
+      const { eventDateTime, eventTimezone } = resolveSeedEventDatetime(eventData);
       const event = await prisma.event.create({
         data: {
           userId: user.id,
           title: eventData.title ?? null,
           content: eventData.content,
-          eventDateTime: new Date(eventData.eventDateTime),
+          eventDateTime,
+          eventTimezone,
           location: eventData.location,
           latitude: coords.latitude,
           longitude: coords.longitude,
@@ -592,13 +671,15 @@ async function main() {
     const pageEvents: { id: string }[] = [];
     for (const eventData of packet.events ?? []) {
       const coords = await resolveEventCoords(eventData);
+      const { eventDateTime, eventTimezone } = resolveSeedEventDatetime(eventData);
       const event = await prisma.event.create({
         data: {
           userId: page.creatorUserId,
           pageId: page.id,
           title: eventData.title ?? null,
           content: eventData.content,
-          eventDateTime: new Date(eventData.eventDateTime),
+          eventDateTime,
+          eventTimezone,
           location: eventData.location,
           latitude: coords.latitude,
           longitude: coords.longitude,

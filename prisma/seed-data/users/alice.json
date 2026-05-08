@@ -60,7 +60,9 @@
     {
       "title": "Quilting Circle Meetup (Example Event)",
       "content": "📌 This is an example event showing what events look like on the Project Library.\n\nMonthly quilting circle for all skill levels. Bring your current project or start something new — I'll have fabric scraps and basic supplies for anyone who wants to try quilting for the first time.\n\nWe'll share techniques, work on our own projects, and enjoy each other's company. Light refreshments provided.",
-      "eventDateTime": "2026-07-20T14:00:00Z",
+      "eventDate": "2026-07-20",
+      "eventStartTime": "2:00 PM",
+      "eventTimezone": "PST",
       "location": "Portland Public Library, 801 SW 10th Ave, Portland, OR",
       "latitude": 45.5152,
       "longitude": -122.6784,

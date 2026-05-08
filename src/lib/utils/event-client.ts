@@ -50,6 +50,7 @@ export async function updateEvent(
 		title?: string;
 		content?: string;
 		eventDateTime?: Date;
+		eventTimezone?: string | null;
 		location?: string;
 		latitude?: number | null;
 		longitude?: number | null;

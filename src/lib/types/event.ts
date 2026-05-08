@@ -12,6 +12,7 @@ export type EventStatus = "DRAFT" | "PUBLISHED";
 export interface EventItem extends BaseCollectionItem {
 	type: "event"; // Derived field for type discrimination
 	eventDateTime: Date;
+	eventTimezone: string | null;
 	location: string;
 	latitude: number | null;
 	longitude: number | null;
@@ -24,6 +25,7 @@ export interface EventCreateInput {
 	title: string;
 	content: string;
 	eventDateTime: Date;
+	eventTimezone?: string;
 	location: string;
 	latitude?: number | null;
 	longitude?: number | null;
@@ -34,6 +36,7 @@ export interface EventUpdateInput {
 	title?: string | null;
 	content?: string;
 	eventDateTime?: Date;
+	eventTimezone?: string | null;
 	location?: string;
 	latitude?: number | null;
 	longitude?: number | null;

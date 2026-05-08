@@ -89,12 +89,14 @@ function PostPageContent({
 
 	// Tracks whether this post is still a draft so the unmount cleanup always
 	// has the latest value (avoids stale closure over `isDraft`).
+	// TODO how does this relate to hasContentRef?
 	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
 	useEffect(() => {
 		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && isOwner;
 	}, [post.status, isOwner]);
 
 	// True once any content has been added — prevents silent deletion of non-empty drafts.
+	// TODO: This should be a shared utility between used by event and post 
 	const hasContentRef = useRef(Boolean(post.title || post.content));
 	useEffect(() => {
 		if (post.title || post.content) hasContentRef.current = true;

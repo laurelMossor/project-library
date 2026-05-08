@@ -33,6 +33,7 @@ export const eventBaseFields = {
   title: true,
   content: true,
   eventDateTime: true,
+  eventTimezone: true,
   location: true,
   latitude: true,
   longitude: true,
