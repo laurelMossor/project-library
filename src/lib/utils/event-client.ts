@@ -85,11 +85,11 @@ export async function publishEvent(id: string): Promise<EventItem> {
 /**
  * Create a draft event for inline editing (authenticated)
  */
-export async function createDraftEvent(pageId?: string): Promise<EventItem> {
+export async function createDraftEvent(pageId?: string, title?: string): Promise<EventItem> {
 	const res = await authFetch(API_EVENTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}) }),
+		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}), ...(title ? { title } : {}) }),
 	});
 
 	if (!res.ok) {

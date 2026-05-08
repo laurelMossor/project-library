@@ -102,7 +102,20 @@ function EventPageContent({
 		shouldDiscardOnLeaveRef.current = event.status === "DRAFT" && isOwner;
 	}, [event.status, isOwner]);
 
-	// When the owner navigates away from an unpublished draft, delete it silently.
+	// True once any content has been added — prevents silent deletion of non-empty drafts.
+	const hasContentRef = useRef(Boolean(event.title || event.content || event.location || event.tags.length));
+	useEffect(() => {
+		if (event.title || event.content || event.location || event.tags.length) {
+			hasContentRef.current = true;
+		}
+	}, [event.title, event.content, event.location, event.tags.length]);
+	// Also mark dirty when any inline field is edited (before save)
+	const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
+	useEffect(() => {
+		if (dirtyCount > 0) hasContentRef.current = true;
+	}, [dirtyCount]);
+
+	// When the owner navigates away from an unpublished EMPTY draft, delete it silently.
 	useEffect(() => {
 		const eventId = event.id;
 		let armed = false;
@@ -110,9 +123,9 @@ function EventPageContent({
 
 		return () => {
 			clearTimeout(armTimer);
-			if (armed && shouldDiscardOnLeaveRef.current) {
+			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
 				// eslint-disable-next-line no-console
-				console.log("TODO: show discard-draft popup — deleting draft event on navigation away:", eventId);
+				console.log("deleting draft event on navigation away:", eventId);
 				deleteEvent(eventId).catch(() => {});
 			}
 		};

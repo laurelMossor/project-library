@@ -31,6 +31,7 @@ export const PAGE_NEW = "/pages/new";
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
+export const SEARCH = "/search";
 
 // ============================================================================
 // Event Routes

@@ -6,21 +6,25 @@ const LANDING_IMAGES = [
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-1.png",
 		alt: "Find",
+		header: "Search by interest, topic, or neighborhood",
 		href: "/explore?sort=newest&tags=improv",
 	},
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-2.png",
 		alt: "Discover",
+		header: "See what people are making near you",
 		href: "/explore?sort=newest",
 	},
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-3.png",
 		alt: "Build",
+		header: "Start something — or join someone who did",
 		href: "/explore?sort=oldest",
 	},
 	{
 		src: "/static/assets/images/PL_landing_surfaces_muted/PL_landing_surfaces_muted-4.png",
 		alt: "Contribute",
+		header: "Share what you're working on",
 		href: POST_NEW,
 	},
 ] as const;
@@ -31,6 +35,7 @@ export const StaticLandingImages = () => {
 			{LANDING_IMAGES.map((image, i) => (
 				<Link key={i} className="min-w-0 block" href={image.href}>
 					<div className="pt-4 px-4">
+						<p className="text-sm font-medium text-rich-brown mb-2">{image.header}</p>
 						<Image
 							src={image.src}
 							alt={image.alt}

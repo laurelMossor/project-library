@@ -94,14 +94,25 @@ function PostPageContent({
 		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && isOwner;
 	}, [post.status, isOwner]);
 
-	// When the owner navigates away from an unpublished draft, delete it silently.
+	// True once any content has been added — prevents silent deletion of non-empty drafts.
+	const hasContentRef = useRef(Boolean(post.title || post.content));
+	useEffect(() => {
+		if (post.title || post.content) hasContentRef.current = true;
+	}, [post.title, post.content]);
+	// Also mark dirty when any inline field is edited (before save)
+	const dirtyCount = session ? Object.keys(session.dirtyFields).length : 0;
+	useEffect(() => {
+		if (dirtyCount > 0) hasContentRef.current = true;
+	}, [dirtyCount]);
+
+	// When the owner navigates away from an unpublished EMPTY draft, delete it silently.
 	useEffect(() => {
 		const postId = post.id;
 		let armed = false;
 		const armTimer = setTimeout(() => { armed = true; }, 0);
 		return () => {
 			clearTimeout(armTimer);
-			if (armed && shouldDiscardOnLeaveRef.current) {
+			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
 				deletePost(postId).catch(() => {});
 			}
 		};

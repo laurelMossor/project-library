@@ -10,6 +10,7 @@ import { useFilter } from "@/lib/hooks/useFilter";
 import { useFilterParams } from "@/lib/hooks/useFilterParams";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
+import { WelcomeBanner } from "@/lib/components/onboarding/WelcomeBanner";
 
 export default function ExplorePage() {
 	const { initialFilters, initialSearch, updateUrl } = useFilterParams();
@@ -91,6 +92,7 @@ export default function ExplorePage() {
 
 	return (
 		<PageLayout>
+			<WelcomeBanner />
 			<CollectionPage
 				title="Explore"
 				filteredItems={filteredItems}

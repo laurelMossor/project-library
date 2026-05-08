@@ -46,6 +46,12 @@ export function Footer() {
 							Instagram
 						</a>
 					</div>
+					<p className="text-xs text-dusty-grey">
+						You&apos;re part of the Project Library early beta &mdash;{" "}
+						<a href={FEEDBACK_SURVEY} target="_blank" rel="noopener noreferrer" className="underline hover:text-rich-brown">
+							share your feedback
+						</a>
+					</p>
 				</div>
 			</div>
 		</footer>

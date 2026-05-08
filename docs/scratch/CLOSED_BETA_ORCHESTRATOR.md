@@ -75,7 +75,7 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
-### Bundle A — Collection UX Polish (M3, no deps)
+### Bundle A — Collection UX Polish (M3, no deps) DONE
 
 **Shared surface:** `FilteredCollection`, `CollectionCard`, `CollectionPage`, `ProfileCollectionSection`
 
@@ -89,7 +89,7 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
-### Bundle B+E — Form, Edit & About Polish (M3)
+### Bundle B+E — Form, Edit & About Polish (M3) DONE
 
 **Shared surface:** `EventPageClient`, `PostPageClient`, `AboutPageClient`, form components, profile edit/settings views
 
@@ -104,31 +104,16 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
-### Bundle C — Global Search (M3, P0, needs design input ⚠️)
+### Bundle C+F — Search, Landing & Beta Experience (M3+M4, design-driven)
 
-**Shared surface:** Nav bar, new search page or component, `/api/users/search` (exists)
-
-| Pri | Ticket | Key detail |
-|---|---|---|
-| P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists (used by ProfileSearchDropdown). Need a user-facing search UI. |
-
-**⚠️ Needs `/interface-design` input before dispatch.** Search placement, interaction pattern, and result presentation all need design direction.
-
-**Parallelizable with:** A, B+E
-
----
-
-### Bundle F — Landing & First Impression (M4, design-heavy ⚠️)
-
-**Shared surface:** `StaticLandingImages`, login/signup pages, new onboarding components
+**Shared surface:** Nav bar, landing page, login/signup, search UI, profile cards. Uses `/interface-design` skill.
 
 | Pri | Ticket | Key detail |
 |---|---|---|
-| P1 | [Landing page — headers, images, links](https://www.notion.so/33f453d029b081c894e7ec188d8b9d4d) | Currently a 2×2 grid of static images with single-word labels. Needs real headers, CTAs, and copy. In progress. |
-| P1 | [Beta flag + notes at login/signup](https://www.notion.so/33f453d029b08113b251e16203ad4904) | Beta users need to know this is a beta — banner/badge on login, signup, and possibly throughout. |
-| P1 | [Onboarding — "what is this?"](https://www.notion.so/33f453d029b0811ebebaf38ccd963c60) | New users have no guidance on what the site is or how to use it. Needs a first-run explainer or contextual hints. |
-
-**⚠️ Needs Laurel's design direction before dispatch.** Landing page copy, beta messaging tone, onboarding approach all need decisions.
+| P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists. Need search UI + rich profile result cards (ProfileTag fields + headline + top interests). |
+| P1 | [Landing page — headers, images, links](https://www.notion.so/33f453d029b081c894e7ec188d8b9d4d) | 2×2 clickable image grid exists. Needs inviting headers for each image. |
+| P1 | [Beta flag + notes at login/signup](https://www.notion.so/33f453d029b08113b251e16203ad4904) | Existing pre-beta warning on signup/login (`InviteCTA`). Review and extend to other sensible locations. |
+| P1 | [Onboarding — "what is this?"](https://www.notion.so/33f453d029b0811ebebaf38ccd963c60) | New users have no guidance. Needs contextual onboarding. |
 
 ---
 
@@ -155,10 +140,7 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 ### Recommended dispatch order
 
 ```
-Phase 1 (parallel, no deps):     A + B+E            ← ready now
-Phase 2 (needs design input):    C                  ← P0 search, needs /interface-design
-Phase 3 (needs design calls):    F                  ← landing & onboarding
-Phase 4 (needs Laurel's copy):   G                  ← content pages
+Phase 1 (done):                  A + B+E            ← shipped 2026-05-08
+Phase 2 (design-driven):         C+F                ← search, landing, beta UX — uses /interface-design
+Phase 3 (needs Laurel's copy):   G                  ← content pages
 ```
-
-A and B+E can dispatch to separate agents in parallel. C needs interface-design input first. F and G need Laurel's input before briefs can be written.

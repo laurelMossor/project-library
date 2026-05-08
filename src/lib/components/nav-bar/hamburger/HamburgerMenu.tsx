@@ -11,6 +11,7 @@ import {
 	LoginIcon,
 	LogoutIcon,
 	SettingsIcon,
+	SearchIcon,
 } from "../../icons/icons";
 import { NotificationDot } from "../../ui/NotificationDot";
 import { AboutModal } from "../../AboutModal";
@@ -20,6 +21,7 @@ import {
 	PROFILE,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
+	SEARCH,
 } from "@/lib/const/routes";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { hasSession } from "@/lib/utils/auth-client";
@@ -115,6 +117,13 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					icon={<CollectionsIcon className={iconClass} />}
 					label="Explore"
 					href={EXPLORE_PAGE}
+					closeMenu={closeMenu}
+				/>
+
+				<MenuItem
+					icon={<SearchIcon className={iconClass} />}
+					label="Profile search"
+					href={SEARCH}
 					closeMenu={closeMenu}
 				/>
 
