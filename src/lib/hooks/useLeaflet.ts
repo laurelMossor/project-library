@@ -2,49 +2,66 @@
 
 import { useEffect, useState } from "react";
 
-/**
- * Loads the Leaflet library from CDN and returns loading state.
- * Idempotent: if Leaflet is already loaded on the page (e.g. by another map component),
- * it returns immediately without adding duplicate script/link tags.
- */
-export function useLeaflet(): { isLoading: boolean; mapError: string | null } {
-	const [isLoading, setIsLoading] = useState(true);
-	const [mapError, setMapError] = useState<string | null>(null);
+let loaded = false;
+let loading: Promise<void> | null = null;
 
-	useEffect(() => {
-		if (typeof window === "undefined") return;
+function loadLeaflet(): Promise<void> {
+	if (loaded) return Promise.resolve();
+	if (loading) return loading;
 
-		// Already loaded — nothing to do
-		if ((window as any).L) {
-			setIsLoading(false);
-			return;
-		}
-
-		// Load Leaflet CSS
+	loading = new Promise<void>((resolve, reject) => {
 		const link = document.createElement("link");
 		link.rel = "stylesheet";
 		link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 		link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
 		link.crossOrigin = "";
-		document.head.appendChild(link);
 
-		// Load Leaflet JS
 		const script = document.createElement("script");
 		script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 		script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
 		script.crossOrigin = "";
-		script.onload = () => setIsLoading(false);
-		script.onerror = () => {
-			setMapError("Failed to load map library");
-			setIsLoading(false);
-		};
-		document.body.appendChild(script);
 
-		return () => {
-			// Only clean up if Leaflet wasn't already present when we started
-			if (document.body.contains(script)) document.body.removeChild(script);
-			if (document.head.contains(link)) document.head.removeChild(link);
+		let cssReady = false;
+		let jsReady = false;
+
+		const checkDone = () => {
+			if (cssReady && jsReady) {
+				loaded = true;
+				resolve();
+			}
 		};
+
+		link.onload = () => { cssReady = true; checkDone(); };
+		link.onerror = () => { loading = null; reject(new Error("Failed to load Leaflet CSS")); };
+
+		script.onload = () => { jsReady = true; checkDone(); };
+		script.onerror = () => { loading = null; reject(new Error("Failed to load Leaflet JS")); };
+
+		document.head.appendChild(link);
+		document.body.appendChild(script);
+	});
+
+	return loading;
+}
+
+export function useLeaflet(): { isLoading: boolean; mapError: string | null } {
+	const [isLoading, setIsLoading] = useState(!loaded);
+	const [mapError, setMapError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (loaded) { setIsLoading(false); return; }
+
+		let cancelled = false;
+		loadLeaflet()
+			.then(() => { if (!cancelled) setIsLoading(false); })
+			.catch((err) => {
+				if (!cancelled) {
+					setMapError(err.message);
+					setIsLoading(false);
+				}
+			});
+
+		return () => { cancelled = true; };
 	}, []);
 
 	return { isLoading, mapError };

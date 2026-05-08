@@ -1,59 +1,65 @@
 {
   "email": "alice@example.com",
-  "handle": "alice",
+  "handle": "alice.example",
   "password": "alice",
   "firstName": "Alice",
   "lastName": "Example",
-  "headline": "Quilter & Textile Artist",
-  "bio": "I work with traditional quilting techniques and modern textile art. Most days you'll find me piecing fabric in my studio, teaching at the community center, or hunting for vintage patterns at estate sales.",
+  "headline": "Quilter & Textile Artist · Example Account",
+  "bio": "This is an example profile to show what the Project Library looks like with real content. Alice is a fictional quilter and textile artist based in Portland who teaches at community centers and hunts for vintage patterns.",
   "interests": ["Quilting", "Textile Art", "Hand Sewing", "Fabric Design"],
   "location": "Portland, OR",
-  "aboutContent": "I've been quilting for fifteen years, starting with my grandmother's patterns and gradually developing my own style that blends traditional patchwork with contemporary design.\n\nThese days I focus on wall hangings and art quilts using hand-dyed fabrics and appliqué. I teach a monthly quilting circle at the Portland Public Library and occasionally sell pieces at local craft fairs.\n\nI'm always looking for collaborators interested in textile arts, natural dyeing, or community craft education.",
+  "aboutContent": "👋 This is an example account created to demonstrate how the Project Library works. Alice Example is a fictional person.\n\nI've been quilting for fifteen years, starting with my grandmother's patterns and gradually developing my own style that blends traditional patchwork with contemporary design.\n\nThese days I focus on wall hangings and art quilts using hand-dyed fabrics and appliqué. I teach a monthly quilting circle at the Portland Public Library and occasionally sell pieces at local craft fairs.\n\nI'm always looking for collaborators interested in textile arts, natural dyeing, or community craft education.",
   "avatarImage": "vintage-pattern-example.png",
   "profileElements": [
+    {
+      "kind": "TEXT",
+      "value": "This is an example account. Alice Example is a fictional user added to show what the Project Library looks like with members and content.",
+      "label": "Example account",
+      "sortOrder": 0
+    },
     {
       "kind": "LINK",
       "value": "https://instagram.com/alice.textiles",
       "url": "https://instagram.com/alice.textiles",
-      "label": "Instagram",
-      "sortOrder": 0
+      "label": "Instagram (example link)",
+      "sortOrder": 1
     },
     {
       "kind": "TEXT",
       "value": "Open to teaching gigs, gallery shows, and collaboration on textile art projects.",
       "label": "Looking for",
-      "sortOrder": 1
+      "sortOrder": 2
     }
   ],
   "posts": [
     {
-      "title": "Botanical Quilt Wall Hanging",
-      "content": "Working on a large wall hanging featuring botanical motifs using appliqué techniques. Combining traditional quilting methods with modern design to create a piece that celebrates native Pacific Northwest plants.\n\nThe color palette is drawn from pressed wildflowers I collected last summer — lupine purples, poppy oranges, and fern greens.",
+      "title": "Botanical Quilt Wall Hanging (Example Post)",
+      "content": "📌 This is an example post showing what project updates look like on the Project Library.\n\nWorking on a large wall hanging featuring botanical motifs using appliqué techniques. Combining traditional quilting methods with modern design to create a piece that celebrates native Pacific Northwest plants.\n\nThe color palette is drawn from pressed wildflowers I collected last summer — lupine purples, poppy oranges, and fern greens.",
       "tags": ["Quilting", "Appliqué", "Botanical Art", "Wall Hanging"],
       "status": "PUBLISHED",
       "imageFilenames": ["vintage-pattern-example-2.png"],
       "updates": [
         {
-          "title": "Appliqué layout finished",
-          "content": "Got all the leaf shapes cut and pinned. The lupine cluster in the center is working better than I expected — the curved stems give it movement."
+          "title": "Appliqué layout finished (example update)",
+          "content": "📌 Example update post. Got all the leaf shapes cut and pinned. The lupine cluster in the center is working better than I expected — the curved stems give it movement."
         },
         {
-          "title": "Quilting the background",
-          "content": "Started the background quilting with a stipple pattern. It's slow going by hand but the texture difference between the flat appliqué and the quilted background is exactly what I wanted."
+          "title": "Quilting the background (example update)",
+          "content": "📌 Example update post. Started the background quilting with a stipple pattern. It's slow going by hand but the texture difference between the flat appliqué and the quilted background is exactly what I wanted."
         }
       ]
     },
     {
-      "title": "Fabric Dyeing Experiments",
-      "content": "Spent the weekend testing natural dyes on cotton and linen scraps. Avocado pits gave a beautiful blush pink, and black beans produced a dusty blue-grey. Keeping notes on mordants and soak times for reproducibility.\n\nPlanning to use these hand-dyed fabrics in my next quilt project.",
+      "title": "Fabric Dyeing Experiments (Example Post)",
+      "content": "📌 This is an example post.\n\nSpent the weekend testing natural dyes on cotton and linen scraps. Avocado pits gave a beautiful blush pink, and black beans produced a dusty blue-grey. Keeping notes on mordants and soak times for reproducibility.\n\nPlanning to use these hand-dyed fabrics in my next quilt project.",
       "tags": ["Natural Dyeing", "Textile Art", "Sustainable Crafts"],
       "status": "PUBLISHED"
     }
   ],
   "events": [
     {
-      "title": "Quilting Circle Meetup",
-      "content": "Monthly quilting circle for all skill levels. Bring your current project or start something new — I'll have fabric scraps and basic supplies for anyone who wants to try quilting for the first time.\n\nWe'll share techniques, work on our own projects, and enjoy each other's company. Light refreshments provided.",
+      "title": "Quilting Circle Meetup (Example Event)",
+      "content": "📌 This is an example event showing what events look like on the Project Library.\n\nMonthly quilting circle for all skill levels. Bring your current project or start something new — I'll have fabric scraps and basic supplies for anyone who wants to try quilting for the first time.\n\nWe'll share techniques, work on our own projects, and enjoy each other's company. Light refreshments provided.",
       "eventDateTime": "2026-07-20T14:00:00Z",
       "location": "Portland Public Library, 801 SW 10th Ave, Portland, OR",
       "latitude": 45.5152,

@@ -156,7 +156,7 @@ test.describe("Authoring — create content", () => {
 
   test("user can inline-edit their profile on public page", async ({ page }) => {
     // Navigate to own public profile
-    await page.goto("/alice");
+    await page.goto("/alice.example");
 
     // Should see the inline-edit affordance (own profile)
     // Click on the headline field to open edit

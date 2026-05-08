@@ -64,11 +64,11 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
   };
 }
 
-// Sort order uses eventDateTime for events, createdAt for posts.
-// ev1 eventDateTime Jul → newest; ev2 eventDateTime Apr; p1 createdAt May; p2 createdAt Mar → oldest
+// "All" tab sorts everything by createdAt.
+// ev1 createdAt Jun → newest; p1 createdAt May; ev2 createdAt Apr; p2 createdAt Mar → oldest
 const ITEMS: CollectionItem[] = [
-  makeEvent({ id: "ev1", tags: ["tech", "community"], eventDateTime: new Date("2024-07-01") }),
-  makeEvent({ id: "ev2", tags: ["art"], eventDateTime: new Date("2024-04-01") }),
+  makeEvent({ id: "ev1", tags: ["tech", "community"], eventDateTime: new Date("2024-07-01"), createdAt: new Date("2024-06-01") }),
+  makeEvent({ id: "ev2", tags: ["art"], eventDateTime: new Date("2024-04-01"), createdAt: new Date("2024-04-01") }),
   makePost({ id: "p1", tags: ["tech"], createdAt: new Date("2024-05-01") }),
   makePost({ id: "p2", tags: [], createdAt: new Date("2024-03-01") }),
 ];
@@ -107,8 +107,8 @@ describe("useFilter", () => {
     expect(ids).not.toContain("p2");
   });
 
-  // Sort uses eventDateTime for events, createdAt for posts.
-  // Newest order: ev1(Jul), p1(May), ev2(Apr), p2(Mar)
+  // "All" tab sorts by createdAt for all items.
+  // Newest order: ev1(Jun), p1(May), ev2(Apr), p2(Mar)
   test("sort newest orders by display date descending", () => {
     const { result } = renderHook(() => useFilter(ITEMS, { sort: "newest" }));
     expect(result.current.filteredItems.map((i) => i.id)).toEqual(["ev1", "p1", "ev2", "p2"]);

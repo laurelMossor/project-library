@@ -178,6 +178,55 @@ function resolvePassword(password: string): string {
   return password;
 }
 
+// ── Geocoding ─────────────────────────────────────────────────────
+
+const geocodeCache = new Map<string, { lat: number; lng: number } | null>();
+let lastGeocodeTime = 0;
+
+async function geocodeLocation(location: string): Promise<{ lat: number; lng: number } | null> {
+  const key = location.trim().toLowerCase();
+  if (geocodeCache.has(key)) return geocodeCache.get(key)!;
+
+  // Nominatim rate limit: max 1 request per second
+  const now = Date.now();
+  const wait = Math.max(0, 1100 - (now - lastGeocodeTime));
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastGeocodeTime = Date.now();
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&limit=1`,
+      { headers: { "User-Agent": "ProjectLibrary/1.0 (seed script)" } }
+    );
+    if (!res.ok) { geocodeCache.set(key, null); return null; }
+    const data = await res.json();
+    if (data && data.length > 0) {
+      const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      geocodeCache.set(key, result);
+      return result;
+    }
+  } catch {
+    // Geocoding is best-effort during seeding
+  }
+  geocodeCache.set(key, null);
+  return null;
+}
+
+async function resolveEventCoords(eventData: SeedEvent): Promise<{ latitude: number | null; longitude: number | null }> {
+  if (eventData.latitude != null && eventData.longitude != null) {
+    return { latitude: eventData.latitude, longitude: eventData.longitude };
+  }
+  if (eventData.location) {
+    const coords = await geocodeLocation(eventData.location);
+    if (coords) {
+      console.log(`  📍 Geocoded "${eventData.location.substring(0, 50)}" → ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+      return { latitude: coords.lat, longitude: coords.lng };
+    }
+    console.warn(`  ⚠️  Could not geocode "${eventData.location.substring(0, 50)}"`);
+  }
+  return { latitude: null, longitude: null };
+}
+
 // ── Main ───────────────────────────────────────────────────────────
 
 async function main() {
@@ -451,6 +500,7 @@ async function main() {
 
     const userEvents: { id: string }[] = [];
     for (const eventData of packet.events ?? []) {
+      const coords = await resolveEventCoords(eventData);
       const event = await prisma.event.create({
         data: {
           userId: user.id,
@@ -458,8 +508,8 @@ async function main() {
           content: eventData.content,
           eventDateTime: new Date(eventData.eventDateTime),
           location: eventData.location,
-          latitude: eventData.latitude ?? null,
-          longitude: eventData.longitude ?? null,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
         },
@@ -541,6 +591,7 @@ async function main() {
 
     const pageEvents: { id: string }[] = [];
     for (const eventData of packet.events ?? []) {
+      const coords = await resolveEventCoords(eventData);
       const event = await prisma.event.create({
         data: {
           userId: page.creatorUserId,
@@ -549,8 +600,8 @@ async function main() {
           content: eventData.content,
           eventDateTime: new Date(eventData.eventDateTime),
           location: eventData.location,
-          latitude: eventData.latitude ?? null,
-          longitude: eventData.longitude ?? null,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
         },

@@ -1,0 +1,43 @@
+{
+  "email": "laurel.mossor@gmail.com",
+  "handle": "laurel",
+  "password": "$env:SEED_ADMIN_PASSWORD",
+  "firstName": "Laurel",
+  "lastName": "Mossor",
+  "displayName": "Laurel Mossor",
+  "headline": "Creator of the Project Library",
+  "bio": "A few sentences about you.",
+  "interests": ["Improv", "Software Development", "Animals", "Community Building"],
+  "location": "Berkeley, CA",
+  "avatarImage": "IMG_2455.png",
+  "profileElements": [
+    {
+      "kind": "LINK",
+      "value": "https://www.instagram.com/laurelmossor",
+      "url": "https://www.instagram.com/laurelmossor",
+      "label": "Instagram",
+      "sortOrder": 0
+    },
+    {
+      "kind": "LINK",
+      "value": "https://www.linkedin.com/in/laurelmossor/",
+      "url": "https://www.linkedin.com/in/laurelmossor/",
+      "label": "LinkedIn",
+      "sortOrder": 1
+    },
+    {
+      "kind": "LINK",
+      "value": "https://www.theprojectlibrary.com/spatsimprov",
+      "url": "https://www.theprojectlibrary.com/spatsimprov",
+      "label": "Spats Improv",
+      "sortOrder": 2
+    },
+    {
+      "kind": "LINK",
+      "value": "https://www.theprojectlibrary.com/theprojectlibrary",
+      "url": "https://www.theprojectlibrary.com/theprojectlibrary",
+      "label": "The Project Library (Official)",
+      "sortOrder": 3
+    }
+  ]
+}

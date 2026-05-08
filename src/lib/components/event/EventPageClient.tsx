@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
@@ -18,7 +18,8 @@ import { Tags } from "@/lib/components/tag/Tag";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
-import { InteractiveMap, geocodeAddress } from "@/lib/components/map/InteractiveMap";
+import { InteractiveMap } from "@/lib/components/map/InteractiveMap";
+import { LocationSearchInput, type LocationResult } from "@/lib/components/map/LocationSearchInput";
 import { updateEvent, publishEvent, deleteEvent } from "@/lib/utils/event-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
@@ -70,7 +71,6 @@ function EventPageContent({
 	const [editLatitude, setEditLatitude] = useState<number | null>(event.latitude);
 	const [editLongitude, setEditLongitude] = useState<number | null>(event.longitude);
 	const [editTagsArr, setEditTagsArr] = useState<string[]>(event.tags);
-	const [geocoding, setGeocoding] = useState(false);
 	const [isEditing, setIsEditing] = useState(event.status === "DRAFT");
 
 	const isDraft = event.status === "DRAFT";
@@ -141,21 +141,14 @@ function EventPageContent({
 		}
 	};
 
-	const handleGeocodeAddress = async () => {
-		if (!editLocation.trim()) return;
-		setGeocoding(true);
-		try {
-			const coords = await geocodeAddress(editLocation.trim());
-			if (coords) {
-				setEditLatitude(coords.lat);
-				setEditLongitude(coords.lng);
-			}
-		} catch {
-			// Geocoding is optional
-		} finally {
-			setGeocoding(false);
-		}
-	};
+	const handleLocationSelect = useCallback((result: LocationResult) => {
+		setEditLatitude(result.lat);
+		setEditLongitude(result.lng);
+		setEditLocation(result.displayName);
+		editSession?.setDirty("latitude", result.lat, event.latitude);
+		editSession?.setDirty("longitude", result.lng, event.longitude);
+		editSession?.setDirty("location", result.displayName, event.location);
+	}, [editSession, event.latitude, event.longitude, event.location]);
 
 	const handleAuthorSwitch = async (pageId: string | null) => {
 		try {
@@ -318,9 +311,11 @@ function EventPageContent({
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "location"}
 					onEditStart={() => {
-						setEditLocation(event.location);
-						setEditLatitude(event.latitude);
-						setEditLongitude(event.longitude);
+						if (!editSession?.dirtyFields["location"]) {
+							setEditLocation(event.location);
+							setEditLatitude(event.latitude);
+							setEditLongitude(event.longitude);
+						}
 						setEditingField("location");
 					}}
 				onCancel={() => setEditingField(null)}
@@ -328,51 +323,33 @@ function EventPageContent({
 					<div className="space-y-3">
 						<div className="rounded-xl border border-gray-200 p-4">
 							<p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Location</p>
-								<InlinePlaceholder value={event.location} placeholder={isOwner ? "Add a location" : "TBD"}>
-									<p className="text-lg font-medium text-rich-brown">{event.location}</p>
+								<InlinePlaceholder value={editLocation ?? event.location} placeholder={isOwner ? "Add a location" : "TBD"}>
+									<p className="text-lg font-medium text-rich-brown">{editLocation ?? event.location}</p>
 								</InlinePlaceholder>
 							</div>
-							{event.latitude != null && event.longitude != null && (
-								<EventMap latitude={event.latitude} longitude={event.longitude} title={event.title || undefined} />
+							{(editLatitude ?? event.latitude) != null && (editLongitude ?? event.longitude) != null && (
+								<EventMap latitude={(editLatitude ?? event.latitude)!} longitude={(editLongitude ?? event.longitude)!} title={event.title || undefined} />
 							)}
 						</div>
 					}
 					editContent={
 						<div className="space-y-3">
-							<div className="flex gap-2">
-								<input
-									type="text"
-									value={editLocation}
-									onChange={(e) => { setEditLocation(e.target.value); editSession?.setDirty("location", e.target.value, event.location); }}
-									placeholder="123 Main St, City, Country"
-									maxLength={255}
-									className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
-									autoFocus
-								/>
-								<button
-									type="button"
-									onClick={handleGeocodeAddress}
-									disabled={geocoding || !editLocation.trim()}
-									className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-								>
-									{geocoding ? "Searching..." : "Find on Map"}
-								</button>
-							</div>
+							<LocationSearchInput
+								value={editLocation}
+								onChange={(v) => { setEditLocation(v); editSession?.setDirty("location", v, event.location); }}
+								onSelect={handleLocationSelect}
+								autoFocus
+							/>
 							<InteractiveMap
 								latitude={editLatitude}
 								longitude={editLongitude}
-							onLocationChange={(lat, lng) => {
-								setEditLatitude(lat);
-								setEditLongitude(lng);
-								editSession?.setDirty("latitude", lat, event.latitude);
-								editSession?.setDirty("longitude", lng, event.longitude);
-							}}
+								onLocationChange={(lat, lng) => {
+									setEditLatitude(lat);
+									setEditLongitude(lng);
+									editSession?.setDirty("latitude", lat, event.latitude);
+									editSession?.setDirty("longitude", lng, event.longitude);
+								}}
 							/>
-							{editLatitude != null && editLongitude != null && (
-								<p className="text-xs text-gray-500">
-									Coordinates: {editLatitude.toFixed(6)}, {editLongitude.toFixed(6)}
-								</p>
-							)}
 						</div>
 					}
 				/>

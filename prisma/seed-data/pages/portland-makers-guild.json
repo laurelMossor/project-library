@@ -1,42 +1,48 @@
 {
   "name": "Portland Makers Guild",
   "handle": "portland-makers-guild",
-  "headline": "Hands-on learning, shared tools, good people.",
-  "bio": "A community page for woodworking, textiles, and skill shares in the Portland area. We run monthly workshops, maintain a shared tool library, and connect makers of all skill levels.",
+  "headline": "Hands-on learning, shared tools, good people · Example Page",
+  "bio": "This is an example page to show what a community organization looks like on the Project Library. The Portland Makers Guild is a fictional group for woodworking, textiles, and skill shares.",
   "interests": ["Woodworking", "Textiles", "Skill Shares", "Tool Library", "Community"],
   "location": "Portland, OR",
-  "aboutContent": "The Portland Makers Guild is a volunteer-run community of builders, tinkerers, and craftspeople.\n\nWe run monthly skill shares, host open shop nights, and maintain a shared tool library available to all members.\n\nMembership is $30/month and includes unlimited shop access and one free skill share per quarter.",
+  "aboutContent": "📌 This is an example page created to demonstrate how organizations and community groups appear on the Project Library. The Portland Makers Guild is fictional.\n\nThe Portland Makers Guild is a volunteer-run community of builders, tinkerers, and craftspeople.\n\nWe run monthly skill shares, host open shop nights, and maintain a shared tool library available to all members.\n\nMembership is $30/month and includes unlimited shop access and one free skill share per quarter.",
   "avatarImage": "live-edge-bowl-example.png",
   "profileElements": [
+    {
+      "kind": "TEXT",
+      "value": "This is an example page. Portland Makers Guild is a fictional organization added to show what community pages look like on the Project Library.",
+      "label": "Example page",
+      "sortOrder": 0
+    },
     {
       "kind": "LINK",
       "value": "https://instagram.com/pdxmakersguild",
       "url": "https://instagram.com/pdxmakersguild",
-      "label": "Instagram",
-      "sortOrder": 0
+      "label": "Instagram (example link)",
+      "sortOrder": 1
     },
     {
       "kind": "TEXT",
       "value": "Open shop night every Thursday, 6-9pm at our NE Portland space.",
       "label": "Open shop hours",
-      "sortOrder": 1
+      "sortOrder": 2
     }
   ],
-  "creatorHandle": "alice",
-  "editors": ["sam"],
+  "creatorHandle": "alice.example",
+  "editors": ["sam.example"],
   "members": "*",
   "posts": [
     {
-      "title": "New woodworking tools in the library",
-      "content": "We just added a set of Japanese pull saws and a low-angle block plane to the tool library. Come by open shop night to try them out.\n\nAs always, tools are free to borrow for members. Non-members can try them during open shop hours.",
+      "title": "New woodworking tools in the library (Example Post)",
+      "content": "📌 This is an example post showing what a page's posts look like on the Project Library.\n\nWe just added a set of Japanese pull saws and a low-angle block plane to the tool library. Come by open shop night to try them out.\n\nAs always, tools are free to borrow for members. Non-members can try them during open shop hours.",
       "tags": ["Tool Library", "Woodworking", "Community"],
       "status": "PUBLISHED"
     }
   ],
   "events": [
     {
-      "title": "August Skill Share: Intro to Hand Sewing",
-      "content": "Learn the basics of hand sewing — running stitch, backstitch, and blanket stitch. Bring a project or use one of our practice kits.\n\nAll skill levels welcome. Materials provided. Free for members, $10 for non-members.",
+      "title": "August Skill Share: Intro to Hand Sewing (Example Event)",
+      "content": "📌 This is an example event showing what page-hosted events look like on the Project Library.\n\nLearn the basics of hand sewing — running stitch, backstitch, and blanket stitch. Bring a project or use one of our practice kits.\n\nAll skill levels welcome. Materials provided. Free for members, $10 for non-members.",
       "eventDateTime": "2026-08-16T14:00:00Z",
       "location": "Portland Makers Guild, 3456 SE Division St, Portland, OR",
       "latitude": 45.505,

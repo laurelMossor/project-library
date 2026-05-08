@@ -1,50 +1,50 @@
 {
   "follows": [
-    { "follower": "alice", "following": "sam" },
-    { "follower": "sam", "following": "alice" },
-    { "follower": "alice", "following": "portland-makers-guild" },
-    { "follower": "sam", "following": "portland-makers-guild" }
+    { "follower": "alice.example", "following": "sam.example" },
+    { "follower": "sam.example", "following": "alice.example" },
+    { "follower": "alice.example", "following": "portland-makers-guild" },
+    { "follower": "sam.example", "following": "portland-makers-guild" }
   ],
   "conversations": [
     {
-      "participants": ["alice", "sam"],
+      "participants": ["alice.example", "sam.example"],
       "messages": [
         {
-          "senderHandle": "alice",
-          "content": "Hey Sam! Saw your raised bed post — those look great. I've been thinking about growing some dye plants for my textile work. Any tips for a first-time gardener?"
+          "senderHandle": "alice.example",
+          "content": "[Example message] Hey Sam.example! Saw your raised bed post — those look great. I've been thinking about growing some dye plants for my textile work. Any tips for a first-time gardener?"
         },
         {
-          "senderHandle": "sam",
-          "content": "Thanks! Dye plants are a great idea. Marigolds and indigo are pretty forgiving for beginners. Happy to share some seedlings if you want a head start."
+          "senderHandle": "sam.example",
+          "content": "[Example message] Thanks! Dye plants are a great idea. Marigolds and indigo are pretty forgiving for beginners. Happy to share some seedlings if you want a head start."
         },
         {
-          "senderHandle": "alice",
-          "content": "That would be amazing! I'll bring some fabric scraps to the next meetup so you can see what I'm working on."
+          "senderHandle": "alice.example",
+          "content": "[Example message] That would be amazing! I'll bring some fabric scraps to the next meetup so you can see what I'm working on."
         },
         {
-          "senderHandle": "sam",
-          "content": "Sounds good. I'll bring the seedlings. See you there!"
+          "senderHandle": "sam.example",
+          "content": "[Example message] Sounds good. I'll bring the seedlings. See you there!"
         }
       ]
     },
     {
-      "participants": ["sam", "portland-makers-guild"],
+      "participants": ["sam.example", "portland-makers-guild"],
       "messages": [
         {
-          "senderHandle": "sam",
-          "content": "Hi! I'm interested in joining your next workshop. Any spots open?"
+          "senderHandle": "sam.example",
+          "content": "[Example message] Hi! I'm interested in joining your next workshop. Any spots open?"
         },
         {
-          "senderHandle": "alice",
+          "senderHandle": "alice.example",
           "asPageHandle": "portland-makers-guild",
-          "content": "Welcome! We have a few spots open for next Saturday. Sign up at the door or message us here to reserve."
+          "content": "[Example message] Welcome! We have a few spots open for next Saturday. Sign up at the door or message us here to reserve."
         }
       ]
     }
   ],
   "rsvps": [
     {
-      "eventOwnerHandle": "sam",
+      "eventOwnerHandle": "sam.example",
       "eventIndex": 0,
       "name": "Alice Example",
       "email": "alice@example.com",

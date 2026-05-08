@@ -46,3 +46,12 @@ Accumulated from orchestrator session dispatches. Test after merging each bundle
 - [ ] **Membership tab (as page admin):** "Remove from group" removes the member; last-admin removal shows inline error
 - [ ] **Membership tab (as page admin):** "Add members" button shows `ProfileSearchDropdown`; selecting a user adds them and refreshes the list
 - [ ] **Manage Admins (settings):** search dropdown finds users by partial name/handle; selecting adds as admin; already-admins excluded from results
+
+## Bundle F — Map View Polish
+
+- [ ] Map aspect ratio feels intentional and works responsively (not the current stretched rectangle)
+- [ ] Controls bar above map: location input + radius selector (at least 3 options)
+- [ ] Setting a location + radius filters markers — events outside radius are hidden
+- [ ] Event count updates as you pan/zoom to reflect only visible markers
+- [ ] Radius circle or visual boundary on the map matches the selected radius
+- [ ] Design fits the app's existing palette and style

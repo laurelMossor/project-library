@@ -1,4 +1,4 @@
-import { CollectionItem, isEvent, isPost, getCollectionItemType, getCollectionItemDate } from "../types/collection";
+import { CollectionItem, isEvent, isPost, getCollectionItemType, getCollectionItemDate, getCollectionItemCreatedAt, isPastEvent } from "../types/collection";
 
 import { FilterCollectionType } from "../types/collection";
 
@@ -22,22 +22,51 @@ export function getCollectionItemKey(item: CollectionItem): string {
 }
 
 /**
- * Sort collection items by date
+ * Sort collection items by date.
+ * - "all" / "post" tabs: sort by createdAt so events intermix with posts by post date.
+ * - "event" tab: upcoming events first (soonest → furthest), then past events (most recent → oldest).
  */
 export function sortCollectionItemsByDate(
 	items: CollectionItem[],
-	direction: "newest" | "oldest"
+	direction: "newest" | "oldest",
+	filterType: FilterCollectionType = "all"
 ): CollectionItem[] {
+	if (filterType === "event") {
+		return sortEventsForExploration(items);
+	}
+
 	const sorted = [...items];
 	const multiplier = direction === "newest" ? -1 : 1;
-	
+
 	sorted.sort((a, b) => {
-		const dateA = getCollectionItemDate(a);
-		const dateB = getCollectionItemDate(b);
+		const dateA = getCollectionItemCreatedAt(a);
+		const dateB = getCollectionItemCreatedAt(b);
 		return (dateA.getTime() - dateB.getTime()) * multiplier;
 	});
-	
+
 	return sorted;
+}
+
+function sortEventsForExploration(items: CollectionItem[]): CollectionItem[] {
+	const upcoming: CollectionItem[] = [];
+	const past: CollectionItem[] = [];
+
+	for (const item of items) {
+		if (isPastEvent(item)) {
+			past.push(item);
+		} else {
+			upcoming.push(item);
+		}
+	}
+
+	upcoming.sort((a, b) =>
+		getCollectionItemDate(a).getTime() - getCollectionItemDate(b).getTime()
+	);
+	past.sort((a, b) =>
+		getCollectionItemDate(b).getTime() - getCollectionItemDate(a).getTime()
+	);
+
+	return [...upcoming, ...past];
 }
 
 /**
