@@ -89,7 +89,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 	return (
 		<div
-			className={`border rounded p-4 hover:shadow-lg transition-shadow flex flex-col cursor-pointer${isPast ? " opacity-50" : ""}`}
+			className={`group border rounded p-4 hover:shadow-lg transition-shadow flex flex-col cursor-pointer${isPast ? " opacity-50" : ""}`}
 			onClick={() => router.push(detailUrl)}
 		>
 			<div className="mb-4">
@@ -108,12 +108,12 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 							onClick={(e) => { e.stopPropagation(); handleTogglePin(); }}
 							disabled={atPinLimit}
 							title={atPinLimit ? `Max ${MAX_PINNED} posts pinned` : isPinned ? "Unpin" : "Pin to top of profile"}
-							className={`flex-shrink-0 p-1 rounded transition-colors ${
+							className={`flex-shrink-0 p-1 rounded transition-all ${
 								isPinned
-									? "text-rich-brown hover:text-warm-grey"
+									? "opacity-100 text-rich-brown hover:text-warm-grey"
 									: atPinLimit
-									? "text-gray-300 cursor-not-allowed"
-									: "text-gray-400 hover:text-rich-brown"
+									? "opacity-0 group-hover:opacity-100 text-gray-300 cursor-not-allowed"
+									: "opacity-0 group-hover:opacity-100 text-gray-400 hover:text-rich-brown"
 							}`}
 						>
 							<PinIcon className="w-4 h-4" pinned={isPinned} />

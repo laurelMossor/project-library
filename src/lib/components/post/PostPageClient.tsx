@@ -21,6 +21,7 @@ import { updatePost, publishPost, deletePost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { PencilIcon } from "@/lib/components/icons/icons";
 import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { ImageItem } from "@/lib/types/image";
 
@@ -326,10 +327,12 @@ function PostPageContent({
 
 export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
+	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
+	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>

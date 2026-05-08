@@ -26,6 +26,7 @@ import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
@@ -432,10 +433,12 @@ function EventPageContent({
 
 export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, initialName, initialEmail, existingRsvpStatus }: EventPageClientProps) {
 	const [event, setEvent] = useState(initialEvent);
+	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
+	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>

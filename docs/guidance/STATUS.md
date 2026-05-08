@@ -28,11 +28,10 @@
 
 **Bundle planning complete** — 17 active P0/P1 tickets organized into 7 bundles (see `docs/scratch/CLOSED_BETA_ORCHESTRATOR.md` for full breakdown). Phase 1 (A–D) covers all P0 items and can dispatch in parallel.
 
-**P0 tickets (4):**
+**P0 tickets (3):**
 - [ ] URL params not updating on sort/filter change (Bundle A — Collections)
 - [ ] About Page — verify entry point, add delete, confirm edit (Bundle B — small scope, close to done)
-- [ ] Global search for users/pages (Bundle C)
-- [ ] Improved post/event sharing + OG metadata (Bundle D)
+- [ ] Global search for users/pages (Bundle C — needs interface-design input)
 
 **P1 tickets — M3 (6):**
 - [ ] Publish validation hints on event/post forms (Bundle E)

@@ -16,8 +16,10 @@ export function EmptyState({
 		switch (collectionTypeFilter) {
 			case "event":
 				return "events";
+			case "post":
+				return "posts";
 			default:
-				return "items";
+				return "posts & events";
 		}
 	};
 

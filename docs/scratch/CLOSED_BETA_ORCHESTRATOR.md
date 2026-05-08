@@ -83,7 +83,7 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 | P1 | [Pin icon — invisible normally, appear on hover](https://www.notion.so/34d453d029b080f1babeca08f5a6aea5) | Pin icons currently always visible on cards. Should be hidden by default, shown on card hover. |
 | P1 | [Empty state on profile collection views](https://www.notion.so/337453d029b080dfa8a0e228aa769c28) | When a profile has no posts/events, the empty state text is generic. Should be contextual ("No posts yet", "No events yet", etc.). |
 
-**Parallelizable with:** B, C, D
+**Parallelizable with:** B, C
 
 ---
 
@@ -95,11 +95,11 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 |---|---|---|
 | P0 | [About Page — entry point, add, delete, edit](https://www.notion.so/358453d029b08036b60aeb8666687292) | Route + edit + entry point exist. Remaining: verify entry point works from AddElementButton, add a way to delete/clear about content, verify edit saves correctly. |
 
-**Parallelizable with:** A, C, D
+**Parallelizable with:** A, C
 
 ---
 
-### Bundle C — Global Search (M3, P0)
+### Bundle C — Global Search (M3, P0, needs design input ⚠️)
 
 **Shared surface:** Nav bar, new search page or component, `/api/users/search` (exists)
 
@@ -107,19 +107,9 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 |---|---|---|
 | P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists (used by ProfileSearchDropdown). Need a user-facing search UI — likely a nav search icon → search page/overlay, querying both users and pages. |
 
-**Parallelizable with:** A, B, D
+**⚠️ Needs `/interface-design` input before dispatch.** Search placement, interaction pattern (overlay vs. dedicated page vs. nav dropdown), and result presentation all need design direction.
 
----
-
-### Bundle D — Social Sharing & OG Metadata (M3, P0)
-
-**Shared surface:** `ShareButton`, Next.js `generateMetadata` on post/event/profile routes
-
-| Pri | Ticket | Key detail |
-|---|---|---|
-| P0 | [Improved post/event sharing](https://www.notion.so/35a453d029b080d3903fcfe1c3670d40) | `ShareButton` exists but only copies link. Needs: (1) native Web Share API on mobile, (2) OG metadata (`og:title`, `og:description`, `og:image`) on post, event, and profile pages so shared links preview well. Currently only `layout.tsx` has metadata. |
-
-**Parallelizable with:** A, B, C
+**Parallelizable with:** A, B
 
 ---
 
@@ -165,13 +155,20 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
+### Deferred (not in scope for current bundles)
+
+- ~~Improved post/event sharing + OG metadata~~ — deprioritized by Laurel 2026-05-08
+
+---
+
 ### Recommended dispatch order
 
 ```
-Phase 1 (parallel, no deps):     A + B + C + D     ← all P0s covered
-Phase 2 (after phase 1):         E                  ← P1 form polish
-Phase 3 (needs design calls):    F                  ← landing & onboarding
-Phase 4 (needs Laurel's copy):   G                  ← content pages
+Phase 1 (parallel, no deps):     A + B              ← P0s, ready now
+Phase 2 (needs design input):    C                  ← P0 search, needs /interface-design
+Phase 3 (no deps):               E                  ← P1 form polish
+Phase 4 (needs design calls):    F                  ← landing & onboarding
+Phase 5 (needs Laurel's copy):   G                  ← content pages
 ```
 
-Bundles A–D can all dispatch to separate agents simultaneously. E can start whenever. F and G need Laurel's input before briefs can be written.
+A and B can dispatch immediately to separate agents. C is also P0 but needs interface-design input on search UX before the brief is written. E can start whenever. F and G need Laurel's input before briefs can be written.
