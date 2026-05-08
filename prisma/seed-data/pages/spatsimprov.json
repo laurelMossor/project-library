@@ -1,0 +1,50 @@
+{
+  "name": "Spats Improv",
+  "handle": "spatsimprov",
+  "headline": "Bay Area independent improv comedy collective",
+  "bio": "We host free improv jams and show in Oakland and the East Bay.",
+  "interests": ["Improv", "Comedy", "Community Building"],
+  "location": "Oakland, CA",
+  "aboutContent": "Spats Improv is a community of Bay Area improvisers and comedians, and we make space for quality improv jams and shows for all people. When we’re not jamming we love connecting improvisers with local businesses and theaters to help foster relationships and spur creativity. We love art, we love people, and we love imagining a better world with our friends. – Join us on Sunday Nights at Low Bar in Oakland for our 2nd Anniversary Improv Jam on May 17 at 7pm!",
+  "avatarImage": "filename.png",
+  "profileElements": [
+    {
+      "kind": "LINK",
+      "value": "https://www.instagram.com/spatsimprov?igsh=NTc4MTIwNjQ2YQ%3D%3D&utm_source=qr",
+      "url": "https://www.instagram.com/spatsimprov?igsh=NTc4MTIwNjQ2YQ%3D%3D&utm_source=qr",
+      "label": "Instagram",
+      "sortOrder": 0
+    },
+    {
+      "kind": "TEXT",
+      "value": "May 17 @ the Low Bar, 7-9pm",
+      "label": "2nd Anniversary Jam",
+      "sortOrder": 1
+    }
+  ],
+  "creatorHandle": "laurel",
+  "editors": ["handle-of-editor"],
+  "members": "*",
+  "posts": [
+    {
+      "title": "Post title (optional)",
+      "content": "Post body text.",
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    }
+  ],
+  "events": [
+    {
+      "title": "Event title (optional)",
+      "content": "Event description.",
+      "eventDateTime": "2026-09-01T18:00:00Z",
+      "location": "Venue Name, Street Address, City, ST",
+      "latitude": 0.0,
+      "longitude": 0.0,
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    }
+  ]
+}
