@@ -35,7 +35,7 @@ import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
-import { OwnProfileView } from "@/lib/components/profile/OwnProfileView";
+import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 import { getUserDisplayName } from "@/lib/types/user";
@@ -93,12 +93,10 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<OwnProfileView
-							profile={profile}
-							editEntity={{ type: "user", data: user }}
+						<ProfileEditClient
+							entity={{ type: "user", data: user }}
 							saveUrl={API_ME_USER}
-							showJoinButton={false}
-							initialEditMode={edit === "true"}
+							defaultReadonly={edit !== "true"}
 						/>
 					</div>
 
@@ -168,12 +166,10 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<OwnProfileView
-							profile={pageProfile}
-							editEntity={{ type: "page", data: page }}
+						<ProfileEditClient
+							entity={{ type: "page", data: page }}
 							saveUrl={API_PAGE(page.id)}
-							showJoinButton={true}
-							initialEditMode={edit === "true"}
+							defaultReadonly={edit !== "true"}
 						/>
 					</div>
 

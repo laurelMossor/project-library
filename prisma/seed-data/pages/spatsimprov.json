@@ -40,8 +40,24 @@
       "content": "Event description.",
       "eventDateTime": "2026-09-01T18:00:00Z",
       "location": "Venue Name, Street Address, City, ST",
-      "latitude": 0.0,
-      "longitude": 0.0,
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    },
+        {
+      "title": "Event title (optional)",
+      "content": "Event description.",
+      "eventDateTime": "2026-09-01T18:00:00Z",
+      "location": "Venue Name, Street Address, City, ST",
+      "tags": ["Tag One", "Tag Two"],
+      "status": "PUBLISHED",
+      "imageFilenames": ["filename.png"]
+    },
+        {
+      "title": "Event title (optional)",
+      "content": "Event description.",
+      "eventDateTime": "2026-09-01T18:00:00Z",
+      "location": "Venue Name, Street Address, City, ST",
       "tags": ["Tag One", "Tag Two"],
       "status": "PUBLISHED",
       "imageFilenames": ["filename.png"]

@@ -12,7 +12,7 @@ import { ClickableProfilePicture } from "@/lib/components/profile/ClickableProfi
 import { Tag } from "@/lib/components/tag/Tag";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
-import { EyeIcon } from "@/lib/components/icons/icons";
+import { EyeIcon, PencilIcon } from "@/lib/components/icons/icons";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
@@ -28,7 +28,7 @@ export type ProfileEditEntity =
 type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
 	saveUrl: string;
-	onPreview?: () => void;
+	defaultReadonly?: boolean;
 };
 
 // ─── Inner content (needs session context) ────────────────────────────────────
@@ -37,12 +37,10 @@ function ProfileOwnerContent({
 	entity,
 	previewMode,
 	setPreviewMode,
-	onPreview,
 }: {
 	entity: ProfileEditEntity;
 	previewMode: boolean;
 	setPreviewMode: (v: boolean) => void;
-	onPreview?: () => void;
 }) {
 	const session = useInlineEditSession();
 	const [editingField, setEditingField] = useState<string | null>(null);
@@ -187,9 +185,9 @@ function ProfileOwnerContent({
 					<ProfileButtons entityId={entityId} entityType={entityType} />
 					{entity.type === "page" && <JoinButton pageId={entity.data.id} />}
 					<TransparentCTAButton
-						label={onPreview ? "Preview" : (previewMode ? "Back to editing" : "Preview")}
-						icon={<EyeIcon className="w-4 h-4" />}
-						onClick={onPreview ? onPreview : () => setPreviewMode(!previewMode)}
+						label={previewMode ? "Edit" : "Preview"}
+						icon={previewMode ? <PencilIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+						onClick={() => setPreviewMode(!previewMode)}
 						className="w-full"
 					/>
 				</div>
@@ -264,9 +262,9 @@ function ProfileOwnerContent({
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
 
-export function ProfileEditClient({ entity: initialEntity, saveUrl, onPreview }: ProfileEditClientProps) {
+export function ProfileEditClient({ entity: initialEntity, saveUrl, defaultReadonly = false }: ProfileEditClientProps) {
 	const [entity, setEntity] = useState(initialEntity);
-	const [previewMode, setPreviewMode] = useState(false);
+	const [previewMode, setPreviewMode] = useState(defaultReadonly);
 
 	const handleSave = async (payload: SavePayload) => {
 		const fields = { ...payload.fields };
@@ -308,7 +306,6 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl, onPreview }:
 				entity={entity}
 				previewMode={previewMode}
 				setPreviewMode={setPreviewMode}
-				onPreview={onPreview}
 			/>
 		</InlineEditSession>
 	);
