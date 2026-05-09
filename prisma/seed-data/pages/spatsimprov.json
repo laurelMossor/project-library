@@ -26,14 +26,14 @@
   "events": [
     {
       "title": "Spats Improv 2nd Anniversary Jam",
-      "content": "Event description.",
+      "content": "In 2 weeks, Spats Improv turns 2!! 🎉😱😭🙏😍 \n\nWe cordially invite you to a special improv jam full of curated games and in the second half, a tournament of champions (our jam hosts from this year)! Come play in community, celebrate together, and raise a glass to more improv in the East Bay! 😎🤘",
       "eventDate": "2026-05-17",
       "eventStartTime": "7:00 PM",
       "eventTimezone": "PST",
       "location": "Low Bar, 326, 23rd Street, Financial District, Downtown Oakland, Oakland, Alameda County, California, 94612, United States",
       "tags": ["Improv", "Short Form Improv", "Long Form Improv"],
       "status": "PUBLISHED",
-      "imageFilenames": ["spats-neon-logo.jpg"]
+      "imageFilenames": ["spats-2-anniversary.jpg"]
     }
   ]
 }
