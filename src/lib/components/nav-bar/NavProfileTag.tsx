@@ -81,8 +81,8 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 					{/* Mobile: avatar only */}
 					<ProfilePicture entity={activeEntity} size="sm" asLink={false} className="sm:hidden" />
 					{/* Desktop: fixed-width profile tag so layout never shifts with name length */}
-					<div className="hidden sm:block w-[200px]">
-						<ProfileTag entity={activeEntity} size="md" asLink={false} variant="compact" badge={activeBadge} className="border-none bg-transparent hover:bg-transparent" />
+					<div className="hidden sm:block w-[260px] px-3 py-1">
+						<ProfileTag entity={activeEntity} size="md" asLink={false} variant="compact" badge={activeBadge} />
 					</div>
 				</>
 			}
@@ -112,7 +112,9 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							role="button"
 							aria-label="Switch to personal profile"
 						>
-							<ProfileTag entity={currentUser as CardEntity} size="sm" asLink={false} variant="compact" />
+							<div className="w-[260px]">
+								<ProfileTag entity={currentUser as CardEntity} size="md" asLink={false} variant="compact" />
+							</div>
 							{unreadData.personal > 0 && <NotificationDot />}
 						</div>
 					)}
@@ -126,7 +128,9 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							role="button"
 							aria-label={`Switch to ${page.name}`}
 						>
-							<ProfileTag entity={page} size="sm" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
+							<div className="w-[260px]">
+								<ProfileTag entity={page} size="md" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
+							</div>
 							{(unreadData.pages[page.id] ?? 0) > 0 && <NotificationDot />}
 						</div>
 					))}

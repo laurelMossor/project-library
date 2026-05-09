@@ -44,8 +44,8 @@ test.describe("Authoring — create content", () => {
     await expect(page.getByText(/Are you sure you want to delete/)).toBeVisible();
     await page.getByRole("button", { name: "Delete" }).click();
 
-    // Redirects to /collections after deletion
-    await page.waitForURL(/\/collections/, { timeout: 10_000 });
+    // Redirects to /explore after deletion
+    await page.waitForURL(/\/explore/, { timeout: 10_000 });
   });
 
   test("navigating away from a draft event deletes it", async ({ page }) => {

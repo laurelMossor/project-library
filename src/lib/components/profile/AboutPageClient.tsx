@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
+import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
-import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
+import { API_ME_USER, API_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 type AboutPageClientProps = {
 	entityType: "user" | "page";
 	entityId: string;
+	handle: string;
 	initialAboutContent: string | null;
 	canEdit: boolean;
 };
@@ -64,7 +67,7 @@ function AboutEditorContent({
 					placeholder="Write about yourself…"
 					rows={16}
 					maxLength={50000}
-					className="w-full border border-gray-300 rounded-lg p-3 text-base font-mono focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown resize-y min-h-[300px]"
+					className="w-full border border-gray-300 rounded-lg p-3 text-base focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown resize-y min-h-[300px]"
 					autoFocus
 				/>
 			}
@@ -75,9 +78,11 @@ function AboutEditorContent({
 export function AboutPageClient({
 	entityType,
 	entityId,
+	handle,
 	initialAboutContent,
 	canEdit,
 }: AboutPageClientProps) {
+	const router = useRouter();
 	const [aboutContent, setAboutContent] = useState(initialAboutContent);
 
 	const saveUrl = entityType === "user" ? API_ME_USER : API_PAGE(entityId);
@@ -97,6 +102,19 @@ export function AboutPageClient({
 		return updated;
 	};
 
+	const handleDeleteAbout = async () => {
+		const res = await authFetch(saveUrl, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ fields: { aboutContent: null } }),
+		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({}));
+			throw new Error(data.error || "Failed to delete about page");
+		}
+		router.push(PUBLIC_PROFILE(handle));
+	};
+
 	return (
 		<InlineEditSession
 			resource={{ aboutContent: aboutContent ?? "" } as Record<string, unknown>}
@@ -104,6 +122,15 @@ export function AboutPageClient({
 			canEdit={canEdit}
 		>
 			<AboutEditorContent aboutContent={aboutContent} />
+			{canEdit && aboutContent && (
+				<div className="mt-6 pt-4 border-t border-gray-100">
+					<DeleteConfirmButton
+						label="Delete"
+						itemTitle="about page content"
+						onDelete={handleDeleteAbout}
+					/>
+				</div>
+			)}
 		</InlineEditSession>
 	);
 }

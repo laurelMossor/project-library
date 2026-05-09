@@ -1,0 +1,12 @@
+{
+  "name": "Baywatch Events",
+  "handle": "baywatch",
+  "headline": "An event curation page for things happening the San Francisco Bay Area.",
+  "bio": "",
+  "interests": ["Events"],
+  "location": "Bay Area, CA",
+  "avatarImage": "",
+  "creatorHandle": "laurel",
+  "events": [
+  ]
+}

@@ -9,7 +9,7 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { PostsList } from "@/lib/components/post/PostsList";
-import { DeletePostButton } from "@/lib/components/post/DeletePostButton";
+import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
@@ -21,6 +21,7 @@ import { updatePost, publishPost, deletePost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
 import { PencilIcon } from "@/lib/components/icons/icons";
 import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { ImageItem } from "@/lib/types/image";
 
@@ -88,19 +89,32 @@ function PostPageContent({
 
 	// Tracks whether this post is still a draft so the unmount cleanup always
 	// has the latest value (avoids stale closure over `isDraft`).
+	// TODO how does this relate to hasContentRef?
 	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
 	useEffect(() => {
 		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && isOwner;
 	}, [post.status, isOwner]);
 
-	// When the owner navigates away from an unpublished draft, delete it silently.
+	// True once any content has been added — prevents silent deletion of non-empty drafts.
+	// TODO: This should be a shared utility between used by event and post 
+	const hasContentRef = useRef(Boolean(post.title || post.content));
+	useEffect(() => {
+		if (post.title || post.content) hasContentRef.current = true;
+	}, [post.title, post.content]);
+	// Also mark dirty when any inline field is edited (before save)
+	const dirtyCount = session ? Object.keys(session.dirtyFields).length : 0;
+	useEffect(() => {
+		if (dirtyCount > 0) hasContentRef.current = true;
+	}, [dirtyCount]);
+
+	// When the owner navigates away from an unpublished EMPTY draft, delete it silently.
 	useEffect(() => {
 		const postId = post.id;
 		let armed = false;
 		const armTimer = setTimeout(() => { armed = true; }, 0);
 		return () => {
 			clearTimeout(armTimer);
-			if (armed && shouldDiscardOnLeaveRef.current) {
+			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
 				deletePost(postId).catch(() => {});
 			}
 		};
@@ -207,15 +221,19 @@ function PostPageContent({
 							</Link>
 						)}
 						{isOwner && isDraft && (
-							<button
-								type="button"
-								onClick={handlePublish}
-								disabled={publishing || !editContent.trim()}
-								title={!editContent.trim() ? "Add some content before publishing" : undefined}
-								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-							>
-								{publishing ? "Publishing..." : "Publish"}
-							</button>
+							<div className="flex flex-col items-start gap-1">
+								<button
+									type="button"
+									onClick={handlePublish}
+									disabled={publishing || !editContent.trim()}
+									className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
+								>
+									{publishing ? "Publishing..." : "Publish"}
+								</button>
+								{!editContent.trim() && !publishing && (
+									<p className="text-xs text-dusty-grey">Add some content to publish</p>
+								)}
+							</div>
 						)}
 						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
@@ -294,9 +312,18 @@ function PostPageContent({
 				{/* Footer actions */}
 				{isOwner && (
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-						<DeletePostButton
-							postId={post.id}
-							postTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
+						<DeleteConfirmButton
+							label="Delete Post"
+							itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
+							onDelete={async () => {
+								try {
+									await deletePost(post.id);
+									router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+								} catch (err) {
+									if (err instanceof AuthError) { handleAuthError(); return; }
+									throw err;
+								}
+							}}
 						/>
 						{isPublished && !isEditing && (
 							<button
@@ -326,10 +353,12 @@ function PostPageContent({
 
 export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
+	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
+	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>

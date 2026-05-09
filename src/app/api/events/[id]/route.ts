@@ -93,7 +93,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, location, latitude, longitude, tags, topics, status, pinnedAt } = data;
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, pinnedAt } = data;
 
 		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
@@ -133,6 +133,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (title !== undefined) updateData.title = title.trim();
 		if (content !== undefined) updateData.content = content.trim();
 		if (parsedDateTime !== undefined) updateData.eventDateTime = parsedDateTime;
+		if (eventTimezone !== undefined) updateData.eventTimezone = eventTimezone;
 		if (location !== undefined) updateData.location = location.trim();
 		if (parsedLatitude !== undefined) updateData.latitude = parsedLatitude;
 		if (parsedLongitude !== undefined) updateData.longitude = parsedLongitude;

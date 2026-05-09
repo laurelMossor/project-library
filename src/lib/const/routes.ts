@@ -21,8 +21,8 @@ export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
 export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 
 // Session-scoped — active profile resolved from session, no handle in URL
-export const PROFILE = "/profile";
 export const SETTINGS = "/settings";
+export const PERSONAL_INFO = "/settings/personal-info";
 export const CONNECTIONS = "/connections";
 
 export const PAGE_NEW = "/pages/new";
@@ -30,6 +30,7 @@ export const PAGE_NEW = "/pages/new";
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
+export const SEARCH = "/search";
 
 // ============================================================================
 // Event Routes
@@ -94,6 +95,7 @@ export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 // ============================================================================
 export const HOME = "/";
 export const ABOUT = "/about";
+export const GUIDELINES = "/guidelines";
 export const DEV_TAXONOMY = "/dev/taxonomy";
 
 export const FEEDBACK_SURVEY = "https://docs.google.com/forms/d/e/1FAIpQLScQeZneNUq6QhpJ_dbIJ2-E7zr186HFer9V5x6kDSb0Bzxl8A/viewform?usp=header"

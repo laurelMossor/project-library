@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BugReportIcon } from "../icons/icons";
-import { ABOUT, BUG_REPORT_FORM, FEEDBACK_SURVEY, GITHUB_REPO, INSTAGRAM } from "@/lib/const/routes";
+import { ABOUT, BUG_REPORT_FORM, FEEDBACK_SURVEY, GITHUB_REPO, GUIDELINES, INSTAGRAM } from "@/lib/const/routes";
 
 export function Footer() {
 	return (
@@ -9,7 +9,10 @@ export function Footer() {
 				<div className="flex flex-col gap-4 items-center text-sm">
 					<div className="flex flex-wrap gap-6 justify-center">
 						<Link href={ABOUT} className="text-rich-brown hover:underline">
-							About &amp; Community Guidelines
+							About
+						</Link>
+						<Link href={GUIDELINES} className="text-rich-brown hover:underline">
+							Community Guidelines
 						</Link>
 						<a
 							href={FEEDBACK_SURVEY}
@@ -46,6 +49,12 @@ export function Footer() {
 							Instagram
 						</a>
 					</div>
+					<p className="text-xs text-dusty-grey">
+						You&apos;re part of the Project Library early beta &mdash;{" "}
+						<a href={FEEDBACK_SURVEY} target="_blank" rel="noopener noreferrer" className="underline hover:text-rich-brown">
+							share your feedback
+						</a>
+					</p>
 				</div>
 			</div>
 		</footer>

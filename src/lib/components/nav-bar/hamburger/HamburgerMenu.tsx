@@ -11,15 +11,17 @@ import {
 	LoginIcon,
 	LogoutIcon,
 	SettingsIcon,
+	SearchIcon,
 } from "../../icons/icons";
 import { NotificationDot } from "../../ui/NotificationDot";
 import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
 	MESSAGES,
-	PROFILE,
+	SETTINGS,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
+	SEARCH,
 } from "@/lib/const/routes";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { hasSession } from "@/lib/utils/auth-client";
@@ -44,7 +46,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
-	const settingsLink = isLoggedIn ? PROFILE : undefined;
+	const settingsLink = isLoggedIn ? SETTINGS : undefined;
 	const [handle, setHandle] = useState<string>('');
 
 	useEffect(() => {
@@ -115,6 +117,13 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					icon={<CollectionsIcon className={iconClass} />}
 					label="Explore"
 					href={EXPLORE_PAGE}
+					closeMenu={closeMenu}
+				/>
+
+				<MenuItem
+					icon={<SearchIcon className={iconClass} />}
+					label="Profile search"
+					href={SEARCH}
 					closeMenu={closeMenu}
 				/>
 

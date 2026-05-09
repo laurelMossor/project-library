@@ -29,21 +29,23 @@ When work involves specific Notion tickets, pull them via the REST API pattern i
 
 ## How to draft an agent brief
 
-When Laurel picks a bundle (or you recommend one), produce a **self-contained prompt** formatted for pasting into a fresh Claude Code session:
+When Laurel picks a bundle (or you recommend one), produce a **self-contained prompt** in a copiable code block in the chat (not in this doc — briefs live in the conversation only).
 
+**Structure:**
 1. **Goal** — one-sentence outcome
-2. **Context** — brief project description, tech stack, enough for a cold start
-3. **Session bootstrap** — which docs to read first (always include PROJECT_GUIDELINES.md and STATUS.md)
-4. **Scope** — specific tickets/tasks with:
-   - What the problem is and what the fix should do
+2. **Session bootstrap** — which docs to read first (always include PROJECT_GUIDELINES.md and STATUS.md)
+3. **Context** — brief project description, tech stack, enough for a cold start
+4. **Scope** — numbered tasks, each with:
+   - What the problem is
    - File paths *verified live* via Read/Grep (don't trust this doc or memory — check the codebase before writing the brief)
-   - Implementation notes where the approach isn't obvious
-5. **Acceptance criteria** — including manual smoke tests for UI work, `npm run validate` for all work
+5. **Acceptance criteria** — checkboxes, including `npm run validate` for all work
 6. **Out of scope** — explicit exclusions to prevent scope creep
 
-**Skill invocation:** When a bundle involves UI design work, tell the agent which `/skill` to invoke and at which phase (planning vs. implementation). For example: "Use the `/interface-design` skill during the planning phase before writing code."
+**Tone:** Describe the problem and point at the relevant files, then get out of the way. Don't prescribe implementation details or dictate the approach — the receiving agent should think critically about *how* to solve it. Keep the brief concise; a wall of implementation notes pigeonholes the agent and prevents it from finding better solutions.
 
-**Adapting to agent context:** If a bundle is going to the same agent that just finished a related bundle, write a shorter follow-up prompt that builds on the context they already have. If it's a fresh agent, the prompt must be fully self-contained.
+**Skill invocation:** When a bundle involves UI design work, tell the agent which `/skill` to invoke and at which phase (planning vs. implementation).
+
+**Adapting to agent context:** If a bundle is going to the same agent that just finished a related bundle, write a shorter follow-up prompt. If it's a fresh agent, the prompt must be fully self-contained.
 
 ## How to maintain session artifacts
 
@@ -73,7 +75,7 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
-### Bundle A — Collection UX Polish (M3, no deps)
+### Bundle A — Collection UX Polish (M3, no deps) DONE
 
 **Shared surface:** `FilteredCollection`, `CollectionCard`, `CollectionPage`, `ProfileCollectionSection`
 
@@ -83,71 +85,35 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 | P1 | [Pin icon — invisible normally, appear on hover](https://www.notion.so/34d453d029b080f1babeca08f5a6aea5) | Pin icons currently always visible on cards. Should be hidden by default, shown on card hover. |
 | P1 | [Empty state on profile collection views](https://www.notion.so/337453d029b080dfa8a0e228aa769c28) | When a profile has no posts/events, the empty state text is generic. Should be contextual ("No posts yet", "No events yet", etc.). |
 
-**Parallelizable with:** B, C, D
+**Parallelizable with:** B, C
 
 ---
 
-### Bundle B — About Page Completion (M3, P0, small scope)
+### Bundle B+E — Form, Edit & About Polish (M3) DONE
 
-**Shared surface:** `[handle]/about/page.tsx`, `AboutPageClient`, `AddElementButton`
-
-| Pri | Ticket | Key detail |
-|---|---|---|
-| P0 | [About Page — entry point, add, delete, edit](https://www.notion.so/358453d029b08036b60aeb8666687292) | Route + edit + entry point exist. Remaining: verify entry point works from AddElementButton, add a way to delete/clear about content, verify edit saves correctly. |
-
-**Parallelizable with:** A, C, D
-
----
-
-### Bundle C — Global Search (M3, P0)
-
-**Shared surface:** Nav bar, new search page or component, `/api/users/search` (exists)
+**Shared surface:** `EventPageClient`, `PostPageClient`, `AboutPageClient`, form components, profile edit/settings views
 
 | Pri | Ticket | Key detail |
 |---|---|---|
-| P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists (used by ProfileSearchDropdown). Need a user-facing search UI — likely a nav search icon → search page/overlay, querying both users and pages. |
-
-**Parallelizable with:** A, B, D
-
----
-
-### Bundle D — Social Sharing & OG Metadata (M3, P0)
-
-**Shared surface:** `ShareButton`, Next.js `generateMetadata` on post/event/profile routes
-
-| Pri | Ticket | Key detail |
-|---|---|---|
-| P0 | [Improved post/event sharing](https://www.notion.so/35a453d029b080d3903fcfe1c3670d40) | `ShareButton` exists but only copies link. Needs: (1) native Web Share API on mobile, (2) OG metadata (`og:title`, `og:description`, `og:image`) on post, event, and profile pages so shared links preview well. Currently only `layout.tsx` has metadata. |
-
-**Parallelizable with:** A, B, C
-
----
-
-### Bundle E — Form & Edit Polish (M3)
-
-**Shared surface:** `EventPageClient`, `PostPageClient`, form components, profile edit views
-
-| Pri | Ticket | Key detail |
-|---|---|---|
+| P0 | [About Page — delete interface](https://www.notion.so/358453d029b08036b60aeb8666687292) | About page works for add/edit. Missing: a way to delete/clear about content. |
 | P1 | [Publish validation hints](https://www.notion.so/338453d029b080bcbe54d1e3e10c3979) | When you click Publish on an event/post with missing required fields, nothing tells you what's wrong. Need inline field-level error hints. |
-| P1 | [Event page banner size limit too small](https://www.notion.so/357453d029b0804c823bd7118619a8c2) | Event banner image upload rejects files that are a reasonable size. Need to increase the limit. |
-| P1 | [Edit Personal Info](https://www.notion.so/359453d029b08056af79e2b781d1a29b) | Users need a way to edit their personal info (name, headline, bio, location, interests) from their profile. |
+| P1 | [Event page banner size limit too small](https://www.notion.so/357453d029b0804c823bd7118619a8c2) | 5MB limit rejects iPhone photos. Needs auto-compression. |
+| P1 | [Edit Personal Info](https://www.notion.so/359453d029b08056af79e2b781d1a29b) | Private personal info form accessible from user settings. "Coming soon" for Pages. |
 
-**Deps:** None, but best scheduled after Bundle A since they share some card/collection adjacency.
+**Parallelizable with:** A, C
 
 ---
 
-### Bundle F — Landing & First Impression (M4, design-heavy ⚠️)
+### Bundle C+F — Search, Landing & Beta Experience (M3+M4, design-driven)
 
-**Shared surface:** `StaticLandingImages`, login/signup pages, new onboarding components
+**Shared surface:** Nav bar, landing page, login/signup, search UI, profile cards. Uses `/interface-design` skill.
 
 | Pri | Ticket | Key detail |
 |---|---|---|
-| P1 | [Landing page — headers, images, links](https://www.notion.so/33f453d029b081c894e7ec188d8b9d4d) | Currently a 2×2 grid of static images with single-word labels. Needs real headers, CTAs, and copy. In progress. |
-| P1 | [Beta flag + notes at login/signup](https://www.notion.so/33f453d029b08113b251e16203ad4904) | Beta users need to know this is a beta — banner/badge on login, signup, and possibly throughout. |
-| P1 | [Onboarding — "what is this?"](https://www.notion.so/33f453d029b0811ebebaf38ccd963c60) | New users have no guidance on what the site is or how to use it. Needs a first-run explainer or contextual hints. |
-
-**⚠️ Needs Laurel's design direction before dispatch.** Landing page copy, beta messaging tone, onboarding approach all need decisions.
+| P0 | [Search for users/pages](https://www.notion.so/359453d029b080908086f537f312d9a1) | No visible way to search for users or pages. `/api/users/search` exists. Need search UI + rich profile result cards (ProfileTag fields + headline + top interests). |
+| P1 | [Landing page — headers, images, links](https://www.notion.so/33f453d029b081c894e7ec188d8b9d4d) | 2×2 clickable image grid exists. Needs inviting headers for each image. |
+| P1 | [Beta flag + notes at login/signup](https://www.notion.so/33f453d029b08113b251e16203ad4904) | Existing pre-beta warning on signup/login (`InviteCTA`). Review and extend to other sensible locations. |
+| P1 | [Onboarding — "what is this?"](https://www.notion.so/33f453d029b0811ebebaf38ccd963c60) | New users have no guidance. Needs contextual onboarding. |
 
 ---
 
@@ -165,13 +131,16 @@ M2 (Spats Launch) is complete. M3 (Testing & Polish) and M4 (User Feedback / Bet
 
 ---
 
+### Deferred (not in scope for current bundles)
+
+- ~~Improved post/event sharing + OG metadata~~ — deprioritized by Laurel 2026-05-08
+
+---
+
 ### Recommended dispatch order
 
 ```
-Phase 1 (parallel, no deps):     A + B + C + D     ← all P0s covered
-Phase 2 (after phase 1):         E                  ← P1 form polish
-Phase 3 (needs design calls):    F                  ← landing & onboarding
-Phase 4 (needs Laurel's copy):   G                  ← content pages
+Phase 1 (done):                  A + B+E            ← shipped 2026-05-08
+Phase 2 (design-driven):         C+F                ← search, landing, beta UX — uses /interface-design
+Phase 3 (needs Laurel's copy):   G                  ← content pages
 ```
-
-Bundles A–D can all dispatch to separate agents simultaneously. E can start whenever. F and G need Laurel's input before briefs can be written.

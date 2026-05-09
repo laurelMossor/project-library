@@ -91,11 +91,11 @@ export async function createPost(data: {
 /**
  * Create a minimal draft post — called from /posts/new (client component).
  */
-export async function createDraftPost(pageId?: string): Promise<PostItem> {
+export async function createDraftPost(pageId?: string, title?: string, content?: string): Promise<PostItem> {
 	const res = await authFetch(API_POSTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}) }),
+		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}), ...(title ? { title } : {}), ...(content ? { content } : {}) }),
 	});
 
 	if (!res.ok) {

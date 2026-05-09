@@ -8,9 +8,9 @@ import Link from "next/link";
 
 export const InviteCTA = () => {
 	return (
-		<div className="py-4 px-4 border border-gray-300 rounded-md">
-			<p className="text-sm pb-3">The Project Library is currently in pre-beta which means that things are still in development and we are not yet open to the public. Interested in an invite or becoming a beta tester? <span className="font-bold">Fill out this form!</span> </p>
-			<Link href={ACCOUNT_INTEREST_FORM} className="underline">Interest Form</Link>
+		<div className="py-4 px-4 border border-soft-grey rounded-lg bg-white/70">
+			<p className="text-sm text-warm-grey pb-3">The Project Library is in early beta — things are still being built and we&apos;re not yet open to the public. Interested in an invite or becoming a beta tester? <span className="font-bold text-rich-brown">Fill out this form!</span></p>
+			<Link href={ACCOUNT_INTEREST_FORM} className="text-sm text-whale-blue underline">Interest Form</Link>
 		</div>
 	);
 };

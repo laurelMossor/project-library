@@ -31,6 +31,8 @@ export const RESERVED_HANDLES = new Set([
 	"welcome",
 	"dev",
 	"about",
+	"guidelines",
+	"search",
 
 	// Reserved single letters (a–z) for future subroutes.
 	// Includes "u" and "p" — formerly the user/page route prefixes;

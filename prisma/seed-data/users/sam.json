@@ -57,7 +57,9 @@
     {
       "title": "Community Craft Fair 2026 (Example Event)",
       "content": "📌 This is an example event showing what events look like on the Project Library.\n\nJoin us for our annual community craft fair featuring local artisans, workshops, and live demonstrations. Vendors will showcase handmade goods from across the East Bay.\n\nFree admission. Food trucks on site. Great for families and anyone curious about local craft.",
-      "eventDateTime": "2026-06-15T10:00:00Z",
+      "eventDate": "2026-06-15",
+      "eventStartTime": "10:00 AM",
+      "eventTimezone": "PST",
       "location": "Berkeley Community Center, 1234 University Ave, Berkeley, CA",
       "latitude": 37.8715,
       "longitude": -122.273,

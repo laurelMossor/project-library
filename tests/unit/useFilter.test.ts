@@ -33,6 +33,7 @@ function makeEvent(overrides: Partial<EventItem> = {}): EventItem {
     createdAt: new Date("2024-06-01"),
     updatedAt: new Date("2024-06-01"),
     eventDateTime: new Date("2024-07-01"),
+    eventTimezone: null,
     location: "Portland, OR",
     latitude: null,
     longitude: null,

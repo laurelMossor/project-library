@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { CollectionItem } from "@/lib/types/collection";
 import { fetchEvents } from "@/lib/utils/event-client";
 import { fetchPosts } from "@/lib/utils/post-client";
@@ -10,9 +10,10 @@ import { useFilter } from "@/lib/hooks/useFilter";
 import { useFilterParams } from "@/lib/hooks/useFilterParams";
 import { CollectionPage } from "@/lib/components/collection/CollectionPage";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
+import { WelcomeBanner } from "@/lib/components/onboarding/WelcomeBanner";
 
 export default function ExplorePage() {
-	const { initialFilters, initialSearch } = useFilterParams();
+	const { initialFilters, initialSearch, updateUrl } = useFilterParams();
 
 	const [events, setEvents] = useState<EventItem[]>([]);
 	const [posts, setPosts] = useState<PostCollectionItem[]>([]);
@@ -43,10 +44,22 @@ export default function ExplorePage() {
 		[events]
 	);
 
-	// Debounced search
+	// Track the last search value committed to the URL so immediate filter
+	// syncs don't write a half-typed search term.
+	const committedSearch = useRef(initialSearch);
+
+	// Sync filter/sort/view/tags to URL immediately when they change
+	useEffect(() => {
+		updateUrl({ collectionType: collectionTypeFilter, sort, view, tags: selectedTags, search: committedSearch.current });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [collectionTypeFilter, sort, view, selectedTags]);
+
+	// Debounced search — syncs to API and URL together
 	useEffect(() => {
 		const timeoutId = setTimeout(() => {
+			committedSearch.current = search;
 			loadCollections();
+			updateUrl({ collectionType: collectionTypeFilter, sort, view, tags: selectedTags, search });
 		}, 300);
 
 		return () => clearTimeout(timeoutId);
@@ -79,6 +92,7 @@ export default function ExplorePage() {
 
 	return (
 		<PageLayout>
+			<WelcomeBanner />
 			<CollectionPage
 				title="Explore"
 				filteredItems={filteredItems}

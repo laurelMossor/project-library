@@ -45,11 +45,13 @@ import type { AboutCollectionItem } from "@/lib/types/collection";
 
 type Props = {
 	params: Promise<{ handle: string }>;
+	searchParams: Promise<{ edit?: string }>;
 };
 
 // TODO: dry this up considerably
-export default async function HandleProfilePage({ params }: Props) {
+export default async function HandleProfilePage({ params, searchParams }: Props) {
 	const { handle } = await params;
+	const { edit } = await searchParams;
 
 	const entity = await findEntityByHandle(handle);
 	if (!entity) {
@@ -85,11 +87,17 @@ export default async function HandleProfilePage({ params }: Props) {
 			}
 			: null;
 
+		const profile: ProfileEntity = { type: "USER", data: user };
+
 		if (isOwnProfile) {
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<ProfileEditClient entity={{ type: "user", data: user }} saveUrl={API_ME_USER} />
+						<ProfileEditClient
+							entity={{ type: "user", data: user }}
+							saveUrl={API_ME_USER}
+							defaultReadonly={edit !== "true"}
+						/>
 					</div>
 
 					<ProfileCollectionSection
@@ -103,8 +111,6 @@ export default async function HandleProfilePage({ params }: Props) {
 				</CenteredLayout>
 			);
 		}
-
-		const profile: ProfileEntity = { type: "USER", data: user };
 
 		return (
 			<CenteredLayout maxWidth="6xl">
@@ -154,11 +160,17 @@ export default async function HandleProfilePage({ params }: Props) {
 			}
 			: null;
 
+		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
+
 		if (isOwner) {
 			return (
 				<CenteredLayout maxWidth="6xl">
 					<div className="mb-8">
-						<ProfileEditClient entity={{ type: "page", data: page }} saveUrl={API_PAGE(page.id)} />
+						<ProfileEditClient
+							entity={{ type: "page", data: page }}
+							saveUrl={API_PAGE(page.id)}
+							defaultReadonly={edit !== "true"}
+						/>
 					</div>
 
 					<ProfileCollectionSection
@@ -173,19 +185,17 @@ export default async function HandleProfilePage({ params }: Props) {
 			);
 		}
 
-		const profile: ProfileEntity = { type: "PAGE", data: page };
-
 		return (
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
 					<div className="flex items-start justify-between gap-4">
-						<ProfileHeader profile={profile} />
+						<ProfileHeader profile={pageProfile} />
 						<div className="flex flex-col gap-2 w-36 shrink-0">
 							<ProfileButtons entityId={page.id} entityType="page" />
 							<JoinButton pageId={page.id} />
 						</div>
 					</div>
-					<ProfileBody profile={profile} />
+					<ProfileBody profile={pageProfile} />
 				</div>
 
 				<ProfileCollectionSection

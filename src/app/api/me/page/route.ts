@@ -65,10 +65,11 @@ export async function PUT(request: Request) {
 		const { fields = {}, elements } = body;
 
 		const {
-			headline, bio, interests, location,
+			name, headline, bio, interests, location,
 			addressLine1, addressLine2, city, state, zip,
 			category, avatarImageId,
 		} = fields as {
+			name?: string;
 			headline?: string;
 			bio?: string;
 			interests?: string[];
@@ -81,6 +82,15 @@ export async function PUT(request: Request) {
 			category?: string | null;
 			avatarImageId?: string | null;
 		};
+
+		if (name !== undefined) {
+			if (typeof name !== "string" || name.trim().length === 0) {
+				return badRequest("Page name is required");
+			}
+			if (name.length > 100) {
+				return badRequest("Page name must be 100 characters or fewer");
+			}
+		}
 
 		const validation = validatePageUpdateData({
 			headline, bio, interests, location,
@@ -95,7 +105,7 @@ export async function PUT(request: Request) {
 		const pageId = ctx.activePageId;
 		const updatedPage = await prisma.$transaction(async () => {
 			await updatePageProfile(pageId, {
-				headline, bio, interests, location,
+				name, headline, bio, interests, location,
 				addressLine1, addressLine2, city, state, zip,
 				category, avatarImageId,
 			});

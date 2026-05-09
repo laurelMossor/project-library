@@ -322,6 +322,7 @@ model Event {
   title         String?
   content       String
   eventDateTime DateTime
+  eventTimezone String?
   location      String
   latitude      Float?
   longitude     Float?

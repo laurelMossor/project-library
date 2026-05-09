@@ -13,7 +13,7 @@ import { RsvpForm } from "@/lib/components/event/RsvpForm";
 import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
 import { AttendeeList } from "@/lib/components/event/AttendeeList";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
-import { DeleteEventButton } from "@/lib/components/event/DeleteEventButton";
+import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { Tags } from "@/lib/components/tag/Tag";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EventMap } from "@/lib/components/map/EventMap";
@@ -26,6 +26,7 @@ import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
@@ -101,7 +102,20 @@ function EventPageContent({
 		shouldDiscardOnLeaveRef.current = event.status === "DRAFT" && isOwner;
 	}, [event.status, isOwner]);
 
-	// When the owner navigates away from an unpublished draft, delete it silently.
+	// True once any content has been added — prevents silent deletion of non-empty drafts.
+	const hasContentRef = useRef(Boolean(event.title || event.content || event.location || event.tags.length));
+	useEffect(() => {
+		if (event.title || event.content || event.location || event.tags.length) {
+			hasContentRef.current = true;
+		}
+	}, [event.title, event.content, event.location, event.tags.length]);
+	// Also mark dirty when any inline field is edited (before save)
+	const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
+	useEffect(() => {
+		if (dirtyCount > 0) hasContentRef.current = true;
+	}, [dirtyCount]);
+
+	// When the owner navigates away from an unpublished EMPTY draft, delete it silently.
 	useEffect(() => {
 		const eventId = event.id;
 		let armed = false;
@@ -109,9 +123,9 @@ function EventPageContent({
 
 		return () => {
 			clearTimeout(armTimer);
-			if (armed && shouldDiscardOnLeaveRef.current) {
+			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
 				// eslint-disable-next-line no-console
-				console.log("TODO: show discard-draft popup — deleting draft event on navigation away:", eventId);
+				console.log("deleting draft event on navigation away:", eventId);
 				deleteEvent(eventId).catch(() => {});
 			}
 		};
@@ -159,10 +173,9 @@ function EventPageContent({
 		}
 	};
 
-	// InlineDateTimePicker saves its own field (date change is deliberate & isolated)
-	const handleDateSave = async (dateTime: Date) => {
+	const handleDateSave = async (dateTime: Date, timezone: string) => {
 		try {
-			const updated = await updateEvent(event.id, { eventDateTime: dateTime });
+			const updated = await updateEvent(event.id, { eventDateTime: dateTime, eventTimezone: timezone });
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
@@ -231,6 +244,7 @@ function EventPageContent({
 				<InlineDateTimePicker
 					eventId={event.id}
 					eventDateTime={event.eventDateTime}
+					eventTimezone={event.eventTimezone}
 					canEdit={isOwner && isEditing}
 					onSave={handleDateSave}
 				/>
@@ -259,15 +273,19 @@ function EventPageContent({
 							</Link>
 						)}
 						{isOwner && isDraft && (
-							<button
-								type="button"
-								onClick={handlePublish}
-								disabled={publishing || !editTitle}
-								title={!editTitle ? "Add an event name before publishing" : undefined}
-								className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-							>
-								{publishing ? "Publishing..." : "Publish"}
-							</button>
+							<div className="flex flex-col items-start gap-1">
+								<button
+									type="button"
+									onClick={handlePublish}
+									disabled={publishing || !editTitle}
+									className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
+								>
+									{publishing ? "Publishing..." : "Publish"}
+								</button>
+								{!editTitle && !publishing && (
+									<p className="text-xs text-dusty-grey">Add an event name to publish</p>
+								)}
+							</div>
 						)}
 						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
@@ -399,7 +417,19 @@ function EventPageContent({
 				{/* Footer actions */}
 				{isOwner && (
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
-						<DeleteEventButton eventId={event.id} eventTitle={event.title || "Untitled Event"} />
+						<DeleteConfirmButton
+							label="Delete Event"
+							itemTitle={event.title || "Untitled Event"}
+							onDelete={async () => {
+								try {
+									await deleteEvent(event.id);
+									router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+								} catch (err) {
+									if (err instanceof AuthError) { router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id))); return; }
+									throw err;
+								}
+							}}
+						/>
 						{isPublished && !isEditing && (
 							<button
 								type="button"
@@ -432,10 +462,12 @@ function EventPageContent({
 
 export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, initialName, initialEmail, existingRsvpStatus }: EventPageClientProps) {
 	const [event, setEvent] = useState(initialEvent);
+	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
+	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={EXPLORE_PAGE} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>

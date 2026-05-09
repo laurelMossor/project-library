@@ -48,6 +48,8 @@ export function ProfileSettingsBase({
 					{viewPublicProfileLabel}
 				</ButtonLink>
 
+				{additionalSettingsButtons}
+
 				{disabledButtons.map((label) => (
 					<DisabledSettingsButton key={label}>{label}</DisabledSettingsButton>
 				))}
@@ -55,8 +57,6 @@ export function ProfileSettingsBase({
 				<ButtonLink href={BUG_REPORT_FORM} variant="secondary" fullWidth target="_blank" rel="noopener noreferrer">
 					Report an Issue
 				</ButtonLink>
-
-				{additionalSettingsButtons}
 
 				{profileType === "user" && <UserPageSettings pages={pages} />}
 			</div>

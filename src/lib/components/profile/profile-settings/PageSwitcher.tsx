@@ -1,6 +1,6 @@
 "use client";
 
-import { ButtonLink } from "@/lib/components/ui/ButtonLink";
+import Link from "next/link";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
@@ -18,9 +18,6 @@ type PageSwitcherProps = {
 	showSwitchToUser?: boolean;
 };
 
-/**
- * Component for displaying a user's pages with links to their public profiles
- */
 export function PageSwitcher({ pages }: PageSwitcherProps) {
 	if (!pages) {
 		return (
@@ -30,31 +27,22 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 
 	return (
 		<div className="mt-4">
-			<p className="text-sm text-gray-600 mb-3">
-				Your pages <span className="text-xs text-gray-400">(To edit admins, go to the page profile)</span>
-			</p>
+			<p className="text-sm text-gray-600 mb-3">Your pages</p>
 			<div className="space-y-2">
 				{pages.map((page) => (
-			<ProfileTag
-					key={page.id}
-					entity={{
-						id: page.id,
-						name: page.name,
-						handle: page.handle,
-						avatarImageId: page.avatarImageId ?? null,
-						avatarImage: page.avatarImage,
-					}}
-					badge={page.role?.toLowerCase()}
-					actions={
-						<ButtonLink
-							href={PUBLIC_PROFILE(page.handle)}
-							variant="secondary"
-							size="sm"
-						>
-								View Page
-							</ButtonLink>
-						}
-					/>
+					<Link key={page.id} href={PUBLIC_PROFILE(page.handle)}>
+						<ProfileTag
+							entity={{
+								id: page.id,
+								name: page.name,
+								handle: page.handle,
+								avatarImageId: page.avatarImageId ?? null,
+								avatarImage: page.avatarImage,
+							}}
+							badge={page.role?.toLowerCase()}
+							asLink={false}
+						/>
+					</Link>
 				))}
 			</div>
 		</div>

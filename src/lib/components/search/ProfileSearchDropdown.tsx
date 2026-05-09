@@ -40,10 +40,17 @@ export function ProfileSearchDropdown({
 
 		setIsLoading(true);
 		try {
-			const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+			const res = await fetch(`/api/search/profiles?q=${encodeURIComponent(q)}&type=user`);
 			if (!res.ok) throw new Error();
 			const data = await res.json();
-			const filtered = (data.users as SearchResultUser[]).filter(
+			const users: SearchResultUser[] = (data.results ?? []).map((r: { id: string; handle: string; name: string; avatarImageId: string | null; avatarImage?: { url: string } | null }) => ({
+				id: r.id,
+				handle: r.handle,
+				displayName: r.name,
+				avatarImageId: r.avatarImageId,
+				avatarImage: r.avatarImage,
+			}));
+			const filtered = users.filter(
 				(u) => !excludeUserIds.includes(u.id)
 			);
 			setResults(filtered);
