@@ -23,41 +23,8 @@
     }
   ],
   "creatorHandle": "laurel",
-  "admins": ["alice.example"],
-  "members": "*",
-  "posts": [
-    {
-      "title": "Post title (optional)",
-      "content": "Post body text.",
-      "tags": ["Tag One", "Tag Two"],
-      "status": "PUBLISHED",
-      "imageFilenames": ["filename.png"]
-    }
-  ],
   "events": [
     {
-      "title": "Event title (optional)",
-      "content": "Event description.",
-      "eventDate": "2026-09-01",
-      "eventStartTime": "6:00 PM",
-      "eventTimezone": "PST",
-      "location": "Venue Name, Street Address, City, ST",
-      "tags": ["Tag One", "Tag Two"],
-      "status": "PUBLISHED",
-      "imageFilenames": ["filename.png"]
-    },
-        {
-      "title": "Event title (optional)",
-      "content": "Event description.",
-      "eventDate": "2026-09-01",
-      "eventStartTime": "6:00 PM",
-      "eventTimezone": "PST",
-      "location": "Venue Name, Street Address, City, ST",
-      "tags": ["Tag One", "Tag Two"],
-      "status": "PUBLISHED",
-      "imageFilenames": ["filename.png"]
-    },
-        {
       "title": "Event title (optional)",
       "content": "Event description.",
       "eventDate": "2026-09-01",

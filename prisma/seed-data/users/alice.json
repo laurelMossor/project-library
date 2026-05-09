@@ -34,24 +34,24 @@
   "posts": [
     {
       "title": "Botanical Quilt Wall Hanging (Example Post)",
-      "content": "📌 This is an example post showing what project updates look like on the Project Library.\n\nWorking on a large wall hanging featuring botanical motifs using appliqué techniques. Combining traditional quilting methods with modern design to create a piece that celebrates native Pacific Northwest plants.\n\nThe color palette is drawn from pressed wildflowers I collected last summer — lupine purples, poppy oranges, and fern greens.",
+      "content": "This is an example post showing what project updates look like on the Project Library.\n\nWorking on a large wall hanging featuring botanical motifs using appliqué techniques. Combining traditional quilting methods with modern design to create a piece that celebrates native Pacific Northwest plants.\n\nThe color palette is drawn from pressed wildflowers I collected last summer — lupine purples, poppy oranges, and fern greens.",
       "tags": ["Quilting", "Appliqué", "Botanical Art", "Wall Hanging"],
       "status": "PUBLISHED",
       "imageFilenames": ["vintage-pattern-example-2.png"],
       "updates": [
         {
           "title": "Appliqué layout finished (example update)",
-          "content": "📌 Example update post. Got all the leaf shapes cut and pinned. The lupine cluster in the center is working better than I expected — the curved stems give it movement."
+          "content": "Example update post. Got all the leaf shapes cut and pinned. The lupine cluster in the center is working better than I expected — the curved stems give it movement."
         },
         {
           "title": "Quilting the background (example update)",
-          "content": "📌 Example update post. Started the background quilting with a stipple pattern. It's slow going by hand but the texture difference between the flat appliqué and the quilted background is exactly what I wanted."
+          "content": "Example update post. Started the background quilting with a stipple pattern. It's slow going by hand but the texture difference between the flat appliqué and the quilted background is exactly what I wanted."
         }
       ]
     },
     {
       "title": "Fabric Dyeing Experiments (Example Post)",
-      "content": "📌 This is an example post.\n\nSpent the weekend testing natural dyes on cotton and linen scraps. Avocado pits gave a beautiful blush pink, and black beans produced a dusty blue-grey. Keeping notes on mordants and soak times for reproducibility.\n\nPlanning to use these hand-dyed fabrics in my next quilt project.",
+      "content": "This is an example post.\n\nSpent the weekend testing natural dyes on cotton and linen scraps. Avocado pits gave a beautiful blush pink, and black beans produced a dusty blue-grey. Keeping notes on mordants and soak times for reproducibility.\n\nPlanning to use these hand-dyed fabrics in my next quilt project.",
       "tags": ["Natural Dyeing", "Textile Art", "Sustainable Crafts"],
       "status": "PUBLISHED"
     }
@@ -59,7 +59,7 @@
   "events": [
     {
       "title": "Quilting Circle Meetup (Example Event)",
-      "content": "📌 This is an example event showing what events look like on the Project Library.\n\nMonthly quilting circle for all skill levels. Bring your current project or start something new — I'll have fabric scraps and basic supplies for anyone who wants to try quilting for the first time.\n\nWe'll share techniques, work on our own projects, and enjoy each other's company. Light refreshments provided.",
+      "content": "This is an example event showing what events look like on the Project Library.\n\nMonthly quilting circle for all skill levels. Bring your current project or start something new — I'll have fabric scraps and basic supplies for anyone who wants to try quilting for the first time.\n\nWe'll share techniques, work on our own projects, and enjoy each other's company. Light refreshments provided.",
       "eventDate": "2026-07-20",
       "eventStartTime": "2:00 PM",
       "eventTimezone": "PST",

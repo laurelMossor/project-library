@@ -5,19 +5,8 @@
   "bio": "",
   "interests": ["Events"],
   "location": "Bay Area, CA",
-  "avatarImage": "filename.png",
+  "avatarImage": "",
   "creatorHandle": "laurel",
   "events": [
-    {
-      "title": "Event title (optional)",
-      "content": "Event description.",
-      "eventDate": "2026-09-01",
-      "eventStartTime": "6:00 PM",
-      "eventTimezone": "PST",
-      "location": "Venue Name, Street Address, City, ST",
-      "tags": ["Tag One", "Tag Two"],
-      "status": "PUBLISHED",
-      "imageFilenames": ["filename.png"]
-    }
   ]
 }
