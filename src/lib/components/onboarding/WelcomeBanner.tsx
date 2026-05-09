@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { PERSONAL_INFO, SEARCH, POST_NEW } from "@/lib/const/routes";
+import { PERSONAL_INFO, SEARCH, POST_NEW, ABOUT } from "@/lib/const/routes";
+import { XCircleIcon } from "@/lib/components/icons/icons";
 
 const STORAGE_KEY = "pl-welcome-dismissed";
 
@@ -29,9 +30,7 @@ export function WelcomeBanner() {
 				className="absolute top-3 right-3 text-dusty-grey hover:text-rich-brown transition-colors"
 				aria-label="Dismiss"
 			>
-				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" className="w-4 h-4" fill="currentColor">
-					<path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0z"/>
-				</svg>
+				<XCircleIcon className="w-5 h-5" />
 			</button>
 
 			<h2 className="text-lg font-medium text-rich-brown mb-2">Welcome to the Project Library</h2>
@@ -40,6 +39,7 @@ export function WelcomeBanner() {
 			</p>
 
 			<div className="flex flex-wrap gap-3 mb-4">
+				<ActionLink href={ABOUT} label="About the Project Library" />
 				<ActionLink href={PERSONAL_INFO} label="Set up your profile" />
 				<ActionLink href={SEARCH} label="Find people" />
 				<ActionLink href={POST_NEW} label="Post something" />

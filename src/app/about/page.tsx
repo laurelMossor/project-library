@@ -1,104 +1,105 @@
 import Link from "next/link";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { HOME } from "@/lib/const/routes";
+import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
+import { GUIDELINES, FEEDBACK_SURVEY, BUG_REPORT_FORM } from "@/lib/const/routes";
+
+function PlaceholderSection({ title, items }: { title: string; items: string[] }) {
+	return (
+		<section>
+			<h2 className="text-xl font-semibold mb-3">{title}</h2>
+			<div className="bg-ash-green/30 rounded-lg p-4 border border-ash-green">
+				<ul className="list-disc list-inside space-y-2 text-sm text-warm-grey italic">
+					{items.map((item) => (
+						<li key={item}>{item}</li>
+					))}
+				</ul>
+			</div>
+		</section>
+	);
+}
 
 export default function AboutPage() {
 	return (
 		<CenteredLayout maxWidth="3xl">
-				<h1 className="text-3xl font-bold mb-6">Community Guidelines</h1>
-				
-				<div className="space-y-6 text-rich-brown">
-					<section>
-						<h2 className="text-xl font-semibold mb-3">Welcome to Project Library</h2>
-						<p className="text-base leading-relaxed">
-							Project Library is a platform dedicated to creativity, mutuality, and lifelong learning. 
-							We believe in building a community where people can share their projects, learn from each other, 
-							and connect through creative endeavors.
-						</p>
-					</section>
+			<HeadingTitle title="About" />
+			<p className="text-warm-grey mt-1 mb-8">
+				Learn about The Project Library and why it exists.
+			</p>
 
-					<section>
-						<h2 className="text-xl font-semibold mb-3">Our Values</h2>
-						<ul className="list-disc list-inside space-y-2 text-base">
-							<li><strong>Creativity:</strong> We celebrate all forms of creative expression and innovation.</li>
-							<li><strong>Mutuality:</strong> We believe in mutual support, collaboration, and shared learning.</li>
-							<li><strong>Lifelong Learning:</strong> We embrace continuous growth and skill development.</li>
-							<li><strong>Respect:</strong> We treat all community members with kindness and respect.</li>
-						</ul>
-					</section>
+			<div className="space-y-8 text-rich-brown">
+				<PlaceholderSection
+					title="What is The Project Library?"
+					items={[
+						"One-line description of the platform's purpose",
+						"Who it's for (creative individuals, makers, learners)",
+						"What makes it different from other platforms",
+						"Current stage (closed beta, invite-only)",
+					]}
+				/>
 
-					<section>
-						<h2 className="text-xl font-semibold mb-3">Community Guidelines</h2>
-						<div className="space-y-4">
-							<div>
-								<h3 className="font-semibold mb-2">Be Respectful</h3>
-								<p className="text-sm text-warm-grey">
-									Treat all community members with respect. Constructive feedback is welcome, 
-									but personal attacks, harassment, or discriminatory language will not be tolerated.
-								</p>
-							</div>
-							<div>
-								<h3 className="font-semibold mb-2">Share Authentically</h3>
-								<p className="text-sm text-warm-grey">
-									Share your genuine projects, experiences, and knowledge. We value authenticity 
-									and honesty in all contributions.
-								</p>
-							</div>
-							<div>
-								<h3 className="font-semibold mb-2">Support Others</h3>
-								<p className="text-sm text-warm-grey">
-									Encourage and support fellow creators. Offer helpful feedback, share resources, 
-									and celebrate each other's achievements.
-								</p>
-							</div>
-							<div>
-								<h3 className="font-semibold mb-2">Respect Intellectual Property</h3>
-								<p className="text-sm text-warm-grey">
-									Only share content that you own or have permission to share. Give credit where 
-									credit is due and respect others' intellectual property rights.
-								</p>
-							</div>
-							<div>
-								<h3 className="font-semibold mb-2">Keep It Safe</h3>
-								<p className="text-sm text-warm-grey">
-									Do not share personal information that could compromise your safety or the safety 
-									of others. Report any concerning behavior to our moderation team.
-								</p>
-							</div>
-						</div>
-					</section>
+				<PlaceholderSection
+					title="What You Can Do Here"
+					items={[
+						"Share and track creative projects",
+						"Create and discover events",
+						"Connect with other makers and learners",
+						"Exchange skills and resources",
+						"Follow what interests you — no algorithm",
+					]}
+				/>
 
-					<section>
-						<h2 className="text-xl font-semibold mb-3">What We Offer</h2>
-						<ul className="list-disc list-inside space-y-2 text-base">
-							<li><strong>Projects:</strong> Share your creative work and track your progress</li>
-							<li><strong>Events:</strong> Create and discover creative and skill-building events</li>
-							<li><strong>Tool Lending:</strong> Connect with others to share tools and resources</li>
-							<li><strong>Mentorship:</strong> Find experts and build teaching and learning connections</li>
-							<li><strong>Work Trades:</strong> Exchange skills and services within the community</li>
-						</ul>
-					</section>
+				<PlaceholderSection
+					title="Our Values"
+					items={[
+						"Process over polish",
+						"Mutuality and shared learning",
+						"Authenticity in what you share",
+						"Respect and kindness",
+					]}
+				/>
 
-					<section>
-						<h2 className="text-xl font-semibold mb-3">Get Involved</h2>
-						<p className="text-base leading-relaxed">
-							We're always looking to improve and grow our community. If you have feedback, suggestions, 
-							or want to report an issue, please use our{" "}
-							<a href="https://forms.google.com" target="_blank" rel="noopener noreferrer" className="underline">
-								feedback survey
-							</a>{" "}
-							or{" "}
-							<a href="https://forms.google.com" target="_blank" rel="noopener noreferrer" className="underline">
-								bug report form
-							</a>.
-						</p>
-					</section>
+				<PlaceholderSection
+					title="Who's Behind This"
+					items={[
+						"Brief creator/team intro",
+						"Why this project exists",
+						"Where it is in its development journey",
+					]}
+				/>
 
-					<div className="mt-8 pt-6 border-t border-soft-grey">
-						<Link href={HOME} className="text-sm underline">Back to Home</Link>
+				<section>
+					<h2 className="text-xl font-semibold mb-3">Get Involved</h2>
+					<p className="text-base leading-relaxed">
+						The Project Library is in early beta — your feedback shapes what
+						this becomes. If you have thoughts, suggestions, or run into
+						something unexpected:
+					</p>
+					<div className="flex gap-6 mt-3">
+						<a
+							href={FEEDBACK_SURVEY}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-rich-brown underline hover:text-moss-green transition-colors"
+						>
+							Feedback Survey
+						</a>
+						<a
+							href={BUG_REPORT_FORM}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-rich-brown underline hover:text-moss-green transition-colors"
+						>
+							Bug Report
+						</a>
 					</div>
+				</section>
+
+				<div className="mt-8 pt-6 border-t border-soft-grey">
+					<Link href={GUIDELINES} className="text-sm underline">
+						Community Guidelines
+					</Link>
 				</div>
+			</div>
 		</CenteredLayout>
 	);
 }
-

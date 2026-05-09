@@ -95,6 +95,7 @@ export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 // ============================================================================
 export const HOME = "/";
 export const ABOUT = "/about";
+export const GUIDELINES = "/guidelines";
 export const DEV_TAXONOMY = "/dev/taxonomy";
 
 export const FEEDBACK_SURVEY = "https://docs.google.com/forms/d/e/1FAIpQLScQeZneNUq6QhpJ_dbIJ2-E7zr186HFer9V5x6kDSb0Bzxl8A/viewform?usp=header"

@@ -2,7 +2,7 @@
 
 > Live tracker for where we are on the road to **closed beta release**. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-05-08
+**Last updated:** 2026-05-09
 **Overall goal:** Closed beta release — invite-only site
 **Usership**: There are NO real users, all data is mocked. 
 **Authoritative plan (only access if prompted):** [Closed Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw/edit) · mirrored work estimates table is the ground truth for what's left.
@@ -19,26 +19,17 @@
 | 0 | Auth, basic posts/events, 1:1 messaging | ✅ done |
 | 1 | Pages Launch (fm. "Orgs") — Pages replacing Orgs/Projects, admin-manageable, follow/followers | ✅ done |
 | 2 | **Spats Launch** — Pages as microsite, pinned posts, photo captions, profile picture, expanded fields, map view, group admin tools | ✅ done |
-| 3 | Testing and Polish — test coverage, error messaging, P0/P1 design features, analytics | ⏳ pending |
-| 4 | User Feedback — landing experience, tooltips, research plan, 5–10 people | ⏳ pending |
+| 3 | Testing and Polish — test coverage, error messaging, P0/P1 design features, analytics | ✅ done |
+| 4 | User Feedback — landing experience, tooltips, research plan, 5–10 people | ⏳ wrapping up |
 
 ---
 
-## In flight (Polish Launch)
+## In flight (M4 wrap-up)
 
-**P0 tickets (1 remaining):**
-- [ ] Global search for users/pages (Bundle C — needs interface-design input)
-
-**P1 tickets — M3 (1 remaining):**
-- [~] Photo captions — likely shipped 05/06, needs verify-and-close
-
-**P1 tickets — M4 (6):**
-- [~] Landing page — headers/CTAs needed (Bundle F, in progress, needs design direction)
-- [ ] Beta flag + notes at login/signup (Bundle F)
-- [ ] Onboarding "what is this?" (Bundle F)
-- [ ] PL About page — site-level (Bundle G, needs Laurel's copy)
-- [ ] Community guidelines page + content (Bundle G, needs Laurel's copy)
-- [ ] "Something wrong?" escape hatch (Bundle G)
+**Remaining M4 items (3):**
+- [ ] PL About page — site-level (placeholder exists at `/about`, needs real content)
+- [ ] Community guidelines — current `/about` has placeholder guidelines copy, needs Laurel's real version
+- [ ] "Something wrong?" escape hatch — feedback link/button somewhere persistent
 
 
 ---
@@ -47,30 +38,19 @@
 
 From the Beta Plan's Work Estimates table. These are not optional for release; they're just not Spats.
 
-**Testing & polish (M3):**
-- [ ] P0 & P1 design features — remaining items in Notion POLISH epic
-- [x] P0 & P1 bugs — three BUGS-epic tickets closed 2026-05-06
-- [x] N+1 refactor sweep — shipped 2026-05-06. Follow-on: `FollowStats` `_count` still pending
-- [ ] Non-offset pagination on collections
-- [x] Edit posts after posting — edit mode gating shipped 2026-05-07 (read-only default + Edit/Done toggle for owners)
-- [x] Draft post/event behavior — shipped 2026-05-07 (published = read-only, draft = editable)
-- [x] Share Event/Post — `ShareButton` shipped 2026-05-06
-- [x] Event form required-field hints on Publish — shipped 2026-05-08 (Bundle B+E)
-- [x] Seed system rewrite — per-user/page JSON packets, `$env:` password support, Playwright globalSetup auto-seeds — shipped 2026-05-07
-- [x] Explore page sorting — events intermixed by `createdAt`, Events tab sorts upcoming-first, past events greyed out — shipped 2026-05-07
+**Testing & polish (M3):** ✅ complete
+- All P0/P1 design features and bugs shipped
+- Remaining minor items (non-offset pagination, FollowStats `_count`) deferred to post-beta
 
 **Beta details (M4):**
-- [ ] Clear onboarding / "what is this?" / "how to"
-- [ ] Beta flag + notes at login/signup
-- [ ] Community guidelines page
-- [ ] About page (site-level, not profile about)
-- [ ] Landing page with images, links, and headers
+- [x] Clear onboarding — welcome banner on explore with action links, shipped 2026-05-08
+- [x] Beta flag + notes — InviteCTA updated, beta note in footer, welcome banner, shipped 2026-05-08
+- [x] Landing page — clickable images + headers, shipped 2026-05-08
+- [x] Global search — `/search` page with profile cards (avatar, name, headline, interests), shipped 2026-05-08
+- [ ] Community guidelines page — placeholder exists, needs real content
+- [ ] About page (site-level) — needs real content
 - [ ] "Something wrong?" escape hatch
-- [ ] Research plan + first 5–10 user sessions
-
-**Narrative gaps in the plan itself** (decisions needed, not just tickets):
-- Moderation posture for the beta (lack thereof, flags, disclaimers)
-- User expectations: data retention, what breaks, how to report
+- [ ] Research plan + first 5–10 user sessions (post-launch, not code)
 
 ---
 
@@ -78,13 +58,13 @@ From the Beta Plan's Work Estimates table. These are not optional for release; t
 
 Most recent first. See `JOURNAL.md` for full entries.
 
-- **2026-05-08** — Bundle B+E (Form, Edit & About Polish): `DeleteConfirmButton` shared component replacing duplicate delete buttons. About Page delete with redirect to profile. Publish validation hints on post/event drafts. Image auto-compression via Canvas API (`compressImage()` + `useImageUpload` hook). Edit Personal Info form at `/settings/personal-info` with first/middle/last name fields.
-- **2026-05-08** — Bundle A (Collection UX Polish): `useFilterParams` made bidirectional — URL updates on every filter/sort/view/search change via `router.replace()`. `sessionStorage`-backed explore URL persistence for breadcrumb back-links. Pin icon hover via Tailwind `group`/`opacity` pattern. Filter-aware empty states on profile collections.
-- **2026-05-07** — Map View polish: `MapControls` with Nominatim geocoding + radius pills, Haversine client-side filtering, viewport-aware count, `LeafletMap` base component, shared `LocationSearchInput` for event forms + map. Leaflet CSS race condition fixed. Seed auto-geocoding added.
-- **2026-05-07** — Seed system rewrite: per-user/page JSON packets, `$env:` password support, Playwright globalSetup auto-seeds. Explore sorting reworked (upcoming-first, past events greyed out).
-- **2026-05-07** — Connections view rework (Bundle H2): expandable inline actions (Remove Follower, Unfollow, Leave Group, Remove from group + last-admin guard), Add Members via `ProfileSearchDropdown`. Edit mode gating on posts/events (read-only default + Edit/Done toggle). Back-to-Explore breadcrumb.
-- **2026-05-06** — Big orchestrator session: Bundles G, D, B, C, H all shipped. N+1 sweep, bug fixes (search/empty messages/empty posts), RSVP autofill/dedup, About Page entry point, NavProfileTag sizing, photo caption editing, ProfileSearchDropdown + ManageAdmins. PostPageClient parity with EventPageClient. Seed + lint + E2E fixes.
-- **2026-05-05** — Profile UX overhaul + session-scoped route refactor.
+- **2026-05-08** — Event timezone support: `eventTimezone` field added to schema, seed uses human-readable split format, `InlineDateTimePicker` gained timezone dropdown.
+- **2026-05-08** — Settings/profile UX rework: `/profile` route deleted, `/settings` renders profile directly, expanded personal info form with InlineEditSession for both users and pages, own-profile defaults to readonly with Edit pencil button + Preview toggle.
+- **2026-05-08** — Bundle C+F (Search, Landing & Beta UX): Global `/search` page with profile cards. Landing page headers. Welcome banner on explore (dismissible, localStorage-gated). Beta messaging in InviteCTA + footer. Empty draft auto-delete fixed to preserve drafts with content.
+- **2026-05-08** — Bundle B+E (Form, Edit & About Polish): About Page delete. Publish validation hints. Image auto-compression. Edit Personal Info form.
+- **2026-05-08** — Bundle A (Collection UX Polish): Bidirectional URL params. Breadcrumb back-link persistence. Pin icon hover. Filter-aware empty states.
+- **2026-05-07** — Map View polish, seed system rewrite, connections view rework, edit mode gating.
+- **2026-05-06** — Big orchestrator session: N+1 sweep, bug fixes, RSVP polish, About Page entry point, photo captions, ManageAdmins.
 
 ---
 

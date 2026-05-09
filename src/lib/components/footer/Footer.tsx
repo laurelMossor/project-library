@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BugReportIcon } from "../icons/icons";
-import { ABOUT, BUG_REPORT_FORM, FEEDBACK_SURVEY, GITHUB_REPO, INSTAGRAM } from "@/lib/const/routes";
+import { ABOUT, BUG_REPORT_FORM, FEEDBACK_SURVEY, GITHUB_REPO, GUIDELINES, INSTAGRAM } from "@/lib/const/routes";
 
 export function Footer() {
 	return (
@@ -9,7 +9,10 @@ export function Footer() {
 				<div className="flex flex-col gap-4 items-center text-sm">
 					<div className="flex flex-wrap gap-6 justify-center">
 						<Link href={ABOUT} className="text-rich-brown hover:underline">
-							About &amp; Community Guidelines
+							About
+						</Link>
+						<Link href={GUIDELINES} className="text-rich-brown hover:underline">
+							Community Guidelines
 						</Link>
 						<a
 							href={FEEDBACK_SURVEY}
