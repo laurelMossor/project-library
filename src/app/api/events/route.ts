@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 							],
 					  }
 					: {}),
-				...(userId ? { userId } : {}),
+				...(userId ? { userId, pageId: null } : {}),
 				...(pageId ? { pageId } : {}),
 			},
 			select: eventCollectionFields,

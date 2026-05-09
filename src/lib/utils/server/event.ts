@@ -35,6 +35,7 @@ export async function getEventsByUser(userId: string, { includeDrafts = false } 
 	const events = await prisma.event.findMany({
 		where: {
 			userId,
+			pageId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
 		},
 		select: eventCollectionFields,
