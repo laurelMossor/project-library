@@ -45,17 +45,17 @@ test.describe("Authentication flows", () => {
     ]);
   });
 
-  test("/profile redirects unauthenticated users to login", async ({ page }) => {
-    await page.goto("/profile");
+  test("/settings redirects unauthenticated users to login", async ({ page }) => {
+    await page.goto("/settings");
     await expect(page).toHaveURL(/\/login/);
   });
 
   test("session persists after page refresh", async ({ page }) => {
     await loginAs(page, "alice");
     await page.reload();
-    // Still logged in — private profile accessible
-    await page.goto("/profile");
+    // Still logged in — settings page accessible
+    await page.goto("/settings");
     await expect(page).not.toHaveURL(/\/login/);
-    await expect(page.getByRole("heading", { name: "Profile Settings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 });

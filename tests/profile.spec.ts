@@ -2,12 +2,11 @@ import { test, expect } from "@playwright/test";
 import { loginAs } from "./helpers/auth";
 
 test.describe("Profile pages", () => {
-  test("private profile /profile loads for logged-in user", async ({ page }) => {
+  test("private settings /settings loads for logged-in user", async ({ page }) => {
     await loginAs(page, "alice");
-    await page.goto("/profile");
+    await page.goto("/settings");
     await expect(page).not.toHaveURL(/\/login/);
-    // Private profile shows "Profile Settings" heading, not the user's name
-    await expect(page.getByRole("heading", { name: "Profile Settings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 
