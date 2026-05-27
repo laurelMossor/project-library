@@ -36,12 +36,6 @@ Most recent first. See `JOURNAL.md` for full entries.
 
 ---
 
-## Blockers / open questions
-
-- **FollowStats `_count`.** Follow-on from the N+1 sweep — `FollowStats` still fetches full follower/following arrays just for `.length`. Should add `_count` to `publicUserFields`/`publicPageFields`. -- Need to add a ticket
-
----
-
 ## How to use this doc
 
 - **Claude reads this at session start** (configured in `.claude/CLAUDE.md`). 
