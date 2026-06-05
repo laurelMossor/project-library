@@ -8,7 +8,7 @@ The technical design will specify schema, query helpers, middleware, and migrati
 
 ## The Model
 
-A `visibility` enum is added to User profiles, Pages, and Events:
+A `visibility` enum is added to User profiles, Pages, Posts, and Events:
 
 | Tier | Behavior |
 |------|----------|
