@@ -2,37 +2,32 @@
 
 > Live tracker for where we are. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-05-26
-**Current phase:** Between milestones — closed beta complete, Open Beta planning finalized, no Open Beta work started yet.
+**Last updated:** 2026-06-05
+**Current phase:** Open Beta — Netwerk milestone in progress. Visibility model shipped as P0.
 **Usership**: Small group of real closed-beta users. Some data is still mocked. DB operations require approval.
 **Authoritative plan (only access if prompted):** [Open Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1FTW9_Ny-DWrPzHlO1BGGrfQFqOu4JBxZX2j-F_G5OMI/edit)
 **Ticket board (only access if prompted):** [ProLib Tickets (Notion)](https://www.notion.so/2d6453d029b080e99ebffce9169b18c6)
 
-## Closed beta — complete
+## Open Beta — in progress
 
-All four milestones shipped: Auth & core features (M0) → Pages Launch (M1) → Spats Launch (M2) → Testing & Polish (M3/M4). Site is live and invite-gated.
+### Netwerk Release — in progress
 
-## What's next
+- **2026-06-05** — **Visibility model (P0) shipped.** Three-tier Public/Unlisted/Private enum on User, Page, Event, Post. Centralized enforcement layer (`visibility.ts`) with viewer-aware list filters and detail gates. `User.isPublic` replaced by unified `Visibility` enum. Cascade-sync keeps Post.visibility in step with parent. Public→Private page flip converts followers to MEMBER permissions. VisibilitySelector UI wired into profile and page settings. 155 unit tests, 43 E2E tests all green. -- NEED PROD MIGRATION!
+- **Pending (P1):** Request-to-Follow / Request-to-Join approval flows — [filed in ProLib Tickets](https://app.notion.com/p/376453d029b0813498f3cee9de603a74)
 
-Three Open Beta milestones are scoped in Notion with full definitions. No work has started on any of them yet.
+### Meatup Release — not started
 
-- **Meatup Release** — event-focused features
-- **Netwerk Release** — social/communication infrastructure
-- **Open Source Launch** — open the codebase and project collaboration
-
-Next step: pick which milestone to start and begin execution.
+### Open Source Launch — not started
 
 ## Recent work
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-06-05** — Visibility model (P0, Netwerk): unified Public/Unlisted/Private enforcement across all entity types. Schema migration, enforcement layer, cascade sync, UI selector, 30 new unit tests, 11 new E2E tests.
 - **2026-05-09** — Prod sync: applied final missing migration, reseeded prod, uploaded missing images. Fixed e2e tests referencing old `/profile` route. Fixed page-owned events appearing on creator's personal profile.
 - **2026-05-09** — M4 polish: custom 404 page, `/about` rewrite, `/guidelines` route, footer link split, WelcomeBanner cleanup, NavProfileTag sizing fix.
 - **2026-05-08** — Event timezone support: `eventTimezone` field added to schema, seed uses human-readable split format, `InlineDateTimePicker` gained timezone dropdown.
 - **2026-05-08** — Settings/profile UX rework: `/profile` route deleted, `/settings` renders profile directly, expanded personal info form with InlineEditSession for both users and pages, own-profile defaults to readonly with Edit pencil button + Preview toggle.
-- **2026-05-08** — Bundle C+F (Search, Landing & Beta UX): Global `/search` page with profile cards. Landing page headers. Welcome banner on explore (dismissible, localStorage-gated). Beta messaging in InviteCTA + footer. Empty draft auto-delete fixed to preserve drafts with content.
-- **2026-05-08** — Bundle B+E (Form, Edit & About Polish): About Page delete. Publish validation hints. Image auto-compression. Edit Personal Info form.
-- **2026-05-08** — Bundle A (Collection UX Polish): Bidirectional URL params. Breadcrumb back-link persistence. Pin icon hover. Filter-aware empty states.
 
 ---
 

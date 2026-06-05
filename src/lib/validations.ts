@@ -122,10 +122,10 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 		}
 	}
 
-	// Validate isPublic: optional boolean
-	if (data.isPublic !== undefined && data.isPublic !== null) {
-		if (typeof data.isPublic !== "boolean") {
-			return { valid: false, error: "isPublic must be a boolean" };
+	// Validate visibility: optional enum
+	if (data.visibility !== undefined && data.visibility !== null) {
+		if (!["PUBLIC", "UNLISTED", "PRIVATE"].includes(data.visibility)) {
+			return { valid: false, error: "visibility must be PUBLIC, UNLISTED, or PRIVATE" };
 		}
 	}
 
@@ -294,6 +294,12 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 	if (data.status !== undefined) {
 		if (data.status !== "DRAFT" && data.status !== "PUBLISHED") {
 			return { valid: false, error: "Status must be DRAFT or PUBLISHED" };
+		}
+	}
+
+	if (data.visibility !== undefined && data.visibility !== null) {
+		if (!["PUBLIC", "UNLISTED", "PRIVATE"].includes(data.visibility)) {
+			return { valid: false, error: "visibility must be PUBLIC, UNLISTED, or PRIVATE" };
 		}
 	}
 

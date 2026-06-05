@@ -51,11 +51,14 @@ export type SeedProfileElement = {
   sortOrder: number;
 };
 
+export type SeedVisibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+
 export type SeedPost = {
   title?: string;
   content: string;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
+  visibility?: SeedVisibility;
   imageFilenames?: string[];
   updates?: { title?: string; content: string }[];
 };
@@ -68,6 +71,7 @@ export type SeedEvent = {
   longitude?: number;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
+  visibility?: SeedVisibility;
   imageFilenames?: string[];
 } & (
   | { eventDate: string; eventStartTime: string; eventTimezone: string; eventDateTime?: never }
@@ -85,6 +89,7 @@ export type SeedUserPacket = {
   bio?: string;
   interests?: string[];
   location?: string;
+  visibility?: SeedVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -99,6 +104,7 @@ export type SeedPagePacket = {
   bio?: string;
   interests?: string[];
   location?: string;
+  visibility?: SeedVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -367,6 +373,7 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
+        ...(packet.visibility ? { visibility: packet.visibility } : {}),
         handleRecord: { create: { handle } },
       },
       select: { id: true },
@@ -399,6 +406,7 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
+        ...(packet.visibility ? { visibility: packet.visibility } : {}),
         createdByUserId: creator.id,
         handleRecord: { create: { handle } },
       },
@@ -547,6 +555,7 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
+          ...(postData.visibility ? { visibility: postData.visibility } : {}),
         },
         select: { id: true },
       });
@@ -591,6 +600,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
+          ...(eventData.visibility ? { visibility: eventData.visibility } : {}),
         },
         select: { id: true },
       });
@@ -648,6 +658,7 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
+          ...(postData.visibility ? { visibility: postData.visibility } : {}),
         },
         select: { id: true },
       });
@@ -685,6 +696,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
+          ...(eventData.visibility ? { visibility: eventData.visibility } : {}),
         },
         select: { id: true },
       });

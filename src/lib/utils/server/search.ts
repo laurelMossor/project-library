@@ -40,6 +40,7 @@ export async function searchProfiles(
 	if (type === "all" || type === "user") {
 		const users = await prisma.user.findMany({
 			where: {
+				visibility: "PUBLIC",
 				OR: [
 					{ handle: filter },
 					{ displayName: filter },
@@ -69,6 +70,7 @@ export async function searchProfiles(
 	if (type === "all" || type === "page") {
 		const pages = await prisma.page.findMany({
 			where: {
+				visibility: "PUBLIC",
 				OR: [
 					{ handle: filter },
 					{ name: filter },

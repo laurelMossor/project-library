@@ -29,6 +29,7 @@ import { getPageByHandle } from "@/lib/utils/server/page";
 import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
 import { canManagePage } from "@/lib/utils/server/permission";
+import { getViewerContext, canViewUser, canViewPage } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
@@ -58,7 +59,7 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 		notFound();
 	}
 
-	const session = await auth();
+	const [session, viewer] = await Promise.all([auth(), getViewerContext()]);
 	const viewerId = session?.user?.id;
 
 	// USER branch — mirrors the body of `src/app/u/[username]/page.tsx`.
@@ -69,12 +70,17 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 			notFound();
 		}
 
+		// Visibility gate: PRIVATE users are 404 for non-followers
+		if (!(await canViewUser(user, viewer))) {
+			notFound();
+		}
+
 		const isOwnProfile = viewerId === user.id;
 		const userDisplayName = getUserDisplayName(user);
 
 		const [events, posts] = await Promise.all([
-			getEventsByUser(user.id, { includeDrafts: isOwnProfile }),
-			getPostsByUser(user.id, { includeDrafts: isOwnProfile }),
+			getEventsByUser(user.id, { includeDrafts: isOwnProfile, viewer }),
+			getPostsByUser(user.id, { includeDrafts: isOwnProfile, viewer }),
 		]);
 		const collectionItems = [...events, ...posts];
 
@@ -142,11 +148,16 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 			notFound();
 		}
 
+		// Visibility gate: PRIVATE pages are 404 for non-members
+		if (!(await canViewPage(page, viewer))) {
+			notFound();
+		}
+
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
 		const [events, posts] = await Promise.all([
-			getEventsByPage(page.id, { includeDrafts: isOwner }),
-			getPostsByPage(page.id, { includeDrafts: isOwner }),
+			getEventsByPage(page.id, { includeDrafts: isOwner, viewer }),
+			getPostsByPage(page.id, { includeDrafts: isOwner, viewer }),
 		]);
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);

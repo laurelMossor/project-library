@@ -9,6 +9,7 @@ import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { logAction } from "@/lib/utils/server/log";
+import { getViewerContext, eventListWhere } from "@/lib/utils/server/visibility";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -53,19 +54,24 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
+	const viewer = await getViewerContext();
+
 	try {
-		// Only show published events in public listings
+		// Only show published, visible events in public listings
 		const events = await prisma.event.findMany({
 			where: {
 				status: "PUBLISHED",
-				...(search
-					? {
-							OR: [
-								{ title: { contains: search, mode: "insensitive" } },
-								{ content: { contains: search, mode: "insensitive" } },
-							],
-					  }
-					: {}),
+				AND: [
+					eventListWhere(viewer),
+					...(search
+						? [{
+								OR: [
+									{ title: { contains: search, mode: "insensitive" as const } },
+									{ content: { contains: search, mode: "insensitive" as const } },
+								],
+						  }]
+						: []),
+				],
 				...(userId ? { userId, pageId: null } : {}),
 				...(pageId ? { pageId } : {}),
 			},

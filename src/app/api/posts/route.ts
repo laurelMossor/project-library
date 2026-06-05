@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
-	const sessionCtx = await getSessionContext();
+	const [sessionCtx, viewer] = await Promise.all([getSessionContext(), import("@/lib/utils/server/visibility").then(m => m.getViewerContext())]);
 
 	// Determine draft visibility:
 	// - user querying their own posts: no status filter (see all own posts)
@@ -90,14 +90,17 @@ export async function GET(request: Request) {
 	// - anonymous: published only
 	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
 
-	// Both status and search may need an OR clause — collect them in AND to avoid
-	// the two OR keys clobbering each other when spread into the same object.
+	// Collect all AND conditions to avoid multiple OR keys clobbering each other.
 	const andConditions: object[] = [];
 
 	// Non-own queries always see published only — drafts are only visible on your own profile page
 	if (!isOwnUserQuery) {
 		andConditions.push({ status: "PUBLISHED" as const });
 	}
+
+	// Visibility: list mode only shows PUBLIC content (plus the viewer's own)
+	const { postListWhere } = await import("@/lib/utils/server/visibility");
+	andConditions.push(postListWhere(viewer));
 
 	if (search) {
 		andConditions.push({ OR: [

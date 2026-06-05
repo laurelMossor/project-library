@@ -70,9 +70,9 @@ Carried forward from the visibility ticket, to be resolved in the technical desi
 
 - Does Unlisted suppress from search results, or only from Collections?
 - When a Page is flipped Public → Private, do existing followers stay or re-request?
-- Default visibility on creation for Profiles, Pages, and Events?
+- Default visibility on creation for Profiles, Pages, and Events? Default to Private
 - Are existence leaks at the 404/403 layer treated differently for Unlisted vs Private?
-- Is anonymous (unauthenticated) viewing supported for Unlisted content, or does Unlisted require an account to view?
+- Is anonymous (unauthenticated) viewing supported for Unlisted content, or does Unlisted require an account to view? Unauthed users can view unlisted content
 - Second look at already existing Post and Event etc, to make sure visibility is taken into account and existing posts get assigned reasonable visibility (mostly test data)
 
 ## Out of Scope (Open Beta)

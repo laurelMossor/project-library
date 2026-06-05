@@ -6,6 +6,8 @@ import { canManagePage } from "@/lib/utils/server/permission";
 import { getPageById, updatePageProfile, publicPageFields } from "@/lib/utils/server/page";
 import { processElementsPayload } from "@/lib/utils/server/profile-element";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import { syncChildPostVisibility, convertFollowersToMembers } from "@/lib/utils/server/visibility";
+import type { Visibility } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -51,10 +53,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
 		const body = (await request.json()) as SavePayload;
 		const { fields = {}, elements } = body;
+		const newVisibility = (fields as { visibility?: Visibility }).visibility;
 
-		const page = await prisma.$transaction(async () => {
+		// Fetch current visibility before update for comparison
+		const currentPage = newVisibility !== undefined
+			? await prisma.page.findUnique({ where: { id: pageId }, select: { visibility: true } })
+			: null;
+
+		const page = await prisma.$transaction(async (tx) => {
 			// Apply scalar field updates
 			await updatePageProfile(pageId, fields as Parameters<typeof updatePageProfile>[1]);
+
+			if (newVisibility !== undefined) {
+				// Cascade visibility change to posts on this page
+				await syncChildPostVisibility("PAGE", pageId, newVisibility, tx);
+
+				// On Public→Private: convert existing followers to MEMBER permissions
+				if (currentPage?.visibility !== "PRIVATE" && newVisibility === "PRIVATE") {
+					await convertFollowersToMembers(pageId, tx);
+				}
+			}
 
 			// Apply element operations
 			if (elements) {
@@ -62,7 +80,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 			}
 
 			// Re-fetch with elements included
-			return prisma.page.findUnique({
+			return tx.page.findUnique({
 				where: { id: pageId },
 				select: publicPageFields,
 			});

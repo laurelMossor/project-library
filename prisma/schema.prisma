@@ -10,7 +10,7 @@ datasource db {
 // Enums
 // ========================
 
-enum PageVisibility {
+enum Visibility {
   PUBLIC
   UNLISTED
   PRIVATE
@@ -80,7 +80,7 @@ model User {
   bio           String?
   interests     String[] @default([])
   location      String?
-  isPublic      Boolean  @default(true)
+  visibility    Visibility @default(PUBLIC)
   avatarImageId String?
   avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
@@ -152,7 +152,7 @@ model Page {
   bio        String?
   interests  String[]       @default([])
   location   String?
-  visibility PageVisibility @default(PUBLIC)
+  visibility Visibility @default(PUBLIC)
 
   // Address (useful for small biz, community spaces)
   addressLine1 String?
@@ -282,10 +282,11 @@ model Post {
   eventId      String?
   parentPostId String?
 
-  title    String?
-  content  String
-  status   PostStatus @default(DRAFT)
-  pinnedAt DateTime?
+  title      String?
+  content    String
+  status     PostStatus @default(DRAFT)
+  visibility Visibility @default(PUBLIC)
+  pinnedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -327,6 +328,7 @@ model Event {
   latitude      Float?
   longitude     Float?
   status        EventStatus @default(DRAFT)
+  visibility    Visibility  @default(PUBLIC)
   pinnedAt      DateTime?
 
   createdAt DateTime @default(now())

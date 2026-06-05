@@ -4,11 +4,14 @@
 import { prisma } from "./prisma";
 import { EventItem, EventCreateInput, EventUpdateInput } from "../../types/event";
 import type { Prisma } from "@prisma/client";
+import { Visibility } from "@prisma/client";
 import { eventWithUserFields, eventCollectionFields, EventFromQuery } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
+import type { ViewerContext } from "./visibility";
+import { syncChildPostVisibility } from "./visibility";
 
 /** Transform Prisma query result to EventItem */
 function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
@@ -31,12 +34,17 @@ export async function getEventById(id: string): Promise<EventItem | null> {
 }
 
 // Fetch all events by a specific user
-export async function getEventsByUser(userId: string, { includeDrafts = false } = {}): Promise<EventItem[]> {
+export async function getEventsByUser(
+	userId: string,
+	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
+): Promise<EventItem[]> {
+	const isOwner = viewer?.userId === userId;
 	const events = await prisma.event.findMany({
 		where: {
 			userId,
 			pageId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...(isOwner ? {} : { visibility: Visibility.PUBLIC }),
 		},
 		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -54,11 +62,16 @@ export async function getEventsByUser(userId: string, { includeDrafts = false } 
 }
 
 // Fetch all events for a page
-export async function getEventsByPage(pageId: string, { includeDrafts = false } = {}): Promise<EventItem[]> {
+export async function getEventsByPage(
+	pageId: string,
+	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
+): Promise<EventItem[]> {
+	const isMember = viewer?.memberPageIds.includes(pageId) ?? false;
 	const events = await prisma.event.findMany({
 		where: {
 			pageId,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...(isMember ? {} : { visibility: Visibility.PUBLIC }),
 		},
 		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -76,6 +89,16 @@ export async function getEventsByPage(pageId: string, { includeDrafts = false } 
 }
 
 export async function createEvent(userId: string, data: EventCreateInput, pageId?: string): Promise<EventItem> {
+	// Inherit visibility from hosting page (or user if standalone)
+	let visibility: Visibility = Visibility.PUBLIC;
+	if (pageId) {
+		const page = await prisma.page.findUnique({ where: { id: pageId }, select: { visibility: true } });
+		visibility = page?.visibility ?? Visibility.PUBLIC;
+	} else {
+		const user = await prisma.user.findUnique({ where: { id: userId }, select: { visibility: true } });
+		visibility = user?.visibility ?? Visibility.PUBLIC;
+	}
+
 	const event = await prisma.event.create({
 		data: {
 			title: data.title,
@@ -87,6 +110,7 @@ export async function createEvent(userId: string, data: EventCreateInput, pageId
 			tags: data.tags || [],
 			userId,
 			pageId: pageId || null,
+			visibility,
 		},
 		select: eventWithUserFields,
 	});
@@ -98,44 +122,29 @@ export async function createEvent(userId: string, data: EventCreateInput, pageId
 export async function updateEvent(id: string, data: EventUpdateInput): Promise<EventItem> {
 	const updateData: Prisma.EventUpdateInput = {};
 
-	if (data.title !== undefined) {
-		updateData.title = data.title;
-	}
-
-	if (data.content !== undefined) {
-		updateData.content = data.content;
-	}
-
-	if (data.eventDateTime !== undefined) {
-		updateData.eventDateTime = data.eventDateTime;
-	}
-
-	if (data.location !== undefined) {
-		updateData.location = data.location;
-	}
-
-	if (data.latitude !== undefined) {
-		updateData.latitude = data.latitude;
-	}
-
-	if (data.longitude !== undefined) {
-		updateData.longitude = data.longitude;
-	}
-
-	if (data.tags !== undefined) {
-		updateData.tags = data.tags;
-	}
-
-	if (data.status !== undefined) {
-		updateData.status = data.status;
-	}
+	if (data.title !== undefined) updateData.title = data.title;
+	if (data.content !== undefined) updateData.content = data.content;
+	if (data.eventDateTime !== undefined) updateData.eventDateTime = data.eventDateTime;
+	if (data.location !== undefined) updateData.location = data.location;
+	if (data.latitude !== undefined) updateData.latitude = data.latitude;
+	if (data.longitude !== undefined) updateData.longitude = data.longitude;
+	if (data.tags !== undefined) updateData.tags = data.tags;
+	if (data.status !== undefined) updateData.status = data.status;
+	if (data.visibility !== undefined) updateData.visibility = data.visibility;
 
 	// Note: Images should be managed separately via image API endpoints
 
-	const event = await prisma.event.update({
-		where: { id },
-		data: updateData,
-		select: eventWithUserFields,
+	const [event] = await prisma.$transaction(async (tx) => {
+		const updated = await tx.event.update({
+			where: { id },
+			data: updateData,
+			select: eventWithUserFields,
+		});
+		// Cascade visibility change to child posts
+		if (data.visibility !== undefined) {
+			await syncChildPostVisibility("EVENT", id, data.visibility, tx);
+		}
+		return [updated];
 	});
 
 	const images = await getImagesForTarget("EVENT", event.id);

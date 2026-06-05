@@ -17,7 +17,7 @@ export const personalProfileFields = {
 	bio: true,
 	interests: true,
 	location: true,
-	isPublic: true,
+	visibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
@@ -36,6 +36,7 @@ export const publicUserFields = {
 	bio: true,
 	interests: true,
 	location: true,
+	visibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
@@ -73,7 +74,7 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		visibility?: import("@prisma/client").Visibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	}
@@ -89,7 +90,7 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		visibility?: import("@prisma/client").Visibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	} = {};
@@ -102,7 +103,7 @@ export async function updateUserProfile(
 	if (data.bio !== undefined) updateData.bio = data.bio;
 	if (data.interests !== undefined) updateData.interests = data.interests;
 	if (data.location !== undefined) updateData.location = data.location;
-	if (data.isPublic !== undefined) updateData.isPublic = data.isPublic;
+	if (data.visibility !== undefined) updateData.visibility = data.visibility;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
 	if (data.aboutContent !== undefined) updateData.aboutContent = data.aboutContent;
 
@@ -173,6 +174,7 @@ export async function searchUsers(query: string, limit = 8) {
 
 	return prisma.user.findMany({
 		where: {
+			visibility: "PUBLIC",
 			OR: [
 				{ handle: filter },
 				{ displayName: filter },
