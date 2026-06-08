@@ -15,6 +15,10 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { createUser } from "@/lib/utils/server/user";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { logAction } from "@/lib/utils/server/log";
+import { createEmailVerificationToken } from "@/lib/utils/server/auth-tokens";
+import { sendVerificationEmail } from "@/lib/email/emails";
+import { absoluteUrl } from "@/lib/utils/server/url";
+import { VERIFY_EMAIL_WITH_TOKEN } from "@/lib/const/routes";
 
 /**
  * POST /api/auth/signup
@@ -109,6 +113,9 @@ export async function POST(request: Request) {
 					email: normalizedEmail,
 					handle: normalizedHandle,
 					passwordHash,
+					// Local / E2E accounts are born verified — no email to click,
+					// and it keeps the login-gated test suite green.
+					emailVerified: new Date(),
 				});
 				responseUserId = userId;
 			} catch (err) {
@@ -137,6 +144,15 @@ export async function POST(request: Request) {
 
 			responseUserId = result.userId;
 			logAction("user.signup", responseUserId);
+
+			// Real (invite) signup: issue a verification token and email it.
+			// Best-effort — a send failure shouldn't fail the signup; the user
+			// can resend from the check-inbox / login pages.
+			const { rawToken } = await createEmailVerificationToken(responseUserId);
+			await sendVerificationEmail(
+				normalizedEmail,
+				absoluteUrl(VERIFY_EMAIL_WITH_TOKEN(rawToken)),
+			);
 		}
 
 		return NextResponse.json(

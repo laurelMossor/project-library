@@ -41,6 +41,12 @@ export function validateInviteToken(token: unknown): token is string {
 	return t.length >= 20 && t.length <= 256;
 }
 
+/**
+ * Raw email-verification / password-reset token from a URL. Same base64url
+ * format and bounds as invite tokens (see auth-tokens.ts generateRawToken).
+ */
+export const validateAuthToken = validateInviteToken;
+
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
 

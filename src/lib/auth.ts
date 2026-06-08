@@ -1,9 +1,18 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./utils/server/prisma";
 import { LOGIN } from "./const/routes";
 import { logAction } from "./utils/server/log";
+
+/**
+ * Thrown when credentials are valid but the account's email isn't verified.
+ * The `code` surfaces to the client (signIn result) so the login page can show
+ * a targeted "verify your email" message + resend affordance. Login is blocked.
+ */
+export class EmailNotVerifiedError extends CredentialsSignin {
+	code = "email_not_verified";
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -31,6 +40,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 					const passwordMatch = await bcrypt.compare(password, user.passwordHash);
 					if (!passwordMatch) return null;
 
+					// Block login until the email is verified. Existing users were
+					// grandfathered to verified in the adding migration.
+					if (!user.emailVerified) {
+						throw new EmailNotVerifiedError();
+					}
+
 					logAction("user.login", user.id);
 
 					// Return user object (excluding password) for session
@@ -41,6 +56,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 						// name field removed - use firstName/lastName from user profile if needed
 					};
 				} catch (error) {
+					// Let Auth.js handle credential-signin errors (e.g. unverified
+					// email) so their `code` reaches the client; only swallow
+					// unexpected failures into a generic null (failed login).
+					if (error instanceof CredentialsSignin) throw error;
 					console.error("Authorization error:", error);
 					return null;
 				}

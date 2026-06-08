@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
 import Link from "next/link";
 
 export const InviteCTA = () => {
@@ -46,7 +46,8 @@ function SignupForm() {
 			return;
 		}
 
-		router.push(LOGIN);
+		// Account created but unverified — send them to verify their email.
+		router.push(`${CHECK_INBOX}?email=${encodeURIComponent(email)}`);
 	};
 
 	if (!inviteToken) {
