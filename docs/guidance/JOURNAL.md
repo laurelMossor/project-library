@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
 
 
+#### Entry: Sun 06/14/2026 10:48 PDT
+Round 1 bug fixes shipped (`netwerk-3-bug-fixes`), 6 tickets moved to QA. Event authorship PATCH route now persists `pageId`; page avatar upload routes to the correct page endpoint instead of always hitting the user; event cover uploads now replace the banner (with owner delete button added to `ImageCarousel`); event date year field capped at 4 digits; profile search changed from `startsWith` to `contains`; session→login routing hardened with cookie prefix-match and prefetch-safe redirect gate. Three new feedback-form bugs filed to BUGS epic — two inline-editable ones deferred to round 2.
+
 #### Entry: Sun 06/14/2026 10:21 PDT
 Tooling fix (no code change): documented the reliable way to pull Notion tickets. While pulling the BUGS epic for `netwerk-3-bug-fixes`, semantic `notion-search` returned only 9 of 19 tickets and I initially presented that as complete — the hosted Notion MCP connector has no row-query tool and its search is relevance-ranked/incomplete with no error to signal it. The correct path is a direct REST query: `POST /v1/databases/{id}/query` with `NOTION_KEY` + `NOTION_TICKETS_DB` from `.env.development` and a property filter — that returned all 19 (7 open, 12 done). Root cause of the miss: a thorough how-to already existed at `docs/PULL_TICKETS.md` but nothing in the bootstrap linked to it, so the agent never saw it and re-derived the method the hard way. Fix: added a "Pulling tickets" pointer to that doc in `.claude/CLAUDE.md` (so it's surfaced at session start), corrected `PULL_TICKETS.md`'s Epic enum (added `🥩 MEATUP`, `⌘ NETWERK`), and reinforced the `feedback_notion_completeness` memory.
 

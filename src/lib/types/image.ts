@@ -11,7 +11,7 @@ export interface ImageItem {
 	caption: string | null; // Optional visible caption (shown on detail pages)
 	uploadedByUserId: string; // Who uploaded the image
 	createdAt: Date;
-	// Note: projectId/eventId removed - use ImageAttachment instead
+	attachmentId?: string; // ImageAttachment row id — set when loaded via getImagesForTarget
 }
 
 /**

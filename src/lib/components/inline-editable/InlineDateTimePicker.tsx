@@ -118,6 +118,8 @@ export function InlineDateTimePicker({ eventDateTime, eventTimezone, canEdit, on
 							type="datetime-local"
 							value={value}
 							onChange={(e) => setValue(e.target.value)}
+							min="1000-01-01T00:00"
+							max="9999-12-31T23:59"
 							className="flex-1 border border-gray-300 p-2 rounded text-lg"
 							autoFocus
 						/>

@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateEventUpdateData } from "@/lib/validations";
 import { eventWithUserFields } from "@/lib/utils/server/fields";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { syncDescendantVisibility, getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
@@ -101,7 +102,17 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, visibility, pinnedAt } = data;
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, visibility, pinnedAt, pageId } = data;
+
+		// If switching host page, verify permission
+		if (pageId !== undefined) {
+			if (pageId !== null) {
+				const allowed = await canPostAsPage(ctx.userId, pageId);
+				if (!allowed) {
+					return NextResponse.json({ error: "You don't have permission to host this event as that page" }, { status: 403 });
+				}
+			}
+		}
 
 		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
@@ -139,6 +150,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const updateData: Record<string, unknown> = {};
+		if (pageId !== undefined) updateData.pageId = pageId;
 		if (title !== undefined) updateData.title = title.trim();
 		if (content !== undefined) updateData.content = content.trim();
 		if (parsedDateTime !== undefined) updateData.eventDateTime = parsedDateTime;

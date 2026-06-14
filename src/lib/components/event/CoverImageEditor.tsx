@@ -46,7 +46,7 @@ export function CoverImageEditor({ eventId, imageUrl, canEdit, onImageUploaded }
 
 			const uploadData = await uploadRes.json();
 
-			// Attach image to event
+			// Attach image to event, replacing any existing cover
 			const attachRes = await fetch("/api/image-attachments", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -54,6 +54,7 @@ export function CoverImageEditor({ eventId, imageUrl, canEdit, onImageUploaded }
 					imageId: uploadData.id,
 					type: "EVENT",
 					targetId: eventId,
+					replace: true,
 				}),
 			});
 

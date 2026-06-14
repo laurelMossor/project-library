@@ -9,9 +9,11 @@ type AvatarEditModalProps = {
 	onClose: () => void;
 	currentAvatarUrl: string | null;
 	initials: string;
+	entityId?: string;
+	isPage?: boolean;
 };
 
-export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }: AvatarEditModalProps) {
+export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials, entityId, isPage }: AvatarEditModalProps) {
 	const router = useRouter();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [saving, setSaving] = useState(false);
@@ -39,10 +41,13 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 				throw new Error(data.error || "Upload failed");
 			}
 			const { id } = await uploadRes.json();
-			const updateRes = await fetch("/api/me/user", {
+			const endpoint = isPage && entityId ? `/api/pages/${entityId}` : "/api/me/user";
+			// Pages route expects a SavePayload wrapper ({ fields: {...} }); user route accepts flat
+			const payload = isPage ? { fields: { avatarImageId: id } } : { avatarImageId: id };
+			const updateRes = await fetch(endpoint, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ avatarImageId: id }),
+				body: JSON.stringify(payload),
 			});
 			if (!updateRes.ok) throw new Error("Failed to save avatar");
 			router.refresh();
@@ -58,10 +63,12 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 		setSaving(true);
 		setError("");
 		try {
-			const res = await fetch("/api/me/user", {
+			const endpoint = isPage && entityId ? `/api/pages/${entityId}` : "/api/me/user";
+			const payload = isPage ? { fields: { avatarImageId: null } } : { avatarImageId: null };
+			const res = await fetch(endpoint, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ avatarImageId: null }),
+				body: JSON.stringify(payload),
 			});
 			if (!res.ok) throw new Error("Failed to remove avatar");
 			router.refresh();
