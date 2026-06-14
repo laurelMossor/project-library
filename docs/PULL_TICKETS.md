@@ -20,7 +20,7 @@ The Notion MCP `notion-search` tool does **semantic** relevance ranking, not pro
 | `Name` | title | (free text) |
 | `Priority` | select | `P0`, `P1`, `P2`, `P3`, `Backlog` |
 | `Status` | status | `Not started`, `In progress`, `Blocked`, `On Hold`, `Done` |
-| `Epic` | select | `🎭 SPATS`, `𝚫 ORGS`, `👩‍💻 OPEN_SOURCE`, `🐞 BUGS`, `🌳 TOPICS`, `📜 DOCUMENTATION`, `💡 IDEAS`, `✨ POLISH` |
+| `Epic` | select | `🎭 SPATS`, `𝚫 ORGS`, `👩‍💻 OPEN_SOURCE`, `🐞 BUGS`, `🌳 TOPICS`, `📜 DOCUMENTATION`, `💡 IDEAS`, `✨ POLISH`, `🥩 MEATUP`, `⌘ NETWERK` |
 | `Multi-select` | multi_select | `Feature`, `Design`, `Flair`, `Interface`, `Post`, `Bug`, `Event`, `User`, `Messaging`, `Topics`, `Backend`, `Collections`, `Pages`, `Docs`, `Testing & Security`, `External` |
 
 Note: `Status` uses Notion's `status` property type (not `select`). Filter syntax uses `"status": { ... }`, not `"select": { ... }`.

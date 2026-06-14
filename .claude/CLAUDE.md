@@ -25,7 +25,7 @@ At the start of a new session, before responding to the first substantive reques
 When the request touches the closed beta plan specifically, also fetch:
 
 - **Google Doc — Beta Launch Plan**: `1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw` (via `google_drive_fetch`)
-- **Notion — ProLib Tickets database**: `2d6453d0-29b0-80e9-9ebf-fce9169b18c6` (via `notion-fetch`, or search with `data_source_url: collection://2d6453d0-29b0-803e-a998-000b1568e9c8`)
+- **Notion — ProLib Tickets database**: for any complete filtered list of tickets (by Epic / Priority / Status), follow **`docs/PULL_TICKETS.md`** — query the REST API, not `notion-search` (which silently returns incomplete results).
 
 ## Updating ProLib Tickets
 
