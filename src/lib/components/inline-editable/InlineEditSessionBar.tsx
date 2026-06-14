@@ -8,14 +8,28 @@ type InlineEditSessionBarProps = {
 	onSave: () => void;
 	onCancel: () => void;
 	onUndo: () => void;
+	/** True when owner is editing a draft — show the publish affordance. */
+	publishable?: boolean;
+	/** True when required fields are filled and publish is actually permitted. */
+	publishAllowed?: boolean;
+	/** Reason shown next to the disabled Publish button when publishAllowed is false. */
+	publishHint?: string;
+	onPublish?: () => void;
 };
 
 /**
- * Sticky save/cancel bar that appears at the bottom of the viewport when an
- * InlineEditSession has unsaved changes. Auto-hides when changeCount === 0.
+ * Sticky save/cancel/publish bar at the bottom of the viewport.
  *
- * Shows an Undo button when there are pending deletes, reverting the most
- * recent deletion (stack-based, most recent first).
+ * Visible when there are unsaved changes OR when the resource is publishable
+ * (owner editing a draft) — so a brand-new empty draft always shows the bar
+ * with a disabled Publish button and a hint explaining what's missing.
+ *
+ * Button layout:
+ *   Undo (pending deletes) | Cancel | Save  +  Save and publish / Publish
+ *
+ * "Save and publish" appears when publishable and there are unsaved changes.
+ * "Publish" appears when publishable and there are no unsaved changes.
+ * When publishAllowed is false both publish buttons are disabled + hint shown.
  */
 export function InlineEditSessionBar({
 	changeCount,
@@ -25,8 +39,16 @@ export function InlineEditSessionBar({
 	onSave,
 	onCancel,
 	onUndo,
+	publishable = false,
+	publishAllowed = true,
+	publishHint,
+	onPublish,
 }: InlineEditSessionBarProps) {
-	if (changeCount === 0) return null;
+	const isVisible = changeCount > 0 || publishable;
+	if (!isVisible) return null;
+
+	const hasPendingChanges = changeCount > 0;
+	const publishLabel = hasPendingChanges ? "Save and publish" : "Publish";
 
 	return (
 		<div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
@@ -37,9 +59,16 @@ export function InlineEditSessionBar({
 					</div>
 				)}
 				<div className="bg-melon-green/95 backdrop-blur-sm border-t border-rich-brown/20 px-6 py-3 flex items-center justify-between gap-4 shadow-lg">
+					{/* Left: change count or empty spacer */}
 					<span className="text-sm text-warm-grey">
-						{changeCount === 1 ? "1 unsaved change" : `${changeCount} unsaved changes`}
+						{hasPendingChanges
+							? changeCount === 1
+								? "1 unsaved change"
+								: `${changeCount} unsaved changes`
+							: null}
 					</span>
+
+					{/* Right: action buttons */}
 					<div className="flex items-center gap-3">
 						{pendingDeleteCount > 0 && (
 							<button
@@ -51,22 +80,58 @@ export function InlineEditSessionBar({
 								Undo
 							</button>
 						)}
-						<button
-							type="button"
-							onClick={onCancel}
-							disabled={saving}
-							className="px-4 py-1.5 text-sm font-medium text-warm-grey border border-soft-grey rounded-full hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							onClick={onSave}
-							disabled={saving}
-							className="px-5 py-1.5 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-						>
-							{saving ? "Saving…" : "Save"}
-						</button>
+
+						{hasPendingChanges && (
+							<>
+								<button
+									type="button"
+									onClick={onCancel}
+									disabled={saving}
+									className="px-4 py-1.5 text-sm font-medium text-warm-grey border border-soft-grey rounded-full hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
+								>
+									Cancel
+								</button>
+								{/* Show Save only when there are changes and we also have a Publish button,
+								    so the user can save without publishing. When not publishable, Save is the
+								    primary (and only) action. */}
+								{publishable ? (
+									<button
+										type="button"
+										onClick={onSave}
+										disabled={saving}
+										className="px-5 py-1.5 text-sm font-semibold text-warm-grey border border-warm-grey/40 rounded-full hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
+									>
+										{saving ? "Saving…" : "Save"}
+									</button>
+								) : (
+									<button
+										type="button"
+										onClick={onSave}
+										disabled={saving}
+										className="px-5 py-1.5 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
+									>
+										{saving ? "Saving…" : "Save"}
+									</button>
+								)}
+							</>
+						)}
+
+						{/* Publish / Save and publish */}
+						{publishable && (
+							<div className="flex flex-col items-end gap-0.5">
+								<button
+									type="button"
+									onClick={onPublish}
+									disabled={saving || !publishAllowed}
+									className="px-5 py-1.5 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
+								>
+									{saving ? "Saving…" : publishLabel}
+								</button>
+								{!publishAllowed && publishHint && (
+									<span className="text-xs text-warm-grey">{publishHint}</span>
+								)}
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
