@@ -27,6 +27,8 @@ When the request touches the closed beta plan specifically, also fetch:
 - **Google Doc — Beta Launch Plan**: `1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw` (via `google_drive_fetch`)
 - **Notion — ProLib Tickets database**: for any complete filtered list of tickets (by Epic / Priority / Status), follow **`docs/PULL_TICKETS.md`** — query the REST API, not `notion-search` (which silently returns incomplete results).
 
+When tickets sit in the **`QA`** status and the user wants to verify, retest, or accept finished work, use the **`/prolib-qa`** skill. It drafts acceptance criteria from the ticket (most have none), gets the user's approval, drives the local dev app to reproduce/confirm, reports pass/fail with evidence, and — only on the user's say-so — writes Status + criteria + a QA note back to the ticket.
+
 ## Updating ProLib Tickets
 
 Keeping the **Notion — ProLib Tickets** database (`2d6453d0-29b0-80e9-9ebf-fce9169b18c6`, data source `collection://2d6453d0-29b0-803e-a998-000b1568e9c8`) in step with the work is an **expected, authorized part of the workflow** — not a one-off external action. When you implement, QA, or change the scope of a ticket, reflect it on the ticket:
