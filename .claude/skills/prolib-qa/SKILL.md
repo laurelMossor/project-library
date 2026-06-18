@@ -94,9 +94,17 @@ Use the **native preview tools** for everything browser-related (`preview_start`
 Chrome MCP. The preview tools give a text accessibility snapshot that's fast to read
 and reason over, which is exactly what reproduce-and-judge needs.
 
-Setup specifics — dev server, seeding, and the **login procedure + seeded test users**
-— are in [references/setup.md](references/setup.md). Read it before driving the app so
-the login step is exact.
+Setup specifics — dev server, seeding, the **login procedure + which seeded users to
+use**, the **seeded page/admin map**, and the **real route paths** — are in
+[references/setup.md](references/setup.md). Read it before driving the app. Two things from
+it that bite immediately: QA logs in as **alice or sam only** (never the `laurel` personal
+account), and public profiles live at bare `/<handle>` (there is no `/u/` or `/profile`
+route).
+
+The `preview_*` tools have non-obvious mechanics — eval context persistence, **stale
+console logs**, selector-vs-nodeId — plus two high-value verification techniques
+(fetch-interception, hard-reload-to-confirm). They're in
+[references/preview-tools.md](references/preview-tools.md); read it before driving.
 
 ### 4. Reproduce & verify
 
@@ -111,7 +119,12 @@ Walk each acceptance criterion in the running app:
   to confirm state.
 - **Watch `preview_console_logs` and `preview_network` as you go** — a clean-looking UI
   can still be throwing errors or failing requests underneath. A criterion isn't "pass"
-  if the console is erroring.
+  if the console is erroring. **But** `preview_console_logs` is cumulative and replays
+  *stale* compile errors long after a file is fixed — never fail a criterion on the log
+  alone; confirm against a fresh `preview_snapshot` or hard reload of the actual page.
+- **To prove persistence, hard-reload** — `router.refresh()`/optimistic UI can show the
+  new value without it reaching the DB. To prove an endpoint-routing criterion, intercept
+  `fetch`. Both techniques are in [references/preview-tools.md](references/preview-tools.md).
 - Mark each criterion **pass / fail / blocked**, capturing evidence: a `preview_screenshot`
   for visual results, a log/network excerpt for errors. Evidence is what lets the user
   trust the verdict without re-checking by hand.
@@ -171,11 +184,21 @@ See `tests/TESTING.md` for the existing suite's conventions and helpers.
 
 - **Prod URLs ≠ local data.** Recreate the scenario locally; never test against the prod
   link in the ticket. (Restated because it's the #1 failure mode.)
-- **Login is `username:username`.** Seeded users log in with email `<user>@example.com`
-  and password equal to the username. See [references/setup.md](references/setup.md).
+- **Log in as alice or sam only — never `laurel`** (the owner's personal/admin account).
+  Both QA actors follow `username:username` (`<user>@example.com` / password = username).
+  Only alice, sam, and laurel are seeded — george/dolores/fiona/iris don't exist. Full
+  user + page/admin map in [references/setup.md](references/setup.md).
+- **Routes:** public profiles are bare `/<handle>` (no `/u/`, no `/profile`); owner edit
+  mode is `/<handle>?edit=true` (the `edit` param is the source of truth). See setup.md.
 - **Signup is rate-limited** (5/hr per IP, keyed `signup:unknown` locally). If a criterion
   needs a brand-new account and you hit the limit, note it rather than treating it as a fail.
-- **Console-clean counts.** Treat console errors / failed network calls during a flow as a
-  failed criterion even if the visible UI looks fine.
+- **Console-clean counts — but the log is stale.** Console errors / failed requests during
+  a flow fail a criterion; however `preview_console_logs` replays old compile errors, so
+  confirm against a fresh snapshot before failing on it. See
+  [references/preview-tools.md](references/preview-tools.md).
+- **Notion comments may be permission-blocked.** The integration can move Status and check
+  off `to_do` criteria, but POSTing a comment can return "Insufficient permissions" — if so,
+  note it and move on; Status + checked criteria are the durable record, the comment is a
+  nice-to-have, not a blocker.
 - **One worker, shared dev DB.** If you create test data, clean it up (or note it) so the
   next run starts clean — see the cleanup patterns in `tests/TESTING.md`.

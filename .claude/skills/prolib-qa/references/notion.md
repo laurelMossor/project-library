@@ -107,3 +107,8 @@ curl -s -X POST "https://api.notion.com/v1/comments" \
   notes in `docs/PULL_TICKETS.md`.
 - The integration must be shared with the ticket's page for writes to succeed; if a PATCH/POST
   returns a permission error, that's why — surface it to the user rather than retrying blindly.
+- **Comments specifically may be blocked even when Status/criteria writes succeed.** Observed:
+  PATCH page Status and PATCH `to_do` `checked` both work, but `POST /v1/comments` returns
+  `"Insufficient permissions for this endpoint."` (the integration lacks comment-insert). Don't
+  let this fail the run — the Status move + checked criteria are the durable record. Note it to
+  the user (they can enable comment-insert on the integration if they want the audit trail).

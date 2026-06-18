@@ -2,8 +2,8 @@
 
 > Live tracker for where we are. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-06-14
-**Current phase:** Open Beta — Netwerk milestone in progress. Visibility + transactional email shipped. Bug fix pass (`netwerk-3-bug-fixes`) complete — two rounds of fixes, inline-editable refactor done.
+**Last updated:** 2026-06-18
+**Current phase:** Open Beta — Netwerk milestone in progress. Visibility + transactional email shipped. Bug fix pass (`netwerk-3-bug-fixes`) complete — two rounds of fixes + inline-editable refactor, and a QA acceptance pass (8 tickets verified → Done).
 **Usership**: Small group of real closed-beta users. Some data is still mocked. DB operations require approval.
 **Authoritative plan (only access if prompted):** [Open Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1FTW9_Ny-DWrPzHlO1BGGrfQFqOu4JBxZX2j-F_G5OMI/edit)
 **Ticket board (only access if prompted):** [ProLib Tickets (Notion)](https://www.notion.so/2d6453d029b080e99ebffce9169b18c6)
@@ -24,6 +24,7 @@
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-06-18** — First `/prolib-qa` run: 8 QA tickets verified PASS → Done (20 criteria checked off). Two fixes landed mid-run: visibility selector moved to `/settings/personal-info`; edit/preview mode now URL-driven (`?edit=true`) in `ProfileEditClient`. Skill hardened — per-ticket write-back, corrected `setup.md` (only alice/sam are QA actors; `laurel` is off-limits) + new `preview-tools.md`. **Not yet committed; QA tickets #7 (cover/banner) and #10 (session→login) still un-QA'd.**
 - **2026-06-14** — Round 2 bug fixes: inline-editable refactor (`useInlineField` hook, batched save/publish bar, date picker + cover image folded into batch, blur-loses-changes fixed, profile stuck-edit + published-post-editable fixed).
 - **2026-06-14** — Round 1 bug fixes: event authorship PATCH, page avatar endpoint, cover replace, image delete in carousel, date year cap, search `startsWith`→`contains`, session cookie prefix hardening.
 - **2026-06-08** — Transactional email: Resend sender, React Email templates, account verification + login gate, password reset.
