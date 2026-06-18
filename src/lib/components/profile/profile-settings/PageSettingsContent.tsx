@@ -59,6 +59,7 @@ export function PageSettingsContent({
 					<ManageAdmins pageId={page.id} />
 				</SettingsSection>
 			)}
+
 		</>
 	);
 }

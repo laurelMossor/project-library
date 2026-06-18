@@ -9,9 +9,10 @@ description: >-
   ticket URL and asking to check it. The skill pulls the ticket, drafts acceptance
   criteria when the ticket has none (the normal case), gets your approval, drives
   the running local dev app to reproduce/verify, reports pass/fail with evidence,
-  and — only on your say-so — writes Status + acceptance criteria + a QA note back
-  to the ticket. Use it even when the user doesn't say the word "QA" but is clearly
-  asking to confirm a finished piece of work behaves correctly in the app.
+  then writes Status + acceptance criteria + a QA note back to the ticket immediately
+  after each result (no separate confirmation needed). Use it even when the user doesn't
+  say the word "QA" but is clearly asking to confirm a finished piece of work behaves
+  correctly in the app.
 ---
 
 # ProLib QA
@@ -119,7 +120,7 @@ Walk each acceptance criterion in the running app:
 
 ### 5. Report to the user
 
-Report in chat first; don't touch Notion yet. Use this shape:
+Report the result in chat. Use this shape:
 
 ```
 ## QA: <ticket title>  (<priority> · <epic>)
@@ -134,21 +135,27 @@ Verdict: PASS / FAIL / NEEDS REVIEW
 Notes: <anything ambiguous, out-of-scope observations, flaky behavior>
 ```
 
-Then ask how to proceed: typically **PASS → move to Done**, **FAIL → kick back to In
-progress with the failure noted**. Let the user decide — they may want to eyeball it.
+If the verdict is **NEEDS REVIEW** or the result is ambiguous, pause and ask the user
+before writing anything. Otherwise proceed directly to step 6.
 
-### 6. Write back to Notion — only on the user's say-so
+### 6. Write back to Notion — immediately after each ticket
 
-Never write to Notion unprompted. When the user directs it, do all three:
+Write to Notion right after reporting each ticket's result. Don't batch across tickets
+or wait for a separate user confirmation. Do all three:
 
-1. **Persist the approved acceptance criteria** into the ticket body (so the backlog
-   self-heals — next run they already exist).
+1. **Check off the acceptance criteria in the ticket body.** Fetch the ticket's block
+   children, find the `to_do` blocks under the "Acceptance Criteria" heading, and PATCH
+   each one to `checked: true`. If the criteria haven't been written yet (step 2 was
+   skipped or deferred), append them now with `checked: true` for passed items.
 2. **Move Status** — `Done` on pass, `In progress` (or as directed) on fail.
 3. **Add a QA-result comment** — the verdict + date + a one-line summary of what was
    checked.
 
-The exact REST recipes (PATCH status, append criteria checklist, POST comment) are in
-[references/notion.md](references/notion.md).
+The exact REST recipes (fetch blocks, PATCH to_do checked, PATCH status, POST comment)
+are in [references/notion.md](references/notion.md).
+
+**Exception:** if the user explicitly says to defer Notion writes (e.g. "don't touch
+Notion yet"), respect that for the current run.
 
 ### 7. Optional: lock in a regression test
 

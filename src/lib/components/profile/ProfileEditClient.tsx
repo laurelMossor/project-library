@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
@@ -13,8 +14,6 @@ import { Tag } from "@/lib/components/tag/Tag";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { EyeIcon, PencilIcon } from "@/lib/components/icons/icons";
-import { VisibilitySelector } from "@/lib/components/visibility/VisibilitySelector";
-import type { Visibility } from "@/lib/types/user";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
@@ -31,7 +30,6 @@ export type ProfileEditEntity =
 type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
 	saveUrl: string;
-	defaultReadonly?: boolean;
 };
 
 // ─── Inner content (needs session context) ────────────────────────────────────
@@ -57,9 +55,15 @@ function ProfileOwnerContent({
 	const { value: bio, setValue: setBio } = useInlineField<string | null>("bio", entity.data.bio);
 	const { value: location, setValue: setLocation } = useInlineField<string | null>("location", entity.data.location);
 	const { value: interests, setValue: setInterests } = useInlineField<string[]>("interests", entity.data.interests);
-	const { value: visibility, setValue: setVisibility } = useInlineField<Visibility>("visibility", entity.data.visibility ?? "PUBLIC");
 
-	// When session cancels, close any open edit field (values revert automatically).
+	const canEdit = session?.canEdit ?? false;
+
+	// Close any open field whenever editing is disabled (cancel OR save both flip canEdit to false).
+	useEffect(() => {
+		if (!canEdit) setEditingField(null);
+	}, [canEdit]);
+
+	// When session cancels, also close open fields (values revert automatically via session).
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
 		if (cancelRevision === 0) return;
@@ -67,8 +71,6 @@ function ProfileOwnerContent({
 	// cancelRevision is the only intended trigger
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
-
-	const canEdit = session?.canEdit ?? false;
 	const entityId = entity.data.id;
 	const entityType = entity.type === "user" ? "user" : "page";
 	const connectionsHref = PUBLIC_PROFILE(entity.data.handle);
@@ -245,16 +247,6 @@ function ProfileOwnerContent({
 					hasAboutContent={!!entity.data.aboutContent}
 				/>
 
-				{/* Visibility — shown only in edit mode */}
-				{canEdit && (
-					<div className="pt-2 border-t border-gray-100">
-						<VisibilitySelector
-							value={visibility as Visibility}
-							onChange={(v) => setVisibility(v)}
-						/>
-					</div>
-				)}
-
 				{/* Follow stats — always last */}
 				<FollowStats entityId={entityId} entityType={entityType} connectionsHref={connectionsHref} />
 			</div>
@@ -264,9 +256,25 @@ function ProfileOwnerContent({
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
 
-export function ProfileEditClient({ entity: initialEntity, saveUrl, defaultReadonly = false }: ProfileEditClientProps) {
+export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEditClientProps) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const [entity, setEntity] = useState(initialEntity);
-	const [previewMode, setPreviewMode] = useState(defaultReadonly);
+
+	// URL is the source of truth for edit/preview state
+	const previewMode = searchParams.get("edit") !== "true";
+
+	const setPreviewMode = useCallback((preview: boolean) => {
+		const params = new URLSearchParams(searchParams.toString());
+		if (preview) {
+			params.delete("edit");
+		} else {
+			params.set("edit", "true");
+		}
+		const query = params.toString();
+		router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+	}, [router, pathname, searchParams]);
 
 	const handleSave = async (payload: SavePayload) => {
 		const fields = { ...payload.fields };

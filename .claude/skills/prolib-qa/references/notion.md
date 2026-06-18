@@ -31,15 +31,31 @@ curl -s -X GET "https://api.notion.com/v1/blocks/$PAGE_ID/children?page_size=100
 their `<type>.rich_text[].plain_text`. `to_do` blocks also have a `checked` boolean —
 that's where informal acceptance checklists show up.
 
-## Writing back (step 6 — only on the user's say-so)
+## Writing back (step 6 — immediately after each ticket)
 
-Do all three on a pass; on a fail, skip the criteria-persist if the user prefers, and
+Do all three on a pass; on a fail, skip checking off criteria if the user prefers, and
 set Status as directed.
 
-### 1. Persist approved acceptance criteria into the ticket body
+### 1. Check off existing acceptance criteria in the ticket body
 
-Append an "Acceptance Criteria" heading + a `to_do` per criterion. Mark verified ones
-`checked: true`.
+The criteria were written as unchecked `to_do` blocks in step 2. After testing, fetch
+the ticket's block children, find the `to_do` blocks, and PATCH each to `checked: true`:
+
+```bash
+# First, fetch block children to get the to_do block IDs
+curl -s "https://api.notion.com/v1/blocks/$PAGE_ID/children?page_size=100" \
+  -H "Authorization: Bearer $NOTION_KEY" -H "Notion-Version: 2022-06-28" \
+  | jq '[.results[] | select(.type=="to_do") | {id:.id, text:(.to_do.rich_text[0].plain_text)}]'
+
+# Then PATCH each to_do block to checked: true
+BLOCK_ID="<block id from above>"
+curl -s -X PATCH "https://api.notion.com/v1/blocks/$BLOCK_ID" \
+  -H "Authorization: Bearer $NOTION_KEY" -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d '{"to_do": {"checked": true}}'
+```
+
+If criteria haven't been written yet, append them now (already checked for passes):
 
 ```bash
 curl -s -X PATCH "https://api.notion.com/v1/blocks/$PAGE_ID/children" \
