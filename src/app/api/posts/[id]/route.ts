@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
-import { publicUserFields } from "@/lib/utils/server/user";
+import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { getViewerContext, canViewPost } from "@/lib/utils/server/visibility";
 
 const MAX_PINNED_POSTS = 3;
 
@@ -46,13 +47,14 @@ const postFields = {
 	title: true,
 	content: true,
 	status: true,
+	visibility: true,
 	pinnedAt: true,
 	tags: true,
 	topics: true,
 	createdAt: true,
 	updatedAt: true,
 	user: {
-		select: publicUserFields,
+		select: publicUserEmbedFields,
 	},
 	page: {
 		select: {
@@ -92,6 +94,18 @@ export async function GET(request: Request, { params }: Params) {
 		});
 
 		if (!post) {
+			return notFound("Post not found");
+		}
+
+		const viewer = await getViewerContext();
+
+		// Draft posts are only visible to the author
+		if (post.status === "DRAFT" && post.userId !== viewer.userId) {
+			return notFound("Post not found");
+		}
+
+		// Visibility gate: PRIVATE posts are 404 for unauthorized viewers
+		if (!(await canViewPost(post, viewer))) {
 			return notFound("Post not found");
 		}
 

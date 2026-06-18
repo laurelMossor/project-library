@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import {
 	canManagePage,
 	getResourcePermissions,
 	grantPermission,
 } from "@/lib/utils/server/permission";
+import { getViewerContext, requireViewableProfile } from "@/lib/utils/server/visibility";
 import { ResourceType, PermissionRole } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
@@ -18,6 +19,10 @@ type RouteParams = { params: Promise<{ pageId: string }> };
 export async function GET(_request: Request, { params }: RouteParams) {
 	try {
 		const { pageId } = await params;
+		const viewer = await getViewerContext();
+		if (!(await requireViewableProfile("PAGE", pageId, viewer))) {
+			return notFound("Page not found");
+		}
 		const permissions = await getResourcePermissions(pageId, ResourceType.PAGE);
 
 		return NextResponse.json(permissions);

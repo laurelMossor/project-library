@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserById, updateUserProfile, personalProfileFields } from "@/lib/utils/server/user";
+import { getUserById } from "@/lib/utils/server/user";
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProfileData } from "@/lib/validations";
-import { processElementsPayload } from "@/lib/utils/server/profile-element";
-import { prisma } from "@/lib/utils/server/prisma";
+import { updateProfileWithCascade } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
-import { syncChildPostVisibility } from "@/lib/utils/server/visibility";
 import type { Visibility } from "@prisma/client";
 
 /**
@@ -80,27 +78,11 @@ export async function PUT(request: Request) {
 	}
 
 	try {
-		const user = await prisma.$transaction(async (tx) => {
-			await updateUserProfile(userId, {
-				firstName, middleName, lastName,
-				displayName, headline, bio,
-				interests, location, visibility, avatarImageId, aboutContent,
-			});
-
-			// Cascade visibility change to standalone user posts
-			if (visibility !== undefined) {
-				await syncChildPostVisibility("USER", userId, visibility, tx);
-			}
-
-			if (elements) {
-				await processElementsPayload({ userId }, elements);
-			}
-
-			return tx.user.findUnique({
-				where: { id: userId },
-				select: personalProfileFields,
-			});
-		});
+		const user = await updateProfileWithCascade("USER", userId, {
+			firstName, middleName, lastName,
+			displayName, headline, bio,
+			interests, location, visibility, avatarImageId, aboutContent,
+		}, elements);
 
 		return NextResponse.json(user);
 	} catch {

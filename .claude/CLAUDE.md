@@ -27,6 +27,15 @@ When the request touches the closed beta plan specifically, also fetch:
 - **Google Doc — Beta Launch Plan**: `1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw` (via `google_drive_fetch`)
 - **Notion — ProLib Tickets database**: `2d6453d0-29b0-80e9-9ebf-fce9169b18c6` (via `notion-fetch`, or search with `data_source_url: collection://2d6453d0-29b0-803e-a998-000b1568e9c8`)
 
+## Updating ProLib Tickets
+
+Keeping the **Notion — ProLib Tickets** database (`2d6453d0-29b0-80e9-9ebf-fce9169b18c6`, data source `collection://2d6453d0-29b0-803e-a998-000b1568e9c8`) in step with the work is an **expected, authorized part of the workflow** — not a one-off external action. When you implement, QA, or change the scope of a ticket, reflect it on the ticket:
+
+- **Fetch first** (`notion-fetch`) to get the exact property names/schema and current content, then update with `notion-update-page` (`update_properties` for Status/Priority, `insert_content`/`update_content` for body and acceptance criteria).
+- Write **grounded** acceptance criteria — tie each to the real route/helper/test and note what was verified (e.g. "`GET /api/pages/{id}` → 404 anon / 200 member"), not aspirational prose.
+- Move Status as work lands (e.g. → `QA` when implemented, with AC the user can check against the running app).
+- Notion writes are surfaced to the user for awareness; if a write is blocked by the permission classifier mid-task, say what you're updating and why rather than silently dropping it.
+
 ## Verifying memory before citing
 
 Memory files carry a 21-day staleness warning, so confirm specifics against the source of truth before relying on them. Before citing any memory that names a specific file, function, field, or enum value:

@@ -67,14 +67,16 @@ export async function updatePageProfile(
     category?: string | null;
     avatarImageId?: string | null;
     aboutContent?: string | null;
-  }
+    visibility?: import("@prisma/client").Visibility;
+  },
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ) {
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     if (value !== undefined) updateData[key] = value;
   }
 
-  return prisma.page.update({
+  return ((tx ?? prisma) as typeof prisma).page.update({
     where: { id: pageId },
     data: updateData,
     select: publicPageFields,

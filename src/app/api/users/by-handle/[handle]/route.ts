@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserByHandle } from "@/lib/utils/server/user";
 import { notFound } from "@/lib/utils/errors";
+import { getViewerContext, canViewProfile } from "@/lib/utils/server/visibility";
 
 /**
  * GET /api/users/by-handle/[handle]
@@ -18,8 +19,13 @@ export async function GET(
 ) {
 	const { handle } = await params;
 
-	const user = await getUserByHandle(handle);
+	const [user, viewer] = await Promise.all([getUserByHandle(handle), getViewerContext()]);
 	if (!user) {
+		return notFound("User not found");
+	}
+
+	// Visibility gate: PRIVATE users are 404 for non-followers
+	if (!(await canViewProfile("USER", user, viewer))) {
 		return notFound("User not found");
 	}
 

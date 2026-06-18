@@ -22,7 +22,6 @@
  * the same content — they're deleted in Task 14 once the cutover lands.
  */
 import { notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
 import { findEntityByHandle } from "@/lib/utils/server/handle";
 import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPageByHandle } from "@/lib/utils/server/page";
@@ -59,8 +58,8 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 		notFound();
 	}
 
-	const [session, viewer] = await Promise.all([auth(), getViewerContext()]);
-	const viewerId = session?.user?.id;
+	const viewer = await getViewerContext();
+	const viewerId = viewer.userId;
 
 	// USER branch — mirrors the body of `src/app/u/[username]/page.tsx`.
 	if (entity.user) {

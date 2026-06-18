@@ -81,6 +81,45 @@ test.describe("UNLISTED page", () => {
 		await page.goto("/explore");
 		await expect(page.getByText("Unlisted post")).not.toBeVisible();
 	});
+
+	// Over-hide regression: an UNLISTED page must show its UNLISTED posts on its
+	// own collection (reachable by link), not render an empty collection.
+	test("unlisted page shows its own UNLISTED posts by link", async ({ page }) => {
+		await page.goto("/unlisted-zine");
+		await page.waitForSelector("h1", { timeout: 20_000 });
+		await expect(page.getByText("Unlisted post")).toBeVisible();
+	});
+});
+
+// ── PRIVATE user ────────────────────────────────────────────────────────────────
+
+test.describe("PRIVATE user", () => {
+	test("anonymous viewer gets 404", async ({ page }) => {
+		await page.goto("/private-pat.example");
+		await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
+	});
+
+	test("logged-in non-follower (sam) gets 404", async ({ page }) => {
+		await loginAs(page, "sam");
+		await page.goto("/private-pat.example");
+		await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
+	});
+
+	test("follower (alice) can view the private profile AND its private posts", async ({ page }) => {
+		await loginAs(page, "alice");
+		await page.goto("/private-pat.example");
+		await page.waitForSelector("h1", { timeout: 20_000 });
+		await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).toBeVisible();
+		// Over-hide fix: a follower of a PRIVATE user sees that user's PRIVATE content.
+		await expect(page.getByText("Private update")).toBeVisible();
+	});
+
+	test("private user does NOT appear in search for anonymous", async ({ page }) => {
+		await page.goto("/search");
+		await page.getByPlaceholder("Search by name or handle...").fill("Pat Private");
+		await page.waitForTimeout(600);
+		await expect(page.getByText("Pat Private")).not.toBeVisible();
+	});
 });
 
 // ── PUBLIC page ───────────────────────────────────────────────────────────────

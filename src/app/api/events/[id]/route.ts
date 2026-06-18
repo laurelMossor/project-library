@@ -6,7 +6,7 @@ import { validateEventUpdateData } from "@/lib/validations";
 import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
-import { syncChildPostVisibility } from "@/lib/utils/server/visibility";
+import { syncDescendantVisibility, getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
 import type { Visibility } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
@@ -46,6 +46,12 @@ export async function GET(request: Request, { params }: Params) {
 			if (!ctx || ctx.userId !== event.userId) {
 				return notFound("Event not found");
 			}
+		}
+
+		// Visibility gate: PRIVATE events are 404 for unauthorized viewers
+		const viewer = await getViewerContext();
+		if (!(await canViewEvent(event, viewer))) {
+			return notFound("Event not found");
 		}
 
 		// Load images
@@ -173,7 +179,7 @@ export async function PATCH(request: Request, { params }: Params) {
 				select: eventWithUserFields,
 			});
 			if (visibility !== undefined) {
-				await syncChildPostVisibility("EVENT", id, visibility as Visibility, tx);
+				await syncDescendantVisibility("EVENT", id, visibility as Visibility, tx);
 			}
 			return [updated];
 		});

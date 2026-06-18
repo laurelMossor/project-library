@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
+import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
@@ -82,13 +83,13 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
-	const [sessionCtx, viewer] = await Promise.all([getSessionContext(), import("@/lib/utils/server/visibility").then(m => m.getViewerContext())]);
+	const viewer = await getViewerContext();
 
 	// Determine draft visibility:
 	// - user querying their own posts: no status filter (see all own posts)
 	// - logged-in user querying anything else: see published + own drafts
 	// - anonymous: published only
-	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
+	const isOwnUserQuery = !!(viewer.userId && userId && userId === viewer.userId);
 
 	// Collect all AND conditions to avoid multiple OR keys clobbering each other.
 	const andConditions: object[] = [];
@@ -99,7 +100,6 @@ export async function GET(request: Request) {
 	}
 
 	// Visibility: list mode only shows PUBLIC content (plus the viewer's own)
-	const { postListWhere } = await import("@/lib/utils/server/visibility");
 	andConditions.push(postListWhere(viewer));
 
 	if (search) {

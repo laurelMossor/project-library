@@ -1,15 +1,26 @@
 // ⚠️ SERVER-ONLY: Visibility enforcement layer
 //
-// Two modes:
-//   listVisibilityWhere  — Prisma where fragment for list/feed queries (PUBLIC + own only)
-//   canViewDetail        — boolean gate for single-entity detail routes (PUBLIC/UNLISTED pass; PRIVATE requires relationship)
+// One source of truth for the three-tier model (PUBLIC / UNLISTED / PRIVATE).
+// Users and pages are treated the same wherever possible — one parametrized
+// utility per concern, backed by shared relationship primitives — so a rule
+// change can't be applied to one entity type and missed on another.
 //
-// All visibility enforcement in the app routes through one of these two functions.
-// Do NOT scatter visibility checks into individual route handlers — add them here.
+//   Relationship primitives   isFollower / isFollowingPage / isMember
+//   Profile view gate         canViewProfile(kind, entity, viewer)   (+ canViewEvent/canViewPost)
+//   Route guard               requireViewableProfile(kind, id, viewer)
+//   Global list filters       profileListWhere(kind) / eventListWhere / postListWhere
+//   Own-collection filter     collectionVisibilityWhere(kind, id, viewer)
+//   Cascade                   syncDescendantVisibility
+//
+// Access model: a PRIVATE entity is viewable by its owner OR a relationship edge —
+// a *follow* for users, *follow OR membership* for pages. Do NOT scatter visibility
+// checks into individual route handlers — add them here.
 
-import { Visibility, ResourceType, PermissionRole } from "@prisma/client";
+import { Visibility, ResourceType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getSessionContext } from "./session";
+
+type ProfileKind = "USER" | "PAGE";
 
 // ---------------------------------------------------------------------------
 // Viewer context — built once per request, cheap
@@ -38,31 +49,155 @@ export async function getViewerContext(): Promise<ViewerContext> {
 }
 
 // ---------------------------------------------------------------------------
-// List mode — for feeds, search, collection sections
-// Returns content that is PUBLIC, plus the viewer's own content.
-// Unlisted and Private are never surfaced in lists.
+// Relationship primitives — the single source of truth for "who is related"
 // ---------------------------------------------------------------------------
 
-/** Prisma where fragment for User list queries */
-export function userListWhere(viewer: ViewerContext) {
-  const publicClause = { visibility: Visibility.PUBLIC };
-  if (!viewer.userId) return publicClause;
-  return { OR: [publicClause, { id: viewer.userId }] };
+/** Does `viewerId` follow user `userId`? */
+export async function isFollower(viewerId: string, userId: string): Promise<boolean> {
+  const follow = await prisma.follow.findFirst({
+    where: { followerId: viewerId, followingUserId: userId },
+    select: { id: true },
+  });
+  return follow !== null;
 }
 
-/** Prisma where fragment for Page list queries */
-export function pageListWhere(viewer: ViewerContext) {
-  const publicClause = { visibility: Visibility.PUBLIC };
-  if (!viewer.userId) return publicClause;
-  return {
-    OR: [
-      publicClause,
-      { id: { in: viewer.memberPageIds } },
-    ],
-  };
+/** Does `viewerId` follow page `pageId`? */
+export async function isFollowingPage(viewerId: string, pageId: string): Promise<boolean> {
+  const follow = await prisma.follow.findFirst({
+    where: { followerId: viewerId, followingPageId: pageId },
+    select: { id: true },
+  });
+  return follow !== null;
 }
 
-/** Prisma where fragment for Event list queries */
+/** Does the viewer hold any Permission row (member/editor/admin) on `pageId`? */
+export function isMember(viewer: ViewerContext, pageId: string): boolean {
+  return viewer.memberPageIds.includes(pageId);
+}
+
+// ---------------------------------------------------------------------------
+// Detail mode — single-entity gates. PUBLIC/UNLISTED pass; PRIVATE needs a
+// relationship edge (or ownership).
+// ---------------------------------------------------------------------------
+
+/** Can the viewer see this profile (user or page)? */
+export async function canViewProfile(
+  kind: ProfileKind,
+  entity: { id: string; visibility: Visibility },
+  viewer: ViewerContext,
+): Promise<boolean> {
+  if (entity.visibility !== Visibility.PRIVATE) return true;
+  if (!viewer.userId) return false;
+  if (kind === "USER") {
+    if (viewer.userId === entity.id) return true;
+    return isFollower(viewer.userId, entity.id);
+  }
+  // PAGE — membership or a follow edge grants access
+  if (isMember(viewer, entity.id)) return true;
+  return isFollowingPage(viewer.userId, entity.id);
+}
+
+/** Thin wrapper — see canViewProfile. */
+export function canViewUser(
+  user: { id: string; visibility: Visibility },
+  viewer: ViewerContext,
+): Promise<boolean> {
+  return canViewProfile("USER", user, viewer);
+}
+
+/** Thin wrapper — see canViewProfile. */
+export function canViewPage(
+  page: { id: string; visibility: Visibility },
+  viewer: ViewerContext,
+): Promise<boolean> {
+  return canViewProfile("PAGE", page, viewer);
+}
+
+/** Check if the viewer can see an Event entity. */
+export async function canViewEvent(
+  event: { id: string; userId: string; pageId: string | null; visibility: Visibility },
+  viewer: ViewerContext,
+): Promise<boolean> {
+  if (event.visibility !== Visibility.PRIVATE) return true;
+  if (!viewer.userId) return false;
+  if (viewer.userId === event.userId) return true;
+  if (event.pageId) {
+    if (isMember(viewer, event.pageId)) return true;
+    return isFollowingPage(viewer.userId, event.pageId);
+  }
+  // Standalone (user-owned) event — visible to the owner's followers
+  return isFollower(viewer.userId, event.userId);
+}
+
+/** Check if the viewer can see a Post entity (uses post.visibility directly). */
+export async function canViewPost(
+  post: {
+    id: string;
+    userId: string;
+    pageId: string | null;
+    eventId: string | null;
+    visibility: Visibility;
+  },
+  viewer: ViewerContext,
+): Promise<boolean> {
+  if (post.visibility !== Visibility.PRIVATE) return true;
+  if (!viewer.userId) return false;
+  if (viewer.userId === post.userId) return true;
+  if (post.pageId) {
+    if (isMember(viewer, post.pageId)) return true;
+    return isFollowingPage(viewer.userId, post.pageId);
+  }
+  if (post.eventId) {
+    const event = await prisma.event.findUnique({
+      where: { id: post.eventId },
+      select: { userId: true, pageId: true },
+    });
+    if (!event) return false;
+    if (viewer.userId === event.userId) return true;
+    if (event.pageId) {
+      if (isMember(viewer, event.pageId)) return true;
+      return isFollowingPage(viewer.userId, event.pageId);
+    }
+    return isFollower(viewer.userId, event.userId);
+  }
+  // Standalone (user-owned) post — visible to the owner's followers
+  return isFollower(viewer.userId, post.userId);
+}
+
+/**
+ * Fetch a profile by id and gate it in one step. Returns `{ id, visibility }`
+ * when viewable, or `null` when missing OR not viewable (both → 404, so the
+ * route never leaks existence). De-dups the fetch+gate+notFound boilerplate
+ * across the profile/relationship routes.
+ */
+export async function requireViewableProfile(
+  kind: ProfileKind,
+  id: string,
+  viewer: ViewerContext,
+): Promise<{ id: string; visibility: Visibility } | null> {
+  const entity =
+    kind === "USER"
+      ? await prisma.user.findUnique({ where: { id }, select: { id: true, visibility: true } })
+      : await prisma.page.findUnique({ where: { id }, select: { id: true, visibility: true } });
+  if (!entity) return null;
+  if (!(await canViewProfile(kind, entity, viewer))) return null;
+  return entity;
+}
+
+// ---------------------------------------------------------------------------
+// Global list mode — feeds, search. Returns PUBLIC content plus the viewer's
+// own. UNLISTED and PRIVATE are never surfaced in global lists.
+// ---------------------------------------------------------------------------
+
+/** Prisma where fragment for profile (user/page) list/search queries. */
+export function profileListWhere(kind: ProfileKind, viewer: ViewerContext) {
+  const publicClause = { visibility: Visibility.PUBLIC };
+  if (!viewer.userId) return publicClause;
+  if (kind === "USER") return { OR: [publicClause, { id: viewer.userId }] };
+  return { OR: [publicClause, { id: { in: viewer.memberPageIds } }] };
+}
+
+/** Prisma where fragment for Event list queries. */
 export function eventListWhere(viewer: ViewerContext) {
   const publicClause = { visibility: Visibility.PUBLIC };
   if (!viewer.userId) return publicClause;
@@ -77,7 +212,7 @@ export function eventListWhere(viewer: ViewerContext) {
   };
 }
 
-/** Prisma where fragment for Post list queries (combined with status filter by caller) */
+/** Prisma where fragment for Post list queries (combined with status filter by caller). */
 export function postListWhere(viewer: ViewerContext) {
   const publicClause = { visibility: Visibility.PUBLIC };
   if (!viewer.userId) return publicClause;
@@ -93,156 +228,117 @@ export function postListWhere(viewer: ViewerContext) {
 }
 
 // ---------------------------------------------------------------------------
-// Detail mode — for single-entity routes
-// PUBLIC and UNLISTED are accessible to anyone.
-// PRIVATE requires a relationship: follow (users) or membership (pages/events).
+// Own-collection mode — a single entity's own profile/page collection.
+// Distinct from global feeds: anyone who reached the entity sees its
+// PUBLIC + UNLISTED content; owner / follower (user) / member-or-follower (page)
+// also see PRIVATE.
 // ---------------------------------------------------------------------------
 
-/** Check if the viewer can see a User entity */
-export async function canViewUser(
-  user: { id: string; visibility: Visibility },
-  viewer: ViewerContext,
+/** True if the viewer may see PRIVATE content belonging to this profile. */
+async function maySeePrivateOf(
+  kind: ProfileKind,
+  id: string,
+  viewer?: ViewerContext,
 ): Promise<boolean> {
-  if (user.visibility !== Visibility.PRIVATE) return true;
-  if (!viewer.userId) return false;
-  if (viewer.userId === user.id) return true;
-
-  // Check if viewer follows this user
-  const follow = await prisma.follow.findFirst({
-    where: { followerId: viewer.userId, followingUserId: user.id },
-    select: { id: true },
-  });
-  return follow !== null;
-}
-
-/** Check if the viewer can see a Page entity */
-export async function canViewPage(
-  page: { id: string; visibility: Visibility },
-  viewer: ViewerContext,
-): Promise<boolean> {
-  if (page.visibility !== Visibility.PRIVATE) return true;
-  if (!viewer.userId) return false;
-  // Any Permission row (member/editor/admin) grants access
-  return viewer.memberPageIds.includes(page.id);
-}
-
-/** Check if the viewer can see an Event entity */
-export async function canViewEvent(
-  event: { id: string; userId: string; pageId: string | null; visibility: Visibility },
-  viewer: ViewerContext,
-): Promise<boolean> {
-  if (event.visibility !== Visibility.PRIVATE) return true;
-  if (!viewer.userId) return false;
-  if (viewer.userId === event.userId) return true;
-  // Member of hosting page
-  if (event.pageId && viewer.memberPageIds.includes(event.pageId)) return true;
-  return false;
-}
-
-/** Check if the viewer can see a Post entity (uses post.visibility directly) */
-export async function canViewPost(
-  post: {
-    id: string;
-    userId: string;
-    pageId: string | null;
-    eventId: string | null;
-    visibility: Visibility;
-  },
-  viewer: ViewerContext,
-): Promise<boolean> {
-  if (post.visibility !== Visibility.PRIVATE) return true;
-  if (!viewer.userId) return false;
-  if (viewer.userId === post.userId) return true;
-  if (post.pageId && viewer.memberPageIds.includes(post.pageId)) return true;
-  // Event-owned post: check event's hosting page
-  if (post.eventId) {
-    const event = await prisma.event.findUnique({
-      where: { id: post.eventId },
-      select: { userId: true, pageId: true },
-    });
-    if (event) {
-      if (viewer.userId === event.userId) return true;
-      if (event.pageId && viewer.memberPageIds.includes(event.pageId)) return true;
-    }
+  if (!viewer?.userId) return false;
+  if (kind === "USER") {
+    return viewer.userId === id || isFollower(viewer.userId, id);
   }
-  return false;
+  return isMember(viewer, id) || isFollowingPage(viewer.userId, id);
+}
+
+/**
+ * Prisma visibility fragment for an entity's OWN collection query.
+ * `{}` (no restriction) when the viewer may see PRIVATE; otherwise PUBLIC+UNLISTED.
+ * Single source of truth for the four getX-by-Y collection functions.
+ */
+export async function collectionVisibilityWhere(
+  kind: ProfileKind,
+  id: string,
+  viewer?: ViewerContext,
+): Promise<object> {
+  if (await maySeePrivateOf(kind, id, viewer)) return {};
+  return { visibility: { in: [Visibility.PUBLIC, Visibility.UNLISTED] } };
 }
 
 // ---------------------------------------------------------------------------
-// Cascade sync — keep Post.visibility in step with parent visibility changes
+// Inheritance — the visibility a newly-created child should adopt from its parent.
+// ---------------------------------------------------------------------------
+
+/** Resolve the visibility a new post/event should inherit: page → event → user → PUBLIC. */
+export async function resolveParentVisibility(
+  userId: string,
+  pageId?: string | null,
+  eventId?: string | null,
+): Promise<Visibility> {
+  if (pageId) {
+    const page = await prisma.page.findUnique({ where: { id: pageId }, select: { visibility: true } });
+    return page?.visibility ?? Visibility.PUBLIC;
+  }
+  if (eventId) {
+    const event = await prisma.event.findUnique({ where: { id: eventId }, select: { visibility: true } });
+    return event?.visibility ?? Visibility.PUBLIC;
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { visibility: true } });
+  return user?.visibility ?? Visibility.PUBLIC;
+}
+
+// ---------------------------------------------------------------------------
+// Cascade — keep descendant Post/Event visibility in step with a parent change.
 // Call inside the same transaction as the parent update.
 // ---------------------------------------------------------------------------
 
 /**
- * Sync Post.visibility when a parent User/Page/Event changes visibility.
- * Pass `tx` if inside a Prisma transaction; otherwise uses the global prisma client.
+ * Sync descendant visibility when a parent User/Page/Event changes visibility.
+ * Covers child posts AND child events (and posts attached to those events).
+ * Pass `tx` when inside a Prisma transaction; otherwise uses the global client.
  */
-export async function syncChildPostVisibility(
+export async function syncDescendantVisibility(
   parentType: "USER" | "PAGE" | "EVENT",
   parentId: string,
   newVisibility: Visibility,
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ): Promise<void> {
-  const client = tx ?? prisma;
-
-  let where: object;
-  switch (parentType) {
-    case "USER":
-      // Only standalone user posts (no page, no event context)
-      where = { userId: parentId, pageId: null, eventId: null };
-      break;
-    case "PAGE":
-      where = { pageId: parentId };
-      break;
-    case "EVENT":
-      where = { eventId: parentId };
-      break;
-  }
-
-  await (client as typeof prisma).post.updateMany({
-    where,
-    data: { visibility: newVisibility },
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Page flip: Public → Private follower conversion
-// When a page transitions to PRIVATE, convert existing followers to MEMBER permissions.
-// Call inside the same transaction as the page update.
-// ---------------------------------------------------------------------------
-
-export async function convertFollowersToMembers(
-  pageId: string,
-  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-): Promise<void> {
   const client = (tx ?? prisma) as typeof prisma;
+  const data = { visibility: newVisibility };
 
-  // Find all user-followers of this page
-  const follows = await client.follow.findMany({
-    where: { followingPageId: pageId, followerPageId: null },
-    select: { followerId: true },
-  });
-
-  if (follows.length === 0) return;
-
-  // Upsert MEMBER permissions for each follower who doesn't already have one
-  for (const { followerId } of follows) {
-    if (!followerId) continue;
-    await client.permission.upsert({
-      where: {
-        userId_resourceId_resourceType: {
-          userId: followerId,
-          resourceId: pageId,
-          resourceType: ResourceType.PAGE,
-        },
-      },
-      update: {}, // keep existing role if already a member/editor/admin
-      create: {
-        userId: followerId,
-        resourceId: pageId,
-        resourceType: ResourceType.PAGE,
-        role: PermissionRole.MEMBER,
-      },
-    });
+  switch (parentType) {
+    case "PAGE": {
+      await client.post.updateMany({ where: { pageId: parentId }, data });
+      const events = await client.event.findMany({
+        where: { pageId: parentId },
+        select: { id: true },
+      });
+      await client.event.updateMany({ where: { pageId: parentId }, data });
+      if (events.length > 0) {
+        await client.post.updateMany({
+          where: { eventId: { in: events.map((e) => e.id) } },
+          data,
+        });
+      }
+      break;
+    }
+    case "USER": {
+      // Only standalone content (no page context)
+      await client.post.updateMany({
+        where: { userId: parentId, pageId: null, eventId: null },
+        data,
+      });
+      const events = await client.event.findMany({
+        where: { userId: parentId, pageId: null },
+        select: { id: true },
+      });
+      await client.event.updateMany({ where: { userId: parentId, pageId: null }, data });
+      if (events.length > 0) {
+        await client.post.updateMany({
+          where: { eventId: { in: events.map((e) => e.id) } },
+          data,
+        });
+      }
+      break;
+    }
+    case "EVENT":
+      await client.post.updateMany({ where: { eventId: parentId }, data });
+      break;
   }
 }
