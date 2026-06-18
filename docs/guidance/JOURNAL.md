@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
 
 
+#### Entry: Thu 06/18/2026 11:47 PDT
+Tooling (no app code): added a new `/prolib-review` skill that runs the standard `/code-review` then layers on ProLib's house rules and schema invariants (layer-enforcement diagram + entity invariants derived from `schema.prisma`), defaulting to `medium` effort with escalation on auth/permission/visibility/schema diffs. Also corrected stale `lib/...` → `src/lib/...` paths in `PROJECT_GUIDELINES.md` and left a `NETWERK_MERGE_HANDOFF.md` for the next agent to review-and-merge the `netwerk-1 → 2 → 3` stack bottom-up.
+
 #### Entry: Thu 06/18/2026 11:13 PDT
 First real `/prolib-qa` run plus skill hardening (`netwerk-3-bug-fixes`). Verified 8 QA tickets PASS via the local preview app and moved them to Done in Notion with all 20 criteria checked off (comment write-back is permission-blocked — Status + checked criteria are the durable record). Two bugs fixed mid-run: the profile **visibility selector** moved from the public profile into `/settings/personal-info` (batch-save session), and **edit/preview mode is now URL-driven** — `ProfileEditClient` derives `previewMode` from `?edit=true` and toggles it via `router.replace` (dropped `defaultReadonly`). Skill changes: write-back is now per-ticket and checks off existing `to_do` criteria rather than re-appending; rewrote `references/setup.md` (only alice/sam/laurel seeded — `laurel` hard-flagged off-limits as the owner's account; profiles are bare `/<handle>`, no `/u/` or `/profile`) and added a page→admin map plus a new `references/preview-tools.md`. The lone CI failure (`/explore` unauth) was confirmed flaky — `networkidle` racing external map tiles, unrelated to this session.
 

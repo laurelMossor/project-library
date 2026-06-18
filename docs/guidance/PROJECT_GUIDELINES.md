@@ -14,21 +14,21 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 
 ## Tech Stack
 - **Framework**: React + Next.js (App Router)
-- **Auth**: NextAuth v5 (session-based, `lib/auth.ts`)
+- **Auth**: NextAuth v5 (session-based, `src/lib/auth.ts`)
 - **DB**: PostgreSQL via Prisma ORM
 - **Storage**: Supabase storage buckets (image uploads → bucket "uploads", public URLs)
 - **Testing**: Playwright (E2E, `tests/`), Vitest (unit, `tests/unit/`)
 - **Deploy**: Vercel
 
 ## Key Conventions
-- **Routes**: All route constants in `lib/const/routes.ts` — never hardcode paths
-- **Server utils**: DB queries live in `lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`, `permission.ts`)
-- **Field selectors**: Reusable Prisma `select` objects in `lib/utils/server/fields.ts`
-- **Permissions**: `canPostAsPage()`, `canManagePage()`, `getPagesForUser()` in `lib/utils/server/permission.ts`
-- **Identity context**: `ActiveProfileContext` (`lib/contexts/`) — provides `activeEntity`, `activePageId`, `currentUser`, `switchProfile()`. All identity-aware UI reads from this context.
-- **Shared text utils**: Initials, truncation, display names → `lib/utils/text.ts`
-- **Validations**: All input validation in `lib/validations.ts` (events, posts, pages, messages)
-- **Types**: `lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
+- **Routes**: All route constants in `src/lib/const/routes.ts` — never hardcode paths
+- **Server utils**: DB queries live in `src/lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`, `permission.ts`)
+- **Field selectors**: Reusable Prisma `select` objects in `src/lib/utils/server/fields.ts`
+- **Permissions**: `canPostAsPage()`, `canManagePage()`, `getPagesForUser()` in `src/lib/utils/server/permission.ts`
+- **Identity context**: `ActiveProfileContext` (`src/lib/contexts/`) — provides `activeEntity`, `activePageId`, `currentUser`, `switchProfile()`. All identity-aware UI reads from this context.
+- **Shared text utils**: Initials, truncation, display names → `src/lib/utils/text.ts`
+- **Validations**: All input validation in `src/lib/validations.ts` (events, posts, pages, messages)
+- **Types**: `src/lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
 - **Re-exports**: Avoid re-exports. Either move the function or just import from where it already exists.
 
 ## UI Component Map
