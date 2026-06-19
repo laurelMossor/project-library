@@ -154,6 +154,8 @@ export async function createUser(data: {
 	middleName?: string;
 	lastName?: string;
 	displayName?: string;
+	/** Pre-verify the account (used by the dev-signup-bypass path + seed). */
+	emailVerified?: Date;
 }): Promise<{ userId: string }> {
 	const names = [data.firstName, data.lastName].filter(Boolean).join(" ");
 	const displayName = data.displayName ?? (names || null);
@@ -167,6 +169,7 @@ export async function createUser(data: {
 			middleName: data.middleName ?? null,
 			lastName: data.lastName ?? null,
 			displayName,
+			emailVerified: data.emailVerified ?? null,
 			handleRecord: { create: { handle: data.handle } },
 		},
 		select: { id: true },

@@ -12,6 +12,23 @@ export const SIGNUP_WITH_INVITE = (inviteToken: string) =>
 	`${SIGNUP}?${SIGNUP_INVITE_QUERY}=${encodeURIComponent(inviteToken)}`;
 export const LOGIN_WITH_CALLBACK = (callbackUrl: string) => `${LOGIN}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
+// Email verification
+export const VERIFY_EMAIL = "/verify-email";
+/** Post-signup "check your inbox" landing. */
+export const CHECK_INBOX = "/verify-email/check-inbox";
+/** Query param name for the verification token (`/verify-email?token=...`). */
+export const VERIFY_EMAIL_TOKEN_QUERY = "token";
+export const VERIFY_EMAIL_WITH_TOKEN = (token: string) =>
+	`${VERIFY_EMAIL}?${VERIFY_EMAIL_TOKEN_QUERY}=${encodeURIComponent(token)}`;
+
+// Password reset
+export const FORGOT_PASSWORD = "/forgot-password";
+export const RESET_PASSWORD = "/reset-password";
+/** Query param name for the password-reset token (`/reset-password?token=...`). */
+export const RESET_PASSWORD_TOKEN_QUERY = "token";
+export const RESET_PASSWORD_WITH_TOKEN = (token: string) =>
+	`${RESET_PASSWORD}?${RESET_PASSWORD_TOKEN_QUERY}=${encodeURIComponent(token)}`;
+
 // ============================================================================
 // Identity Routes
 // ============================================================================
@@ -57,6 +74,10 @@ export const MESSAGE_CONVERSATION = ({ id, type }: { id: string; type: "user" | 
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
+export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
+export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
+export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
+export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile

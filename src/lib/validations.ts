@@ -13,6 +13,15 @@ export function validateEmail(email: string): boolean {
 }
 
 /**
+ * Canonicalize an email for storage/lookup: lowercase + trim. Non-strings
+ * collapse to "" (which then fails validateEmail). Single source of truth so
+ * signup, login, and the password/verification flows normalize identically.
+ */
+export function normalizeEmail(input: unknown): string {
+	return typeof input === "string" ? input.toLowerCase().trim() : "";
+}
+
+/**
  * Strict handle validator: lowercase alphanumeric + `-` + `_`, 3–30 chars.
  *
  * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)
@@ -40,6 +49,12 @@ export function validateInviteToken(token: unknown): token is string {
 	const t = token.trim();
 	return t.length >= 20 && t.length <= 256;
 }
+
+/**
+ * Raw email-verification / password-reset token from a URL. Same base64url
+ * format and bounds as invite tokens (see auth-tokens.ts generateRawToken).
+ */
+export const validateAuthToken = validateInviteToken;
 
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format

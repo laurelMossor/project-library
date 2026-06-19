@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import bcrypt from "bcryptjs";
 import { badRequest, serverError } from "@/lib/utils/errors";
 import {
@@ -6,6 +6,7 @@ import {
 	validateHandle,
 	validatePassword,
 	validateInviteToken,
+	normalizeEmail,
 } from "@/lib/validations";
 import { isReservedHandle } from "@/lib/const/reserved-handles";
 import { isHandleTaken } from "@/lib/utils/server/handle";
@@ -13,8 +14,12 @@ import { consumeInviteAndCreateUser } from "@/lib/utils/server/signup-invite";
 import { isDevSignupBypassToken } from "@/lib/utils/server/dev-signup-bypass";
 import { prisma } from "@/lib/utils/server/prisma";
 import { createUser } from "@/lib/utils/server/user";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { logAction } from "@/lib/utils/server/log";
+import { createEmailVerificationToken } from "@/lib/utils/server/auth-tokens";
+import { sendVerificationEmail } from "@/lib/email/emails";
+import { absoluteUrl } from "@/lib/utils/server/url";
+import { VERIFY_EMAIL_WITH_TOKEN } from "@/lib/const/routes";
 
 /**
  * POST /api/auth/signup
@@ -36,18 +41,13 @@ import { logAction } from "@/lib/utils/server/log";
  */
 export async function POST(request: Request) {
 	// Rate limiting: 5 signups per hour per IP
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`signup:${clientId}`, {
-		maxRequests: 5,
-		windowMs: 60 * 60 * 1000, // 1 hour
-	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many signup attempts. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	const limited = await enforceRateLimit(
+		request,
+		"signup",
+		{ maxRequests: 5, windowMs: 60 * 60 * 1000 },
+		"Too many signup attempts. Please try again later.",
+	);
+	if (limited) return limited;
 
 	try {
 		const { email, password, handle, invite } = await request.json();
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 			return badRequest("A valid invitation link is required to sign up");
 		}
 
-		const normalizedEmail = email.toLowerCase().trim();
+		const normalizedEmail = normalizeEmail(email);
 		// PR 2 normalization rule: handles are stored lowercase. Lowercasing
 		// here means everything downstream (validators, taken-check, write)
 		// works against the canonical form.
@@ -109,6 +109,9 @@ export async function POST(request: Request) {
 					email: normalizedEmail,
 					handle: normalizedHandle,
 					passwordHash,
+					// Local / E2E accounts are born verified — no email to click,
+					// and it keeps the login-gated test suite green.
+					emailVerified: new Date(),
 				});
 				responseUserId = userId;
 			} catch (err) {
@@ -137,6 +140,25 @@ export async function POST(request: Request) {
 
 			responseUserId = result.userId;
 			logAction("user.signup", responseUserId);
+
+			// Real (invite) signup: issue a verification token and email it AFTER
+			// responding. Moved off the response path so a token/email failure can't
+			// turn a successfully-created account into a 500 — the user can always
+			// resend from the check-inbox / login pages.
+			const newUserId = responseUserId;
+			after(async () => {
+				try {
+					const { rawToken } = await createEmailVerificationToken(newUserId);
+					await sendVerificationEmail(
+						normalizedEmail,
+						absoluteUrl(VERIFY_EMAIL_WITH_TOKEN(rawToken)),
+					);
+				} catch (err) {
+					logAction("user.signup.verification_email_failed", newUserId, {
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			});
 		}
 
 		return NextResponse.json(

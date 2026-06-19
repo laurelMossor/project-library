@@ -36,6 +36,7 @@
     "@notionhq/client": "^5.7.0",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@react-email/components": "^1.0.12",
     "@supabase/supabase-js": "^2.89.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/bcryptjs": "^2.4.6",
@@ -56,6 +57,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-masonry-css": "^1.0.16",
+    "resend": "^6.12.4",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   },

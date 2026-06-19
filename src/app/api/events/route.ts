@@ -3,7 +3,7 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -29,18 +29,11 @@ function parseNumber(value: unknown): number | null {
  */
 export async function GET(request: Request) {
 	// Rate limiting: 60 requests per minute per IP
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`search-events:${clientId}`, {
+	const limited = await enforceRateLimit(request, "search-events", {
 		maxRequests: 60,
 		windowMs: 60 * 1000,
 	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	if (limited) return limited;
 
 	const { searchParams } = new URL(request.url);
 	const search = searchParams.get("search") || undefined;

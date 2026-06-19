@@ -365,6 +365,8 @@ async function main() {
         email: packet.email.toLowerCase(),
         passwordHash,
         handle,
+        // Seeded accounts are pre-verified so logins (incl. E2E) aren't gated.
+        emailVerified: new Date(),
         firstName: packet.firstName,
         lastName: packet.lastName,
         displayName:

@@ -45,8 +45,11 @@ export const RESERVED_HANDLES = new Set([
 	"oauth",
 	"callback",
 	"verify",
+	"verify-email",
 	"confirm",
 	"reset",
+	"reset-password",
+	"forgot-password",
 
 	// Infrastructure / static paths
 	"www",

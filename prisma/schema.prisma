@@ -66,9 +66,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email        String @unique
-  passwordHash String
-  handle       String @unique
+  email         String    @unique
+  passwordHash  String
+  handle        String    @unique
+  // null = not yet verified. Login is gated on this being set.
+  // Existing users were backfilled to verified in the adding migration.
+  emailVerified DateTime?
+  // Session epoch. Bumped on password reset to invalidate all existing JWTs
+  // for this user (the session callback rejects tokens with a stale version).
+  tokenVersion  Int       @default(0)
 
   firstName   String?
   middleName  String?
@@ -112,6 +118,10 @@ model User {
   // Microsite elements
   elements ProfileElement[]
 
+  // Auth email tokens
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+
   @@map("users")
 }
 
@@ -126,6 +136,39 @@ model SignupInvite {
 
   @@index([email])
   @@map("signup_invites")
+}
+
+// Email verification + password reset tokens.
+// Same shape as SignupInvite: the raw token is delivered by email and only its
+// SHA-256 hash is stored. Single-use (usedAt), time-boxed (expiresAt). Creating
+// a new token for a user deletes that user's prior unused tokens (see auth-tokens.ts).
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // ========================
