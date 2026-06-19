@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getUserById, updateUserProfile, personalProfileFields } from "@/lib/utils/server/user";
+import { getUserById } from "@/lib/utils/server/user";
 import { unauthorized, notFound, badRequest } from "@/lib/utils/errors";
 import { validateProfileData } from "@/lib/validations";
-import { processElementsPayload } from "@/lib/utils/server/profile-element";
-import { prisma } from "@/lib/utils/server/prisma";
+import { updateProfileWithCascade } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import type { Visibility } from "@prisma/client";
 
 /**
  * GET /api/me/user
@@ -46,7 +46,7 @@ export async function PUT(request: Request) {
 	const {
 		firstName, middleName, lastName,
 		displayName, headline, bio,
-		interests, location, isPublic, avatarImageId, aboutContent,
+		interests, location, visibility, avatarImageId, aboutContent,
 	} = fields as {
 		firstName?: string;
 		middleName?: string;
@@ -56,13 +56,13 @@ export async function PUT(request: Request) {
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		visibility?: Visibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	};
 
 	// Validate profile data
-	const validation = validateProfileData({ displayName, headline, bio, interests, location, isPublic });
+	const validation = validateProfileData({ displayName, headline, bio, interests, location, visibility });
 	if (!validation.valid) {
 		return badRequest(validation.error || "Invalid profile data");
 	}
@@ -78,22 +78,11 @@ export async function PUT(request: Request) {
 	}
 
 	try {
-		const user = await prisma.$transaction(async () => {
-			await updateUserProfile(userId, {
-				firstName, middleName, lastName,
-				displayName, headline, bio,
-				interests, location, isPublic, avatarImageId, aboutContent,
-			});
-
-			if (elements) {
-				await processElementsPayload({ userId }, elements);
-			}
-
-			return prisma.user.findUnique({
-				where: { id: userId },
-				select: personalProfileFields,
-			});
-		});
+		const user = await updateProfileWithCascade("USER", userId, {
+			firstName, middleName, lastName,
+			displayName, headline, bio,
+			interests, location, visibility, avatarImageId, aboutContent,
+		}, elements);
 
 		return NextResponse.json(user);
 	} catch {

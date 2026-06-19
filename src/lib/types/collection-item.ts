@@ -20,9 +20,11 @@ export type CollectionItemType = (typeof COLLECTION_TYPES)[keyof typeof COLLECTI
 export interface BaseCollectionItem {
 	id: string;
 	userId: string;
+	pageId: string | null;
 	title: string | null;
 	content: string;
 	status: "DRAFT" | "PUBLISHED";
+	visibility: "PUBLIC" | "UNLISTED" | "PRIVATE";
 	tags: string[];
 	topics: string[];
 	user: { id: string; handle: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };

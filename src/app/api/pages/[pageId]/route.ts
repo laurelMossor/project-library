@@ -3,9 +3,10 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
 import { canManagePage } from "@/lib/utils/server/permission";
-import { getPageById, updatePageProfile, publicPageFields } from "@/lib/utils/server/page";
-import { processElementsPayload } from "@/lib/utils/server/profile-element";
+import { getPageById } from "@/lib/utils/server/page";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import { getViewerContext, canViewProfile } from "@/lib/utils/server/visibility";
+import { updateProfileWithCascade } from "@/lib/utils/server/profile-update";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -17,9 +18,14 @@ type RouteParams = { params: Promise<{ pageId: string }> };
 export async function GET(_request: Request, { params }: RouteParams) {
 	try {
 		const { pageId } = await params;
-		const page = await getPageById(pageId);
+		const [page, viewer] = await Promise.all([getPageById(pageId), getViewerContext()]);
 
 		if (!page) {
+			return notFound("Page not found");
+		}
+
+		// Visibility gate: PRIVATE pages are 404 for non-members/non-followers
+		if (!(await canViewProfile("PAGE", page, viewer))) {
 			return notFound("Page not found");
 		}
 
@@ -52,21 +58,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
 		const body = (await request.json()) as SavePayload;
 		const { fields = {}, elements } = body;
 
-		const page = await prisma.$transaction(async () => {
-			// Apply scalar field updates
-			await updatePageProfile(pageId, fields as Parameters<typeof updatePageProfile>[1]);
-
-			// Apply element operations
-			if (elements) {
-				await processElementsPayload({ pageId }, elements);
-			}
-
-			// Re-fetch with elements included
-			return prisma.page.findUnique({
-				where: { id: pageId },
-				select: publicPageFields,
-			});
-		});
+		const page = await updateProfileWithCascade(
+			"PAGE",
+			pageId,
+			fields as Record<string, unknown>,
+			elements,
+		);
 
 		return NextResponse.json(page);
 	} catch (error) {

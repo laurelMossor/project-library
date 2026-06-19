@@ -3,7 +3,8 @@
     { "follower": "alice.example", "following": "sam.example" },
     { "follower": "sam.example", "following": "alice.example" },
     { "follower": "alice.example", "following": "portland-makers-guild" },
-    { "follower": "sam.example", "following": "portland-makers-guild" }
+    { "follower": "sam.example", "following": "portland-makers-guild" },
+    { "follower": "alice.example", "following": "private-pat.example" }
   ],
   "conversations": [
     {

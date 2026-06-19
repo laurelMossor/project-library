@@ -1,0 +1,18 @@
+{
+  "name": "Unlisted Zine",
+  "handle": "unlisted-zine",
+  "headline": "A zine shared only by direct link",
+  "bio": "This page is unlisted — it won't appear in search or Explore, but anyone with the link can view it.",
+  "interests": ["zines", "publishing"],
+  "location": "Portland, OR",
+  "visibility": "UNLISTED",
+  "creatorHandle": "alice.example",
+  "posts": [
+    {
+      "title": "Unlisted post",
+      "content": "This post is on an unlisted page — reachable by direct link but not in public feeds.",
+      "status": "PUBLISHED",
+      "visibility": "UNLISTED"
+    }
+  ]
+}

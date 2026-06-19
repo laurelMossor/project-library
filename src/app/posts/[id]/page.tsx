@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { postWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { PostPageClient } from "@/lib/components/post/PostPageClient";
+import { getViewerContext, canViewPost } from "@/lib/utils/server/visibility";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -11,7 +12,7 @@ type Props = {
 
 export default async function PostDetailPage({ params }: Props) {
 	const { id } = await params;
-	const session = await auth();
+	const [session, viewer] = await Promise.all([auth(), getViewerContext()]);
 
 	const post = await prisma.post.findUnique({
 		where: { id },
@@ -27,6 +28,11 @@ export default async function PostDetailPage({ params }: Props) {
 
 	// Non-owners cannot see DRAFT posts
 	if (post.status === "DRAFT" && !isOwner) {
+		notFound();
+	}
+
+	// Visibility gate: PRIVATE posts are 404 for unauthorized viewers
+	if (!(await canViewPost(post, viewer))) {
 		notFound();
 	}
 

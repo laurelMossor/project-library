@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
+import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
@@ -82,22 +83,24 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
-	const sessionCtx = await getSessionContext();
+	const viewer = await getViewerContext();
 
 	// Determine draft visibility:
 	// - user querying their own posts: no status filter (see all own posts)
 	// - logged-in user querying anything else: see published + own drafts
 	// - anonymous: published only
-	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
+	const isOwnUserQuery = !!(viewer.userId && userId && userId === viewer.userId);
 
-	// Both status and search may need an OR clause — collect them in AND to avoid
-	// the two OR keys clobbering each other when spread into the same object.
+	// Collect all AND conditions to avoid multiple OR keys clobbering each other.
 	const andConditions: object[] = [];
 
 	// Non-own queries always see published only — drafts are only visible on your own profile page
 	if (!isOwnUserQuery) {
 		andConditions.push({ status: "PUBLISHED" as const });
 	}
+
+	// Visibility: list mode only shows PUBLIC content (plus the viewer's own)
+	andConditions.push(postListWhere(viewer));
 
 	if (search) {
 		andConditions.push({ OR: [

@@ -1,5 +1,7 @@
 import type { ProfileElementItem } from "./profile-element";
 
+export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+
 export interface PublicPage {
   id: string;
   createdByUserId: string;
@@ -9,7 +11,7 @@ export interface PublicPage {
   bio: string | null;
   interests: string[];
   location: string | null;
-  visibility: string;
+  visibility: Visibility;
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;

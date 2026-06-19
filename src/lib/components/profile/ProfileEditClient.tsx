@@ -13,6 +13,8 @@ import { Tag } from "@/lib/components/tag/Tag";
 import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { EyeIcon, PencilIcon } from "@/lib/components/icons/icons";
+import { VisibilitySelector } from "@/lib/components/visibility/VisibilitySelector";
+import type { Visibility } from "@/lib/types/user";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
@@ -53,6 +55,7 @@ function ProfileOwnerContent({
 	const [editBio, setEditBio] = useState(entity.data.bio || "");
 	const [editLocation, setEditLocation] = useState(entity.data.location || "");
 	const [editInterests, setEditInterests] = useState<string[]>(entity.data.interests);
+	const [editVisibility, setEditVisibility] = useState<Visibility>(entity.data.visibility ?? "PUBLIC");
 
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
@@ -62,6 +65,7 @@ function ProfileOwnerContent({
 		setEditBio(entity.data.bio || "");
 		setEditLocation(entity.data.location || "");
 		setEditInterests(entity.data.interests);
+		setEditVisibility(entity.data.visibility ?? "PUBLIC");
 		setEditingField(null);
 	// cancelRevision is the only intended trigger
 	// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,6 +256,19 @@ function ProfileOwnerContent({
 					handle={entity.data.handle}
 					hasAboutContent={!!entity.data.aboutContent}
 				/>
+
+				{/* Visibility — shown only in edit mode */}
+				{canEdit && (
+					<div className="pt-2 border-t border-gray-100">
+						<VisibilitySelector
+							value={editVisibility}
+							onChange={(v) => {
+								setEditVisibility(v);
+								session?.setDirty("visibility", v, entity.data.visibility ?? "PUBLIC");
+							}}
+						/>
+					</div>
+				)}
 
 				{/* Follow stats — always last */}
 				<FollowStats entityId={entityId} entityType={entityType} connectionsHref={connectionsHref} />

@@ -6,6 +6,9 @@
 4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
 
 
+#### Entry: Fri 06/05/2026 12:12 PDT
+Visibility model shipped (Netwerk P0). Renamed `PageVisibility` → unified `Visibility` enum; added `visibility` to User, Event, and Post (replacing `User.isPublic`); migrated and backfilled dev DB. Built centralized enforcement layer (`src/lib/utils/server/visibility.ts`) with viewer-aware list-mode filters and detail-mode gates — all existing scattered draft-gating sites consolidated here. Cascade-sync keeps `Post.visibility` in step when a parent User/Page/Event flips; Public→Private page flip converts existing followers to MEMBER permissions in the same transaction. `VisibilitySelector` UI (radio-group + compact select) wired into profile and page inline-edit sessions. Seed extended with `secret-workshop` (PRIVATE) and `unlisted-zine` (UNLISTED) fixtures. 30 new unit tests, 11 new E2E tests; 155 unit + 43 E2E all green. Follow-up ticket for Request-to-Follow/Request-to-Join approval flows filed in ProLib Tickets (NETWERK, P1) — prod migration still needs user approval before applying to Supabase.
+
 #### Entry: Sat 05/09/2026 12:03 PDT
 Prod sync and bug fixes. Applied the final missing migration (`add_event_timezone`) to prod Supabase — the other four post-signup-invites migrations had already been applied manually. Reseeded prod and uploaded missing example images to Supabase storage (4 avatar/event images plus `spats-2-anniversary.jpg`). Fixed e2e test failures: three tests still referenced the old `/profile` route and "Profile Settings" heading after the rename to `/settings`; updated to match current routes. Fixed a bug where page-owned events appeared on the creator's personal profile — `getEventsByUser` and `GET /api/events?userId=` were missing the `pageId: null` filter that `getPostsByUser` already had.
 

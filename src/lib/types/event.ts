@@ -32,6 +32,8 @@ export interface EventCreateInput {
 	tags?: string[];
 }
 
+export type EventVisibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+
 export interface EventUpdateInput {
 	title?: string | null;
 	content?: string;
@@ -42,4 +44,5 @@ export interface EventUpdateInput {
 	longitude?: number | null;
 	tags?: string[];
 	status?: EventStatus;
+	visibility?: EventVisibility;
 }

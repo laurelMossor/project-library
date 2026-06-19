@@ -6,11 +6,31 @@ import type { PostItem, PostCollectionItem, PostCreateInput, PostUpdateInput } f
 import { postCollectionFields, postWithUserFields } from "./fields";
 import { getImagesForTargetsBatch } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
+import type { ViewerContext } from "./visibility";
+import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent } from "./visibility";
+import { Visibility } from "@prisma/client";
 
-/** Fetch update posts attached to an event, sorted by createdAt (newest first) */
-export async function getEventUpdates(eventId: string): Promise<PostItem[]> {
+/**
+ * Fetch update posts attached to an event, sorted by createdAt (newest first).
+ * Pass `viewer` to gate PRIVATE updates by the parent event's relationship
+ * (defense-in-depth — the caller route also gates the event itself).
+ */
+export async function getEventUpdates(eventId: string, viewer?: ViewerContext): Promise<PostItem[]> {
+	const event = await prisma.event.findUnique({
+		where: { id: eventId },
+		select: { id: true, userId: true, pageId: true, visibility: true },
+	});
+	if (!event) return [];
+
+	const canSeePrivate = viewer
+		? await canViewEvent(event, viewer)
+		: event.visibility !== Visibility.PRIVATE;
+
 	const posts = await prisma.post.findMany({
-		where: { eventId },
+		where: {
+			eventId,
+			...(canSeePrivate ? {} : { visibility: { in: [Visibility.PUBLIC, Visibility.UNLISTED] } }),
+		},
 		orderBy: { createdAt: "desc" },
 		select: postWithUserFields,
 	});
@@ -30,8 +50,12 @@ export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> 
 /**
  * Fetch a user's top-level published posts for public views (explore, other users' profiles).
  * Pass `includeDrafts: true` to also return drafts (for the author's own profile view).
+ * Pass `viewer` to apply visibility filtering (omit only when caller already knows viewer is owner).
  */
-export async function getPostsByUser(userId: string, { includeDrafts = false } = {}): Promise<PostCollectionItem[]> {
+export async function getPostsByUser(
+	userId: string,
+	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
+): Promise<PostCollectionItem[]> {
 	const posts = await prisma.post.findMany({
 		where: {
 			userId,
@@ -39,6 +63,7 @@ export async function getPostsByUser(userId: string, { includeDrafts = false } =
 			parentPostId: null,
 			eventId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...(await collectionVisibilityWhere("USER", userId, viewer)),
 		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -57,14 +82,19 @@ export async function getPostsByUser(userId: string, { includeDrafts = false } =
 /**
  * Fetch a page's top-level published posts for public views.
  * Pass `includeDrafts: true` to also return drafts (for page admins/editors).
+ * Pass `viewer` to apply visibility filtering (omit only when caller already knows viewer is a member).
  */
-export async function getPostsByPage(pageId: string, { includeDrafts = false } = {}): Promise<PostCollectionItem[]> {
+export async function getPostsByPage(
+	pageId: string,
+	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
+): Promise<PostCollectionItem[]> {
 	const posts = await prisma.post.findMany({
 		where: {
 			pageId,
 			parentPostId: null,
 			eventId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...(await collectionVisibilityWhere("PAGE", pageId, viewer)),
 		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -115,6 +145,8 @@ export async function createPost(
 		}
 	}
 
+	const visibility = await resolveParentVisibility(userId, data.pageId, data.eventId);
+
 	// Create the post
 	const post = await prisma.post.create({
 		data: {
@@ -125,6 +157,7 @@ export async function createPost(
 			title: data.title?.trim() || null,
 			content: data.content.trim(),
 			tags: data.tags || [],
+			visibility,
 		},
 		select: postWithUserFields,
 	});
@@ -196,14 +229,17 @@ export async function deletePost(postId: string): Promise<void> {
 /**
  * Create a minimal DRAFT post for the draft-then-inline-edit flow.
  * Called server-side when an owner navigates to /posts/new.
+ * Inherits visibility from the parent page (or user if standalone).
  */
 export async function createDraftPost(userId: string, pageId?: string): Promise<PostItem> {
+	const visibility = await resolveParentVisibility(userId, pageId);
 	const post = await prisma.post.create({
 		data: {
 			userId,
 			pageId: pageId || null,
 			content: "",
 			status: "DRAFT",
+			visibility,
 		},
 		select: postWithUserFields,
 	});

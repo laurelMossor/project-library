@@ -22,6 +22,7 @@ function makeEvent(overrides: Partial<EventItem> = {}): EventItem {
   return {
     id: "ev1",
     userId: "u1",
+    pageId: null,
     type: "event",
     title: "Test Event",
     content: "Event content",
@@ -38,6 +39,7 @@ function makeEvent(overrides: Partial<EventItem> = {}): EventItem {
     latitude: null,
     longitude: null,
     status: "PUBLISHED",
+    visibility: "PUBLIC",
     images: [],
     ...overrides,
   };
@@ -47,6 +49,7 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
   return {
     id: "p1",
     userId: "u1",
+    pageId: null,
     type: "post",
     title: "Test Post",
     content: "Post content",
@@ -60,6 +63,7 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
     parentPostId: null,
     pinnedAt: null,
     status: "PUBLISHED" as const,
+    visibility: "PUBLIC",
     images: [],
     ...overrides,
   };

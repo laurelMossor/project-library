@@ -17,7 +17,7 @@ export const personalProfileFields = {
 	bio: true,
 	interests: true,
 	location: true,
-	isPublic: true,
+	visibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
@@ -36,10 +36,26 @@ export const publicUserFields = {
 	bio: true,
 	interests: true,
 	location: true,
+	visibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
 	elements: { select: profileElementFields, where: { visible: true }, orderBy: { sortOrder: "asc" as const } },
+} as const;
+
+// Attribution-only fields for embedding a user on OTHER content (post/event author,
+// message participant). Deliberately excludes sensitive profile fields
+// (bio/location/interests/aboutContent/email) so a PRIVATE user's details never ride
+// along on their public content. The full profile is fetched only by the gated profile
+// page via publicUserFields. Enforced by the embed-selector test guard.
+export const publicUserEmbedFields = {
+	id: true,
+	handle: true,
+	firstName: true,
+	lastName: true,
+	displayName: true,
+	avatarImageId: true,
+	avatarImage: { select: { url: true } },
 } as const;
 
 // Fetch a user by ID (for authenticated user's own profile)
@@ -73,10 +89,11 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		visibility?: import("@prisma/client").Visibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
-	}
+	},
+	tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ) {
 	// Build update data object with only explicitly provided fields
 	// This prevents accidentally overwriting fields with undefined
@@ -89,7 +106,7 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		visibility?: import("@prisma/client").Visibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	} = {};
@@ -102,11 +119,11 @@ export async function updateUserProfile(
 	if (data.bio !== undefined) updateData.bio = data.bio;
 	if (data.interests !== undefined) updateData.interests = data.interests;
 	if (data.location !== undefined) updateData.location = data.location;
-	if (data.isPublic !== undefined) updateData.isPublic = data.isPublic;
+	if (data.visibility !== undefined) updateData.visibility = data.visibility;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
 	if (data.aboutContent !== undefined) updateData.aboutContent = data.aboutContent;
 
-	return prisma.user.update({
+	return ((tx ?? prisma) as typeof prisma).user.update({
 		where: { id: userId },
 		data: updateData,
 		select: personalProfileFields,
@@ -157,31 +174,3 @@ export async function createUser(data: {
 	return { userId: user.id };
 }
 
-const searchUserFields = {
-	id: true,
-	handle: true,
-	displayName: true,
-	avatarImageId: true,
-	avatarImage: { select: { url: true } },
-} as const;
-
-// TODO: I feel like this should be under search by handle and then filter by page or user if necessary
-export async function searchUsers(query: string, limit = 8) {
-	if (query.length < 2) return [];
-
-	const filter = { startsWith: query, mode: "insensitive" as const };
-
-	return prisma.user.findMany({
-		where: {
-			OR: [
-				{ handle: filter },
-				{ displayName: filter },
-				{ firstName: filter },
-				{ lastName: filter },
-			],
-		},
-		select: searchUserFields,
-		take: limit,
-		orderBy: { displayName: "asc" },
-	});
-}

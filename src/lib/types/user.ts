@@ -1,5 +1,7 @@
 import type { ProfileElementItem } from "./profile-element";
 
+export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+
 export interface ProfileData {
 	firstName?: string;
 	middleName?: string;
@@ -9,7 +11,7 @@ export interface ProfileData {
 	bio?: string;
 	interests?: string[];
 	location?: string;
-	isPublic?: boolean;
+	visibility?: Visibility;
 	avatarImageId?: string | null;
 }
 
@@ -26,7 +28,7 @@ export interface User {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
-	isPublic: boolean;
+	visibility: Visibility;
 	avatarImageId: string | null;
 	createdAt: Date;
 	updatedAt: Date;
@@ -44,6 +46,7 @@ export interface PublicUser {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
+	visibility: Visibility;
 	aboutContent: string | null;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;

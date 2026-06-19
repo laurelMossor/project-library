@@ -1,6 +1,20 @@
 // ⚠️ SERVER-ONLY: Reusable field selection objects for Prisma queries
 import { Prisma } from "@prisma/client";
-import { publicUserFields } from "./user";
+import { publicUserEmbedFields } from "./user";
+
+/**
+ * Attribution-only fields for embedding a page on OTHER content (a post's/event's
+ * hosting page). Excludes a page's bio/interests/location/visibility so a non-public
+ * page's details don't ride along on content. Mirrors publicUserEmbedFields and is
+ * covered by the same embed-selector test guard.
+ */
+export const publicPageEmbedFields = {
+  id: true,
+  name: true,
+  handle: true,
+  avatarImageId: true,
+  avatarImage: { select: { url: true } },
+} as const;
 
 export const imageFields = {
   id: true,
@@ -38,6 +52,7 @@ export const eventBaseFields = {
   latitude: true,
   longitude: true,
   status: true,
+  visibility: true,
   pinnedAt: true,
   tags: true,
   topics: true,
@@ -48,20 +63,10 @@ export const eventBaseFields = {
 export const eventWithUserFields = {
   ...eventBaseFields,
   user: {
-    select: publicUserFields,
+    select: publicUserEmbedFields,
   },
   page: {
-    select: {
-      id: true,
-      name: true,
-      handle: true,
-      headline: true,
-      bio: true,
-      interests: true,
-      location: true,
-      avatarImageId: true,
-      avatarImage: { select: { url: true } },
-    },
+    select: publicPageEmbedFields,
   },
 } as const;
 
@@ -98,6 +103,7 @@ export const postBaseFields = {
   title: true,
   content: true,
   status: true,
+  visibility: true,
   pinnedAt: true,
   tags: true,
   topics: true,
@@ -108,16 +114,10 @@ export const postBaseFields = {
 export const postWithUserFields = {
   ...postBaseFields,
   user: {
-    select: publicUserFields,
+    select: publicUserEmbedFields,
   },
   page: {
-    select: {
-      id: true,
-      name: true,
-      handle: true,
-      avatarImageId: true,
-      avatarImage: { select: { url: true } },
-    },
+    select: publicPageEmbedFields,
   },
   event: {
     select: {

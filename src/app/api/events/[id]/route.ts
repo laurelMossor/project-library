@@ -6,6 +6,8 @@ import { validateEventUpdateData } from "@/lib/validations";
 import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
+import { syncDescendantVisibility, getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
+import type { Visibility } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -44,6 +46,12 @@ export async function GET(request: Request, { params }: Params) {
 			if (!ctx || ctx.userId !== event.userId) {
 				return notFound("Event not found");
 			}
+		}
+
+		// Visibility gate: PRIVATE events are 404 for unauthorized viewers
+		const viewer = await getViewerContext();
+		if (!(await canViewEvent(event, viewer))) {
+			return notFound("Event not found");
 		}
 
 		// Load images
@@ -93,7 +101,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, pinnedAt } = data;
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, visibility, pinnedAt } = data;
 
 		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
@@ -124,6 +132,7 @@ export async function PATCH(request: Request, { params }: Params) {
 			longitude: parsedLongitude ?? undefined,
 			tags: processedTags,
 			status,
+			visibility,
 		});
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid event data");
@@ -140,6 +149,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 		if (status !== undefined) updateData.status = status;
+		if (visibility !== undefined) updateData.visibility = visibility;
 		if (pinnedAt !== undefined) {
 			if (pinnedAt !== null) {
 				// Enforce 3-pin limit before pinning
@@ -162,10 +172,16 @@ export async function PATCH(request: Request, { params }: Params) {
 			}
 		}
 
-		const event = await prisma.event.update({
-			where: { id },
-			data: updateData,
-			select: eventWithUserFields,
+		const [event] = await prisma.$transaction(async (tx) => {
+			const updated = await tx.event.update({
+				where: { id },
+				data: updateData,
+				select: eventWithUserFields,
+			});
+			if (visibility !== undefined) {
+				await syncDescendantVisibility("EVENT", id, visibility as Visibility, tx);
+			}
+			return [updated];
 		});
 
 		// Load images

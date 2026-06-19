@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchProfiles } from "@/lib/utils/server/search";
 import { serverError } from "@/lib/utils/errors";
+import { getViewerContext } from "@/lib/utils/server/visibility";
 
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
@@ -12,7 +13,8 @@ export async function GET(request: Request) {
 	}
 
 	try {
-		const results = await searchProfiles(query, { type });
+		const viewer = await getViewerContext();
+		const results = await searchProfiles(query, { type, viewer });
 		return NextResponse.json({ results });
 	} catch (error) {
 		console.error("GET /api/search/profiles error:", error);

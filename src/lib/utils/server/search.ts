@@ -1,6 +1,9 @@
 // ⚠️ SERVER-ONLY: Profile search utility
 import { prisma } from "./prisma";
 import type { SearchResultItem } from "@/lib/types/search";
+import { profileListWhere, type ViewerContext } from "./visibility";
+
+const ANON_VIEWER: ViewerContext = { userId: null, memberPageIds: [] };
 
 const searchUserFields = {
 	id: true,
@@ -25,11 +28,12 @@ const searchPageFields = {
 type SearchProfilesOptions = {
 	type?: "user" | "page" | "all";
 	limit?: number;
+	viewer?: ViewerContext;
 };
 
 export async function searchProfiles(
 	query: string,
-	{ type = "all", limit = 12 }: SearchProfilesOptions = {}
+	{ type = "all", limit = 12, viewer = ANON_VIEWER }: SearchProfilesOptions = {}
 ): Promise<SearchResultItem[]> {
 	if (query.length < 2) return [];
 
@@ -40,11 +44,16 @@ export async function searchProfiles(
 	if (type === "all" || type === "user") {
 		const users = await prisma.user.findMany({
 			where: {
-				OR: [
-					{ handle: filter },
-					{ displayName: filter },
-					{ firstName: filter },
-					{ lastName: filter },
+				AND: [
+					profileListWhere("USER", viewer),
+					{
+						OR: [
+							{ handle: filter },
+							{ displayName: filter },
+							{ firstName: filter },
+							{ lastName: filter },
+						],
+					},
 				],
 			},
 			select: searchUserFields,
@@ -69,9 +78,14 @@ export async function searchProfiles(
 	if (type === "all" || type === "page") {
 		const pages = await prisma.page.findMany({
 			where: {
-				OR: [
-					{ handle: filter },
-					{ name: filter },
+				AND: [
+					profileListWhere("PAGE", viewer),
+					{
+						OR: [
+							{ handle: filter },
+							{ name: filter },
+						],
+					},
 				],
 			},
 			select: searchPageFields,
