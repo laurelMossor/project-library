@@ -518,7 +518,16 @@ async function main() {
     });
   }
 
-  for (const packet of userPackets) {
+  // Downstream content loops only touch entities that were actually seeded —
+  // env-gated profiles (and the pages they own) may have been skipped above.
+  const seededUserPackets = userPackets.filter((p) =>
+    usersByHandle.has(p.handle.toLowerCase())
+  );
+  const seededPagePackets = pagePackets.filter((p) =>
+    pagesByHandle.has(p.handle.toLowerCase())
+  );
+
+  for (const packet of seededUserPackets) {
     if (!packet.avatarImage) continue;
     const user = usersByHandle.get(packet.handle.toLowerCase())!;
     const image = await createImage(packet.avatarImage, user.id);
@@ -528,7 +537,7 @@ async function main() {
     });
   }
 
-  for (const packet of pagePackets) {
+  for (const packet of seededPagePackets) {
     if (!packet.avatarImage) continue;
     const page = pagesByHandle.get(packet.handle.toLowerCase())!;
     const image = await createImage(packet.avatarImage, page.creatorUserId);
@@ -542,7 +551,7 @@ async function main() {
   console.log("📝 Creating user content...");
   const createdEventsByOwner = new Map<string, { id: string }[]>();
 
-  for (const packet of userPackets) {
+  for (const packet of seededUserPackets) {
     const handle = packet.handle.toLowerCase();
     const user = usersByHandle.get(handle)!;
 
@@ -644,7 +653,7 @@ async function main() {
   // ── Page Content ──
   console.log("📄 Creating page content...");
 
-  for (const packet of pagePackets) {
+  for (const packet of seededPagePackets) {
     const handle = packet.handle.toLowerCase();
     const page = pagesByHandle.get(handle)!;
 
