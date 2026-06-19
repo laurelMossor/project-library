@@ -3,7 +3,7 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,18 +13,11 @@ type Params = { params: Promise<{ id: string }> };
  * Create or update an RSVP (public, no auth required)
  */
 export async function POST(request: Request, { params }: Params) {
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`rsvp-create:${clientId}`, {
+	const limited = await enforceRateLimit(request, "rsvp-create", {
 		maxRequests: 10,
 		windowMs: 60 * 1000,
 	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	if (limited) return limited;
 
 	try {
 		const { id } = await params;

@@ -189,7 +189,7 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 						title={`${displayName}'s Collection`}
 						emptyMessage={`${displayName} hasn't created anything yet.`}
 						showCreateLinks={false}
-						currentUserId={viewerId}
+						currentUserId={viewerId ?? undefined}
 					/>
 				</CenteredLayout>
 			);

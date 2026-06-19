@@ -13,6 +13,15 @@ export function validateEmail(email: string): boolean {
 }
 
 /**
+ * Canonicalize an email for storage/lookup: lowercase + trim. Non-strings
+ * collapse to "" (which then fails validateEmail). Single source of truth so
+ * signup, login, and the password/verification flows normalize identically.
+ */
+export function normalizeEmail(input: unknown): string {
+	return typeof input === "string" ? input.toLowerCase().trim() : "";
+}
+
+/**
  * Strict handle validator: lowercase alphanumeric + `-` + `_`, 3–30 chars.
  *
  * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)

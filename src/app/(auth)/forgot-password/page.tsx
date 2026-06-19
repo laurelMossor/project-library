@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/lib/components/ui/Button";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormError } from "@/lib/components/forms/FormError";
+import { AuthCard } from "@/lib/components/auth/AuthCard";
 import { API_AUTH_FORGOT_PASSWORD, LOGIN } from "@/lib/const/routes";
 
 export default function ForgotPasswordPage() {
@@ -25,46 +28,41 @@ export default function ForgotPasswordPage() {
 	};
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-4">
-			<div className="w-full max-w-sm space-y-4 text-center">
-				<h1 className="text-2xl font-bold">Reset your password</h1>
+		<AuthCard>
+			<h1 className="text-2xl font-bold">Reset your password</h1>
 
-				{status === "sent" ? (
-					<p className="text-misty-forest">
-						If an account exists for that email, we&apos;ve sent a reset link.
-						Check your inbox.
-					</p>
-				) : (
-					<form onSubmit={handleSubmit} className="space-y-4">
-						<p className="text-sm text-misty-forest">
-							Enter your email and we&apos;ll send you a link to choose a new
-							password.
-						</p>
-						<input
-							type="email"
-							placeholder="Email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className="w-full border p-2 rounded"
-							required
-						/>
-						<Button type="submit" fullWidth disabled={status === "sending"}>
-							{status === "sending" ? "Sending…" : "Send reset link"}
-						</Button>
-						{status === "error" && (
-							<p className="text-sm text-red-500">
-								Something went wrong. Please try again.
-							</p>
-						)}
-					</form>
-				)}
-
-				<p className="text-sm">
-					<Link href={LOGIN} className="underline">
-						Back to log in
-					</Link>
+			{status === "sent" ? (
+				<p className="text-misty-forest">
+					If an account exists for that email, we&apos;ve sent a reset link.
+					Check your inbox.
 				</p>
-			</div>
-		</main>
+			) : (
+				<form onSubmit={handleSubmit} className="space-y-4">
+					<p className="text-sm text-misty-forest">
+						Enter your email and we&apos;ll send you a link to choose a new
+						password.
+					</p>
+					<FormInput
+						type="email"
+						placeholder="Email"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						required
+					/>
+					<Button type="submit" fullWidth disabled={status === "sending"}>
+						{status === "sending" ? "Sending…" : "Send reset link"}
+					</Button>
+					{status === "error" && (
+						<FormError error="Something went wrong. Please try again." />
+					)}
+				</form>
+			)}
+
+			<p className="text-sm">
+				<Link href={LOGIN} className="underline">
+					Back to log in
+				</Link>
+			</p>
+		</AuthCard>
 	);
 }

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/lib/components/ui/Button";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormError } from "@/lib/components/forms/FormError";
 import { API_AUTH_RESEND_VERIFICATION } from "@/lib/const/routes";
 
 interface ResendVerificationProps {
@@ -44,21 +46,18 @@ export function ResendVerification({ initialEmail = "" }: ResendVerificationProp
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-2">
-			<input
+			<FormInput
 				type="email"
 				placeholder="Email"
 				value={email}
 				onChange={(e) => setEmail(e.target.value)}
-				className="w-full border p-2 rounded"
 				required
 			/>
 			<Button type="submit" fullWidth disabled={status === "sending"}>
 				{status === "sending" ? "Sending…" : "Resend verification email"}
 			</Button>
 			{status === "error" && (
-				<p className="text-sm text-red-500">
-					Something went wrong. Please try again.
-				</p>
+				<FormError error="Something went wrong. Please try again." />
 			)}
 		</form>
 	);

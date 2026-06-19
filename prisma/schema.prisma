@@ -72,6 +72,9 @@ model User {
   // null = not yet verified. Login is gated on this being set.
   // Existing users were backfilled to verified in the adding migration.
   emailVerified DateTime?
+  // Session epoch. Bumped on password reset to invalidate all existing JWTs
+  // for this user (the session callback rejects tokens with a stale version).
+  tokenVersion  Int       @default(0)
 
   firstName   String?
   middleName  String?

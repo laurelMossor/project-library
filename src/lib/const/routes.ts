@@ -74,6 +74,7 @@ export const MESSAGE_CONVERSATION = ({ id, type }: { id: string; type: "user" | 
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
+export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
 export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
 export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
 export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";

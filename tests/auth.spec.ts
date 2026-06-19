@@ -2,10 +2,10 @@ import "./env";
 import { test, expect } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { createSignupInvite } from "../src/lib/utils/server/signup-invite";
-import { SIGNUP_WITH_INVITE, FORGOT_PASSWORD, RESET_PASSWORD_WITH_TOKEN } from "../src/lib/const/routes";
+import { SIGNUP_WITH_INVITE, FORGOT_PASSWORD, RESET_PASSWORD_WITH_TOKEN, VERIFY_EMAIL_WITH_TOKEN } from "../src/lib/const/routes";
 import { prisma } from "../src/lib/utils/server/prisma";
 import { createUser } from "../src/lib/utils/server/user";
-import { createPasswordResetToken } from "../src/lib/utils/server/auth-tokens";
+import { createPasswordResetToken, createEmailVerificationToken } from "../src/lib/utils/server/auth-tokens";
 import { loginAs, USERS } from "./helpers/auth";
 
 test.describe("Authentication flows", () => {
@@ -88,6 +88,41 @@ test.describe("Email verification + password reset", () => {
       await expect(
         page.getByRole("button", { name: /resend verification/i }),
       ).toBeVisible();
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+
+  test("email verification needs a deliberate click, then unblocks login", async ({ page }) => {
+    const unique = `ver${Date.now() % 1e7}`;
+    const email = `${unique}@example.com`;
+    // Unverified account (emailVerified defaults to null).
+    const { userId } = await createUser({
+      email,
+      handle: unique,
+      passwordHash: await bcrypt.hash("password123", 10),
+    });
+
+    try {
+      const { rawToken } = await createEmailVerificationToken(userId);
+
+      // Visiting the link does NOT auto-verify — a scanner's GET must not burn it.
+      await page.goto(VERIFY_EMAIL_WITH_TOKEN(rawToken));
+      await expect(page.getByRole("button", { name: /confirm my email/i })).toBeVisible();
+      // Reloading still shows the button (token not yet consumed).
+      await page.reload();
+      await expect(page.getByRole("button", { name: /confirm my email/i })).toBeVisible();
+
+      // Deliberate click consumes the token and verifies the account.
+      await page.getByRole("button", { name: /confirm my email/i }).click();
+      await expect(page.getByText(/email verified/i)).toBeVisible();
+
+      // Login now succeeds.
+      await page.goto("/login");
+      await page.getByPlaceholder("Email").fill(email);
+      await page.getByPlaceholder("Password").fill("password123");
+      await page.getByRole("button", { name: "Log In" }).click();
+      await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 10_000 });
     } finally {
       await prisma.user.deleteMany({ where: { email } });
     }

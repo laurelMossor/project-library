@@ -4,6 +4,9 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/lib/components/ui/Button";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormError } from "@/lib/components/forms/FormError";
+import { AuthCard } from "@/lib/components/auth/AuthCard";
 import {
 	API_AUTH_RESET_PASSWORD,
 	FORGOT_PASSWORD,
@@ -56,48 +59,44 @@ function ResetPasswordForm() {
 
 	if (!token) {
 		return (
-			<main className="flex min-h-screen items-center justify-center p-4">
-				<div className="w-full max-w-sm space-y-4 text-center">
-					<h1 className="text-2xl font-bold">Invalid reset link</h1>
-					<p className="text-misty-forest">
-						This link is missing its token. Request a new one.
-					</p>
-					<Link href={FORGOT_PASSWORD} className="underline">
-						Request a reset link
-					</Link>
-				</div>
-			</main>
+			<AuthCard>
+				<h1 className="text-2xl font-bold">Invalid reset link</h1>
+				<p className="text-misty-forest">
+					This link is missing its token. Request a new one.
+				</p>
+				<Link href={FORGOT_PASSWORD} className="underline">
+					Request a reset link
+				</Link>
+			</AuthCard>
 		);
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-4">
-			<form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+		<AuthCard>
+			<form onSubmit={handleSubmit} className="space-y-4">
 				<h1 className="text-2xl font-bold">Choose a new password</h1>
 
-				{error && <p className="text-red-500">{error}</p>}
+				<FormError error={error} />
 
-				<input
+				<FormInput
 					type="password"
 					placeholder="New password"
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
-					className="w-full border p-2 rounded"
 					required
 				/>
-				<input
+				<FormInput
 					type="password"
 					placeholder="Confirm new password"
 					value={confirm}
 					onChange={(e) => setConfirm(e.target.value)}
-					className="w-full border p-2 rounded"
 					required
 				/>
 				<Button type="submit" fullWidth disabled={submitting}>
 					{submitting ? "Saving…" : "Reset password"}
 				</Button>
 			</form>
-		</main>
+		</AuthCard>
 	);
 }
 
@@ -105,9 +104,9 @@ export default function ResetPasswordPage() {
 	return (
 		<Suspense
 			fallback={
-				<main className="flex min-h-screen items-center justify-center p-4">
+				<AuthCard>
 					<p className="text-gray-600">Loading…</p>
-				</main>
+				</AuthCard>
 			}
 		>
 			<ResetPasswordForm />

@@ -1,6 +1,5 @@
 // ⚠️ SERVER-ONLY: Session utility functions
 import { auth } from "@/lib/auth";
-import { prisma } from "./prisma";
 import { canPostAsPage } from "./permission";
 
 export type SessionContext = {
@@ -20,18 +19,15 @@ export async function getActivePageId(): Promise<string | null> {
   return session?.user?.activePageId ?? null;
 }
 
-/** Get full session context, verifying the user still exists in the database */
+/**
+ * Get full session context. The NextAuth `session` callback already verifies the
+ * user still exists AND that the token epoch is current (rejecting stale sessions
+ * after a password reset, re-seed, or deletion), so a session with a `user.id`
+ * here is trustworthy — no extra DB round-trip needed.
+ */
 export async function getSessionContext(): Promise<SessionContext | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
-
-  // Verify the user still exists (guards against stale sessions after re-seed, deletion, etc.)
-  const userExists = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true },
-  });
-
-  if (!userExists) return null;
 
   return {
     userId: session.user.id,

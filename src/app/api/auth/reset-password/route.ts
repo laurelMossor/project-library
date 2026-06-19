@@ -4,7 +4,7 @@ import { badRequest, serverError } from "@/lib/utils/errors";
 import { validateAuthToken, validatePassword } from "@/lib/validations";
 import { prisma } from "@/lib/utils/server/prisma";
 import { consumePasswordResetToken } from "@/lib/utils/server/auth-tokens";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { logAction } from "@/lib/utils/server/log";
 
 /**
@@ -14,17 +14,11 @@ import { logAction } from "@/lib/utils/server/log";
  * consumed (single-use) inside consumePasswordResetToken.
  */
 export async function POST(request: Request) {
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`reset-password:${clientId}`, {
+	const limited = await enforceRateLimit(request, "reset-password", {
 		maxRequests: 10,
 		windowMs: 60 * 60 * 1000, // 1 hour
 	});
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 },
-		);
-	}
+	if (limited) return limited;
 
 	let body: { token?: unknown; password?: unknown };
 	try {
@@ -49,9 +43,12 @@ export async function POST(request: Request) {
 		}
 
 		const passwordHash = await bcrypt.hash(password, 10);
+		// Bump tokenVersion to invalidate every existing JWT for this user — a
+		// reset (often triggered by suspected compromise) logs out all active
+		// sessions, not just future logins. See the session callback in lib/auth.ts.
 		await prisma.user.update({
 			where: { id: result.userId },
-			data: { passwordHash },
+			data: { passwordHash, tokenVersion: { increment: 1 } },
 		});
 
 		logAction("user.password_reset", result.userId);

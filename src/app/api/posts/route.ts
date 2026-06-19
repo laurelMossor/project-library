@@ -3,7 +3,7 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { postCollectionFields, postWithUserFields } from "@/lib/utils/server/fields";
@@ -55,18 +55,11 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
 export async function GET(request: Request) {
 	// Rate limiting: 200 requests per minute per IP
 	// Higher limit because each collection card may fetch child posts individually
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`search-posts:${clientId}`, {
+	const limited = await enforceRateLimit(request, "search-posts", {
 		maxRequests: 200,
 		windowMs: 60 * 1000,
 	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	if (limited) return limited;
 
 	const { searchParams } = new URL(request.url);
 	const userId = searchParams.get("userId") || undefined;

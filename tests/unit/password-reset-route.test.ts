@@ -1,13 +1,20 @@
 /**
- * Route tests for the password-reset endpoints. Dependencies (prisma, token
- * util, email, rate-limit) are mocked — we assert HTTP behavior, especially
- * the no-account-enumeration guarantee on forgot-password.
+ * Route tests for the password-reset / forgot-password endpoints. Dependencies
+ * (prisma, token util, email, rate-limit) are mocked — we assert HTTP behavior,
+ * especially the no-account-enumeration guarantee on forgot-password.
+ *
+ * forgot-password dispatches its email via next/server `after()` (off the
+ * response path, so response timing doesn't leak account existence); we mock
+ * `after` to invoke the callback so the send is observable here.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 
+vi.mock("next/server", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("next/server")>();
+	return { ...actual, after: (cb: () => void | Promise<void>) => void cb() };
+});
 vi.mock("@/lib/utils/server/rate-limit", () => ({
-	checkRateLimit: vi.fn(() => ({ allowed: true })),
-	getClientIdentifier: vi.fn(() => "test-ip"),
+	enforceRateLimit: vi.fn(async () => null),
 }));
 vi.mock("@/lib/utils/server/prisma", () => ({
 	prisma: { user: { findUnique: vi.fn(), update: vi.fn() } },
@@ -40,11 +47,11 @@ const post = (url: string, body: unknown) =>
 beforeEach(() => vi.clearAllMocks());
 
 describe("POST /api/auth/forgot-password", () => {
-	test("existing account → 200 and sends the email", async () => {
+	test("existing account → 200 and sends the email (after response)", async () => {
 		vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "user-1" } as never);
 		const res = await forgotPassword(post("http://localhost/api/auth/forgot-password", { email: "a@b.com" }));
 		expect(res.status).toBe(200);
-		expect(sendPasswordResetEmail).toHaveBeenCalledTimes(1);
+		await vi.waitFor(() => expect(sendPasswordResetEmail).toHaveBeenCalledTimes(1));
 	});
 
 	test("unknown email → still 200, no email sent (no enumeration)", async () => {
@@ -61,7 +68,7 @@ describe("POST /api/auth/forgot-password", () => {
 });
 
 describe("POST /api/auth/reset-password", () => {
-	test("valid token + password → 200 and updates the hash", async () => {
+	test("valid token + password → 200, updates hash and bumps tokenVersion", async () => {
 		vi.mocked(consumePasswordResetToken).mockResolvedValue({ ok: true, userId: "user-1" });
 		const res = await resetPassword(
 			post("http://localhost/api/auth/reset-password", {
@@ -70,8 +77,12 @@ describe("POST /api/auth/reset-password", () => {
 			}),
 		);
 		expect(res.status).toBe(200);
+		// Bumping tokenVersion is what invalidates the user's existing sessions.
 		expect(prisma.user.update).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { id: "user-1" } }),
+			expect.objectContaining({
+				where: { id: "user-1" },
+				data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
+			}),
 		);
 	});
 
