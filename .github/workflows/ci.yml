@@ -47,10 +47,9 @@ jobs:
       # Lets the signup e2e take the dev-bypass path instead of minting a DB
       # invite (must be >= 20 chars; only honored when NODE_ENV !== production).
       DEV_SIGNUP_BYPASS_SECRET: ci-signup-bypass-secret-min-twenty-chars
-      # The `laurel` seed profile (prisma/seed-data/users/laurel.json) uses a
-      # `$env:SEED_ADMIN_PASSWORD` password; the seed throws if it's unset. Tests
-      # use alice/sam, not this account, so any placeholder value works in CI.
-      SEED_ADMIN_PASSWORD: ci-seed-admin-placeholder-password
+      # NB: SEED_ADMIN_PASSWORD is intentionally NOT set here — the seed skips
+      # the env-gated admin profile (and its pages) when it's absent, so the
+      # personal admin account is never created in CI. Tests use alice/sam.
 
     steps:
       - uses: actions/checkout@v4
