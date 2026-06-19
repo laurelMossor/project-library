@@ -1,0 +1,78 @@
+name: CI
+
+# Runs the same `npm run validate` you run locally
+# (lint → typecheck → reserved-handles → unit → e2e → build), so a red branch
+# can't be merged. Triggers on every PR into develop/main and on direct pushes.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+# A newer commit on the same ref cancels the older in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+
+    # Ephemeral Postgres for the e2e + seed steps. Matches local postgresql@15.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: projectlibrary_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The app reads these from process.env (no .env files exist in CI).
+      # DIRECT_URL is what Prisma migrations use (see prisma.config.ts);
+      # DATABASE_URL is the app/runtime connection. Same URL here — no pooler.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/projectlibrary_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/projectlibrary_test
+      # Placeholder secrets — the CI database is throwaway, so these never guard
+      # anything real. NextAuth just needs a value present.
+      AUTH_SECRET: ci-placeholder-secret-not-used-for-real-sessions
+      # Lets the signup e2e take the dev-bypass path instead of minting a DB
+      # invite (must be >= 20 chars; only honored when NODE_ENV !== production).
+      DEV_SIGNUP_BYPASS_SECRET: ci-signup-bypass-secret-min-twenty-chars
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # matches .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci # postinstall runs `prisma generate`
+
+      - name: Apply database schema
+        run: npx prisma migrate deploy # creates the schema; global-setup.ts seeds it
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate (lint, typecheck, unit, e2e, build)
+        run: npm run validate
+
+      # Surfaces the Playwright HTML report when e2e fails, so you can see what broke.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
