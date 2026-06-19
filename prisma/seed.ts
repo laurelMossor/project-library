@@ -171,15 +171,15 @@ function loadPackets<T>(dir: string): T[] {
     .map((f) => loadJson<T>(join(dir, f)));
 }
 
-function resolvePassword(password: string): string {
+function resolvePassword(password: string): string | null {
   if (password.startsWith("$env:")) {
     const envVar = password.slice(5);
     const value = process.env[envVar];
     if (!value) {
-      throw new Error(
-        `Password references env var "${envVar}" but it is not set. ` +
-          `Add ${envVar} to your .env.development or .env.local file.`
-      );
+      // Real-profile packets are env-gated: with no secret set (CI, or a
+      // contributor without it) the profile is intentionally skipped rather
+      // than seeded. null signals the caller to skip this packet.
+      return null;
     }
     return value;
   }
@@ -354,10 +354,19 @@ async function main() {
   // ── Create Users ──
   console.log("👤 Creating users...");
   const usersByHandle = new Map<string, { id: string }>();
+  // Real-profile packets are gated behind a `$env:` password; when that secret
+  // isn't set (CI, contributors without it) we skip the profile entirely and
+  // record its handle so its pages get skipped too.
+  const skippedHandles = new Set<string>();
 
   for (const packet of userPackets) {
     const handle = packet.handle.toLowerCase();
     const password = resolvePassword(packet.password);
+    if (password === null) {
+      console.log(`  ⏭️  Skipping "${handle}" — password env var not set`);
+      skippedHandles.add(handle);
+      continue;
+    }
     const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
@@ -393,8 +402,17 @@ async function main() {
 
   for (const packet of pagePackets) {
     const handle = packet.handle.toLowerCase();
-    const creator = usersByHandle.get(packet.creatorHandle.toLowerCase());
+    const creatorHandle = packet.creatorHandle.toLowerCase();
+    const creator = usersByHandle.get(creatorHandle);
     if (!creator) {
+      // Creator was an intentionally-skipped profile (e.g. admin in CI) →
+      // skip its pages too. A genuinely unknown creator still errors.
+      if (skippedHandles.has(creatorHandle)) {
+        console.log(
+          `  ⏭️  Skipping page "${handle}" — creator "${packet.creatorHandle}" was skipped`
+        );
+        continue;
+      }
       throw new Error(
         `Page "${handle}" references unknown creator "${packet.creatorHandle}"`
       );
@@ -500,7 +518,16 @@ async function main() {
     });
   }
 
-  for (const packet of userPackets) {
+  // Downstream content loops only touch entities that were actually seeded —
+  // env-gated profiles (and the pages they own) may have been skipped above.
+  const seededUserPackets = userPackets.filter((p) =>
+    usersByHandle.has(p.handle.toLowerCase())
+  );
+  const seededPagePackets = pagePackets.filter((p) =>
+    pagesByHandle.has(p.handle.toLowerCase())
+  );
+
+  for (const packet of seededUserPackets) {
     if (!packet.avatarImage) continue;
     const user = usersByHandle.get(packet.handle.toLowerCase())!;
     const image = await createImage(packet.avatarImage, user.id);
@@ -510,7 +537,7 @@ async function main() {
     });
   }
 
-  for (const packet of pagePackets) {
+  for (const packet of seededPagePackets) {
     if (!packet.avatarImage) continue;
     const page = pagesByHandle.get(packet.handle.toLowerCase())!;
     const image = await createImage(packet.avatarImage, page.creatorUserId);
@@ -524,7 +551,7 @@ async function main() {
   console.log("📝 Creating user content...");
   const createdEventsByOwner = new Map<string, { id: string }[]>();
 
-  for (const packet of userPackets) {
+  for (const packet of seededUserPackets) {
     const handle = packet.handle.toLowerCase();
     const user = usersByHandle.get(handle)!;
 
@@ -626,7 +653,7 @@ async function main() {
   // ── Page Content ──
   console.log("📄 Creating page content...");
 
-  for (const packet of pagePackets) {
+  for (const packet of seededPagePackets) {
     const handle = packet.handle.toLowerCase();
     const page = pagesByHandle.get(handle)!;
 
