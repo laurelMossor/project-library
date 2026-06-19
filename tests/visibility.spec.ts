@@ -117,8 +117,11 @@ test.describe("PRIVATE user", () => {
 	test("private user does NOT appear in search for anonymous", async ({ page }) => {
 		await page.goto("/search");
 		await page.getByPlaceholder("Search by name or handle...").fill("Pat Private");
-		await page.waitForTimeout(600);
-		await expect(page.getByText("Pat Private")).not.toBeVisible();
+		// The PRIVATE user must be filtered out, so the search shows its empty state.
+		// Assert the empty state directly — `getByText("Pat Private")` would falsely
+		// match the echoed query inside the "No results for “Pat Private”" message.
+		await expect(page.getByText(/No results for/i)).toBeVisible();
+		await expect(page.getByRole("link", { name: /Pat Private/i })).toHaveCount(0);
 	});
 });
 
