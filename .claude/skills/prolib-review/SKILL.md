@@ -135,7 +135,7 @@ needs updating) rather than emitting a false positive.
 The authoritative convention list is **`docs/guidance/PROJECT_GUIDELINES.md`**; this
 skill is a review checklist derived from it, not a second copy.
 
-### 6. Report
+### 6. Report the findings
 
 Combine both layers into one report. Lead with correctness/security, then Project
 Library fit. For each finding give file:line, what's wrong, and the fix.
@@ -155,11 +155,30 @@ Nothing flagged in a section → say so explicitly.
 If a finding is **ambiguous** (arguably-correct, needs a product/design call), flag it
 for the user rather than asserting a verdict.
 
-### 7. Optional: apply fixes
+### 7. Discuss before planning — do NOT jump to a plan or to fixes
 
-If the user wants findings applied, re-run `/code-review --fix` or edit directly. Per
-project rules, after editing **prompt the user to run `npm run validate`** yourself
-rather than running it — it's token-heavy.
+This review is a **conversation, not a hand-off.** After reporting, the default is to
+*talk through* the findings with the user — never to immediately write a plan or start
+editing. Specifically:
+
+- **Go over the feedback together.** Walk the high-value findings, explain the *why* and
+  how real each one is, and let the user react. Lead with the ones worth tracking; call
+  the rest optional.
+- **Settle scope explicitly.** Which findings get fixed now vs. filed as tickets vs.
+  dropped? How aggressive should any refactor be — the PR's own code only, or the
+  develop-side code it shares duplication with? Surface design forks (e.g. *where* a fix
+  should live) and get a decision. Use `AskUserQuestion` for the genuine choices.
+- **Wait for "we're done discussing."** Don't pre-empt the user by starting a plan while
+  scope is still open.
+
+### 8. Kick off a plan once the discussion concludes
+
+Only when the user signals scope is settled, *then* move into planning for the agreed-on
+changes — enter plan mode and produce an implementation plan (don't silently auto-apply
+`/code-review --fix`). The plan covers only what was agreed, names the files/helpers to
+reuse, and includes a verification section. When the changes are later implemented,
+**prompt the user to run `npm run validate`** rather than running it yourself — it's
+token-heavy.
 
 ---
 
