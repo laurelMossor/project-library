@@ -14,7 +14,8 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
     follow: { findFirst: vi.fn() },
     permission: { findMany: vi.fn() },
-    event: { findUnique: vi.fn() },
+    post: { updateMany: vi.fn() },
+    event: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     user: { findUnique: vi.fn() },
     page: { findUnique: vi.fn() },
   },
@@ -36,6 +37,8 @@ import {
   collectionVisibilityWhere,
   eventListWhere,
   postListWhere,
+  resolveParentVisibility,
+  syncDescendantVisibility,
 } from "@/lib/utils/server/visibility";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { publicPageEmbedFields } from "@/lib/utils/server/fields";
@@ -54,6 +57,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default: no follow edge exists.
   vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never);
+  // Cascade defaults: no child events, writes succeed.
+  vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.event.updateMany).mockResolvedValue({ count: 0 } as never);
 });
 
 // ── primitives ──────────────────────────────────────────────────────────────
@@ -275,5 +282,98 @@ describe("embed selectors exclude sensitive profile fields", () => {
     for (const key of [...SENSITIVE, "headline", "visibility"]) {
       expect(Object.prototype.hasOwnProperty.call(publicPageEmbedFields, key)).toBe(false);
     }
+  });
+});
+
+// ── resolveParentVisibility (inheritance for newly-created content) ───────────
+
+describe("resolveParentVisibility", () => {
+  test("page context wins and short-circuits — returns the page's visibility", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ visibility: Visibility.PRIVATE } as never);
+    expect(await resolveParentVisibility("owner-1", "page-1", "event-1")).toBe(Visibility.PRIVATE);
+    // Page short-circuits — event/user are never consulted.
+    expect(prisma.event.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("event context (no page) — returns the event's visibility", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({ visibility: Visibility.UNLISTED } as never);
+    expect(await resolveParentVisibility("owner-1", null, "event-1")).toBe(Visibility.UNLISTED);
+  });
+
+  test("standalone (no page/event) — returns the author's visibility", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ visibility: Visibility.PRIVATE } as never);
+    expect(await resolveParentVisibility("owner-1")).toBe(Visibility.PRIVATE);
+  });
+
+  test("missing parent row → defaults to PUBLIC (inherits safe-public, doesn't crash)", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue(null as never);
+    expect(await resolveParentVisibility("owner-1", "missing-page")).toBe(Visibility.PUBLIC);
+  });
+});
+
+// ── syncDescendantVisibility (cascade when a parent's visibility changes) ─────
+
+describe("syncDescendantVisibility", () => {
+  test("PAGE → cascades to the page's posts, its events, and those events' posts", async () => {
+    vi.mocked(prisma.event.findMany).mockResolvedValue([{ id: "e1" }, { id: "e2" }] as never);
+
+    await syncDescendantVisibility("PAGE", "page-1", Visibility.PRIVATE);
+
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { pageId: "page-1" },
+      data: { visibility: Visibility.PRIVATE },
+    });
+    expect(prisma.event.updateMany).toHaveBeenCalledWith({
+      where: { pageId: "page-1" },
+      data: { visibility: Visibility.PRIVATE },
+    });
+    // Posts attached to the page's events flip too.
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { eventId: { in: ["e1", "e2"] } },
+      data: { visibility: Visibility.PRIVATE },
+    });
+  });
+
+  test("USER → only standalone content cascades (page-authored content is excluded)", async () => {
+    await syncDescendantVisibility("USER", "owner-1", Visibility.PRIVATE);
+
+    // The pageId: null / eventId: null scoping IS the identity-scoping invariant:
+    // a user's visibility flip must not touch content they authored as a page.
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { userId: "owner-1", pageId: null, eventId: null },
+      data: { visibility: Visibility.PRIVATE },
+    });
+    expect(prisma.event.updateMany).toHaveBeenCalledWith({
+      where: { userId: "owner-1", pageId: null },
+      data: { visibility: Visibility.PRIVATE },
+    });
+  });
+
+  test("USER → with no child events, the event-attached-posts update is skipped", async () => {
+    vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
+    await syncDescendantVisibility("USER", "owner-1", Visibility.UNLISTED);
+    const calls = vi.mocked(prisma.post.updateMany).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toMatchObject({ where: { userId: "owner-1", pageId: null, eventId: null } });
+  });
+
+  test("EVENT → cascades only to the event's posts", async () => {
+    await syncDescendantVisibility("EVENT", "event-1", Visibility.PRIVATE);
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { eventId: "event-1" },
+      data: { visibility: Visibility.PRIVATE },
+    });
+    expect(prisma.event.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("uses the provided transaction client, not the global prisma", async () => {
+    const tx = {
+      post: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      event: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    };
+    await syncDescendantVisibility("EVENT", "event-1", Visibility.PRIVATE, tx as never);
+    expect(tx.post.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.post.updateMany).not.toHaveBeenCalled();
   });
 });

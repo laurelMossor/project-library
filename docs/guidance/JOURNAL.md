@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Still pending: `npm run validate` and the prod migration.
 
 
+#### Entry: Sat 06/20/2026 13:02 PDT
+Full efficacy pass on the Playwright E2E suite on `test-efficacy-pass`. It went from 52 to 44 tests and 43s to 24s while staying green. Fixed a profile-edit test that silently asserted nothing and dropped a "listing" test that was really hitting a 404. Added storageState session caching so tests reuse a login instead of re-driving the form each run. Replaced the flaky waitForTimeout and networkidle waits and made the signup test deterministic. Gave NotificationDot an accessible label so the unread-dot test no longer keys on a CSS class. 
+
 #### Entry: Sat 06/20/2026 12:14 PDT
 `/prolib-review` of `netwerk-3` plus the agreed fixes, with a user/page DRY through-line. Fixed three silent data-loss bugs: user avatar save no-op (flat body vs `/api/me/user`'s `body.fields`), cover-only event edits/new-draft covers dropped (`changeCount` now on the session; `saveAll()` unconditional), and **page visibility never persisting** — surfaced by converging all three profile-update routes onto a shared `saveMyProfile(kind,id,body)` (whitelist + validation + cascade). Also componentized visibility (`VisibilityField`), moved the email module to `utils/server/email/` behind a `server-only` guard, scoped `image-attachments` `replace` to owned images, and added a `pg_trgm` search-index migration (`20260620000000`). tsc + 192 unit green; `npm run validate` + `prisma migrate dev` still to run.
 

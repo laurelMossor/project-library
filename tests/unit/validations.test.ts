@@ -337,9 +337,10 @@ describe("validatePageData", () => {
     expect(validatePageData({ name: "P", handle: "p" })).toMatchObject({ valid: false });
   });
 
-  test("rejects reserved handle case-insensitively (after format check)", () => {
-    // "API" fails format (uppercase), so this just exercises the format gate;
-    // included to document that validateHandle runs before isReservedHandle.
+  test("uppercase reserved word is rejected by the format gate, before the reserved check", () => {
+    // "API" fails the handle format (uppercase) before isReservedHandle is reached,
+    // so this documents validator ordering — NOT case-insensitive reserved matching,
+    // which is covered directly in reserved-handles.test.ts (isReservedHandle("API")).
     expect(validatePageData({ name: "Api", handle: "API" })).toMatchObject({ valid: false });
   });
 });
