@@ -8,8 +8,7 @@ import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceh
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EyeIcon } from "@/lib/components/icons/icons";
-import { VisibilitySelector } from "@/lib/components/visibility/VisibilitySelector";
-import type { Visibility } from "@/lib/types/user";
+import { VisibilityField } from "@/lib/components/visibility/VisibilityField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
 import { API_ME_USER, API_ME_PAGE, SETTINGS } from "@/lib/const/routes";
@@ -51,7 +50,6 @@ function UserFields({ data }: { data: PersonalUser }) {
 	const [editBio, setEditBio] = useState(data.bio || "");
 	const [editLocation, setEditLocation] = useState(data.location || "");
 	const [editInterests, setEditInterests] = useState<string[]>(data.interests || []);
-	const [editVisibility, setEditVisibility] = useState<Visibility>(data.visibility ?? "PUBLIC");
 
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
@@ -64,7 +62,6 @@ function UserFields({ data }: { data: PersonalUser }) {
 		setEditBio(data.bio || "");
 		setEditLocation(data.location || "");
 		setEditInterests(data.interests || []);
-		setEditVisibility(data.visibility ?? "PUBLIC");
 		setEditingField(null);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
@@ -79,7 +76,6 @@ function UserFields({ data }: { data: PersonalUser }) {
 	const currentBio = (session?.dirtyFields.bio as string | null) ?? data.bio;
 	const currentLocation = (session?.dirtyFields.location as string | null) ?? data.location;
 	const currentInterests = (session?.dirtyFields.interests as string[]) ?? data.interests;
-	const currentVisibility = (session?.dirtyFields.visibility as Visibility | undefined) ?? data.visibility ?? "PUBLIC";
 
 	const inputClasses = "w-full text-base border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent";
 
@@ -282,14 +278,7 @@ function UserFields({ data }: { data: PersonalUser }) {
 			</div>
 
 			{/* Visibility */}
-			<div className="border-t border-gray-100 pt-4">
-				<p className="text-xs text-dusty-grey mb-3 uppercase tracking-wide">Profile Visibility</p>
-				<VisibilitySelector
-					value={currentVisibility}
-					onChange={(v) => { setEditVisibility(v); session?.setDirty("visibility", v, data.visibility ?? "PUBLIC"); }}
-					disabled={!canEdit}
-				/>
-			</div>
+			<VisibilityField label="Profile Visibility" initial={data.visibility ?? "PUBLIC"} />
 		</div>
 	);
 }
@@ -310,7 +299,6 @@ function PageFields({ data }: { data: PublicPage }) {
 	const [editCity, setEditCity] = useState(data.city || "");
 	const [editState, setEditState] = useState(data.state || "");
 	const [editZip, setEditZip] = useState(data.zip || "");
-	const [editVisibility, setEditVisibility] = useState<Visibility>(data.visibility ?? "PUBLIC");
 
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
@@ -325,7 +313,6 @@ function PageFields({ data }: { data: PublicPage }) {
 		setEditCity(data.city || "");
 		setEditState(data.state || "");
 		setEditZip(data.zip || "");
-		setEditVisibility(data.visibility ?? "PUBLIC");
 		setEditingField(null);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
@@ -342,7 +329,6 @@ function PageFields({ data }: { data: PublicPage }) {
 	const currentCity = (session?.dirtyFields.city as string | null) ?? data.city;
 	const currentState = (session?.dirtyFields.state as string | null) ?? data.state;
 	const currentZip = (session?.dirtyFields.zip as string | null) ?? data.zip;
-	const currentVisibility = (session?.dirtyFields.visibility as Visibility | undefined) ?? data.visibility ?? "PUBLIC";
 
 	const inputClasses = "w-full text-base border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent";
 
@@ -583,14 +569,7 @@ function PageFields({ data }: { data: PublicPage }) {
 			</div>
 
 			{/* Visibility */}
-			<div className="border-t border-gray-100 pt-4">
-				<p className="text-xs text-dusty-grey mb-3 uppercase tracking-wide">Page Visibility</p>
-				<VisibilitySelector
-					value={currentVisibility}
-					onChange={(v) => { setEditVisibility(v); session?.setDirty("visibility", v, data.visibility ?? "PUBLIC"); }}
-					disabled={!canEdit}
-				/>
-			</div>
+			<VisibilityField label="Page Visibility" initial={data.visibility ?? "PUBLIC"} />
 		</div>
 	);
 }

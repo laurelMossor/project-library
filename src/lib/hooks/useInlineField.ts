@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useInlineEditSession } from "./useInlineEditSession";
 
 /**
@@ -19,7 +20,14 @@ export function useInlineField<T>(name: string, original: T) {
 		session && name in session.dirtyFields ? session.dirtyFields[name] : original
 	) as T;
 
-	const setValue = (v: T) => session?.setDirty(name, v, original);
+	// session.setDirty is stable (useCallback in the provider), so memoizing here
+	// keeps setValue's identity stable across renders — consumers can safely list
+	// it in useCallback/useEffect deps (e.g. EventPageClient's handleLocationSelect).
+	const setDirty = session?.setDirty;
+	const setValue = useCallback(
+		(v: T) => setDirty?.(name, v, original),
+		[setDirty, name, original]
+	);
 
 	return { value, setValue };
 }

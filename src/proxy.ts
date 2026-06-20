@@ -60,22 +60,27 @@ export default function proxy(req: NextRequest) {
 	// If protected and no session cookie, redirect to login.
 	// Skip the redirect for prefetch / RSC requests — a prefetch can be issued
 	// before the browser sends cookies, so redirecting here would cache a stale
-	// redirect that later bounces a legitimately logged-in user.
+	// redirect that later bounces a legitimately logged-in user. Because this skip
+	// exists, every protected page MUST keep its own server-side auth guard
+	// (auth() + redirect / AuthError); this edge check is defense-in-depth only.
 	const isPrefetch =
 		req.headers.get("next-router-prefetch") === "1" ||
 		req.headers.get("rsc") === "1" ||
 		req.headers.get("purpose") === "prefetch";
 
 	if (isProtected && !isPrefetch && !hasSessionCookie(req)) {
-		const cookiesPresent = req.cookies.getAll().map((c) => c.name);
-		console.log(
-			JSON.stringify({
-				type: "auth_redirect",
-				path: pathname,
-				cookiesPresent,
-				ts: new Date().toISOString(),
-			})
-		);
+		// Debug aid (cookie names on an unauthenticated hit) — gated so it doesn't
+		// write a JSON line per bot/crawler request to a protected path.
+		if (process.env.PROXY_DEBUG === "true") {
+			console.log(
+				JSON.stringify({
+					type: "auth_redirect",
+					path: pathname,
+					cookiesPresent: req.cookies.getAll().map((c) => c.name),
+					ts: new Date().toISOString(),
+				})
+			);
+		}
 		const loginUrl = new URL(LOGIN, req.url);
 		loginUrl.searchParams.set("callbackUrl", pathname);
 		return NextResponse.redirect(loginUrl);

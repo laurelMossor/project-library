@@ -111,10 +111,12 @@ function EventPageContent({
 			hasContentRef.current = true;
 		}
 	}, [event.title, event.content, event.location, event.tags.length]);
-	const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
+	// changeCount (not just dirtyFields) so a pending cover file also counts as content —
+	// otherwise a draft with only a cover gets silently deleted on navigate-away.
+	const changeCount = editSession?.changeCount ?? 0;
 	useEffect(() => {
-		if (dirtyCount > 0) hasContentRef.current = true;
-	}, [dirtyCount]);
+		if (changeCount > 0) hasContentRef.current = true;
+	}, [changeCount]);
 
 	// When the owner navigates away from an unpublished EMPTY draft, delete it silently.
 	useEffect(() => {
@@ -378,8 +380,9 @@ function EventPageContent({
 							<button
 								type="button"
 								onClick={async () => {
-									const dc = editSession ? Object.keys(editSession.dirtyFields).length : 0;
-									if (dc > 0) await editSession?.saveAll();
+									// saveAll() early-returns when nothing is dirty, and it counts
+									// pending cover files — so a cover-only edit still gets saved.
+									await editSession?.saveAll();
 									setIsEditing(false);
 								}}
 								className="text-sm font-medium text-moss-green hover:text-rich-brown transition-colors cursor-pointer"

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
+import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { canManagePage } from "@/lib/utils/server/permission";
 import { getPageById } from "@/lib/utils/server/page";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import { getViewerContext, canViewProfile } from "@/lib/utils/server/visibility";
-import { updateProfileWithCascade } from "@/lib/utils/server/profile-update";
+import { saveMyProfile } from "@/lib/utils/server/profile-update";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -56,16 +56,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
 		}
 
 		const body = (await request.json()) as SavePayload;
-		const { fields = {}, elements } = body;
 
-		const page = await updateProfileWithCascade(
-			"PAGE",
-			pageId,
-			fields as Record<string, unknown>,
-			elements,
-		);
-
-		return NextResponse.json(page);
+		// Shared executor: whitelist (mass-assignment guard) + validate + cascade,
+		// the same path used by /api/me/page so the two page-update routes can't drift.
+		const result = await saveMyProfile("PAGE", pageId, body);
+		if (!result.ok) {
+			return badRequest(result.error);
+		}
+		return NextResponse.json(result.profile);
 	} catch (error) {
 		console.error("PUT /api/pages/[pageId] error:", error);
 		return serverError("Failed to update page");

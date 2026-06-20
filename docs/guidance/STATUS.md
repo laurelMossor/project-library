@@ -14,7 +14,7 @@
 
 - **Pending (P1):** Request-to-Follow / Request-to-Join approval flows — [filed in ProLib Tickets](https://app.notion.com/p/376453d029b0813498f3cee9de603a74)
 - **Pending (Backlog):** Activity notifications dispatcher + in-app bell — [filed in ProLib Tickets](https://app.notion.com/p/379453d029b081239c83fdb6ae1a39a4); [domain verification for sending](https://app.notion.com/p/379453d029b08124a6f3eb13a438795f)
-- **NEED PROD MIGRATION:** email verification token tables + emailVerified backfill; visibility model schema changes
+- **NEED PROD MIGRATION:** email verification token tables + emailVerified backfill; visibility model schema changes; `pg_trgm` extension + profile-search GIN indexes (`20260620000000_add_trgm_search_indexes`)
 
 ### Meatup Release — not started
 

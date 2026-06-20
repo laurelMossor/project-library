@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { getPageById, updatePageProfile, publicPageFields } from "@/lib/utils/server/page";
+import { getPageById } from "@/lib/utils/server/page";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { validatePageUpdateData } from "@/lib/validations";
-import { processElementsPayload } from "@/lib/utils/server/profile-element";
-import { prisma } from "@/lib/utils/server/prisma";
+import { saveMyProfile } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 /**
@@ -62,65 +60,15 @@ export async function PUT(request: Request) {
 		}
 
 		const body = (await request.json()) as SavePayload;
-		const { fields = {}, elements } = body;
 
-		const {
-			name, headline, bio, interests, location,
-			addressLine1, addressLine2, city, state, zip,
-			category, avatarImageId,
-		} = fields as {
-			name?: string;
-			headline?: string;
-			bio?: string;
-			interests?: string[];
-			location?: string;
-			addressLine1?: string | null;
-			addressLine2?: string | null;
-			city?: string | null;
-			state?: string | null;
-			zip?: string | null;
-			category?: string | null;
-			avatarImageId?: string | null;
-		};
-
-		if (name !== undefined) {
-			if (typeof name !== "string" || name.trim().length === 0) {
-				return badRequest("Page name is required");
-			}
-			if (name.length > 100) {
-				return badRequest("Page name must be 100 characters or fewer");
-			}
+		// Shared executor: whitelist + validate (incl. visibility) + cascade.
+		// The old hand-rolled transaction here dropped `visibility` and skipped
+		// the descendant-visibility cascade — using saveMyProfile fixes both.
+		const result = await saveMyProfile("PAGE", ctx.activePageId, body);
+		if (!result.ok) {
+			return badRequest(result.error);
 		}
-
-		const validation = validatePageUpdateData({
-			headline, bio, interests, location,
-			addressLine1, addressLine2, city, state, zip,
-			category, avatarImageId,
-		});
-
-		if (!validation.valid) {
-			return badRequest(validation.error || "Invalid page data");
-		}
-
-		const pageId = ctx.activePageId;
-		const updatedPage = await prisma.$transaction(async () => {
-			await updatePageProfile(pageId, {
-				name, headline, bio, interests, location,
-				addressLine1, addressLine2, city, state, zip,
-				category, avatarImageId,
-			});
-
-			if (elements) {
-				await processElementsPayload({ pageId }, elements);
-			}
-
-			return prisma.page.findUnique({
-				where: { id: pageId },
-				select: publicPageFields,
-			});
-		});
-
-		return NextResponse.json(updatedPage);
+		return NextResponse.json(result.profile);
 	} catch (error) {
 		console.error("PUT /api/me/page error:", error);
 		return serverError();

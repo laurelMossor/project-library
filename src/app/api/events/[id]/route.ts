@@ -104,13 +104,11 @@ export async function PATCH(request: Request, { params }: Params) {
 		const data = await request.json();
 		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, visibility, pinnedAt, pageId } = data;
 
-		// If switching host page, verify permission
-		if (pageId !== undefined) {
-			if (pageId !== null) {
-				const allowed = await canPostAsPage(ctx.userId, pageId);
-				if (!allowed) {
-					return NextResponse.json({ error: "You don't have permission to host this event as that page" }, { status: 403 });
-				}
+		// If switching host page (to a page, not clearing it), verify permission
+		if (pageId != null) {
+			const allowed = await canPostAsPage(ctx.userId, pageId);
+			if (!allowed) {
+				return NextResponse.json({ error: "You don't have permission to host this event as that page" }, { status: 403 });
 			}
 		}
 

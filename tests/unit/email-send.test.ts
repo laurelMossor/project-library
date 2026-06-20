@@ -8,7 +8,7 @@ import type { ReactElement } from "react";
 // vi.hoisted so the (hoisted) vi.mock factory can reference getResendClient.
 const { getResendClient } = vi.hoisted(() => ({ getResendClient: vi.fn() }));
 
-vi.mock("@/lib/email/client", () => ({
+vi.mock("@/lib/utils/server/email/client", () => ({
 	getResendClient,
 	getFromAddress: () => "The Project Library <from@test.dev>",
 }));
@@ -17,7 +17,7 @@ vi.mock("@react-email/components", () => ({
 }));
 vi.mock("@/lib/utils/server/log", () => ({ logAction: vi.fn() }));
 
-import { sendEmail } from "@/lib/email/send";
+import { sendEmail } from "@/lib/utils/server/email/send";
 import { logAction } from "@/lib/utils/server/log";
 
 const dummyReact = {} as ReactElement;

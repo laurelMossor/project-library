@@ -18,6 +18,8 @@ export type InlineEditSessionContextType = {
 	canEdit: boolean;
 	dirtyFields: Record<string, unknown>;
 	dirtyFiles: Record<string, File>;
+	/** Total unsaved changes: scalar fields + element ops + pending file uploads. */
+	changeCount: number;
 	pendingCreates: ElementDraft[];
 	pendingDeletes: string[];
 	saving: boolean;
@@ -86,6 +88,9 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	const [pendingCreates, setPendingCreates] = useState<ElementDraft[]>([]);
 	const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
 	const [saving, setSaving] = useState(false);
+	// Synchronous re-entrancy guard — `saving` state is async and stale inside the
+	// commit closure, so a fast double-click could fire two concurrent commits.
+	const savingRef = useRef(false);
 	const [error, setError] = useState<string | null>(null);
 	const [cancelRevision, setCancelRevision] = useState(0);
 
@@ -194,8 +199,10 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	 * A publish with zero field/element changes still goes through (no early-return).
 	 */
 	const commit = useCallback(async ({ publish = false }: { publish?: boolean } = {}) => {
+		if (savingRef.current) return; // re-entrancy guard (synchronous)
 		// For plain saves, skip if nothing is dirty
 		if (!publish && changeCount === 0) return;
+		savingRef.current = true;
 		setSaving(true);
 		setError(null);
 		try {
@@ -236,30 +243,32 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 					: {}),
 			};
 
-			let updated = await onSave(payload);
+			const saved = await onSave(payload);
 
-			// After field save, commit any pending file uploads
-			if (onCommitFiles && Object.keys(dirtyFiles).length > 0) {
-				const fileResult = await onCommitFiles(dirtyFiles);
-				if (fileResult && updated) {
-					updated = { ...updated, ...fileResult } as T;
-				} else if (fileResult) {
-					updated = fileResult as T;
-				}
+			// Reflect the field/publish result and clear committed scalar + element state
+			// BEFORE the file commit. Otherwise a file-upload failure after a successful
+			// publish would strand the client in "draft" while the server is PUBLISHED.
+			if (saved && onSaved) {
+				onSaved(saved as T);
 			}
-
-			if (updated && onSaved) {
-				onSaved(updated as T);
-			}
-
 			setDirtyFields({});
 			originalValuesRef.current = {};
 			setPendingCreates([]);
 			setPendingDeletes([]);
-			setDirtyFilesState({});
+
+			// Then commit any pending file uploads. A failure here keeps only dirtyFiles
+			// (for retry) — the field/publish state above is already persisted.
+			if (onCommitFiles && Object.keys(dirtyFiles).length > 0) {
+				const fileResult = await onCommitFiles(dirtyFiles);
+				if (fileResult && onSaved) {
+					onSaved((saved ? { ...saved, ...fileResult } : fileResult) as T);
+				}
+				setDirtyFilesState({});
+			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save");
 		} finally {
+			savingRef.current = false;
 			setSaving(false);
 		}
 	}, [changeCount, dirtyFields, dirtyFiles, pendingCreates, pendingDeletes, onSave, onSaved, onCommitFiles]);
@@ -292,6 +301,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 		canEdit,
 		dirtyFields,
 		dirtyFiles,
+		changeCount,
 		pendingCreates,
 		pendingDeletes,
 		saving,

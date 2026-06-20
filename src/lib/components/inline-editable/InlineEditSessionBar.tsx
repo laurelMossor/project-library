@@ -91,28 +91,20 @@ export function InlineEditSessionBar({
 								>
 									Cancel
 								</button>
-								{/* Show Save only when there are changes and we also have a Publish button,
-								    so the user can save without publishing. When not publishable, Save is the
-								    primary (and only) action. */}
-								{publishable ? (
-									<button
-										type="button"
-										onClick={onSave}
-										disabled={saving}
-										className="px-5 py-1.5 text-sm font-semibold text-warm-grey border border-warm-grey/40 rounded-full hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
-									>
-										{saving ? "Saving…" : "Save"}
-									</button>
-								) : (
-									<button
-										type="button"
-										onClick={onSave}
-										disabled={saving}
-										className="px-5 py-1.5 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-									>
-										{saving ? "Saving…" : "Save"}
-									</button>
-								)}
+								{/* Save without publishing. When publishable, it's the secondary action
+								    (outline) sitting next to Publish; otherwise it's the primary (moss-green). */}
+								<button
+									type="button"
+									onClick={onSave}
+									disabled={saving}
+									className={`px-5 py-1.5 text-sm font-semibold rounded-full transition-colors disabled:opacity-50 ${
+										publishable
+											? "text-warm-grey border border-warm-grey/40 hover:bg-soft-grey/20"
+											: "text-white bg-moss-green hover:bg-rich-brown"
+									}`}
+								>
+									{saving ? "Saving…" : "Save"}
+								</button>
 							</>
 						)}
 
