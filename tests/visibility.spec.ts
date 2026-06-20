@@ -1,142 +1,145 @@
 /**
  * Visibility spec — verifies the three-tier enforcement across key surfaces.
  *
- * Standard test matrix per surface:
- *   (a) anonymous viewer
- *   (b) logged-in non-member
- *   (c) member/follower
- *   (d) owner (implicit — private content is never hidden from its creator)
+ * Test matrix per surface: anonymous viewer · logged-in non-member · member /
+ * follower · owner (private content is never hidden from its creator).
  *
- * Seed fixtures used:
- *   - secret-workshop (PRIVATE page, creator: sam, member: alice)
- *   - unlisted-zine   (UNLISTED page, creator: alice)
- *   - alice.example   (PUBLIC user)
- *   - sam.example     (PUBLIC user)
+ * Seed fixtures:
+ *   - secret-workshop    (PRIVATE page,  creator: sam,   member: alice)
+ *   - unlisted-zine      (UNLISTED page, creator: alice)
+ *   - private-pat.example (PRIVATE user, follower: alice)
+ *   - portland-makers-guild (PUBLIC page)
+ *
+ * Patterns used to stay deterministic:
+ *   - A gated surface renders the custom not-found page (h1 "Page not found"),
+ *     so we assert that *positively* rather than asserting a name is absent
+ *     (which would also pass on an unrelated load failure).
+ *   - Search is debounced; instead of sleeping we wait for the result/empty
+ *     state to settle, then assert the filtered entity has no result link.
  */
 
-import { test, expect } from "@playwright/test";
-import { loginAs } from "./helpers/auth";
+import { test, expect, type Page } from "@playwright/test";
+import { STORAGE_STATE } from "./helpers/auth";
 
-// ── PRIVATE page ──────────────────────────────────────────────────────────────
+const SEARCH_BOX = "Search by name or handle...";
 
+/** Type a query and wait for the debounced search to settle on a result or empty state. */
+async function search(page: Page, query: string) {
+  await page.goto("/search");
+  await page.getByPlaceholder(SEARCH_BOX).fill(query);
+}
+
+// ── PRIVATE page ────────────────────────────────────────────────────────────
 test.describe("PRIVATE page", () => {
-	test("anonymous viewer gets 404", async ({ page }) => {
-		await page.goto("/secret-workshop");
-		// The not-found page renders without the page name
-		await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).not.toBeVisible();
-	});
+  test("anonymous viewer gets the not-found page", async ({ page }) => {
+    await page.goto("/secret-workshop");
+    await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).not.toBeVisible();
+  });
 
-	test("member (alice) can view the private page", async ({ page }) => {
-		await loginAs(page, "alice");
-		await page.goto("/secret-workshop");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).toBeVisible();
-	});
+  test("does NOT appear in anonymous search results", async ({ page }) => {
+    await search(page, "secret");
+    await expect(page.getByText(/No results for/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Secret Workshop/i })).toHaveCount(0);
+  });
 
-	test("owner (sam) can view their own private page", async ({ page }) => {
-		await loginAs(page, "sam");
-		await page.goto("/secret-workshop");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).toBeVisible();
-	});
+  test("does NOT appear in the explore feed", async ({ page }) => {
+    await page.goto("/explore");
+    await expect(page.getByRole("heading", { name: "Explore", level: 1 })).toBeVisible();
+    await expect(page.getByText("Private post")).not.toBeVisible();
+  });
 
-	test("private page does NOT appear in search results for anonymous", async ({ page }) => {
-		await page.goto("/search");
-		await page.getByPlaceholder("Search by name or handle...").fill("secret");
-		// Wait for debounced search (300ms + render time)
-		await page.waitForTimeout(600);
-		await expect(page.getByText("Secret Workshop")).not.toBeVisible();
-	});
+  test.describe("member (alice)", () => {
+    test.use({ storageState: STORAGE_STATE.alice });
+    test("can view the private page", async ({ page }) => {
+      await page.goto("/secret-workshop");
+      await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).toBeVisible({ timeout: 20_000 });
+    });
+  });
 
-	test("private page does NOT appear in explore feed", async ({ page }) => {
-		await page.goto("/explore");
-		await expect(page.getByText("Private post")).not.toBeVisible();
-	});
+  test.describe("owner (sam)", () => {
+    test.use({ storageState: STORAGE_STATE.sam });
+    test("can view their own private page", async ({ page }) => {
+      await page.goto("/secret-workshop");
+      await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).toBeVisible({ timeout: 20_000 });
+    });
+  });
 });
 
 // ── UNLISTED page ─────────────────────────────────────────────────────────────
-
 test.describe("UNLISTED page", () => {
-	test("anonymous viewer can access by direct link", async ({ page }) => {
-		await page.goto("/unlisted-zine");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible();
-	});
+  test("anonymous viewer can access by direct link, and sees its UNLISTED posts", async ({ page }) => {
+    await page.goto("/unlisted-zine");
+    await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible({ timeout: 20_000 });
+    // Over-hide regression: the page must show its own UNLISTED posts by link,
+    // not render an empty collection.
+    await expect(page.getByText("Unlisted post")).toBeVisible();
+  });
 
-	test("logged-in user can access by direct link", async ({ page }) => {
-		await loginAs(page, "alice");
-		await page.goto("/unlisted-zine");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible();
-	});
+  test("does NOT appear in search", async ({ page }) => {
+    await search(page, "unlisted");
+    await expect(page.getByText(/No results for/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Unlisted Zine/i })).toHaveCount(0);
+  });
 
-	test("unlisted page does NOT appear in search", async ({ page }) => {
-		await page.goto("/search");
-		await page.getByPlaceholder("Search by name or handle...").fill("unlisted");
-		await page.waitForTimeout(600);
-		await expect(page.getByText("Unlisted Zine")).not.toBeVisible();
-	});
+  test("does NOT appear in the explore feed", async ({ page }) => {
+    await page.goto("/explore");
+    await expect(page.getByRole("heading", { name: "Explore", level: 1 })).toBeVisible();
+    await expect(page.getByText("Unlisted post")).not.toBeVisible();
+  });
 
-	test("unlisted page does NOT appear in /explore", async ({ page }) => {
-		await page.goto("/explore");
-		await expect(page.getByText("Unlisted post")).not.toBeVisible();
-	});
-
-	// Over-hide regression: an UNLISTED page must show its UNLISTED posts on its
-	// own collection (reachable by link), not render an empty collection.
-	test("unlisted page shows its own UNLISTED posts by link", async ({ page }) => {
-		await page.goto("/unlisted-zine");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByText("Unlisted post")).toBeVisible();
-	});
+  test.describe("logged-in user", () => {
+    test.use({ storageState: STORAGE_STATE.alice });
+    test("can access by direct link", async ({ page }) => {
+      await page.goto("/unlisted-zine");
+      await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible({ timeout: 20_000 });
+    });
+  });
 });
 
-// ── PRIVATE user ────────────────────────────────────────────────────────────────
-
+// ── PRIVATE user ──────────────────────────────────────────────────────────────
 test.describe("PRIVATE user", () => {
-	test("anonymous viewer gets 404", async ({ page }) => {
-		await page.goto("/private-pat.example");
-		await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
-	});
+  test("anonymous viewer gets the not-found page", async ({ page }) => {
+    await page.goto("/private-pat.example");
+    await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
+  });
 
-	test("logged-in non-follower (sam) gets 404", async ({ page }) => {
-		await loginAs(page, "sam");
-		await page.goto("/private-pat.example");
-		await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
-	});
+  test("does NOT appear in anonymous search results", async ({ page }) => {
+    await search(page, "Pat Private");
+    await expect(page.getByText(/No results for/i)).toBeVisible();
+    await expect(page.getByRole("link", { name: /Pat Private/i })).toHaveCount(0);
+  });
 
-	test("follower (alice) can view the private profile AND its private posts", async ({ page }) => {
-		await loginAs(page, "alice");
-		await page.goto("/private-pat.example");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).toBeVisible();
-		// Over-hide fix: a follower of a PRIVATE user sees that user's PRIVATE content.
-		await expect(page.getByText("Private update")).toBeVisible();
-	});
+  test.describe("logged-in non-follower (sam)", () => {
+    test.use({ storageState: STORAGE_STATE.sam });
+    test("gets the not-found page", async ({ page }) => {
+      await page.goto("/private-pat.example");
+      await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
+    });
+  });
 
-	test("private user does NOT appear in search for anonymous", async ({ page }) => {
-		await page.goto("/search");
-		await page.getByPlaceholder("Search by name or handle...").fill("Pat Private");
-		// The PRIVATE user must be filtered out, so the search shows its empty state.
-		// Assert the empty state directly — `getByText("Pat Private")` would falsely
-		// match the echoed query inside the "No results for “Pat Private”" message.
-		await expect(page.getByText(/No results for/i)).toBeVisible();
-		await expect(page.getByRole("link", { name: /Pat Private/i })).toHaveCount(0);
-	});
+  test.describe("follower (alice)", () => {
+    test.use({ storageState: STORAGE_STATE.alice });
+    test("can view the private profile AND its private posts", async ({ page }) => {
+      await page.goto("/private-pat.example");
+      await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).toBeVisible({ timeout: 20_000 });
+      // Over-hide fix: a follower of a PRIVATE user sees that user's PRIVATE content.
+      await expect(page.getByText("Private update")).toBeVisible();
+    });
+  });
 });
 
-// ── PUBLIC page ───────────────────────────────────────────────────────────────
+// ── PUBLIC page (smoke check) ───────────────────────────────────────────────
+test.describe("PUBLIC page", () => {
+  test("anonymous viewer can access it", async ({ page }) => {
+    await page.goto("/portland-makers-guild");
+    await expect(page.getByRole("heading", { name: "Portland Makers Guild", exact: true })).toBeVisible({ timeout: 20_000 });
+  });
 
-test.describe("PUBLIC page (smoke check)", () => {
-	test("anonymous viewer can access Portland Makers Guild", async ({ page }) => {
-		await page.goto("/portland-makers-guild");
-		await page.waitForSelector("h1", { timeout: 20_000 });
-		await expect(page.getByRole("heading", { name: "Portland Makers Guild", exact: true })).toBeVisible();
-	});
-
-	test("portland-makers-guild appears in search results", async ({ page }) => {
-		await page.goto("/search");
-		await page.getByPlaceholder("Search by name or handle...").fill("portland");
-		await expect(page.getByText("Portland Makers Guild")).toBeVisible({ timeout: 8_000 });
-	});
+  test("appears in search results", async ({ page }) => {
+    await search(page, "portland");
+    await expect(page.getByText("Portland Makers Guild")).toBeVisible({ timeout: 8_000 });
+  });
 });

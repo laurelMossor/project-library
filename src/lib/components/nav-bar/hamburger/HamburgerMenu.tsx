@@ -106,7 +106,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					<HamburgerIcon className="w-8 h-8 shrink-0" />
 					{unreadCount > 0 && (
 						<span className="absolute -top-0.5 -right-0.5">
-							<NotificationDot />
+							<NotificationDot label="Unread messages" />
 						</span>
 					)}
 				</div>
