@@ -1,10 +1,18 @@
 # Project Journal Notes
 ## Journal Guidelines
-1. When requested by the user (i.e. "Please add to the journal"), add a log above the previous one
-2. Run `date` to get the date and time, use that as the headline (Convert date to format-> Day MM/DD/YYYY HH:MM TMZ)
-3. Write a brief summary of what has been changed or updated since the last journal. No need to document every little nuance. Include major changes, and current challenges at a high level
-4. Treat them like a substantially detailed commit message with some details but keep it brief, 3-5 sentences at most.
+1. When requested by the user (i.e. "Please add to the journal"), add a log above the previous one.
+2. Run `date` to get the date and time, use that as the headline (format: Day MM/DD/YYYY HH:MM TMZ).
+3. **Hard length cap: ~100 words / 5–6 lines.** Someone skimming should get the gist in ~15 seconds. If it won't fit, cut *facts* — never pack them into longer sentences.
+4. **One idea per sentence. Do NOT chain clauses with semicolons or dashes to fit more in** — that run-on style is the reliable failure mode (it keeps the sentence count low while doubling the length). 2–4 plain sentences.
+5. Cover only the headline changes and any live blocker. Leave file lists, function names, and "also did X" tails to the diff and STATUS — the journal is the *why/what*, not the *every*.
+6. Litmus test before saving: if you'd expect "cut this in half," it already needs it.
 
+**Target shape (don't exceed this density):**
+> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Still pending: `npm run validate` and the prod migration.
+
+
+#### Entry: Sat 06/20/2026 12:14 PDT
+`/prolib-review` of `netwerk-3` plus the agreed fixes, with a user/page DRY through-line. Fixed three silent data-loss bugs: user avatar save no-op (flat body vs `/api/me/user`'s `body.fields`), cover-only event edits/new-draft covers dropped (`changeCount` now on the session; `saveAll()` unconditional), and **page visibility never persisting** — surfaced by converging all three profile-update routes onto a shared `saveMyProfile(kind,id,body)` (whitelist + validation + cascade). Also componentized visibility (`VisibilityField`), moved the email module to `utils/server/email/` behind a `server-only` guard, scoped `image-attachments` `replace` to owned images, and added a `pg_trgm` search-index migration (`20260620000000`). tsc + 192 unit green; `npm run validate` + `prisma migrate dev` still to run.
 
 #### Entry: Fri 06/19/2026 12:55 PDT
 Stood up CI + release safety after the netwerk-2 merge. Added `.github/workflows/ci.yml` that runs the full `npm run validate` (lint, typecheck, reserved-handles, unit, e2e, build) against an ephemeral Postgres on every PR into `develop`/`main`, and enabled branch protection requiring that `validate` check on both branches (no required reviews, so solo self-merge still works) — a red branch is now un-mergeable, closing the gap that let a brittle visibility test reach `develop` last merge. Hardened `docs/DEPLOYMENT.md` with a lead release runbook (the schema a build depends on must exist before it serves; expand/contract for destructive migrations), a post-deploy "verify, don't trust silence" step, and a push to automate `migrate deploy`. Made the seed **skip** env-gated real profiles and the pages they own when the secret is unset, so the personal admin account is never created in CI/tests (alice/sam only) — the avatar/content loops now iterate seeded-only packets. Landed via PR #28; `netwerk-3` rebased on top and left for review.

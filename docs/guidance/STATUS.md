@@ -2,8 +2,8 @@
 
 > Live tracker for where we are. Update as things move; brevity is the feature. This is the single "where are we right now?" doc Claude reads at the start of every session.
 
-**Last updated:** 2026-06-18
-**Current phase:** Open Beta — Netwerk milestone in progress. Visibility + transactional email shipped. Bug fix pass (`netwerk-3-bug-fixes`) complete — two rounds of fixes + inline-editable refactor, and a QA acceptance pass (8 tickets verified → Done).
+**Last updated:** 2026-06-20
+**Current phase:** Open Beta — Netwerk milestone in progress. Visibility + transactional email shipped. Bug fix pass (`netwerk-3-bug-fixes`) complete — two rounds of fixes + inline-editable refactor, a QA acceptance pass (8 tickets → Done), and a `/prolib-review` pass whose fixes landed (avatar/cover data-loss bugs, page-visibility drop, user/page profile-route convergence, email module relocation).
 **Usership**: Small group of real closed-beta users. Some data is still mocked. DB operations require approval.
 **Authoritative plan (only access if prompted):** [Open Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1FTW9_Ny-DWrPzHlO1BGGrfQFqOu4JBxZX2j-F_G5OMI/edit)
 **Ticket board (only access if prompted):** [ProLib Tickets (Notion)](https://www.notion.so/2d6453d029b080e99ebffce9169b18c6)
@@ -14,7 +14,7 @@
 
 - **Pending (P1):** Request-to-Follow / Request-to-Join approval flows — [filed in ProLib Tickets](https://app.notion.com/p/376453d029b0813498f3cee9de603a74)
 - **Pending (Backlog):** Activity notifications dispatcher + in-app bell — [filed in ProLib Tickets](https://app.notion.com/p/379453d029b081239c83fdb6ae1a39a4); [domain verification for sending](https://app.notion.com/p/379453d029b08124a6f3eb13a438795f)
-- **NEED PROD MIGRATION:** email verification token tables + emailVerified backfill; visibility model schema changes; `pg_trgm` extension + profile-search GIN indexes (`20260620000000_add_trgm_search_indexes`)
+- 🚨 **NEED PROD MIGRATION — apply BEFORE `develop` merges to `main`/prod, or the live site 500s.** The Netwerk stack adds **breaking** schema prod doesn't have yet: visibility model columns, email-verification token tables + `emailVerified` backfill, `User.tokenVersion`. Migrate first, expand-then-contract (see `docs/DEPLOYMENT.md`). Non-breaking (perf only, same window): `pg_trgm` + profile-search GIN indexes (`20260620000000`). This is the exact gap that took prod down on 04/19 — do not merge `develop`→`main` until prod is migrated.
 
 ### Meatup Release — not started
 
@@ -24,6 +24,7 @@
 
 Most recent first. See `JOURNAL.md` for full entries.
 
+- **2026-06-20** — `/prolib-review` of `netwerk-3` + fixes: 3 silent data-loss bugs (avatar no-op, cover-edit loss, page-visibility drop), profile routes converged on shared `saveMyProfile`, visibility componentized, email moved behind `server-only`, `pg_trgm` index added. tsc + 192 unit green. Pending: `npm run validate`. **Carries breaking prod migrations — see 🚨 flag above before shipping to `main`.**
 - **2026-06-18** — First `/prolib-qa` run: 8 QA tickets verified PASS → Done (20 criteria checked off). Two fixes landed mid-run: visibility selector moved to `/settings/personal-info`; edit/preview mode now URL-driven (`?edit=true`) in `ProfileEditClient`. Skill hardened — per-ticket write-back, corrected `setup.md` (only alice/sam are QA actors; `laurel` is off-limits) + new `preview-tools.md`. **Not yet committed; QA tickets #7 (cover/banner) and #10 (session→login) still un-QA'd.**
 - **2026-06-14** — Round 2 bug fixes: inline-editable refactor (`useInlineField` hook, batched save/publish bar, date picker + cover image folded into batch, blur-loses-changes fixed, profile stuck-edit + published-post-editable fixed).
 - **2026-06-14** — Round 1 bug fixes: event authorship PATCH, page avatar endpoint, cover replace, image delete in carousel, date year cap, search `startsWith`→`contains`, session cookie prefix hardening.
