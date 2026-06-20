@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { AttachmentTarget } from "@prisma/client";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { deleteImage } from "@/lib/utils/server/storage";
 
 /**
  * POST /api/image-attachments
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
 		}
 
 		const body = await request.json();
-		const { imageId, type, targetId, sortOrder } = body;
+		const { imageId, type, targetId, sortOrder, replace } = body;
 
 		if (!imageId || typeof imageId !== "string") {
 			return badRequest("imageId is required");
@@ -75,6 +76,26 @@ export async function POST(request: Request) {
 					{ error: "You can only attach images to your own content" },
 					{ status: 403 }
 				);
+			}
+		}
+
+		// When replace=true, remove existing attachments for this target and delete their
+		// images — but ONLY ones the caller owns, so swapping in a new cover can never
+		// hard-delete another user's image (e.g. a co-host's upload on a page event).
+		if (replace) {
+			const existing = await prisma.imageAttachment.findMany({
+				where: { type, targetId, image: { uploadedByUserId: ctx.userId } },
+				include: { image: { select: { id: true, url: true } } },
+			});
+			const attachmentIds = existing.map((a) => a.id);
+			const imageIds = existing.map((a) => a.image.id);
+			await prisma.imageAttachment.deleteMany({ where: { id: { in: attachmentIds } } });
+			await prisma.image.deleteMany({ where: { id: { in: imageIds } } });
+			for (const att of existing) {
+				const result = await deleteImage(att.image.url);
+				if (result.error) {
+					console.error(`Failed to delete replaced image ${att.image.id} from storage:`, result.error);
+				}
 			}
 		}
 

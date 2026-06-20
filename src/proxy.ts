@@ -15,8 +15,10 @@ const protectedRoutes = [
 	CONNECTIONS,
 ];
 
-// Session cookie names used by Auth.js / NextAuth
-const SESSION_COOKIE_NAMES = [
+// Session cookie name prefixes used by Auth.js / NextAuth.
+// Auth.js can split large JWTs into chunks named e.g. authjs.session-token.0,
+// so we match by prefix rather than exact name.
+const SESSION_COOKIE_PREFIXES = [
 	"authjs.session-token",
 	"__Secure-authjs.session-token",
 	"next-auth.session-token",
@@ -24,7 +26,10 @@ const SESSION_COOKIE_NAMES = [
 ];
 
 function hasSessionCookie(req: NextRequest): boolean {
-	return SESSION_COOKIE_NAMES.some((name) => req.cookies.has(name));
+	const cookieNames = req.cookies.getAll().map((c) => c.name);
+	return SESSION_COOKIE_PREFIXES.some((prefix) =>
+		cookieNames.some((name) => name === prefix || name.startsWith(prefix + "."))
+	);
 }
 
 export default function proxy(req: NextRequest) {
@@ -52,8 +57,30 @@ export default function proxy(req: NextRequest) {
 		pathname.startsWith(route)
 	);
 
-	// If protected and no session cookie, redirect to login
-	if (isProtected && !hasSessionCookie(req)) {
+	// If protected and no session cookie, redirect to login.
+	// Skip the redirect for prefetch / RSC requests — a prefetch can be issued
+	// before the browser sends cookies, so redirecting here would cache a stale
+	// redirect that later bounces a legitimately logged-in user. Because this skip
+	// exists, every protected page MUST keep its own server-side auth guard
+	// (auth() + redirect / AuthError); this edge check is defense-in-depth only.
+	const isPrefetch =
+		req.headers.get("next-router-prefetch") === "1" ||
+		req.headers.get("rsc") === "1" ||
+		req.headers.get("purpose") === "prefetch";
+
+	if (isProtected && !isPrefetch && !hasSessionCookie(req)) {
+		// Debug aid (cookie names on an unauthenticated hit) — gated so it doesn't
+		// write a JSON line per bot/crawler request to a protected path.
+		if (process.env.PROXY_DEBUG === "true") {
+			console.log(
+				JSON.stringify({
+					type: "auth_redirect",
+					path: pathname,
+					cookiesPresent: req.cookies.getAll().map((c) => c.name),
+					ts: new Date().toISOString(),
+				})
+			);
+		}
 		const loginUrl = new URL(LOGIN, req.url);
 		loginUrl.searchParams.set("callbackUrl", pathname);
 		return NextResponse.redirect(loginUrl);

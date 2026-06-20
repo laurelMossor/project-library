@@ -3,7 +3,7 @@ import { badRequest } from "@/lib/utils/errors";
 import { validateEmail, normalizeEmail } from "@/lib/validations";
 import { prisma } from "@/lib/utils/server/prisma";
 import { createPasswordResetToken } from "@/lib/utils/server/auth-tokens";
-import { sendPasswordResetEmail } from "@/lib/email/emails";
+import { sendPasswordResetEmail } from "@/lib/utils/server/email/emails";
 import { absoluteUrl } from "@/lib/utils/server/url";
 import { RESET_PASSWORD_WITH_TOKEN } from "@/lib/const/routes";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";

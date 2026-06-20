@@ -29,8 +29,8 @@ test.describe("Authoring — create content", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByText(/unsaved change/)).toBeVisible();
 
-    // Save via session bar
-    await page.getByRole("button", { name: "Save" }).click();
+    // Save via session bar (exact: true — bar also has "Save and publish")
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Playwright Test Event")).toBeVisible();
     await expect(page.getByText(/unsaved change/)).not.toBeVisible();
 
@@ -97,8 +97,8 @@ test.describe("Authoring — create content", () => {
 
     await expect(page.getByText(/unsaved change/)).toBeVisible();
 
-    // Save via session bar
-    await page.getByRole("button", { name: "Save" }).click();
+    // Save via session bar (exact: true — bar also has "Save and publish")
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Playwright Test Post")).toBeVisible();
     await expect(page.getByText(/unsaved change/)).not.toBeVisible({ timeout: 10_000 });
 

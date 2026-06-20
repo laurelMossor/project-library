@@ -101,7 +101,6 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 						<ProfileEditClient
 							entity={{ type: "user", data: user }}
 							saveUrl={API_ME_USER}
-							defaultReadonly={edit !== "true"}
 						/>
 					</div>
 
@@ -179,7 +178,6 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 						<ProfileEditClient
 							entity={{ type: "page", data: page }}
 							saveUrl={API_PAGE(page.id)}
-							defaultReadonly={edit !== "true"}
 						/>
 					</div>
 

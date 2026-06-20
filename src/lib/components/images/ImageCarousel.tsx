@@ -16,6 +16,7 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 	const [editingCaption, setEditingCaption] = useState(false);
 	const [captionDraft, setCaptionDraft] = useState('');
 	const [saving, setSaving] = useState(false);
+	const [confirmDelete, setConfirmDelete] = useState(false);
 
 	if (!images || images.length === 0) {
 		return null;
@@ -24,16 +25,36 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 	const goToPrevious = () => {
 		setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
 		setEditingCaption(false);
+		setConfirmDelete(false);
 	};
 
 	const goToNext = () => {
 		setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
 		setEditingCaption(false);
+		setConfirmDelete(false);
 	};
 
 	const goToSlide = (index: number) => {
 		setCurrentIndex(index);
 		setEditingCaption(false);
+		setConfirmDelete(false);
+	};
+
+	const deleteCurrentImage = async () => {
+		const image = images[currentIndex];
+		if (!image.attachmentId) return;
+		setSaving(true);
+		try {
+			const res = await fetch(`/api/image-attachments/${image.attachmentId}`, { method: 'DELETE' });
+			if (res.ok) {
+				const next = images.filter((_, i) => i !== currentIndex);
+				setImages(next);
+				setCurrentIndex(Math.min(currentIndex, next.length - 1));
+				setConfirmDelete(false);
+			}
+		} finally {
+			setSaving(false);
+		}
 	};
 
 	const startEdit = () => {
@@ -143,7 +164,7 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 				)}
 			</div>
 
-			{/* Caption editing area — below the image, owners only */}
+			{/* Caption + delete controls — below the image, owners only */}
 			{showCaptions && isOwner && (
 				<div className="mt-2">
 					{editingCaption ? (
@@ -173,13 +194,40 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 								</button>
 							</div>
 						</div>
+					) : confirmDelete ? (
+						<div className="flex items-center gap-2">
+							<span className="text-xs text-warm-grey">Remove this image?</span>
+							<button
+								onClick={deleteCurrentImage}
+								disabled={saving}
+								className="text-xs px-3 py-1 rounded bg-alert-red text-white hover:bg-alert-red/90 disabled:opacity-50 transition-colors"
+							>
+								{saving ? 'Removing…' : 'Remove'}
+							</button>
+							<button
+								onClick={() => setConfirmDelete(false)}
+								className="text-xs text-dusty-grey hover:text-warm-grey transition-colors"
+							>
+								Cancel
+							</button>
+						</div>
 					) : (
-						<button
-							onClick={startEdit}
-							className="text-xs text-dusty-grey hover:text-moss-green transition-colors"
-						>
-							{currentImage.caption ? 'Edit caption' : '+ Add caption'}
-						</button>
+						<div className="flex items-center gap-3">
+							<button
+								onClick={startEdit}
+								className="text-xs text-dusty-grey hover:text-moss-green transition-colors"
+							>
+								{currentImage.caption ? 'Edit caption' : '+ Add caption'}
+							</button>
+							{currentImage.attachmentId && (
+								<button
+									onClick={() => setConfirmDelete(true)}
+									className="text-xs text-dusty-grey hover:text-alert-red transition-colors"
+								>
+									Remove image
+								</button>
+							)}
+						</div>
 					)}
 				</div>
 			)}

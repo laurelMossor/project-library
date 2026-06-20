@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
@@ -14,14 +14,14 @@ import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
 import { AttendeeList } from "@/lib/components/event/AttendeeList";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
-import { Tags } from "@/lib/components/tag/Tag";
+import { Tag } from "@/lib/components/tag/Tag";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { InteractiveMap } from "@/lib/components/map/InteractiveMap";
 import { LocationSearchInput, type LocationResult } from "@/lib/components/map/LocationSearchInput";
-import { updateEvent, publishEvent, deleteEvent } from "@/lib/utils/event-client";
-import { AuthError } from "@/lib/utils/auth-client";
+import { updateEvent, deleteEvent } from "@/lib/utils/event-client";
+import { AuthError, authFetch } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
@@ -30,7 +30,9 @@ import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { RsvpStatus } from "@/lib/types/rsvp";
+import type { SavePayload } from "@/lib/types/inline-edit";
 
 type EventPageClientProps = {
 	event: EventItem;
@@ -63,37 +65,37 @@ function EventPageContent({
 	const editSession = useInlineEditSession();
 	const [editingField, setEditingField] = useState<string | null>(null);
 	const [rsvpRefreshKey, setRsvpRefreshKey] = useState(0);
-	const [publishing, setPublishing] = useState(false);
-
-	// Per-field pending values
-	const [editTitle, setEditTitle] = useState(event.title);
-	const [editContent, setEditContent] = useState(event.content);
-	const [editLocation, setEditLocation] = useState(event.location);
-	const [editLatitude, setEditLatitude] = useState<number | null>(event.latitude);
-	const [editLongitude, setEditLongitude] = useState<number | null>(event.longitude);
-	const [editTagsArr, setEditTagsArr] = useState<string[]>(event.tags);
-	const [isEditing, setIsEditing] = useState(event.status === "DRAFT");
 
 	const isDraft = event.status === "DRAFT";
 	const isPublished = event.status === "PUBLISHED";
+	const [isEditing, setIsEditing] = useState(isDraft);
 	const page = event.page;
 	const coverImageUrl = event.images?.[0]?.url || null;
 
-	// When editSession cancels, revert all field states
+	// Session-backed fields — dirtyFields is the single source of truth.
+	// displayContent renders these values so edited text is visible on blur.
+	const { value: title, setValue: setTitle } = useInlineField("title", event.title);
+	const { value: content, setValue: setContent } = useInlineField("content", event.content);
+	const { value: tags, setValue: setTags } = useInlineField<string[]>("tags", event.tags);
+	// Location fields are interdependent — all three update together on select
+	const { value: locationDisplay, setValue: setLocationDisplay } = useInlineField<string | null>("location", event.location);
+	const { value: latValue, setValue: setLat } = useInlineField<number | null>("latitude", event.latitude);
+	const { value: lngValue, setValue: setLng } = useInlineField<number | null>("longitude", event.longitude);
+
+	// When editSession cancels, close any open edit field (values revert automatically
+	// because dirtyFields clears and useInlineField reads from it).
 	const cancelRevision = editSession?.cancelRevision ?? 0;
 	useEffect(() => {
 		if (cancelRevision === 0) return;
-		setEditTitle(event.title);
-		setEditContent(event.content);
-		setEditLocation(event.location);
-		setEditLatitude(event.latitude);
-		setEditLongitude(event.longitude);
-		setEditTagsArr(event.tags);
 		setEditingField(null);
-	// cancelRevision changing is the only trigger we care about
+	// cancelRevision is the only intended trigger
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
 
+	// Drop out of edit mode when the event transitions to PUBLISHED
+	useEffect(() => {
+		if (event.status === "PUBLISHED") setIsEditing(false);
+	}, [event.status]);
 
 	// Tracks whether this event is still a draft so the unmount cleanup always
 	// has the latest value (avoids stale closure over `isDraft`).
@@ -109,18 +111,18 @@ function EventPageContent({
 			hasContentRef.current = true;
 		}
 	}, [event.title, event.content, event.location, event.tags.length]);
-	// Also mark dirty when any inline field is edited (before save)
-	const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
+	// changeCount (not just dirtyFields) so a pending cover file also counts as content —
+	// otherwise a draft with only a cover gets silently deleted on navigate-away.
+	const changeCount = editSession?.changeCount ?? 0;
 	useEffect(() => {
-		if (dirtyCount > 0) hasContentRef.current = true;
-	}, [dirtyCount]);
+		if (changeCount > 0) hasContentRef.current = true;
+	}, [changeCount]);
 
 	// When the owner navigates away from an unpublished EMPTY draft, delete it silently.
 	useEffect(() => {
 		const eventId = event.id;
 		let armed = false;
 		const armTimer = setTimeout(() => { armed = true; }, 0);
-
 		return () => {
 			clearTimeout(armTimer);
 			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
@@ -137,45 +139,15 @@ function EventPageContent({
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
 	};
 
-	const handlePublish = async () => {
-		setPublishing(true);
-		try {
-			const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
-			if (dirtyCount > 0) await editSession?.saveAll();
-			const updated = await publishEvent(event.id);
-			setEvent((prev) => ({ ...prev, ...updated }));
-			setIsEditing(false);
-		} catch (err) {
-			if (err instanceof AuthError) {
-				handleAuthError();
-				return;
-			}
-		} finally {
-			setPublishing(false);
-		}
-	};
-
 	const handleLocationSelect = useCallback((result: LocationResult) => {
-		setEditLatitude(result.lat);
-		setEditLongitude(result.lng);
-		setEditLocation(result.displayName);
-		editSession?.setDirty("latitude", result.lat, event.latitude);
-		editSession?.setDirty("longitude", result.lng, event.longitude);
-		editSession?.setDirty("location", result.displayName, event.location);
-	}, [editSession, event.latitude, event.longitude, event.location]);
+		setLat(result.lat);
+		setLng(result.lng);
+		setLocationDisplay(result.displayName);
+	}, [setLat, setLng, setLocationDisplay]);
 
 	const handleAuthorSwitch = async (pageId: string | null) => {
 		try {
 			const updated = await updateEvent(event.id, { pageId });
-			setEvent((prev) => ({ ...prev, ...updated }));
-		} catch (err) {
-			if (err instanceof AuthError) handleAuthError();
-		}
-	};
-
-	const handleDateSave = async (dateTime: Date, timezone: string) => {
-		try {
-			const updated = await updateEvent(event.id, { eventDateTime: dateTime, eventTimezone: timezone });
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
@@ -193,15 +165,8 @@ function EventPageContent({
 
 			{/* Cover image */}
 			<CoverImageEditor
-				eventId={event.id}
 				imageUrl={coverImageUrl}
 				canEdit={isOwner && isEditing}
-				onImageUploaded={(url) => {
-					setEvent((prev) => ({
-						...prev,
-						images: [{ id: "", url, path: "", altText: null, caption: null, uploadedByUserId: "", createdAt: new Date() }, ...prev.images.slice(1)],
-					}));
-				}}
 			/>
 
 			<PostContentArea>
@@ -209,44 +174,39 @@ function EventPageContent({
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "title"}
-					onEditStart={() => {
-						setEditTitle(event.title);
-						setEditingField("title");
-					}}
-			onCancel={() => setEditingField(null)}
-			displayContent={
-				<h1 className={`text-4xl leading-tight ${editTitle ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
-						{editTitle || (isOwner ? "Event name" : "Untitled Event")}
-					</h1>
-				}
-				editContent={
-					<input
-						type="text"
-						value={editTitle || ""}
-					onChange={(e) => { setEditTitle(e.target.value); editSession?.setDirty("title", e.target.value, event.title); }}
-					onBlur={() => setEditingField(null)}
-					onKeyDown={(e) => {
-						if (e.key === "Enter") {
-							e.preventDefault();
-							setEditingField(null);
-							editSession?.saveAll();
-						}
-					}}
-					placeholder="Event name"
-						className="w-full text-4xl font-bold text-rich-brown border-b-2 border-rich-brown/20 pb-1 focus:outline-none focus:border-rich-brown bg-transparent"
-						maxLength={150}
-						autoFocus
-					/>
-				}
+					onEditStart={() => setEditingField("title")}
+					onCancel={() => setEditingField(null)}
+					displayContent={
+						<h1 className={`text-4xl leading-tight ${title ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
+							{(title as string) || (isOwner ? "Event name" : "Untitled Event")}
+						</h1>
+					}
+					editContent={
+						<input
+							type="text"
+							value={(title as string) || ""}
+							onChange={(e) => setTitle(e.target.value)}
+							onBlur={() => setEditingField(null)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									setEditingField(null);
+									editSession?.saveAll();
+								}
+							}}
+							placeholder="Event name"
+							className="w-full text-4xl font-bold text-rich-brown border-b-2 border-rich-brown/20 pb-1 focus:outline-none focus:border-rich-brown bg-transparent"
+							maxLength={150}
+							autoFocus
+						/>
+					}
 				/>
 
-				{/* Date & time */}
+				{/* Date & time — batched into session via useInlineField */}
 				<InlineDateTimePicker
-					eventId={event.id}
 					eventDateTime={event.eventDateTime}
 					eventTimezone={event.eventTimezone}
 					canEdit={isOwner && isEditing}
-					onSave={handleDateSave}
 				/>
 
 				{/* Organizer info + actions */}
@@ -272,21 +232,6 @@ function EventPageContent({
 								Message
 							</Link>
 						)}
-						{isOwner && isDraft && (
-							<div className="flex flex-col items-start gap-1">
-								<button
-									type="button"
-									onClick={handlePublish}
-									disabled={publishing || !editTitle}
-									className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-								>
-									{publishing ? "Publishing..." : "Publish"}
-								</button>
-								{!editTitle && !publishing && (
-									<p className="text-xs text-dusty-grey">Add an event name to publish</p>
-								)}
-							</div>
-						)}
 						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
 								Live
@@ -299,23 +244,20 @@ function EventPageContent({
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "content"}
-					onEditStart={() => {
-						setEditContent(event.content);
-						setEditingField("content");
-					}}
-				onCancel={() => setEditingField(null)}
-				displayContent={
-					<div className={`p-3 rounded-lg min-h-[10rem] ${!event.content ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
-							<InlinePlaceholder value={event.content} placeholder="What should people know?">
-								<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{event.content}</p>
+					onEditStart={() => setEditingField("content")}
+					onCancel={() => setEditingField(null)}
+					displayContent={
+						<div className={`p-3 rounded-lg min-h-[10rem] ${!(content as string) ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
+							<InlinePlaceholder value={content as string} placeholder="What should people know?">
+								<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{content as string}</p>
 							</InlinePlaceholder>
 						</div>
 					}
 					editContent={
 						<textarea
-							value={editContent}
-						onChange={(e) => { setEditContent(e.target.value); editSession?.setDirty("content", e.target.value, event.content); }}
-						placeholder="What should people know?"
+							value={(content as string) || ""}
+							onChange={(e) => setContent(e.target.value)}
+							placeholder="What should people know?"
 							rows={6}
 							maxLength={5000}
 							className="w-full text-base leading-relaxed text-gray-700 border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
@@ -328,44 +270,35 @@ function EventPageContent({
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "location"}
-					onEditStart={() => {
-						if (!editSession?.dirtyFields["location"]) {
-							setEditLocation(event.location);
-							setEditLatitude(event.latitude);
-							setEditLongitude(event.longitude);
-						}
-						setEditingField("location");
-					}}
-				onCancel={() => setEditingField(null)}
-				displayContent={
-					<div className="space-y-3">
-						<div className="rounded-xl border border-gray-200 p-4">
-							<p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Location</p>
-								<InlinePlaceholder value={editLocation ?? event.location} placeholder={isOwner ? "Add a location" : "TBD"}>
-									<p className="text-lg font-medium text-rich-brown">{editLocation ?? event.location}</p>
+					onEditStart={() => setEditingField("location")}
+					onCancel={() => setEditingField(null)}
+					displayContent={
+						<div className="space-y-3">
+							<div className="rounded-xl border border-gray-200 p-4">
+								<p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Location</p>
+								<InlinePlaceholder value={locationDisplay as string | null} placeholder={isOwner ? "Add a location" : "TBD"}>
+									<p className="text-lg font-medium text-rich-brown">{locationDisplay as string}</p>
 								</InlinePlaceholder>
 							</div>
-							{(editLatitude ?? event.latitude) != null && (editLongitude ?? event.longitude) != null && (
-								<EventMap latitude={(editLatitude ?? event.latitude)!} longitude={(editLongitude ?? event.longitude)!} title={event.title || undefined} />
+							{(latValue as number | null) != null && (lngValue as number | null) != null && (
+								<EventMap latitude={(latValue as number)!} longitude={(lngValue as number)!} title={event.title || undefined} />
 							)}
 						</div>
 					}
 					editContent={
 						<div className="space-y-3">
 							<LocationSearchInput
-								value={editLocation}
-								onChange={(v) => { setEditLocation(v); editSession?.setDirty("location", v, event.location); }}
+								value={(locationDisplay as string | null) ?? ""}
+								onChange={(v) => setLocationDisplay(v || null)}
 								onSelect={handleLocationSelect}
 								autoFocus
 							/>
 							<InteractiveMap
-								latitude={editLatitude}
-								longitude={editLongitude}
+								latitude={latValue as number | null}
+								longitude={lngValue as number | null}
 								onLocationChange={(lat, lng) => {
-									setEditLatitude(lat);
-									setEditLongitude(lng);
-									editSession?.setDirty("latitude", lat, event.latitude);
-									editSession?.setDirty("longitude", lng, event.longitude);
+									setLat(lat);
+									setLng(lng);
 								}}
 							/>
 						</div>
@@ -390,20 +323,23 @@ function EventPageContent({
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "tags"}
-					onEditStart={() => {
-						setEditTagsArr(event.tags);
-						setEditingField("tags");
-					}}
-				onCancel={() => setEditingField(null)}
-				displayContent={
-					event.tags.length > 0
-						? <Tags item={event} />
+					onEditStart={() => setEditingField("tags")}
+					onCancel={() => setEditingField(null)}
+					displayContent={
+						(tags as string[]).length > 0
+							? (
+								<div className="flex flex-wrap gap-2">
+									{(tags as string[]).map((tag) => (
+										<Tag key={tag} tag={tag} />
+									))}
+								</div>
+							)
 							: <InlinePlaceholder value={null} placeholder="Add topics" />
 					}
 					editContent={
 						<TagInputField
-							tags={editTagsArr}
-							onTagsChange={(tags) => { setEditTagsArr(tags); editSession?.setDirty("tags", tags, event.tags); }}
+							tags={tags as string[]}
+							onTagsChange={(newTags) => setTags(newTags)}
 						/>
 					}
 				/>
@@ -444,8 +380,9 @@ function EventPageContent({
 							<button
 								type="button"
 								onClick={async () => {
-									const dirtyCount = editSession ? Object.keys(editSession.dirtyFields).length : 0;
-									if (dirtyCount > 0) await editSession?.saveAll();
+									// saveAll() early-returns when nothing is dirty, and it counts
+									// pending cover files — so a cover-only edit still gets saved.
+									await editSession?.saveAll();
 									setIsEditing(false);
 								}}
 								className="text-sm font-medium text-moss-green hover:text-rich-brown transition-colors cursor-pointer"
@@ -465,6 +402,46 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
+	const isDraft = event.status === "DRAFT";
+
+	// Upload a pending cover file and attach it as the event banner (replace=true).
+	const handleCommitFiles = useCallback(async (files: Record<string, File>): Promise<Partial<EventItem> | void> => {
+		const coverFile = files["cover"];
+		if (!coverFile) return;
+
+		const formData = new FormData();
+		formData.append("file", coverFile);
+		const uploadRes = await authFetch("/api/upload?folder=event-covers", {
+			method: "POST",
+			body: formData,
+		});
+		if (!uploadRes.ok) {
+			const data = await uploadRes.json().catch(() => ({}));
+			throw new Error(data.error || "Failed to upload cover image");
+		}
+		const uploadData = await uploadRes.json();
+
+		const attachRes = await authFetch("/api/image-attachments", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				imageId: uploadData.id,
+				type: "EVENT",
+				targetId: event.id,
+				replace: true,
+			}),
+		});
+		if (!attachRes.ok) {
+			const data = await attachRes.json().catch(() => ({}));
+			throw new Error(data.error || "Failed to attach cover image");
+		}
+
+		// Return a partial update so the event's images array reflects the new banner
+		return {
+			images: [{ id: uploadData.id, url: uploadData.url, path: "", altText: null, caption: null, uploadedByUserId: "", createdAt: new Date() }],
+		};
+	}, [event.id]);
+
 	return (
 		<PostPageShell breadcrumb={
 			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
@@ -473,7 +450,7 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 		}>
 			<InlineEditSession
 				resource={event as unknown as Record<string, unknown>}
-				onSave={async ({ fields }) => {
+				onSave={async ({ fields }: SavePayload) => {
 					const updated = await updateEvent(event.id, fields as Parameters<typeof updateEvent>[1]);
 					setEvent((prev) => ({ ...prev, ...updated }));
 					return updated as unknown as Record<string, unknown>;
@@ -481,7 +458,11 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 				onSaved={(updated) => {
 					setEvent((prev) => ({ ...prev, ...(updated as Partial<EventItem>) }));
 				}}
+				onCommitFiles={handleCommitFiles as (files: Record<string, File>) => Promise<Partial<Record<string, unknown>> | void>}
 				canEdit={isOwner}
+				publishable={isOwner && isDraft}
+				canPublish={(current) => Boolean((current.title as string)?.trim())}
+				publishHint="Add an event name to publish"
 			>
 				<EventPageContent
 					event={event}

@@ -37,7 +37,7 @@ export async function searchProfiles(
 ): Promise<SearchResultItem[]> {
 	if (query.length < 2) return [];
 
-	const filter = { startsWith: query, mode: "insensitive" as const };
+	const filter = { contains: query, mode: "insensitive" as const };
 
 	const results: SearchResultItem[] = [];
 

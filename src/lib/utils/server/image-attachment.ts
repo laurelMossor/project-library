@@ -52,7 +52,7 @@ export async function getImagesForTarget(
 		},
 	});
 
-	return attachments.map(att => att.image) as ImageItem[];
+	return attachments.map(att => ({ ...att.image, attachmentId: att.id })) as ImageItem[];
 }
 
 /**
@@ -90,7 +90,7 @@ export async function getImagesForTargetsBatch(
 
 	for (const attachment of attachments) {
 		const existing = imageMap.get(attachment.targetId) || [];
-		existing.push(attachment.image as ImageItem);
+		existing.push({ ...attachment.image, attachmentId: attachment.id } as ImageItem);
 		imageMap.set(attachment.targetId, existing);
 	}
 

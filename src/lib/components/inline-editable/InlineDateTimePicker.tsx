@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
+import { useInlineField } from "@/lib/hooks/useInlineField";
 import { formatDateTime } from "@/lib/utils/datetime";
 
 const TIMEZONE_OPTIONS = [
@@ -15,11 +16,9 @@ const TIMEZONE_OPTIONS = [
 ];
 
 type InlineDateTimePickerProps = {
-	eventId: string;
 	eventDateTime: Date | string;
 	eventTimezone?: string | null;
 	canEdit: boolean;
-	onSave: (dateTime: Date, timezone: string) => Promise<void>;
 };
 
 function toLocalDateTimeString(date: Date | string, timezone?: string | null): string {
@@ -66,29 +65,49 @@ function detectBrowserTimezone(): string {
 	return "America/Los_Angeles";
 }
 
-export function InlineDateTimePicker({ eventDateTime, eventTimezone, canEdit, onSave }: InlineDateTimePickerProps) {
-	const effectiveTz = eventTimezone || detectBrowserTimezone();
-	const [isEditing, setIsEditing] = useState(false);
-	const [value, setValue] = useState(toLocalDateTimeString(eventDateTime, eventTimezone));
-	const [timezone, setTimezone] = useState(effectiveTz);
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState("");
+/**
+ * Batched date/time picker — changes commit with the shared InlineEditSession
+ * Save/Save-and-publish bar, not immediately. Removes the standalone onSave
+ * prop; eventDateTime and eventTimezone flow through session.dirtyFields as
+ * "eventDateTime" (UTC Date) and "eventTimezone" (string).
+ */
+export function InlineDateTimePicker({ eventDateTime, eventTimezone, canEdit }: InlineDateTimePickerProps) {
+	const { value: currentDateTime, setValue: setDateTime } = useInlineField<Date | string>(
+		"eventDateTime",
+		eventDateTime
+	);
+	const { value: currentTimezone, setValue: setTimezone } = useInlineField<string>(
+		"eventTimezone",
+		eventTimezone || detectBrowserTimezone()
+	);
 
-	const handleSave = async () => {
-		const utcDate = localInputToUtc(value, timezone);
-		if (isNaN(utcDate.getTime())) {
-			setError("Invalid date");
-			return;
+	const effectiveTz = (currentTimezone as string) || detectBrowserTimezone();
+
+	// Local input state — the datetime-local string for the <input>. This is
+	// reset to match the committed/dirty value on edit-start and on cancelRevision.
+	const [isEditing, setIsEditing] = useState(false);
+	const [localValue, setLocalValue] = useState(() =>
+		toLocalDateTimeString(currentDateTime, effectiveTz)
+	);
+	const [localTz, setLocalTz] = useState(effectiveTz);
+
+	// Keep localValue in sync when the session cancels (dirtyFields cleared)
+	// or when the parent updates eventDateTime (e.g. after a save).
+	useEffect(() => {
+		if (!isEditing) {
+			setLocalValue(toLocalDateTimeString(currentDateTime, effectiveTz));
+			setLocalTz(effectiveTz);
 		}
-		setSaving(true);
-		setError("");
-		try {
-			await onSave(utcDate, timezone);
-			setIsEditing(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to save");
-		} finally {
-			setSaving(false);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentDateTime, effectiveTz]);
+
+	const handleLocalChange = (newLocalValue: string, newTz: string) => {
+		setLocalValue(newLocalValue);
+		setLocalTz(newTz);
+		const utcDate = localInputToUtc(newLocalValue, newTz);
+		if (!isNaN(utcDate.getTime())) {
+			setDateTime(utcDate);
+			setTimezone(newTz);
 		}
 	};
 
@@ -97,59 +116,37 @@ export function InlineDateTimePicker({ eventDateTime, eventTimezone, canEdit, on
 			canEdit={canEdit}
 			isEditing={isEditing}
 			onEditStart={() => {
-				const tz = eventTimezone || detectBrowserTimezone();
-				setValue(toLocalDateTimeString(eventDateTime, tz));
-				setTimezone(tz);
+				const tz = (currentTimezone as string) || detectBrowserTimezone();
+				setLocalValue(toLocalDateTimeString(currentDateTime, tz));
+				setLocalTz(tz);
 				setIsEditing(true);
 			}}
-			onCancel={() => {
-				setIsEditing(false);
-				setError("");
-			}}
+			onCancel={() => setIsEditing(false)}
 			displayContent={
 				<p className="text-lg font-medium text-rich-brown">
-					{formatDateTime(eventDateTime, eventTimezone)}
+					{formatDateTime(currentDateTime, currentTimezone as string | null | undefined)}
 				</p>
 			}
 			editContent={
-				<div>
-					<div className="flex items-center gap-2">
-						<input
-							type="datetime-local"
-							value={value}
-							onChange={(e) => setValue(e.target.value)}
-							className="flex-1 border border-gray-300 p-2 rounded text-lg"
-							autoFocus
-						/>
-						<select
-							value={timezone}
-							onChange={(e) => setTimezone(e.target.value)}
-							className="border border-gray-300 p-2 rounded text-sm"
-						>
-							{TIMEZONE_OPTIONS.map(({ label, value: tz }) => (
-								<option key={tz} value={tz}>{label}</option>
-							))}
-						</select>
-					</div>
-					<div className="flex items-center gap-2 mt-2">
-						<button
-							type="button"
-							onClick={handleSave}
-							disabled={saving}
-							className="px-3 py-1 text-sm font-medium text-white bg-moss-green rounded hover:bg-rich-brown transition-colors disabled:opacity-50"
-						>
-							{saving ? "Saving..." : "Save"}
-						</button>
-						<button
-							type="button"
-							onClick={() => { setIsEditing(false); setError(""); }}
-							disabled={saving}
-							className="px-3 py-1 text-sm font-medium text-warm-grey border border-soft-grey rounded hover:bg-soft-grey/20 transition-colors disabled:opacity-50"
-						>
-							Cancel
-						</button>
-					</div>
-					{error && <p className="text-sm text-alert-red mt-1">{error}</p>}
+				<div className="flex items-center gap-2">
+					<input
+						type="datetime-local"
+						value={localValue}
+						onChange={(e) => handleLocalChange(e.target.value, localTz)}
+						min="1000-01-01T00:00"
+						max="9999-12-31T23:59"
+						className="flex-1 border border-gray-300 p-2 rounded text-lg"
+						autoFocus
+					/>
+					<select
+						value={localTz}
+						onChange={(e) => handleLocalChange(localValue, e.target.value)}
+						className="border border-gray-300 p-2 rounded text-sm"
+					>
+						{TIMEZONE_OPTIONS.map(({ label, value: tz }) => (
+							<option key={tz} value={tz}>{label}</option>
+						))}
+					</select>
 				</div>
 			}
 		/>

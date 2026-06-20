@@ -3,15 +3,18 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
 
 type AvatarEditModalProps = {
 	isOpen: boolean;
 	onClose: () => void;
 	currentAvatarUrl: string | null;
 	initials: string;
+	entityId?: string;
+	isPage?: boolean;
 };
 
-export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }: AvatarEditModalProps) {
+export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials, entityId, isPage }: AvatarEditModalProps) {
 	const router = useRouter();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [saving, setSaving] = useState(false);
@@ -22,6 +25,19 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 	if (!isOpen) return null;
 
 	const previewUrl = imagePreview ?? currentAvatarUrl;
+
+	// Both the user (/api/me/user) and page (/api/pages/[id]) profile routes take
+	// the same SavePayload wrapper ({ fields: {...} }) and run updateProfileWithCascade.
+	// The user route was previously sent a FLAT body, which it silently ignored.
+	async function saveAvatar(avatarImageId: string | null) {
+		const endpoint = isPage && entityId ? API_PAGE(entityId) : API_ME_USER;
+		const res = await fetch(endpoint, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ fields: { avatarImageId } }),
+		});
+		if (!res.ok) throw new Error("Failed to save avatar");
+	}
 
 	async function handleSave() {
 		if (!imageFile) return;
@@ -39,12 +55,7 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 				throw new Error(data.error || "Upload failed");
 			}
 			const { id } = await uploadRes.json();
-			const updateRes = await fetch("/api/me/user", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ avatarImageId: id }),
-			});
-			if (!updateRes.ok) throw new Error("Failed to save avatar");
+			await saveAvatar(id);
 			router.refresh();
 			onClose();
 		} catch (err) {
@@ -58,12 +69,7 @@ export function AvatarEditModal({ isOpen, onClose, currentAvatarUrl, initials }:
 		setSaving(true);
 		setError("");
 		try {
-			const res = await fetch("/api/me/user", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ avatarImageId: null }),
-			});
-			if (!res.ok) throw new Error("Failed to remove avatar");
+			await saveAvatar(null);
 			router.refresh();
 			onClose();
 		} catch (err) {

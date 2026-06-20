@@ -31,6 +31,8 @@ export function ClickableProfilePicture({ entity }: ClickableProfilePictureProps
 				onClose={() => setIsModalOpen(false)}
 				currentAvatarUrl={avatarUrl}
 				initials={initials}
+				entityId={entity.id}
+				isPage={isCardPage(entity)}
 			/>
 		</>
 	);

@@ -1,4 +1,8 @@
-// ⚠️ SERVER-ONLY
+// ⚠️ SERVER-ONLY — enforced, not just documented. This is the secrets boundary
+// (Resend SDK + RESEND_API_KEY); the `server-only` import makes a build fail if
+// any client component pulls this module (or anything that imports it) into the
+// browser bundle. Resolves to a no-op in the server/RSC graph, so routes and
+// tests that mock this file are unaffected.
 //
 // Lazily-constructed Resend client. Kept behind a getter so importing the email
 // module never throws when RESEND_API_KEY is absent (local dev / tests run on
@@ -6,6 +10,7 @@
 // Resend specifically — swapping providers later means rewriting send.ts +
 // this file, nothing upstream.
 
+import "server-only";
 import { Resend } from "resend";
 
 let cached: Resend | null = null;

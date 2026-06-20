@@ -23,7 +23,7 @@ vi.mock("@/lib/utils/server/auth-tokens", () => ({
 	createPasswordResetToken: vi.fn(async () => ({ rawToken: "raw", expiresAt: new Date() })),
 	consumePasswordResetToken: vi.fn(),
 }));
-vi.mock("@/lib/email/emails", () => ({
+vi.mock("@/lib/utils/server/email/emails", () => ({
 	sendPasswordResetEmail: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/utils/errors", () => ({
@@ -34,7 +34,7 @@ vi.mock("@/lib/utils/errors", () => ({
 import { POST as forgotPassword } from "@/app/api/auth/forgot-password/route";
 import { POST as resetPassword } from "@/app/api/auth/reset-password/route";
 import { prisma } from "@/lib/utils/server/prisma";
-import { sendPasswordResetEmail } from "@/lib/email/emails";
+import { sendPasswordResetEmail } from "@/lib/utils/server/email/emails";
 import { consumePasswordResetToken } from "@/lib/utils/server/auth-tokens";
 
 const post = (url: string, body: unknown) =>

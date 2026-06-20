@@ -1,4 +1,5 @@
 import { ProfileData } from "./types/user";
+import type { Visibility } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
@@ -570,6 +571,7 @@ export function validatePageUpdateData(data: {
 	zip?: string | null;
 	category?: string | null;
 	avatarImageId?: string | null;
+	visibility?: Visibility | null;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -683,6 +685,13 @@ export function validatePageUpdateData(data: {
 	if (data.avatarImageId !== undefined && data.avatarImageId !== null) {
 		if (typeof data.avatarImageId !== "string") {
 			return { valid: false, error: "Avatar image ID must be a string" };
+		}
+	}
+
+	// Validate visibility: optional enum (mirrors validateProfileData)
+	if (data.visibility !== undefined && data.visibility !== null) {
+		if (!["PUBLIC", "UNLISTED", "PRIVATE"].includes(data.visibility)) {
+			return { valid: false, error: "visibility must be PUBLIC, UNLISTED, or PRIVATE" };
 		}
 	}
 
