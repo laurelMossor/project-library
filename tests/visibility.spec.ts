@@ -113,10 +113,14 @@ test.describe("PRIVATE user", () => {
 
   test.describe("logged-in non-follower (sam)", () => {
     test.use({ storageState: STORAGE_STATE.sam });
-    test("gets the not-found page", async ({ page }) => {
+    test("sees the locked preview stub, not the private content", async ({ page }) => {
       await page.goto("/private-pat.example");
-      await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
+      // LOCKED, not HIDDEN: a logged-in viewer gets the request affordance + identity,
+      // never the not-found page.
+      await expect(page.getByText("This profile is private")).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("heading", { name: "Page not found" })).not.toBeVisible();
+      // But the private content stays gated — the stub shows identity only.
+      await expect(page.getByText("Private update")).not.toBeVisible();
     });
   });
 
