@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Still pending: `npm run validate` and the prod migration.
 
 
+#### Entry: Sun 06/28/2026 10:16 PDT
+Started `docs/RELEASE_NOTES.md`. Correlated the four git tags (`v0.2.0`–`v0.3.2`, all early May) against the journal for high-level bullets per release. Split the pre-tag work at the schema-v0.4 rewrite into a retroactive `v0.1.0` and the `v0.2.0` baseline. Ordered newest-first with an `[Unreleased] v0.4.0 "Netwerk"` section seeded from the post-v0.3.2 entries.
+
 #### Entry: Sat 06/20/2026 13:02 PDT
 Full efficacy pass on the Playwright E2E suite on `test-efficacy-pass`. It went from 52 to 44 tests and 43s to 24s while staying green. Fixed a profile-edit test that silently asserted nothing and dropped a "listing" test that was really hitting a 404. Added storageState session caching so tests reuse a login instead of re-driving the form each run. Replaced the flaky waitForTimeout and networkidle waits and made the signup test deterministic. Gave NotificationDot an accessible label so the unread-dot test no longer keys on a CSS class. 
 
