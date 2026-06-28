@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, serverError } from "@/lib/utils/errors";
-import { canManageEntity } from "@/lib/utils/server/permission";
+import { canManagePage } from "@/lib/utils/server/permission";
 import { listPageRequests } from "@/lib/utils/server/requests";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
 /**
  * GET /api/pages/[pageId]/requests
- * Pending access requests targeting a page. ADMIN/EDITOR only.
+ * Pending access requests targeting a page. ADMIN only.
  */
 export async function GET(_request: Request, { params }: RouteParams) {
 	try {
@@ -16,7 +16,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 		if (!ctx) return unauthorized();
 
 		const { pageId } = await params;
-		if (!(await canManageEntity(ctx.userId, { page: { id: pageId } }))) {
+		if (!(await canManagePage(ctx.userId, pageId))) {
 			return unauthorized("You do not have permission to view this page's requests");
 		}
 

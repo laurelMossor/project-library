@@ -6,8 +6,8 @@
 // "admin", "can manage", and "last admin" lives in exactly one place.
 //
 // The two manage gates are NOT interchangeable — mind the role sets:
-//   canManagePage   → ADMIN only          (page config, destructive actions)
-//   canManageEntity → ADMIN or EDITOR     (manage a page's connections/members/requests; self for a user)
+//   canManagePage   → ADMIN only          (page config, destructive actions, members, requests)
+//   canManageEntity → ADMIN or EDITOR     (view a page's connections, e.g. an event's RSVPs; self for a user)
 import { prisma } from "./prisma";
 import { PermissionRole, ResourceType, type Page, type User } from "@prisma/client";
 

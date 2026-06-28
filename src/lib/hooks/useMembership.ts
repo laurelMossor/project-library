@@ -19,6 +19,7 @@ export function useMembership(pageId: string, enabled = true) {
 	const [requested, setRequested] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [toggling, setToggling] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (!enabled) {
@@ -54,6 +55,7 @@ export function useMembership(pageId: string, enabled = true) {
 	const toggle = async () => {
 		if (toggling) return;
 		setToggling(true);
+		setError(null);
 		try {
 			if (state === "member" || state === "requested" || state === "privileged") {
 				// Leave (any role — the server guards the last admin), or cancel a pending request.
@@ -61,6 +63,10 @@ export function useMembership(pageId: string, enabled = true) {
 				if (res.ok) {
 					setRole(null);
 					setRequested(false);
+				} else {
+					// e.g. the last admin can't leave — surface why instead of failing silently.
+					const data = await res.json().catch(() => ({}));
+					setError(data.error ?? "Couldn't leave this page");
 				}
 			} else {
 				const res = await fetch(API_PAGE_MEMBERSHIP(pageId), { method: "POST" });
@@ -68,14 +74,16 @@ export function useMembership(pageId: string, enabled = true) {
 				if (res.ok) {
 					if (data.status === "requested") setRequested(true);
 					else setRole("MEMBER");
+				} else {
+					setError(data.error ?? "Couldn't join this page");
 				}
 			}
 		} catch {
-			// Leave state unchanged on error
+			setError("Something went wrong");
 		} finally {
 			setToggling(false);
 		}
 	};
 
-	return { role, state, loading, toggling, toggle };
+	return { role, state, loading, toggling, error, toggle };
 }

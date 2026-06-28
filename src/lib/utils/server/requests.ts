@@ -11,7 +11,7 @@
 
 import { prisma } from "./prisma";
 import { AccessRequestKind, PermissionRole, ResourceType, Visibility } from "@prisma/client";
-import { canManageEntity, grantPermission } from "./permission";
+import { canManagePage, grantPermission } from "./permission";
 import { logAction } from "./log";
 
 export type EntityRef = { type: "USER" | "PAGE"; id: string };
@@ -180,11 +180,18 @@ export type RequestActResult =
   | { ok: true; status: "approved" | "denied" }
   | { ok: false; reason: "not_found" | "forbidden" };
 
-/** Build the canManageEntity shape for a request's target. */
-function targetEntity(req: { targetUserId: string | null; targetPageId: string | null }) {
-  if (req.targetUserId) return { user: { id: req.targetUserId } };
-  if (req.targetPageId) return { page: { id: req.targetPageId } };
-  return {};
+/**
+ * Who may approve/deny a request: the targeted user themselves (their own
+ * incoming follow request), or a page ADMIN. Page requests are ADMIN-only —
+ * matching member management — so EDITORs can't grant or revoke membership.
+ */
+async function canActOnRequest(
+  actorUserId: string,
+  req: { targetUserId: string | null; targetPageId: string | null },
+): Promise<boolean> {
+  if (req.targetUserId) return req.targetUserId === actorUserId;
+  if (req.targetPageId) return canManagePage(actorUserId, req.targetPageId);
+  return false;
 }
 
 /** Materialize an approved request's edge inside a transaction. */
@@ -211,7 +218,7 @@ async function materialize(
 export async function approveRequest(actorUserId: string, requestId: string): Promise<RequestActResult> {
   const req = await prisma.accessRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, reason: "not_found" };
-  if (!(await canManageEntity(actorUserId, targetEntity(req)))) return { ok: false, reason: "forbidden" };
+  if (!(await canActOnRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
 
   await prisma.$transaction(async (tx) => {
     await materialize(req, tx);
@@ -224,7 +231,7 @@ export async function approveRequest(actorUserId: string, requestId: string): Pr
 export async function denyRequest(actorUserId: string, requestId: string): Promise<RequestActResult> {
   const req = await prisma.accessRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, reason: "not_found" };
-  if (!(await canManageEntity(actorUserId, targetEntity(req)))) return { ok: false, reason: "forbidden" };
+  if (!(await canActOnRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
 
   await prisma.accessRequest.delete({ where: { id: req.id } });
   return { ok: true, status: "denied" };

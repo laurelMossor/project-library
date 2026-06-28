@@ -20,7 +20,7 @@ export function JoinButton({ pageId }: JoinButtonProps) {
 	// Hide entirely when acting as a page
 	const actingAsPage = !!activePageId;
 
-	const { state, loading, toggling, toggle } = useMembership(pageId, loggedIn && !actingAsPage);
+	const { state, loading, toggling, error, toggle } = useMembership(pageId, loggedIn && !actingAsPage);
 
 	if (!loggedIn || actingAsPage || loading) return null;
 
@@ -37,12 +37,15 @@ export function JoinButton({ pageId }: JoinButtonProps) {
 		: <UserPlusSignIcon className="w-4 h-4" />;
 
 	return (
-		<TransparentCTAButton
-			label={label}
-			icon={icon}
-			onClick={toggle}
-			disabled={toggling}
-			className="w-full"
-		/>
+		<div className="w-full">
+			<TransparentCTAButton
+				label={label}
+				icon={icon}
+				onClick={toggle}
+				disabled={toggling}
+				className="w-full"
+			/>
+			{error && <p className="mt-1 text-xs text-red-500 text-center">{error}</p>}
+		</div>
 	);
 }

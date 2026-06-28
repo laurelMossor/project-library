@@ -286,6 +286,7 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 	const [error, setError] = useState<string | null>(null);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [showAddMember, setShowAddMember] = useState(false);
+	const [addMemberError, setAddMemberError] = useState<string | null>(null);
 
 	useEffect(() => {
 		async function load() {
@@ -355,19 +356,29 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 		);
 	}
 
+	// ProfileSearchDropdown's onSelect is fire-and-forget (not awaited/caught), so
+	// surface failures via local state rather than throwing.
 	async function handleAddMember(user: SearchResultUser) {
-		const res = await fetch(`/api/pages/${entity.id}/members`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: user.id, role: "MEMBER" }),
-		});
-		if (!res.ok) return;
-		const updated = await fetch(`/api/pages/${entity.id}/members`);
-		if (updated.ok) {
-			const members = await updated.json();
-			setData((prev) => (prev ? { ...prev, membership: members } : prev));
+		setAddMemberError(null);
+		try {
+			const res = await fetch(`/api/pages/${entity.id}/members`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: user.id, role: "MEMBER" }),
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error ?? "Failed to add member");
+			}
+			const updated = await fetch(`/api/pages/${entity.id}/members`);
+			if (updated.ok) {
+				const members = await updated.json();
+				setData((prev) => (prev ? { ...prev, membership: members } : prev));
+			}
+			setShowAddMember(false);
+		} catch (e) {
+			setAddMemberError(e instanceof Error ? e.message : "Failed to add member");
 		}
-		setShowAddMember(false);
 	}
 
 	async function changeMemberRole(item: MemberItem, role: string) {
@@ -398,10 +409,12 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 		setData((prev) => (prev ? { ...prev, requests: prev.requests.filter((r) => r.id !== reqId) } : prev));
 	}
 
-	// Who may act on requests: page ADMIN/EDITOR, or a user on their own profile.
+	// Who may act on requests: a page ADMIN, or a user on their own profile.
+	// Page requests are ADMIN-only (matching member management), so this mirrors
+	// the server gate — an EDITOR sees no Requests tab.
 	const myRole = isPage && data ? data.membership.find((m) => m.user.id === currentUserId)?.role : undefined;
 	const isAdmin = myRole === "ADMIN";
-	const canManageRequests = isPage ? myRole === "ADMIN" || myRole === "EDITOR" : entity.id === currentUserId;
+	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
 
 	const topTabs: TabDef<TopTab>[] = [
 		{ id: "Followers", label: "Followers" },
@@ -575,9 +588,12 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 									onSelect={handleAddMember}
 									placeholder="Search by name or handle..."
 								/>
+								{addMemberError && (
+									<p className="text-xs text-red-500 text-center">{addMemberError}</p>
+								)}
 								<div className="flex justify-center">
 									<button
-										onClick={() => setShowAddMember(false)}
+										onClick={() => { setShowAddMember(false); setAddMemberError(null); }}
 										className="text-xs text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
 									>
 										Cancel

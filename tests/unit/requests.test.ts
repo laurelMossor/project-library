@@ -6,7 +6,7 @@
  * grant edge (no Follow, no Permission). Approval is what materializes the edge.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { Visibility, PermissionRole } from "@prisma/client";
+import { Visibility, PermissionRole, ResourceType } from "@prisma/client";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
@@ -104,7 +104,7 @@ describe("approveRequest", () => {
   });
 
   test("actor cannot manage the target → forbidden", async () => {
-    // Target is a page; canManageEntity checks ADMIN/EDITOR → none.
+    // Target is a page; canManagePage checks ADMIN → none.
     vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
       id: "req-1", kind: "JOIN", requesterId: "u1", requesterPageId: null,
       targetUserId: null, targetPageId: "p1",
@@ -112,6 +112,25 @@ describe("approveRequest", () => {
     vi.mocked(prisma.permission.findFirst).mockResolvedValue(null);
     expect(await approveRequest("intruder", "req-1")).toEqual({ ok: false, reason: "forbidden" });
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("page requests are gated ADMIN-only (EDITOR excluded)", async () => {
+    // A blanket findFirst mock can't tell ADMIN from EDITOR, so assert the gate
+    // queries with role: { in: [ADMIN] } — proving EDITORs can't approve.
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+      id: "req-3", kind: "JOIN", requesterId: "u1", requesterPageId: null,
+      targetUserId: null, targetPageId: "p1",
+    } as never);
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: PermissionRole.ADMIN } as never);
+    await approveRequest("admin", "req-3");
+    expect(prisma.permission.findFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        userId: "admin",
+        resourceId: "p1",
+        resourceType: ResourceType.PAGE,
+        role: { in: [PermissionRole.ADMIN] },
+      }),
+    });
   });
 
   test("FOLLOW to a user, approved by that user → materializes Follow + deletes request", async () => {
