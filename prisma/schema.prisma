@@ -27,6 +27,12 @@ enum ResourceType {
   EVENT
 }
 
+// Kind of pending access request (see AccessRequest model).
+enum AccessRequestKind {
+  FOLLOW // requester wants to follow a private User or Page → materializes a Follow
+  JOIN // requester (a User) wants MEMBER on a private Page → materializes a Permission(MEMBER)
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -107,6 +113,10 @@ model User {
   // Social
   following Follow[] @relation("UserFollowing")
   followers Follow[] @relation("UserFollowers")
+
+  // Pending access requests (Request-to-Follow / Request-to-Join)
+  accessRequestsMade     AccessRequest[] @relation("RequestsMade")
+  accessRequestsReceived AccessRequest[] @relation("RequestsForUser")
 
   // Messaging
   sentMessages            Message[]                 @relation("SentMessages")
@@ -226,6 +236,10 @@ model Page {
   // Social
   followers Follow[] @relation("PageFollowed")
   following Follow[] @relation("PageFollowing")
+
+  // Pending access requests (Request-to-Follow / Request-to-Join)
+  accessRequestsMade     AccessRequest[] @relation("RequestsMadeAs")
+  accessRequestsReceived AccessRequest[] @relation("RequestsForPage")
 
   // Messaging (Page as conversation participant)
   conversations ConversationParticipant[]
@@ -448,6 +462,51 @@ model Follow {
   @@index([followingUserId])
   @@index([followingPageId])
   @@map("follows")
+}
+
+// ========================
+// Access requests (Request-to-Follow / Request-to-Join)
+// ========================
+//
+// A pending request to gain access to a PRIVATE entity. The row's existence IS
+// the "pending" state — there is no status column. On approval the matching edge
+// is materialized (Follow for FOLLOW, Permission(MEMBER) for JOIN) and the request
+// row is deleted in the same transaction; on denial the row is simply deleted.
+// This keeps the grant tables (Follow / Permission) meaning "granted, full stop" —
+// the visibility layer reads their existence directly, so a pending request must
+// never live there.
+//
+// Exactly one of requesterId / requesterPageId is the requester (mirrors Follow).
+// Exactly one of targetUserId / targetPageId is the target.
+// JOIN is user→page only (pages don't hold MEMBER); enforced at the app layer.
+// Enforce the exactly-one invariants via DB CHECK constraints in the migration.
+
+model AccessRequest {
+  id        String            @id @default(cuid())
+  kind      AccessRequestKind
+  createdAt DateTime          @default(now())
+
+  // Requester — exactly one
+  requesterId     String?
+  requesterPageId String?
+
+  // Target — exactly one
+  targetUserId String?
+  targetPageId String?
+
+  requester     User? @relation("RequestsMade", fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterPage Page? @relation("RequestsMadeAs", fields: [requesterPageId], references: [id], onDelete: Cascade)
+  targetUser    User? @relation("RequestsForUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetPage    Page? @relation("RequestsForPage", fields: [targetPageId], references: [id], onDelete: Cascade)
+
+  // Idempotency: re-requesting while pending hits one of these → no duplicate row.
+  @@unique([requesterId, targetUserId, kind])
+  @@unique([requesterId, targetPageId, kind])
+  @@unique([requesterPageId, targetUserId, kind])
+  @@unique([requesterPageId, targetPageId, kind])
+  @@index([targetPageId])
+  @@index([targetUserId])
+  @@map("access_requests")
 }
 
 // ========================

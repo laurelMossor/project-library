@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
+import { canManageEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 
 type Params = { params: Promise<{ id: string }> };
@@ -63,17 +64,21 @@ export async function GET(request: Request, { params }: Params) {
 
 		const { id } = await params;
 
-		// Verify event exists and user is the organizer
+		// Verify event exists; the attendee list is visible to whoever can manage
+		// the event — the creator, or any ADMIN/EDITOR of the hosting page.
 		const event = await prisma.event.findUnique({
 			where: { id },
-			select: { userId: true },
+			select: { userId: true, pageId: true },
 		});
 
 		if (!event) {
 			return notFound("Event not found");
 		}
 
-		if (event.userId !== ctx.userId) {
+		const canManage = event.pageId
+			? await canManageEntity(ctx.userId, { page: { id: event.pageId } })
+			: await canManageEntity(ctx.userId, { user: { id: event.userId } });
+		if (!canManage) {
 			return NextResponse.json(
 				{ error: "Only the event organizer can view the attendee list" },
 				{ status: 403 }

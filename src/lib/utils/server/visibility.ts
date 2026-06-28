@@ -113,6 +113,32 @@ export function canViewPage(
   return canViewProfile("PAGE", page, viewer);
 }
 
+/**
+ * Tri-state profile access for the SSR dispatcher — one resolver for both User
+ * and Page so the gate can't drift between entity types.
+ *
+ *   FULL    → viewer may see the whole profile (PUBLIC/UNLISTED, owner, or edge)
+ *   LOCKED  → profile is PRIVATE, exists, and the viewer is logged-in but lacks an
+ *             edge → render a header-only stub with a request affordance (NOT content)
+ *   HIDDEN  → caller should `notFound()` (existence-deny)
+ *
+ * LOCKED only ever applies to PRIVATE, and only to a logged-in viewer: anonymous
+ * viewers still get existence-deny (HIDDEN), since they can't request anyway and we
+ * don't leak a private entity's identity to the public. UNLISTED always passes
+ * canViewProfile when reached directly, so it resolves FULL.
+ */
+export type ProfileAccess = "FULL" | "LOCKED" | "HIDDEN";
+
+export async function resolveProfileAccess(
+  kind: ProfileKind,
+  entity: { id: string; visibility: Visibility },
+  viewer: ViewerContext,
+): Promise<ProfileAccess> {
+  if (await canViewProfile(kind, entity, viewer)) return "FULL";
+  if (entity.visibility === Visibility.PRIVATE && viewer.userId) return "LOCKED";
+  return "HIDDEN";
+}
+
 /** Check if the viewer can see an Event entity. */
 export async function canViewEvent(
   event: { id: string; userId: string; pageId: string | null; visibility: Visibility },

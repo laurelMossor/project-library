@@ -132,6 +132,11 @@ export type SeedRelationships = {
     email: string;
     status: "GOING" | "MAYBE" | "CANT_MAKE_IT";
   }[];
+  accessRequests?: {
+    requester: string; // handle (user or page)
+    target: string; // handle (user or page)
+    kind: "FOLLOW" | "JOIN";
+  }[];
 };
 
 // ── Setup ──────────────────────────────────────────────────────────
@@ -777,6 +782,21 @@ async function main() {
         followerId: follower.userId,
         followingUserId: following.userId ?? null,
         followingPageId: following.pageId ?? null,
+      },
+    });
+  }
+
+  // Pending access requests (Request-to-Follow / Request-to-Join)
+  for (const req of relationships.accessRequests ?? []) {
+    const requester = resolveHandle(req.requester);
+    const target = resolveHandle(req.target);
+    await prisma.accessRequest.create({
+      data: {
+        kind: req.kind,
+        requesterId: requester.userId ?? null,
+        requesterPageId: requester.pageId ?? null,
+        targetUserId: target.userId ?? null,
+        targetPageId: target.pageId ?? null,
       },
     });
   }

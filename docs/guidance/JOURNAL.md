@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Still pending: `npm run validate` and the prod migration.
 
 
+#### Entry: Sun 06/28/2026 12:55 PDT
+Implemented the membership era on `netwerk-4`. Activated the MEMBER role with a per-member role selector (now including EDITOR) and one shared last-admin guard, and added self-leave for any role. Built the Request-to-Follow/Join approval flow on a new `AccessRequest` model, where a row's existence is the pending state and approval materializes the edge. PRIVATE profiles now show a locked-preview stub to logged-in viewers instead of a 404, while anonymous viewers still get existence-deny. Merged the duplicate ManageAdmins/ManageConnections UIs into a `/connections` Requests tab. 225 unit tests pass and the request→approve flow verified live in the app. Pending: `npm run validate` and the prod migration before `main`.
+
 #### Entry: Sun 06/28/2026 10:16 PDT
 Started `docs/RELEASE_NOTES.md`. Correlated the four git tags (`v0.2.0`–`v0.3.2`, all early May) against the journal for high-level bullets per release. Split the pre-tag work at the schema-v0.4 rewrite into a retroactive `v0.1.0` and the `v0.2.0` baseline. Ordered newest-first with an `[Unreleased] v0.4.0 "Netwerk"` section seeded from the post-v0.3.2 entries.
 

@@ -8,12 +8,6 @@ import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 import type { ImageItem } from "./image";
 
 // ============================================================================
-// Connection Types (for ManageConnections)
-// ============================================================================
-
-export type ConnectionType = "admins" | "followers" | "following" | "members";
-
-// ============================================================================
 // User & Page Card Types
 // ============================================================================
 

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import {
 	canManagePage,
 	grantPermission,
 	revokePermission,
+	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
 import { ResourceType, PermissionRole } from "@prisma/client";
 
@@ -40,6 +40,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
 			return badRequest("Invalid role");
 		}
 
+		// Block demoting the last admin (would leave the page with zero admins).
+		if (role !== PermissionRole.ADMIN && (await wouldRemoveLastAdmin(pageId, userId))) {
+			return badRequest("Cannot remove the last admin from a page");
+		}
+
 		const permission = await grantPermission(userId, pageId, ResourceType.PAGE, role);
 
 		return NextResponse.json(permission);
@@ -67,19 +72,9 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 			return unauthorized("You do not have permission to manage this page");
 		}
 
-		// Prevent removing yourself if you're the last admin
-		if (userId === ctx.userId) {
-			const adminCount = await prisma.permission.count({
-				where: {
-					resourceId: pageId,
-					resourceType: ResourceType.PAGE,
-					role: PermissionRole.ADMIN,
-				},
-			});
-
-			if (adminCount <= 1) {
-				return badRequest("Cannot remove the last admin from a page");
-			}
+		// Prevent removing the last admin (covers self-removal and removing another admin).
+		if (await wouldRemoveLastAdmin(pageId, userId)) {
+			return badRequest("Cannot remove the last admin from a page");
 		}
 
 		await revokePermission(userId, pageId, ResourceType.PAGE);

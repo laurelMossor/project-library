@@ -28,13 +28,12 @@ import { getPageByHandle } from "@/lib/utils/server/page";
 import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
 import { canManagePage } from "@/lib/utils/server/permission";
-import { getViewerContext, canViewUser, canViewPage } from "@/lib/utils/server/visibility";
+import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { ProfileHeader } from "@/lib/components/profile/ProfileHeader";
-import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
-import { JoinButton } from "@/lib/components/profile/JoinButton";
+import { ProfileIdentityBlock } from "@/lib/components/profile/ProfileIdentityBlock";
+import { LockedProfilePreview } from "@/lib/components/profile/LockedProfilePreview";
 import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
@@ -49,9 +48,8 @@ type Props = {
 };
 
 // TODO: dry this up considerably
-export default async function HandleProfilePage({ params, searchParams }: Props) {
+export default async function HandleProfilePage({ params }: Props) {
 	const { handle } = await params;
-	const { edit } = await searchParams;
 
 	const entity = await findEntityByHandle(handle);
 	if (!entity) {
@@ -69,10 +67,12 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 			notFound();
 		}
 
-		// Visibility gate: PRIVATE users are 404 for non-followers
-		if (!(await canViewUser(user, viewer))) {
-			notFound();
-		}
+		const profile: ProfileEntity = { type: "USER", data: user };
+
+		// Visibility gate: FULL renders; LOCKED shows the private stub; HIDDEN → 404.
+		const access = await resolveProfileAccess("USER", user, viewer);
+		if (access === "HIDDEN") notFound();
+		if (access === "LOCKED") return <LockedProfilePreview profile={profile} />;
 
 		const isOwnProfile = viewerId === user.id;
 		const userDisplayName = getUserDisplayName(user);
@@ -91,8 +91,6 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 				excerpt: truncateText(user.aboutContent.replace(/[#*_`>\[\]]/g, ""), 200),
 			}
 			: null;
-
-		const profile: ProfileEntity = { type: "USER", data: user };
 
 		if (isOwnProfile) {
 			return (
@@ -119,12 +117,7 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 		return (
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
-					<div className="flex items-start justify-between gap-4">
-						<ProfileHeader profile={profile} isOwnProfile={false} />
-						<div className="flex flex-col gap-2 w-36 shrink-0">
-							<ProfileButtons entityId={user.id} entityType="user" />
-						</div>
-					</div>
+					<ProfileIdentityBlock profile={profile} />
 					<ProfileBody profile={profile} />
 				</div>
 
@@ -146,10 +139,12 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 			notFound();
 		}
 
-		// Visibility gate: PRIVATE pages are 404 for non-members
-		if (!(await canViewPage(page, viewer))) {
-			notFound();
-		}
+		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
+
+		// Visibility gate: FULL renders; LOCKED shows the private stub; HIDDEN → 404.
+		const access = await resolveProfileAccess("PAGE", page, viewer);
+		if (access === "HIDDEN") notFound();
+		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
 
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
@@ -168,8 +163,6 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 				excerpt: truncateText(page.aboutContent.replace(/[#*_`>\[\]]/g, ""), 200),
 			}
 			: null;
-
-		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
 
 		if (isOwner) {
 			return (
@@ -196,13 +189,7 @@ export default async function HandleProfilePage({ params, searchParams }: Props)
 		return (
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
-					<div className="flex items-start justify-between gap-4">
-						<ProfileHeader profile={pageProfile} />
-						<div className="flex flex-col gap-2 w-36 shrink-0">
-							<ProfileButtons entityId={page.id} entityType="page" />
-							<JoinButton pageId={page.id} />
-						</div>
-					</div>
+					<ProfileIdentityBlock profile={pageProfile} />
 					<ProfileBody profile={pageProfile} />
 				</div>
 

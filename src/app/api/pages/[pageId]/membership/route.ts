@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, serverError, badRequest } from "@/lib/utils/errors";
+import { unauthorized, serverError, badRequest, notFound } from "@/lib/utils/errors";
 import {
 	getUserPermission,
-	grantPermission,
 	revokePermission,
+	isSelfServiceRole,
+	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
+import { requestOrJoinPage, hasPendingJoinRequest, cancelJoinRequest } from "@/lib/utils/server/requests";
 import { ResourceType, PermissionRole } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
@@ -23,7 +26,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
 		}
 
 		const role = await getUserPermission(ctx.userId, pageId, ResourceType.PAGE);
-		return NextResponse.json({ role });
+		const requested = role ? false : await hasPendingJoinRequest(ctx.userId, pageId);
+		return NextResponse.json({ role, requested });
 	} catch (error) {
 		console.error("GET /api/pages/[pageId]/membership error:", error);
 		return serverError("Failed to fetch membership");
@@ -32,8 +36,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 /**
  * POST /api/pages/[pageId]/membership
- * Self-service join: grants the current user MEMBER role.
- * Returns 409 if they already have ADMIN or EDITOR (no downgrade).
+ * Self-service join: grants MEMBER on a public/unlisted page, or opens a pending
+ * JOIN request on a PRIVATE one. Returns 400 if the user already holds ADMIN or
+ * EDITOR (no self-downgrade).
  */
 export async function POST(_request: Request, { params }: RouteParams) {
 	try {
@@ -41,9 +46,16 @@ export async function POST(_request: Request, { params }: RouteParams) {
 		if (!ctx) return unauthorized();
 
 		const { pageId } = await params;
+		const page = await prisma.page.findUnique({
+			where: { id: pageId },
+			select: { id: true, visibility: true },
+		});
+		if (!page) return notFound("Page not found");
+
 		const existing = await getUserPermission(ctx.userId, pageId, ResourceType.PAGE);
 
-		if (existing && existing !== PermissionRole.MEMBER) {
+		// Privileged roles can't self-downgrade through the join flow.
+		if (!isSelfServiceRole(existing)) {
 			return badRequest("You already have a role on this page");
 		}
 
@@ -51,8 +63,9 @@ export async function POST(_request: Request, { params }: RouteParams) {
 			return NextResponse.json({ role: PermissionRole.MEMBER });
 		}
 
-		await grantPermission(ctx.userId, pageId, ResourceType.PAGE, PermissionRole.MEMBER);
-		return NextResponse.json({ role: PermissionRole.MEMBER }, { status: 201 });
+		// No role yet → join (public/unlisted) or request (private).
+		const result = await requestOrJoinPage(ctx.userId, page);
+		return NextResponse.json(result, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/pages/[pageId]/membership error:", error);
 		return serverError("Failed to join page");
@@ -61,8 +74,8 @@ export async function POST(_request: Request, { params }: RouteParams) {
 
 /**
  * DELETE /api/pages/[pageId]/membership
- * Self-service leave: removes MEMBER role.
- * Refuses if the user is ADMIN or EDITOR (use page settings to manage those roles).
+ * Self-service leave for ANY role. The only guard: the last admin can't leave
+ * (it would orphan the page) — they must hand off admin first.
  */
 export async function DELETE(_request: Request, { params }: RouteParams) {
 	try {
@@ -73,11 +86,13 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 		const existing = await getUserPermission(ctx.userId, pageId, ResourceType.PAGE);
 
 		if (!existing) {
+			// No role — clear a pending join request if there is one (cancel).
+			await cancelJoinRequest(ctx.userId, pageId);
 			return NextResponse.json({ success: true });
 		}
 
-		if (existing !== PermissionRole.MEMBER) {
-			return badRequest("Admins and editors must manage their role from page settings");
+		if (await wouldRemoveLastAdmin(pageId, ctx.userId)) {
+			return badRequest("You are the last admin — assign another admin before leaving");
 		}
 
 		await revokePermission(ctx.userId, pageId, ResourceType.PAGE);

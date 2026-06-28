@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/ProfileSettingsBase";
-import { ManageAdmins } from "@/lib/components/connections/ManageAdmins";
 import { PublicPage } from "@/lib/types/page";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
-import { SettingsSection } from "@/lib/components/profile/profile-settings/SettingsSection";
-import { Button } from "@/lib/components/ui/Button";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
 import { CONNECTIONS, PERSONAL_INFO } from "@/lib/const/routes";
 
@@ -23,43 +19,26 @@ export function PageSettingsContent({
 	pages,
 	publicProfileHref,
 }: PageSettingsContentProps) {
-	const [showManageAdmins, setShowManageAdmins] = useState(false);
-
 	return (
-		<>
-			<ProfileSettingsBase
-				profileType="page"
-				pages={pages}
-				settingsTitle="Page Settings"
-				avatarEntity={page}
-				viewPublicProfileHref={`${publicProfileHref}?edit=true`}
-				viewPublicProfileLabel="Edit Public Profile"
-				disabledButtons={PAGE_DISABLED_BUTTONS}
-				additionalSettingsButtons={
-					<>
-						<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
-							Edit Personal Information
-						</ButtonLink>
-						<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
-							Manage Connections
-						</ButtonLink>
-						<Button
-							onClick={() => setShowManageAdmins(!showManageAdmins)}
-							variant="secondary"
-							fullWidth
-						>
-							{showManageAdmins ? "Hide Admin Management" : "Manage Admins"}
-						</Button>
-					</>
-				}
-			/>
-
-			{showManageAdmins && (
-				<SettingsSection>
-					<ManageAdmins pageId={page.id} />
-				</SettingsSection>
-			)}
-
-		</>
+		<ProfileSettingsBase
+			profileType="page"
+			pages={pages}
+			settingsTitle="Page Settings"
+			avatarEntity={page}
+			viewPublicProfileHref={`${publicProfileHref}?edit=true`}
+			viewPublicProfileLabel="Edit Public Profile"
+			disabledButtons={PAGE_DISABLED_BUTTONS}
+			additionalSettingsButtons={
+				<>
+					<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
+						Edit Personal Information
+					</ButtonLink>
+					{/* Members & admins are managed in the Connections view (Membership tab). */}
+					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
+						Manage Members
+					</ButtonLink>
+				</>
+			}
+		/>
 	);
 }

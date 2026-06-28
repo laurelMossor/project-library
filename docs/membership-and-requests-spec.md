@@ -26,7 +26,7 @@ Separately, `MEMBER` is marked **"future use"** in the schema ([schema.prisma:22
 ### Goals
 1. **Close the privacy gap.** A `PRIVATE` target routes new follow/join attempts through approval; `PUBLIC`/`UNLISTED` stay instant.
 2. **Activate `MEMBER` as a managed role** — admins add/remove members and change roles from a proper page-settings surface, with last-admin safety.
-3. **Reuse, don't rebuild.** The follow graph, the permission helpers, the visibility layer, and the connections UI already exist. The new model is one small table and one server-util choke point.
+3. **Reuse, don't rebuild.** The follow graph, the permission helpers, the visibility layer, and the connections UI already exist. The new model is one small table and one server-util choke point. The existing ConnectionsView is the most logical place for this interface, but consider modern day best practices to make a recommended suraface, and if there should be a new one.
 4. **Stand alone without notifications.** Admins/owners discover pending requests by a pull surface (tab + count badge), not a push.
 
 ### Who it's for
@@ -53,7 +53,7 @@ Separately, `MEMBER` is marked **"future use"** in the schema ([schema.prisma:22
 
 ### 2c. Lifecycle — admin adds/removes a member, changes a role
 - **Add member:** `POST /api/pages/[pageId]/members` `{ userId, role }`, requires `canManagePage` (ADMIN) ([members/route.ts:40](../src/app/api/pages/[pageId]/members/route.ts)). Surfaced via `ConnectionsPageView` "+ Add members" ([:273](../src/lib/components/profile/ConnectionsPageView.tsx)).
-- **Change role:** `PUT /api/pages/[pageId]/members/[userId]` `{ role }`, ADMIN-only, `grantPermission` upsert ([members/[userId]/route.ts:19](../src/app/api/pages/[pageId]/members/[userId]/route.ts)). **No UI wired** and **no last-admin guard** (see §5).
+- **Change role:** `PUT /api/pages/[pageId]/members/[userId]` `{ role }`, ADMIN-only, `grantPermission` upsert ([members/[userId]/route.ts:19](../src/app/api/pages/[pageId]/members/[userId]/route.ts)). **No UI wired** and **no last-admin guard** (see §5). There is also no way to add soemone to the Editor role. This is deferred/out of scope for this work, but shuld be considered. 
 - **Remove member:** `DELETE …/members/[userId]`, ADMIN-only, last-admin guard only on self-removal ([:57](../src/app/api/pages/[pageId]/members/[userId]/route.ts)).
 - **Admins sub-surface:** `GET/POST /api/pages/[pageId]/admins` ([admins/route.ts](../src/app/api/pages/[pageId]/admins/route.ts)) + `DELETE …/admins/[permissionId]` with a real last-admin guard ([admins/[permissionId]/route.ts:37](../src/app/api/pages/[pageId]/admins/[permissionId]/route.ts)); `ManageAdmins` → `ManageConnections` ([ManageAdmins.tsx](../src/lib/components/connections/ManageAdmins.tsx)).
 - **Permission helpers:** `grantPermission`/`revokePermission`/`getResourcePermissions`/`getUserMemberships`/`canManagePage` ([permission.ts](../src/lib/utils/server/permission.ts)).
@@ -177,18 +177,18 @@ Add route constants to [routes.ts](../src/lib/const/routes.ts) (e.g. `API_PAGE_R
 The ticket line "wire membership into … member-scoped RSVPs" is terse and the `Rsvp` model is anonymous. Two layers, recommend shipping only the first now:
 
 1. **In scope (small, a correctness fix):** the attendee-list `GET /rsvps` currently lets *only* `event.userId` view it ([rsvps/route.ts:76](../src/app/api/events/[id]/rsvps/route.ts)) — a page admin who isn't the literal creator can't see RSVPs to their own page's event. Widen to `canManageEntity` (page ADMIN/EDITOR). This is the natural "members/admins" wiring and fixes a latent bug.
-2. **Open decision (schema change — §8):** an *authenticated member RSVP* that records `Rsvp.userId` (so a private page's event RSVPs are tied to real members rather than free-text email). This is a real `Rsvp` migration and arguably its own ticket; flagged, not designed here.
+2. **Open decision (schema change — §8):** an *authenticated member RSVP* that records `Rsvp.userId` (so a private page's event RSVPs are tied to real members rather than free-text email). This is a real `Rsvp` migration and arguably its own ticket; flagged, not designed here. (ADD A NEW TICKET FOR MEATUP RELEASE)
 
 ### 3f. Notification seam (no-op today)
 
-`approveRequest`, `denyRequest`, role-change, and request-created each call a single `emitActivity(kind, …)` placeholder that today just delegates to the existing `logAction` ([follows/route.ts:67](../src/app/api/follows/route.ts) already uses it). When the dispatcher ships, wiring is one function body, not a scatter of call sites.
+`approveRequest`, `denyRequest`, role-change, and request-created each call a single `emitActivity(kind, …)` placeholder that today just delegates to the existing `logAction` ([follows/route.ts:67](../src/app/api/follows/route.ts) already uses it). When the dispatcher ships, wiring is one function body, not a scatter of call sites. (ADD A FOLLOWUP TICKET FOR MEATUP)
 
 ### 3g. UI surfaces — reuse the connections + settings shells
 
-- **Member management → a page-settings tab.** The Membership tab in `ConnectionsPageView` already lists members, gates add/remove to admins, and handles last-admin errors inline ([ConnectionsPageView.tsx:366](../src/lib/components/profile/ConnectionsPageView.tsx)). Promote this into the page's settings (`/settings` renders `ProfilePageView` today; add a "Members" tab for pages) and **add the missing role-change control** (a small ADMIN/EDITOR/MEMBER selector per row → `PUT …/members/[userId]`). `ManageConnections`/`ManageAdmins` ([ManageConnections.tsx](../src/lib/components/connections/ManageConnections.tsx)) is the generic base to extend.
+- **Member management → a page-settings tab.** The Membership tab in `ConnectionsPageView` already lists members, gates add/remove to admins, and handles last-admin errors inline ([ConnectionsPageView.tsx:366](../src/lib/components/profile/ConnectionsPageView.tsx)). Promote this into the page's settings (`/settings` renders `ProfilePageView` today; add a "Members" tab for pages) and **add the missing role-change control** (a small ADMIN/EDITOR/MEMBER selector per row → `PUT …/members/[userId]`). `ManageConnections`/`ManageAdmins` ([ManageConnections.tsx](../src/lib/components/connections/ManageConnections.tsx)) is the generic base to extend. (PLEASE GO INTO MORE DEPTH HERE, I'm not sure what you mean. I like the connections view page since it handles all connections. Breaking it out on it's own should be clear and justifiable)
 - **Requests surface → a new "Requests" tab** beside Followers/Following/Membership in the same `TabbedPanel` ([ConnectionsPageView.tsx:70](../src/lib/components/profile/ConnectionsPageView.tsx)) — pending rows with Approve / Deny actions reusing the existing `ExpandableActions` pattern ([:83](../src/lib/components/profile/ConnectionsPageView.tsx)). Shows for: a page's admins/editors, and a private user on their own profile.
 - **Badge → reuse `NotificationDot`** (already in the component map for nav unread) on the page/profile manage entry, fed by the request-count endpoint. This is the "stand-alone without notifications" affordance: pull, not push.
-- **Buttons → relabel, don't replace.** `ProfileButtons` Follow → "Request to follow" / "Requested" when the target is private; `JoinButton` → "Request to join" / "Requested" likewise. Both already read `useActiveProfile` and toggle on a fetched state, so this is a label/branch change driven by the `{ status }` response (§3d).
+- **Buttons → relabel, don't replace.** `ProfileButtons` Follow → "Request to follow" / "Requested" when the target is private; `JoinButton` → "Request to join" / "Requested" likewise. Both already read `useActiveProfile` and toggle on a fetched state, so this is a label/branch change driven by the `{ status }` response (§3d). (NOTE: This is a good opportunity to weigh private pages having followers AND members, so that followers could see publicly posted updates and members can see private content, but my gut says this is out of scope for Beta stage. Perhaps describe the edge, and make a note to document this as out of scope/planned in the code.)
 
 ---
 
