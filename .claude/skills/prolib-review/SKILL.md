@@ -23,7 +23,8 @@ Review changed code for The Project Library. This is a **two-layer** review:
 2. **Project Library fit** — the house rules and domain invariants a generic
    reviewer can't know. This skill exists for *this* layer.
 
-Run layer 1, then apply layer 2. Report them together.
+Run layer 1, then apply layer 2. Then check whether the diff's **tests** protect
+the change — meaningful coverage gaps and weak tests (step 5). Report them together.
 
 Most layer-2 findings are **rule violations**, so the **invariant checklist below is
 the primary artifact.** The diagrams are supporting actors: they answer one structural
@@ -38,8 +39,8 @@ trace by hand.
 
 Invoke the built-in **`/code-review`** on the current diff.
 
-- **Default effort: `medium`.**
-- **Escalate to `high`** when the diff touches any of: auth (`src/lib/auth.ts`,
+- **Default effort: `high`.**
+- **Escalate to `extra`** when the diff touches any of: auth (`src/lib/auth.ts`,
   NextAuth), **permissions** (`src/lib/utils/server/permission.ts`, role checks),
   **visibility / messaging** (`src/lib/utils/server/visibility.ts`, conversations —
   identity scoping is a data-leak surface here), or the **Prisma schema**
@@ -98,11 +99,15 @@ stable invariants, which are the high-value catches:
   `pageId: null`, or page-authored items leak into the personal view. Conversation /
   message queries must scope by **`asPageId`** — without it a page admin's personal
   inbox leaks page conversations.
-- **Visibility cascade.** `Visibility` enum is `PUBLIC | UNLISTED | PRIVATE` (default
-  `PUBLIC`) on User, Page, Event, Post. A Post's visibility **cascades from its parent**
-  (`syncChildPostVisibility`); lowering a Page/Event/User to a more private state
-  **converts followers → MEMBER** (`convertFollowersToMembers`). A diff that changes
-  visibility but skips these helpers is a finding.
+- **Visibility cascade & inheritance.** `Visibility` enum is `PUBLIC | UNLISTED |
+  PRIVATE` (default `PUBLIC`) on User, Page, Event, Post. When a User/Page/Event changes
+  visibility, descendants must be kept in step via **`syncDescendantVisibility`** (child
+  posts, the entity's events, and those events' posts) — called inside the parent's update
+  transaction. New content inherits its parent's visibility via **`resolveParentVisibility`**
+  (page → event → user → PUBLIC). Access to now-private content is granted by the **follow
+  edge** (users) or **follow/membership** (pages) — there is no follower→member conversion.
+  A diff that changes visibility but skips these helpers is a finding. (Verify these names
+  against `visibility.ts` — they have drifted before.)
 - **Draft visibility.** Events default to `DRAFT`; only `PUBLISHED` is publicly visible.
   A public-facing query that forgets the status filter (or bypasses the `*ListWhere`
   helpers) leaks drafts.
@@ -122,7 +127,43 @@ prefer single-responsibility models.
 - **Identity-aware UI** that refetches/derives identity instead of reading
   `ActiveProfileContext` (`activeEntity`, `activePageId`, `currentUser`) → flag.
 
-### 5. Verify before reporting — don't trust this list over the code
+### 5. Test coverage — does the diff leave meaningful risk untested?
+
+Look at the tests as part of the diff's surface, not an afterthought. Two checks,
+both judged by one bar — **"would this meaningfully protect against a real
+regression?"** — never line coverage for its own sake.
+
+**a. Missing cases worth adding.** For the behavior this diff changes, is the
+*risk-bearing* path tested? The high-value gaps are the **same invariants from
+step 3** plus the security properties this codebase guards — and an invariant
+with **no test at all** is the strongest finding this review produces. Watch for:
+visibility gates **and the cascade/inheritance** (`syncDescendantVisibility`,
+`resolveParentVisibility`), permission gates, identity scoping (`pageId: null` on
+a user's own-content query, `asPageId` on conversation queries), draft-status
+filtering, no-enumeration auth responses, and the mass-assignment whitelist.
+Prefer a **unit test at the enforcement point** (mocked Prisma — fast, exact)
+over leaning on an E2E that only walks the happy path. Flag a gap only when a
+plausible future change would silently break the behavior and no existing test
+would catch it — name the specific case and where it should live.
+
+**b. Efficacy of tests in the diff.** When the diff adds or edits tests, check
+each one earns its place:
+- It asserts something real — not a body wrapped in `if (await x.isVisible())`,
+  not "no error text" on a page that could be blank, not an assertion that only
+  proves a mock was called.
+- Its name matches what it verifies (a test that exercises the format gate must
+  not claim to test the reserved-word check).
+- Robust locators (role/label/text over CSS classes) and web-first assertions
+  (no `waitForTimeout`/`networkidle`) — `tests/TESTING.md` holds the suite's
+  conventions and the storageState/seed-actor model.
+- It isn't a duplicate code-path or a constant-asserting canary.
+
+Don't demand tests for trivial or presentational changes — the bar is *meaningful
+protection*: security, data integrity, identity scoping, permission paths, and
+regressions of bugs this diff (or a prior one) fixed. If coverage is already
+adequate, say so explicitly rather than manufacturing a gap.
+
+### 6. Verify before reporting — don't trust this list over the code
 
 Paths, function names, and invariants drift. Before reporting a layer-2 finding that
 names a specific field, enum value, helper, or file, confirm it against the source of
@@ -135,10 +176,11 @@ needs updating) rather than emitting a false positive.
 The authoritative convention list is **`docs/guidance/PROJECT_GUIDELINES.md`**; this
 skill is a review checklist derived from it, not a second copy.
 
-### 6. Report the findings
+### 7. Report the findings
 
-Combine both layers into one report. Lead with correctness/security, then Project
-Library fit. For each finding give file:line, what's wrong, and the fix.
+Combine the layers into one report. Lead with correctness/security, then Project
+Library fit, then test coverage. For each finding give file:line, what's wrong,
+and the fix.
 
 ```
 ## Review: <branch / PR / diff>
@@ -149,13 +191,16 @@ Library fit. For each finding give file:line, what's wrong, and the fix.
 ### Project Library fit
 - <convention/invariant> — file:line — <what to change>
 
+### Test coverage
+- <missing case worth adding | weak or misleading test> — file:line — <the risk it protects + the case to add/fix>
+
 Nothing flagged in a section → say so explicitly.
 ```
 
 If a finding is **ambiguous** (arguably-correct, needs a product/design call), flag it
 for the user rather than asserting a verdict.
 
-### 7. Discuss before planning — do NOT jump to a plan or to fixes
+### 8. Discuss before planning — do NOT jump to a plan or to fixes
 
 This review is a **conversation, not a hand-off.** After reporting, the default is to
 *talk through* the findings with the user — never to immediately write a plan or start
@@ -171,7 +216,7 @@ editing. Specifically:
 - **Wait for "we're done discussing."** Don't pre-empt the user by starting a plan while
   scope is still open.
 
-### 8. Kick off a plan once the discussion concludes
+### 9. Kick off a plan once the discussion concludes
 
 Only when the user signals scope is settled, *then* move into planning for the agreed-on
 changes — enter plan mode and produce an implementation plan (don't silently auto-apply

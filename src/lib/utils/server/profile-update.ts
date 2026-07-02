@@ -5,12 +5,13 @@
 // operations → refetch. Used by PUT /api/me/user and PUT /api/pages/[pageId] so
 // the visibility cascade rules live in exactly one place.
 
-import type { Visibility } from "@prisma/client";
+import { Visibility } from "@prisma/client";
 import { prisma } from "./prisma";
 import { updateUserProfile, personalProfileFields } from "./user";
 import { updatePageProfile, publicPageFields } from "./page";
 import { processElementsPayload } from "./profile-element";
 import { syncDescendantVisibility } from "./visibility";
+import { autoApprovePendingOnUnlock } from "./requests";
 import { validateProfileData, validatePageUpdateData } from "@/lib/validations";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
@@ -38,6 +39,11 @@ export async function updateProfileWithCascade(
 
     if (newVisibility !== undefined) {
       await syncDescendantVisibility(kind, id, newVisibility, tx);
+      // Unlocking (PRIVATE → PUBLIC/UNLISTED) removes the reason to gate, so
+      // materialize any pending requests. No-op when nothing was pending.
+      if (newVisibility !== Visibility.PRIVATE) {
+        await autoApprovePendingOnUnlock({ type: kind, id }, tx);
+      }
     }
 
     // Element ops run on the global client (pre-existing); wrapped by this tx.

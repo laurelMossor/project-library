@@ -29,6 +29,8 @@ When the request touches the closed beta plan specifically, also fetch:
 
 When tickets sit in the **`QA`** status and the user wants to verify, retest, or accept finished work, use the **`/prolib-qa`** skill. It drafts acceptance criteria from the ticket (most have none), gets the user's approval, drives the local dev app to reproduce/confirm, reports pass/fail with evidence, then writes Status + criteria + a QA note back to Notion immediately after each ticket — no separate confirmation needed.
 
+When the user wants to **plan, triage, sequence, or hand off work** rather than do it inline — "what's next?", "pull the NETWERK tickets and let's plan", "bundle these", "draft a brief for a fresh session", "spec this feature out" — use the **`/prolib-pm`** skill. It loads the project-manager/orchestrator role, runs the session bootstrap, grounds itself in the live codebase, and produces self-contained agent briefs another session can act on cold. It triages and delegates; it does not write feature code.
+
 ## Updating ProLib Tickets
 
 Keeping the **Notion — ProLib Tickets** database (`2d6453d0-29b0-80e9-9ebf-fce9169b18c6`, data source `collection://2d6453d0-29b0-803e-a998-000b1568e9c8`) in step with the work is an **expected, authorized part of the workflow** — not a one-off external action. When you implement, QA, or change the scope of a ticket, reflect it on the ticket:

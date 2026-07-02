@@ -102,6 +102,12 @@ export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 
 export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
 
+// Access-request API Routes (Request-to-Follow / Request-to-Join)
+export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;
+export const API_ME_REQUESTS = "/api/me/requests";
+export const API_REQUEST_APPROVE = (id: string) => `/api/requests/${id}/approve`;
+export const API_REQUEST_DENY = (id: string) => `/api/requests/${id}/deny`;
+
 // Follow API Routes
 export const API_FOLLOWS = "/api/follows";
 export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;

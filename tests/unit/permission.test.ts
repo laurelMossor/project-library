@@ -12,11 +12,18 @@ vi.mock("@/lib/utils/server/prisma", () => ({
     permission: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
 
-import { canPostAsPage, canManagePage, canManageEntity } from "@/lib/utils/server/permission";
+import {
+  canPostAsPage,
+  canManagePage,
+  canManageEntity,
+  isSelfServiceRole,
+  wouldRemoveLastAdmin,
+} from "@/lib/utils/server/permission";
 import { prisma } from "@/lib/utils/server/prisma";
 
 const makePermission = (role: PermissionRole) => ({
@@ -173,5 +180,48 @@ describe("canManageEntity", () => {
     });
     expect(result).toBe(true);
     expect(vi.mocked(prisma.permission.findFirst)).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isSelfServiceRole — null or MEMBER may use the self-service join/leave flow
+// ---------------------------------------------------------------------------
+describe("isSelfServiceRole", () => {
+  test("null (no role yet) → true", () => {
+    expect(isSelfServiceRole(null)).toBe(true);
+  });
+  test("MEMBER → true", () => {
+    expect(isSelfServiceRole(PermissionRole.MEMBER)).toBe(true);
+  });
+  test("EDITOR → false", () => {
+    expect(isSelfServiceRole(PermissionRole.EDITOR)).toBe(false);
+  });
+  test("ADMIN → false", () => {
+    expect(isSelfServiceRole(PermissionRole.ADMIN)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// wouldRemoveLastAdmin — guards remove AND demote of the sole admin
+// ---------------------------------------------------------------------------
+describe("wouldRemoveLastAdmin", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("target is the only ADMIN → true (blocks remove/demote)", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(makePermission(PermissionRole.ADMIN));
+    vi.mocked(prisma.permission.count).mockResolvedValue(1);
+    expect(await wouldRemoveLastAdmin("page-1", "user-1")).toBe(true);
+  });
+
+  test("target is an ADMIN but others remain → false", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(makePermission(PermissionRole.ADMIN));
+    vi.mocked(prisma.permission.count).mockResolvedValue(2);
+    expect(await wouldRemoveLastAdmin("page-1", "user-1")).toBe(false);
+  });
+
+  test("target is not an ADMIN → false without counting (can't orphan)", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(makePermission(PermissionRole.MEMBER));
+    expect(await wouldRemoveLastAdmin("page-1", "user-1")).toBe(false);
+    expect(vi.mocked(prisma.permission.count)).not.toHaveBeenCalled();
   });
 });

@@ -33,6 +33,7 @@ import {
   canViewEvent,
   canViewPost,
   requireViewableProfile,
+  resolveProfileAccess,
   profileListWhere,
   collectionVisibilityWhere,
   eventListWhere,
@@ -375,5 +376,41 @@ describe("syncDescendantVisibility", () => {
     await syncDescendantVisibility("EVENT", "event-1", Visibility.PRIVATE, tx as never);
     expect(tx.post.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.post.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+// ── resolveProfileAccess — tri-state gate for the SSR dispatcher ──────────────
+
+describe("resolveProfileAccess", () => {
+  test("PUBLIC → FULL for anyone", async () => {
+    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PUBLIC }, ANON)).toBe("FULL");
+    expect(await resolveProfileAccess("PAGE", { id: "page-9", visibility: Visibility.PUBLIC }, ANON)).toBe("FULL");
+  });
+
+  test("UNLISTED reached directly → FULL (never LOCKED)", async () => {
+    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.UNLISTED }, ANON)).toBe("FULL");
+  });
+
+  test("PRIVATE, logged-in non-member → LOCKED (stub), not HIDDEN", async () => {
+    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe("LOCKED");
+    expect(await resolveProfileAccess("PAGE", { id: "page-9", visibility: Visibility.PRIVATE }, VIEWER)).toBe("LOCKED");
+  });
+
+  test("PRIVATE, anonymous viewer → HIDDEN (existence-deny, no identity leak)", async () => {
+    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PRIVATE }, ANON)).toBe("HIDDEN");
+    expect(await resolveProfileAccess("PAGE", { id: "page-9", visibility: Visibility.PRIVATE }, ANON)).toBe("HIDDEN");
+  });
+
+  test("PRIVATE user with a follow edge → FULL", async () => {
+    followYes();
+    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe("FULL");
+  });
+
+  test("PRIVATE page where viewer is a member → FULL", async () => {
+    expect(await resolveProfileAccess("PAGE", { id: "page-1", visibility: Visibility.PRIVATE }, MEMBER)).toBe("FULL");
+  });
+
+  test("owner of a PRIVATE profile → FULL", async () => {
+    expect(await resolveProfileAccess("USER", { id: "viewer-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe("FULL");
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
+import { getManagedPageIds } from "@/lib/utils/server/permission";
 import { unauthorized, serverError } from "@/lib/utils/errors";
 
 /**
@@ -31,12 +32,8 @@ export async function GET() {
 			})
 			: 0;
 
-		// Pages: one unread count per managed page
-		const pagePerms = await prisma.permission.findMany({
-			where: { userId: ctx.userId, resourceType: "PAGE", role: { in: ["ADMIN", "EDITOR"] } },
-			select: { resourceId: true },
-		});
-		const pageIds = pagePerms.map((p) => p.resourceId);
+		// Pages: one unread count per managed page (ADMIN or EDITOR)
+		const pageIds = await getManagedPageIds(ctx.userId);
 
 		const pagesResult: Record<string, number> = {};
 

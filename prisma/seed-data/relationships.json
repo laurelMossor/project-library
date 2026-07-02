@@ -51,5 +51,8 @@
       "email": "alice@example.com",
       "status": "GOING"
     }
+  ],
+  "accessRequests": [
+    { "requester": "sam.example", "target": "private-pat.example", "kind": "FOLLOW" }
   ]
 }

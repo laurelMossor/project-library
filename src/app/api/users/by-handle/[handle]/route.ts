@@ -9,7 +9,7 @@ import { getViewerContext, canViewProfile } from "@/lib/utils/server/visibility"
  * Resolves a user by handle (formerly `/by-username/[username]`).
  *
  * Note: this is User-only — it does NOT consult the `handles` table because
- * callers (e.g. AddConnectionSearch) specifically want to add a USER as a
+ * callers (e.g. the member search) specifically want to add a USER as a
  * connection, not a Page. For routes that need either, use
  * `findEntityByHandle` from `@/lib/utils/server/handle`.
  */
