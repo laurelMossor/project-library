@@ -5,7 +5,7 @@
 // operations → refetch. Used by PUT /api/me/user and PUT /api/pages/[pageId] so
 // the visibility cascade rules live in exactly one place.
 
-import { Visibility } from "@prisma/client";
+import { ProfileVisibility, ContentVisibility } from "@prisma/client";
 import { prisma } from "./prisma";
 import { updateUserProfile, personalProfileFields } from "./user";
 import { updatePageProfile, publicPageFields } from "./page";
@@ -28,7 +28,11 @@ export async function updateProfileWithCascade(
   fields: Record<string, unknown>,
   elements?: SavePayload["elements"],
 ) {
-  const newVisibility = (fields as { visibility?: Visibility }).visibility;
+  // The two profile fields are independent: a contentVisibility change cascades to
+  // descendants; a profileVisibility unlock materializes pending requests. Neither
+  // touches the other.
+  const nextProfileVis = (fields as { profileVisibility?: ProfileVisibility }).profileVisibility;
+  const nextContentVis = (fields as { contentVisibility?: ContentVisibility }).contentVisibility;
 
   return prisma.$transaction(async (tx) => {
     if (kind === "USER") {
@@ -37,13 +41,11 @@ export async function updateProfileWithCascade(
       await updatePageProfile(id, fields as Parameters<typeof updatePageProfile>[1], tx);
     }
 
-    if (newVisibility !== undefined) {
-      await syncDescendantVisibility(kind, id, newVisibility, tx);
-      // Unlocking (PRIVATE → PUBLIC/UNLISTED) removes the reason to gate, so
-      // materialize any pending requests. No-op when nothing was pending.
-      if (newVisibility !== Visibility.PRIVATE) {
-        await autoApprovePendingOnUnlock({ type: kind, id }, tx);
-      }
+    if (nextContentVis !== undefined) {
+      await syncDescendantVisibility(kind, id, nextContentVis, tx);
+    }
+    if (nextProfileVis !== undefined && nextProfileVis !== ProfileVisibility.PRIVATE) {
+      await autoApprovePendingOnUnlock({ type: kind, id }, tx);
     }
 
     // Element ops run on the global client (pre-existing); wrapped by this tx.
@@ -74,9 +76,9 @@ export function pickProfileFields(kind: ProfileKind, fields: FieldMap): FieldMap
   const keys =
     kind === "USER"
       ? ["firstName", "middleName", "lastName", "displayName", "headline", "bio",
-         "interests", "location", "visibility", "avatarImageId", "aboutContent"]
+         "interests", "location", "profileVisibility", "contentVisibility", "avatarImageId", "aboutContent"]
       : ["name", "headline", "bio", "interests", "location", "addressLine1",
-         "addressLine2", "city", "state", "zip", "category", "avatarImageId", "visibility"];
+         "addressLine2", "city", "state", "zip", "category", "avatarImageId", "profileVisibility", "contentVisibility"];
   const picked: FieldMap = {};
   for (const k of keys) {
     if (fields[k] !== undefined) picked[k] = fields[k];
@@ -88,9 +90,9 @@ export function pickProfileFields(kind: ProfileKind, fields: FieldMap): FieldMap
  *  Exported for unit testing. */
 export function validateProfileFields(kind: ProfileKind, fields: FieldMap): string | null {
   if (kind === "USER") {
-    const { displayName, headline, bio, interests, location, visibility,
+    const { displayName, headline, bio, interests, location, profileVisibility, contentVisibility,
       firstName, middleName, lastName, aboutContent } = fields as Record<string, never>;
-    const validation = validateProfileData({ displayName, headline, bio, interests, location, visibility });
+    const validation = validateProfileData({ displayName, headline, bio, interests, location, profileVisibility, contentVisibility });
     if (!validation.valid) return validation.error || "Invalid profile data";
     for (const [name, value] of Object.entries({ firstName, middleName, lastName })) {
       if (value !== undefined && (value as string).length > 100) {

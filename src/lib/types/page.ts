@@ -1,6 +1,7 @@
 import type { ProfileElementItem } from "./profile-element";
+import type { ContentVisibility, ProfileVisibility } from "@prisma/client";
 
-export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+export type { ContentVisibility, ProfileVisibility };
 
 export interface PublicPage {
   id: string;
@@ -11,7 +12,8 @@ export interface PublicPage {
   bio: string | null;
   interests: string[];
   location: string | null;
-  visibility: Visibility;
+  profileVisibility: ProfileVisibility;
+  contentVisibility: ContentVisibility;
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;

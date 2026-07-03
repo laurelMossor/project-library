@@ -1,4 +1,5 @@
 import { COLLECTION_TYPES } from "./collection";
+import type { ContentVisibility } from "@prisma/client";
 /**
  * Base interface for all collection items (events, etc.)
  * Defines the common structure that all collection types must implement.
@@ -24,7 +25,7 @@ export interface BaseCollectionItem {
 	title: string | null;
 	content: string;
 	status: "DRAFT" | "PUBLISHED";
-	visibility: "PUBLIC" | "UNLISTED" | "PRIVATE";
+	visibility: ContentVisibility;
 	tags: string[];
 	topics: string[];
 	user: { id: string; handle: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };

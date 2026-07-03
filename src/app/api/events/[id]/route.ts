@@ -7,8 +7,7 @@ import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
-import { syncDescendantVisibility, getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
-import type { Visibility } from "@prisma/client";
+import { getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -102,7 +101,9 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, visibility, pinnedAt, pageId } = data;
+		// `visibility` is intentionally NOT accepted here — content visibility is
+		// derived from the owning profile's contentVisibility, never client-set.
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, pinnedAt, pageId } = data;
 
 		// If switching host page (to a page, not clearing it), verify permission
 		if (pageId != null) {
@@ -141,7 +142,6 @@ export async function PATCH(request: Request, { params }: Params) {
 			longitude: parsedLongitude ?? undefined,
 			tags: processedTags,
 			status,
-			visibility,
 		});
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid event data");
@@ -159,7 +159,6 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (processedTags !== undefined) updateData.tags = processedTags;
 		if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 		if (status !== undefined) updateData.status = status;
-		if (visibility !== undefined) updateData.visibility = visibility;
 		if (pinnedAt !== undefined) {
 			if (pinnedAt !== null) {
 				// Enforce 3-pin limit before pinning
@@ -182,16 +181,10 @@ export async function PATCH(request: Request, { params }: Params) {
 			}
 		}
 
-		const [event] = await prisma.$transaction(async (tx) => {
-			const updated = await tx.event.update({
-				where: { id },
-				data: updateData,
-				select: eventWithUserFields,
-			});
-			if (visibility !== undefined) {
-				await syncDescendantVisibility("EVENT", id, visibility as Visibility, tx);
-			}
-			return [updated];
+		const event = await prisma.event.update({
+			where: { id },
+			data: updateData,
+			select: eventWithUserFields,
 		});
 
 		// Load images

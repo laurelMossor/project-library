@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, serverError } from "@/lib/utils/errors";
-import { getPagesForUser } from "@/lib/utils/server/permission";
-import { publicUserFields } from "@/lib/utils/server/user";
+import { getManagedPageIds } from "@/lib/utils/server/permission";
+import { publicUserEmbedFields } from "@/lib/utils/server/user";
 
 /**
  * GET /api/messages/inbox
@@ -18,9 +18,8 @@ export async function GET() {
 			return unauthorized();
 		}
 
-		// Get page IDs the user has access to
-		const userPages = await getPagesForUser(ctx.userId);
-		const pageIds = userPages.map((p) => p.id);
+		// Page conversations are accessible only to ADMIN/EDITOR of the page (not plain MEMBER).
+		const pageIds = await getManagedPageIds(ctx.userId);
 
 		// Find all conversations the user participates in
 		// Either directly as a user, or via a page they manage
@@ -48,7 +47,7 @@ export async function GET() {
 				participants: {
 					include: {
 						user: {
-							select: publicUserFields,
+							select: publicUserEmbedFields,
 						},
 						page: {
 							select: {
@@ -65,7 +64,7 @@ export async function GET() {
 					take: 1,
 					include: {
 						sender: {
-							select: publicUserFields,
+							select: publicUserEmbedFields,
 						},
 					},
 				},

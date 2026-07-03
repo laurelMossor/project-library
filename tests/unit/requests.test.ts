@@ -6,7 +6,7 @@
  * grant edge (no Follow, no Permission). Approval is what materializes the edge.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { Visibility, PermissionRole, ResourceType } from "@prisma/client";
+import { ProfileVisibility, PermissionRole, ResourceType } from "@prisma/client";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
@@ -46,21 +46,21 @@ describe("requestOrCreateFollow", () => {
   const requester = { type: "USER" as const, id: "u1" };
 
   test("PUBLIC target → instant follow, no request", async () => {
-    const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", visibility: Visibility.PUBLIC });
+    const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", profileVisibility: ProfileVisibility.PUBLIC});
     expect(res).toEqual({ status: "followed" });
     expect(prisma.follow.create).toHaveBeenCalledTimes(1);
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
   });
 
   test("UNLISTED target → instant follow", async () => {
-    const res = await requestOrCreateFollow(requester, { type: "PAGE", id: "p2", visibility: Visibility.UNLISTED });
+    const res = await requestOrCreateFollow(requester, { type: "PAGE", id: "p2", profileVisibility: ProfileVisibility.PUBLIC});
     expect(res).toEqual({ status: "followed" });
     expect(prisma.follow.create).toHaveBeenCalledTimes(1);
   });
 
   test("PRIVATE target → pending request, NO follow edge", async () => {
     vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
-    const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", visibility: Visibility.PRIVATE });
+    const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", profileVisibility: ProfileVisibility.PRIVATE});
     expect(res).toEqual({ status: "requested" });
     expect(prisma.accessRequest.create).toHaveBeenCalledTimes(1);
     expect(prisma.follow.create).not.toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe("requestOrCreateFollow", () => {
 
   test("PRIVATE target, request already pending → idempotent (no second row)", async () => {
     vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue({ id: "req-1" } as never);
-    const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", visibility: Visibility.PRIVATE });
+    const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", profileVisibility: ProfileVisibility.PRIVATE});
     expect(res).toEqual({ status: "requested" });
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
   });
@@ -79,7 +79,7 @@ describe("requestOrCreateFollow", () => {
 // ---------------------------------------------------------------------------
 describe("requestOrJoinPage", () => {
   test("PUBLIC page → instant MEMBER grant", async () => {
-    const res = await requestOrJoinPage("u1", { id: "p1", visibility: Visibility.PUBLIC });
+    const res = await requestOrJoinPage("u1", { id: "p1", profileVisibility: ProfileVisibility.PUBLIC});
     expect(res).toEqual({ status: "joined", role: PermissionRole.MEMBER });
     expect(prisma.permission.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe("requestOrJoinPage", () => {
 
   test("PRIVATE page → pending request, NO permission grant", async () => {
     vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
-    const res = await requestOrJoinPage("u1", { id: "p1", visibility: Visibility.PRIVATE });
+    const res = await requestOrJoinPage("u1", { id: "p1", profileVisibility: ProfileVisibility.PRIVATE});
     expect(res).toEqual({ status: "requested" });
     expect(prisma.accessRequest.create).toHaveBeenCalledTimes(1);
     expect(prisma.permission.upsert).not.toHaveBeenCalled();

@@ -1,9 +1,9 @@
 /**
  * Unit tests for the shared /api/me/* save core (whitelist + validation) that
- * both profile routes delegate to. Guards the two regressions this change fixes:
- *  - page `visibility` used to be silently dropped → now whitelisted + validated
- *  - the user avatar field used to be lost to a flat payload → now in the set
- * and the mass-assignment guard (updatePageProfile copies every provided key).
+ * both profile routes delegate to. Guards:
+ *  - page profileVisibility/contentVisibility are whitelisted + validated (not dropped)
+ *  - the user avatar field survives the payload
+ *  - the mass-assignment guard drops unknown keys (updatePageProfile copies every provided key)
  *
  * Prisma + session are mocked so no DB/auth is required.
  */
@@ -15,28 +15,32 @@ vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 import { pickProfileFields, validateProfileFields } from "@/lib/utils/server/profile-update";
 
 describe("pickProfileFields", () => {
-	test("PAGE keeps visibility (regression: was silently dropped)", () => {
-		expect(pickProfileFields("PAGE", { name: "X", visibility: "PRIVATE" })).toEqual({
-			name: "X",
-			visibility: "PRIVATE",
-		});
+	test("PAGE keeps profileVisibility + contentVisibility", () => {
+		expect(
+			pickProfileFields("PAGE", { name: "X", profileVisibility: "PRIVATE", contentVisibility: "PRIVATE" })
+		).toEqual({ name: "X", profileVisibility: "PRIVATE", contentVisibility: "PRIVATE" });
 	});
 
-	test("PAGE drops unknown keys (mass-assignment guard)", () => {
+	test("PAGE drops unknown keys (mass-assignment guard) — incl. the removed `visibility`", () => {
 		expect(
-			pickProfileFields("PAGE", { name: "X", handle: "hacked", createdByUserId: "u9", visibility: "PUBLIC" })
-		).toEqual({ name: "X", visibility: "PUBLIC" });
+			pickProfileFields("PAGE", {
+				name: "X",
+				handle: "hacked",
+				createdByUserId: "u9",
+				visibility: "PUBLIC",
+				profileVisibility: "PUBLIC",
+			})
+		).toEqual({ name: "X", profileVisibility: "PUBLIC" });
 	});
 
 	test("USER keeps avatarImageId (regression: flat payload lost it)", () => {
 		expect(pickProfileFields("USER", { avatarImageId: "img-1" })).toEqual({ avatarImageId: "img-1" });
 	});
 
-	test("USER keeps visibility, drops unknown keys", () => {
-		expect(pickProfileFields("USER", { displayName: "Al", visibility: "UNLISTED", role: "ADMIN" })).toEqual({
-			displayName: "Al",
-			visibility: "UNLISTED",
-		});
+	test("USER keeps profileVisibility + contentVisibility, drops unknown keys", () => {
+		expect(
+			pickProfileFields("USER", { displayName: "Al", contentVisibility: "UNLISTED", role: "ADMIN" })
+		).toEqual({ displayName: "Al", contentVisibility: "UNLISTED" });
 	});
 
 	test("undefined values are omitted", () => {
@@ -45,16 +49,16 @@ describe("pickProfileFields", () => {
 });
 
 describe("validateProfileFields", () => {
-	test("PAGE accepts a valid visibility", () => {
-		expect(validateProfileFields("PAGE", { visibility: "PRIVATE" })).toBeNull();
+	test("PAGE accepts valid profileVisibility + contentVisibility", () => {
+		expect(validateProfileFields("PAGE", { profileVisibility: "PRIVATE", contentVisibility: "UNLISTED" })).toBeNull();
 	});
 
-	test("PAGE rejects an invalid visibility", () => {
-		expect(validateProfileFields("PAGE", { visibility: "SECRET" })).toMatch(/visibility/i);
+	test("PAGE rejects an invalid profileVisibility", () => {
+		expect(validateProfileFields("PAGE", { profileVisibility: "SECRET" })).toMatch(/profileVisibility/i);
 	});
 
-	test("USER rejects an invalid visibility", () => {
-		expect(validateProfileFields("USER", { visibility: "SECRET" })).toMatch(/visibility/i);
+	test("USER rejects an invalid contentVisibility", () => {
+		expect(validateProfileFields("USER", { contentVisibility: "SECRET" })).toMatch(/contentVisibility/i);
 	});
 
 	test("PAGE rejects an empty name", () => {

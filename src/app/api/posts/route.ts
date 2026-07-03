@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
+import { getViewerContext, postListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { canPostAsPage } from "@/lib/utils/server/permission";
@@ -231,6 +231,9 @@ export async function POST(request: Request) {
 				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
+				// Inherit visibility from the parent (page → event → user) so content
+				// created under a PRIVATE/UNLISTED parent is never born PUBLIC.
+				visibility: await resolveParentVisibility(ctx.userId, pageId || null, eventId || null),
 				...(isDraft ? { status: "DRAFT" } : {}),
 			},
 			select: postWithUserFields,

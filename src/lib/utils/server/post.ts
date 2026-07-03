@@ -7,8 +7,8 @@ import { postCollectionFields, postWithUserFields } from "./fields";
 import { getImagesForTargetsBatch } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
-import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent } from "./visibility";
-import { Visibility } from "@prisma/client";
+import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { ContentVisibility } from "@prisma/client";
 
 /**
  * Fetch update posts attached to an event, sorted by createdAt (newest first).
@@ -24,12 +24,12 @@ export async function getEventUpdates(eventId: string, viewer?: ViewerContext): 
 
 	const canSeePrivate = viewer
 		? await canViewEvent(event, viewer)
-		: event.visibility !== Visibility.PRIVATE;
+		: event.visibility !== ContentVisibility.PRIVATE;
 
 	const posts = await prisma.post.findMany({
 		where: {
 			eventId,
-			...(canSeePrivate ? {} : { visibility: { in: [Visibility.PUBLIC, Visibility.UNLISTED] } }),
+			...(canSeePrivate ? {} : { visibility: { in: PROFILE_COLLECTION_VISIBILITY } }),
 		},
 		orderBy: { createdAt: "desc" },
 		select: postWithUserFields,

@@ -1,6 +1,7 @@
 import type { ProfileElementItem } from "./profile-element";
+import type { ContentVisibility, ProfileVisibility } from "@prisma/client";
 
-export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+export type { ContentVisibility, ProfileVisibility };
 
 export interface ProfileData {
 	firstName?: string;
@@ -11,7 +12,8 @@ export interface ProfileData {
 	bio?: string;
 	interests?: string[];
 	location?: string;
-	visibility?: Visibility;
+	profileVisibility?: ProfileVisibility;
+	contentVisibility?: ContentVisibility;
 	avatarImageId?: string | null;
 }
 
@@ -28,7 +30,8 @@ export interface User {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
-	visibility: Visibility;
+	profileVisibility: ProfileVisibility;
+	contentVisibility: ContentVisibility;
 	avatarImageId: string | null;
 	createdAt: Date;
 	updatedAt: Date;
@@ -46,7 +49,8 @@ export interface PublicUser {
 	bio: string | null;
 	interests: string[];
 	location: string | null;
-	visibility: Visibility;
+	profileVisibility: ProfileVisibility;
+	contentVisibility: ContentVisibility;
 	aboutContent: string | null;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;

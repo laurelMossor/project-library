@@ -22,6 +22,13 @@ export async function GET() {
 			return notFound("No active page set. Currently acting as personal identity.");
 		}
 
+		// Re-verify the caller may act as this page — activePageId comes from the JWT, which
+		// can be set client-side via updateSession without going through the validated route.
+		const allowed = await canPostAsPage(ctx.userId, ctx.activePageId);
+		if (!allowed) {
+			return notFound("Active page not found");
+		}
+
 		const page = await getPageById(ctx.activePageId);
 		if (!page) {
 			return notFound("Active page not found");

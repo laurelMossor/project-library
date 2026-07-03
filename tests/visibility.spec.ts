@@ -1,21 +1,18 @@
 /**
- * Visibility spec — verifies the three-tier enforcement across key surfaces.
+ * Visibility spec — verifies the two-field model across key surfaces.
  *
- * Test matrix per surface: anonymous viewer · logged-in non-member · member /
- * follower · owner (private content is never hidden from its creator).
+ * Model: profileVisibility {PUBLIC, PRIVATE} governs the profile page (PRIVATE = an
+ * identity-only stub + request affordance, discoverable in search). contentVisibility
+ * {LISTED, UNLISTED, PRIVATE} governs where a profile's posts surface.
  *
  * Seed fixtures:
- *   - secret-workshop    (PRIVATE page,  creator: sam,   member: alice)
- *   - unlisted-zine      (UNLISTED page, creator: alice)
- *   - private-pat.example (PRIVATE user, follower: alice)
- *   - portland-makers-guild (PUBLIC page)
+ *   - secret-workshop      (profileVisibility PRIVATE, contentVisibility PRIVATE; creator sam, member alice)
+ *   - unlisted-zine        (profileVisibility PUBLIC,  contentVisibility UNLISTED; creator alice)
+ *   - private-pat.example  (profileVisibility PRIVATE, contentVisibility PRIVATE; follower alice)
+ *   - portland-makers-guild (PUBLIC + LISTED)
  *
- * Patterns used to stay deterministic:
- *   - A gated surface renders the custom not-found page (h1 "Page not found"),
- *     so we assert that *positively* rather than asserting a name is absent
- *     (which would also pass on an unrelated load failure).
- *   - Search is debounced; instead of sleeping we wait for the result/empty
- *     state to settle, then assert the filtered entity has no result link.
+ * Determinism: gated content surfaces are asserted positively (the stub notice, or the
+ * private content's absence), and search waits for the debounced result/empty state.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -23,27 +20,29 @@ import { STORAGE_STATE } from "./helpers/auth";
 
 const SEARCH_BOX = "Search by name or handle...";
 
-/** Type a query and wait for the debounced search to settle on a result or empty state. */
 async function search(page: Page, query: string) {
   await page.goto("/search");
   await page.getByPlaceholder(SEARCH_BOX).fill(query);
 }
 
-// ── PRIVATE page ────────────────────────────────────────────────────────────
+// ── PRIVATE profile (page) — discoverable stub, gated content ─────────────────
 test.describe("PRIVATE page", () => {
-  test("anonymous viewer gets the not-found page", async ({ page }) => {
+  test("anonymous viewer sees the identity-only locked stub (not a 404, no leaked details)", async ({ page }) => {
     await page.goto("/secret-workshop");
-    await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).not.toBeVisible();
+    // Discoverable: identity + request affordance are shown to everyone, incl. anon.
+    await expect(page.getByText("This profile is private")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).toBeVisible();
+    // Identity-only: headline/bio and private content must NOT leak in the stub.
+    await expect(page.getByText("A private space for close collaborators")).not.toBeVisible();
+    await expect(page.getByText("Private post")).not.toBeVisible();
   });
 
-  test("does NOT appear in anonymous search results", async ({ page }) => {
+  test("appears in anonymous search results (discoverable as a stub)", async ({ page }) => {
     await search(page, "secret");
-    await expect(page.getByText(/No results for/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Secret Workshop/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Secret Workshop/i }).first()).toBeVisible({ timeout: 8_000 });
   });
 
-  test("does NOT appear in the explore feed", async ({ page }) => {
+  test("its PRIVATE content does NOT appear in the explore feed", async ({ page }) => {
     await page.goto("/explore");
     await expect(page.getByRole("heading", { name: "Explore", level: 1 })).toBeVisible();
     await expect(page.getByText("Private post")).not.toBeVisible();
@@ -51,9 +50,10 @@ test.describe("PRIVATE page", () => {
 
   test.describe("member (alice)", () => {
     test.use({ storageState: STORAGE_STATE.alice });
-    test("can view the private page", async ({ page }) => {
+    test("can view the private page fully", async ({ page }) => {
       await page.goto("/secret-workshop");
       await expect(page.getByRole("heading", { name: "Secret Workshop", exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText("This profile is private")).not.toBeVisible();
     });
   });
 
@@ -66,60 +66,48 @@ test.describe("PRIVATE page", () => {
   });
 });
 
-// ── UNLISTED page ─────────────────────────────────────────────────────────────
-test.describe("UNLISTED page", () => {
-  test("anonymous viewer can access by direct link, and sees its UNLISTED posts", async ({ page }) => {
+// ── PUBLIC profile with UNLISTED content ──────────────────────────────────────
+test.describe("PUBLIC profile, UNLISTED content", () => {
+  test("anonymous viewer sees the full profile and its UNLISTED posts by link", async ({ page }) => {
     await page.goto("/unlisted-zine");
     await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible({ timeout: 20_000 });
-    // Over-hide regression: the page must show its own UNLISTED posts by link,
-    // not render an empty collection.
+    // UNLISTED content is visible ON the profile (just not in feeds).
     await expect(page.getByText("Unlisted post")).toBeVisible();
   });
 
-  test("does NOT appear in search", async ({ page }) => {
+  test("appears in search (the profile is PUBLIC/discoverable)", async ({ page }) => {
     await search(page, "unlisted");
-    await expect(page.getByText(/No results for/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Unlisted Zine/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Unlisted Zine/i }).first()).toBeVisible({ timeout: 8_000 });
   });
 
-  test("does NOT appear in the explore feed", async ({ page }) => {
+  test("its UNLISTED content does NOT appear in the explore feed", async ({ page }) => {
     await page.goto("/explore");
     await expect(page.getByRole("heading", { name: "Explore", level: 1 })).toBeVisible();
     await expect(page.getByText("Unlisted post")).not.toBeVisible();
   });
-
-  test.describe("logged-in user", () => {
-    test.use({ storageState: STORAGE_STATE.alice });
-    test("can access by direct link", async ({ page }) => {
-      await page.goto("/unlisted-zine");
-      await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible({ timeout: 20_000 });
-    });
-  });
 });
 
-// ── PRIVATE user ──────────────────────────────────────────────────────────────
+// ── PRIVATE profile (user) ────────────────────────────────────────────────────
 test.describe("PRIVATE user", () => {
-  test("anonymous viewer gets the not-found page", async ({ page }) => {
+  test("anonymous viewer sees the identity-only stub (discoverable, not a 404)", async ({ page }) => {
     await page.goto("/private-pat.example");
-    await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).not.toBeVisible();
+    await expect(page.getByText("This profile is private")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).toBeVisible();
+    // No headline/private content leaks in the stub.
+    await expect(page.getByText("A private maker")).not.toBeVisible();
+    await expect(page.getByText("Private update")).not.toBeVisible();
   });
 
-  test("does NOT appear in anonymous search results", async ({ page }) => {
+  test("appears in anonymous search results (as a stub)", async ({ page }) => {
     await search(page, "Pat Private");
-    await expect(page.getByText(/No results for/i)).toBeVisible();
-    await expect(page.getByRole("link", { name: /Pat Private/i })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Pat Private/i }).first()).toBeVisible({ timeout: 8_000 });
   });
 
   test.describe("logged-in non-follower (sam)", () => {
     test.use({ storageState: STORAGE_STATE.sam });
     test("sees the locked preview stub, not the private content", async ({ page }) => {
       await page.goto("/private-pat.example");
-      // LOCKED, not HIDDEN: a logged-in viewer gets the request affordance + identity,
-      // never the not-found page.
       await expect(page.getByText("This profile is private")).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByRole("heading", { name: "Page not found" })).not.toBeVisible();
-      // But the private content stays gated — the stub shows identity only.
       await expect(page.getByText("Private update")).not.toBeVisible();
     });
   });
@@ -129,7 +117,6 @@ test.describe("PRIVATE user", () => {
     test("can view the private profile AND its private posts", async ({ page }) => {
       await page.goto("/private-pat.example");
       await expect(page.getByRole("heading", { name: "Pat Private", exact: true })).toBeVisible({ timeout: 20_000 });
-      // Over-hide fix: a follower of a PRIVATE user sees that user's PRIVATE content.
       await expect(page.getByText("Private update")).toBeVisible();
     });
   });

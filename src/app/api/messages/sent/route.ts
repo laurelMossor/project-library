@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, serverError } from "@/lib/utils/errors";
-import { publicUserFields } from "@/lib/utils/server/user";
+import { publicUserEmbedFields } from "@/lib/utils/server/user";
 
 /**
  * GET /api/messages/sent
@@ -24,7 +24,7 @@ export async function GET() {
 						participants: {
 							include: {
 								user: {
-									select: publicUserFields,
+									select: publicUserEmbedFields,
 								},
 								page: {
 									select: {

@@ -1,13 +1,14 @@
 /**
  * Visibility helper unit tests — shared primitives (isFollower/isMember),
  * unified gates (canViewProfile/canViewUser/canViewPage/canViewEvent/canViewPost),
- * requireViewableProfile, profileListWhere, collectionVisibilityWhere, and the
- * embed-selector privacy guard.
+ * requireViewableProfile, list filters, collectionVisibilityWhere, inheritance,
+ * cascade, and the embed-selector privacy guard.
  *
- * Prisma is mocked so no DB connection is required.
+ * Two-field model: profiles carry profileVisibility {PUBLIC,PRIVATE}; content carries a
+ * derived visibility {LISTED,UNLISTED,PRIVATE}. Prisma is mocked so no DB is required.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { Visibility } from "@prisma/client";
+import { ContentVisibility, ProfileVisibility } from "@prisma/client";
 import type { ViewerContext } from "@/lib/utils/server/visibility";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
@@ -56,9 +57,7 @@ const followYes = () => vi.mocked(prisma.follow.findFirst).mockResolvedValue({ i
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: no follow edge exists.
   vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never);
-  // Cascade defaults: no child events, writes succeed.
   vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.post.updateMany).mockResolvedValue({ count: 0 } as never);
   vi.mocked(prisma.event.updateMany).mockResolvedValue({ count: 0 } as never);
@@ -79,99 +78,82 @@ describe("relationship primitives", () => {
   });
 });
 
-// ── canViewUser ───────────────────────────────────────────────────────────────
+// ── canViewUser (profileVisibility) ───────────────────────────────────────────
 
 describe("canViewUser", () => {
-  test("PUBLIC / UNLISTED → visible to anyone (anon)", async () => {
-    expect(await canViewUser({ id: "owner-1", visibility: Visibility.PUBLIC }, ANON)).toBe(true);
-    expect(await canViewUser({ id: "owner-1", visibility: Visibility.UNLISTED }, ANON)).toBe(true);
+  test("PUBLIC → visible to anyone (anon)", async () => {
+    expect(await canViewUser({ id: "owner-1", profileVisibility: ProfileVisibility.PUBLIC }, ANON)).toBe(true);
   });
 
-  test("PRIVATE → not visible to anonymous", async () => {
-    expect(await canViewUser({ id: "owner-1", visibility: Visibility.PRIVATE }, ANON)).toBe(false);
+  test("PRIVATE → not visible to anonymous or a logged-in non-follower", async () => {
+    expect(await canViewUser({ id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, ANON)).toBe(false);
+    expect(await canViewUser({ id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe(false);
   });
 
-  test("PRIVATE → not visible to logged-in non-follower", async () => {
-    expect(await canViewUser({ id: "owner-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe(false);
-  });
-
-  test("PRIVATE → visible to a follower", async () => {
+  test("PRIVATE → visible to a follower and to the user themselves", async () => {
+    expect(await canViewUser({ id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, OWNER)).toBe(true);
     followYes();
-    expect(await canViewUser({ id: "owner-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe(true);
-  });
-
-  test("PRIVATE → visible to the user themselves", async () => {
-    expect(await canViewUser({ id: "owner-1", visibility: Visibility.PRIVATE }, OWNER)).toBe(true);
+    expect(await canViewUser({ id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe(true);
   });
 });
 
-// ── canViewPage ───────────────────────────────────────────────────────────────
+// ── canViewPage (profileVisibility) ───────────────────────────────────────────
 
 describe("canViewPage", () => {
-  test("PUBLIC / UNLISTED → visible to anyone", async () => {
-    expect(await canViewPage({ id: "page-1", visibility: Visibility.PUBLIC }, ANON)).toBe(true);
-    expect(await canViewPage({ id: "page-1", visibility: Visibility.UNLISTED }, ANON)).toBe(true);
+  test("PUBLIC → visible to anyone", async () => {
+    expect(await canViewPage({ id: "page-1", profileVisibility: ProfileVisibility.PUBLIC }, ANON)).toBe(true);
   });
 
-  test("PRIVATE → not visible to anonymous", async () => {
-    expect(await canViewPage({ id: "page-1", visibility: Visibility.PRIVATE }, ANON)).toBe(false);
+  test("PRIVATE → not visible to anon / non-member non-follower", async () => {
+    expect(await canViewPage({ id: "page-1", profileVisibility: ProfileVisibility.PRIVATE }, ANON)).toBe(false);
+    expect(await canViewPage({ id: "page-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe(false);
   });
 
-  test("PRIVATE → not visible to logged-in non-member, non-follower", async () => {
-    expect(await canViewPage({ id: "page-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe(false);
-  });
-
-  test("PRIVATE → visible to a member", async () => {
-    expect(await canViewPage({ id: "page-1", visibility: Visibility.PRIVATE }, MEMBER)).toBe(true);
-  });
-
-  test("PRIVATE → visible to a follower (no membership)", async () => {
+  test("PRIVATE → visible to a member, and to a follower (no membership)", async () => {
+    expect(await canViewPage({ id: "page-1", profileVisibility: ProfileVisibility.PRIVATE }, MEMBER)).toBe(true);
     followYes();
-    expect(await canViewPage({ id: "page-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe(true);
+    expect(await canViewPage({ id: "page-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe(true);
   });
 });
 
-// ── canViewEvent ──────────────────────────────────────────────────────────────
+// ── canViewEvent (content visibility) ─────────────────────────────────────────
 
 describe("canViewEvent", () => {
-  const makeEvent = (visibility: Visibility, pageId: string | null = null) => ({
+  const makeEvent = (visibility: ContentVisibility, pageId: string | null = null) => ({
     id: "event-1",
     userId: "owner-1",
     pageId,
     visibility,
   });
 
-  test("PUBLIC / UNLISTED → visible to anonymous", async () => {
-    expect(await canViewEvent(makeEvent(Visibility.PUBLIC), ANON)).toBe(true);
-    expect(await canViewEvent(makeEvent(Visibility.UNLISTED), ANON)).toBe(true);
+  test("LISTED / UNLISTED → visible to anonymous", async () => {
+    expect(await canViewEvent(makeEvent(ContentVisibility.LISTED), ANON)).toBe(true);
+    expect(await canViewEvent(makeEvent(ContentVisibility.UNLISTED), ANON)).toBe(true);
   });
 
   test("PRIVATE standalone → anon/non-owner denied, owner allowed", async () => {
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE), ANON)).toBe(false);
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE), VIEWER)).toBe(false);
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE), OWNER)).toBe(true);
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE), ANON)).toBe(false);
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE), VIEWER)).toBe(false);
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE), OWNER)).toBe(true);
   });
 
   test("PRIVATE standalone → visible to the owner's follower", async () => {
     followYes();
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE), VIEWER)).toBe(true);
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE), VIEWER)).toBe(true);
   });
 
-  test("PRIVATE page event → member yes, non-member non-follower no", async () => {
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE, "page-1"), MEMBER)).toBe(true);
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE, "page-1"), VIEWER)).toBe(false);
-  });
-
-  test("PRIVATE page event → visible to a page follower", async () => {
+  test("PRIVATE page event → member yes, non-member non-follower no, follower yes", async () => {
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE, "page-1"), MEMBER)).toBe(true);
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE, "page-1"), VIEWER)).toBe(false);
     followYes();
-    expect(await canViewEvent(makeEvent(Visibility.PRIVATE, "page-1"), VIEWER)).toBe(true);
+    expect(await canViewEvent(makeEvent(ContentVisibility.PRIVATE, "page-1"), VIEWER)).toBe(true);
   });
 });
 
-// ── canViewPost ───────────────────────────────────────────────────────────────
+// ── canViewPost (content visibility) ──────────────────────────────────────────
 
 describe("canViewPost", () => {
-  const makePost = (visibility: Visibility, pageId: string | null = null, eventId: string | null = null) => ({
+  const makePost = (visibility: ContentVisibility, pageId: string | null = null, eventId: string | null = null) => ({
     id: "post-1",
     userId: "owner-1",
     pageId,
@@ -179,26 +161,23 @@ describe("canViewPost", () => {
     visibility,
   });
 
-  test("PUBLIC / UNLISTED → visible to anonymous", async () => {
-    expect(await canViewPost(makePost(Visibility.PUBLIC), ANON)).toBe(true);
-    expect(await canViewPost(makePost(Visibility.UNLISTED), ANON)).toBe(true);
+  test("LISTED / UNLISTED → visible to anonymous", async () => {
+    expect(await canViewPost(makePost(ContentVisibility.LISTED), ANON)).toBe(true);
+    expect(await canViewPost(makePost(ContentVisibility.UNLISTED), ANON)).toBe(true);
   });
 
   test("PRIVATE standalone → author yes, anon no, follower yes", async () => {
-    expect(await canViewPost(makePost(Visibility.PRIVATE), ANON)).toBe(false);
-    expect(await canViewPost(makePost(Visibility.PRIVATE), OWNER)).toBe(true);
+    expect(await canViewPost(makePost(ContentVisibility.PRIVATE), ANON)).toBe(false);
+    expect(await canViewPost(makePost(ContentVisibility.PRIVATE), OWNER)).toBe(true);
     followYes();
-    expect(await canViewPost(makePost(Visibility.PRIVATE), VIEWER)).toBe(true);
+    expect(await canViewPost(makePost(ContentVisibility.PRIVATE), VIEWER)).toBe(true);
   });
 
-  test("PRIVATE page post → member yes, non-member non-follower no", async () => {
-    expect(await canViewPost(makePost(Visibility.PRIVATE, "page-1"), MEMBER)).toBe(true);
-    expect(await canViewPost(makePost(Visibility.PRIVATE, "page-1"), VIEWER)).toBe(false);
-  });
-
-  test("PRIVATE page post → visible to a page follower", async () => {
+  test("PRIVATE page post → member yes, non-member non-follower no, follower yes", async () => {
+    expect(await canViewPost(makePost(ContentVisibility.PRIVATE, "page-1"), MEMBER)).toBe(true);
+    expect(await canViewPost(makePost(ContentVisibility.PRIVATE, "page-1"), VIEWER)).toBe(false);
     followYes();
-    expect(await canViewPost(makePost(Visibility.PRIVATE, "page-1"), VIEWER)).toBe(true);
+    expect(await canViewPost(makePost(ContentVisibility.PRIVATE, "page-1"), VIEWER)).toBe(true);
   });
 });
 
@@ -211,46 +190,47 @@ describe("requireViewableProfile", () => {
   });
 
   test("public entity → returns it", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", visibility: Visibility.PUBLIC } as never);
-    expect(await requireViewableProfile("USER", "u1", ANON)).toEqual({ id: "u1", visibility: Visibility.PUBLIC });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", profileVisibility: ProfileVisibility.PUBLIC } as never);
+    expect(await requireViewableProfile("USER", "u1", ANON)).toEqual({ id: "u1", profileVisibility: ProfileVisibility.PUBLIC });
   });
 
   test("private entity, non-follower → null", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", visibility: Visibility.PRIVATE } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", profileVisibility: ProfileVisibility.PRIVATE } as never);
     expect(await requireViewableProfile("USER", "u1", VIEWER)).toBeNull();
   });
 });
 
-// ── profileListWhere (global feeds/search) ────────────────────────────────────
+// ── list filters (global feeds/search) ────────────────────────────────────────
 
-describe("profileListWhere", () => {
-  test("USER — anonymous returns PUBLIC-only", () => {
-    expect(profileListWhere("USER", ANON)).toEqual({ visibility: Visibility.PUBLIC });
+describe("profileListWhere — all profiles discoverable", () => {
+  test("returns {} regardless of viewer (PRIVATE profiles show as search stubs)", () => {
+    expect(profileListWhere("USER", ANON)).toEqual({});
+    expect(profileListWhere("USER", VIEWER)).toEqual({});
+    expect(profileListWhere("PAGE", ANON)).toEqual({});
+    expect(profileListWhere("PAGE", MEMBER)).toEqual({});
   });
-  test("USER — viewer returns PUBLIC + own", () => {
-    expect((profileListWhere("USER", VIEWER) as { OR: unknown[] }).OR).toHaveLength(2);
+});
+
+describe("eventListWhere / postListWhere — only LISTED content, plus own", () => {
+  test("anon → LISTED-only", () => {
+    expect(eventListWhere(ANON)).toEqual({ visibility: { in: [ContentVisibility.LISTED] } });
+    expect(postListWhere(ANON)).toEqual({ visibility: { in: [ContentVisibility.LISTED] } });
   });
-  test("PAGE — anonymous returns PUBLIC-only", () => {
-    expect(profileListWhere("PAGE", ANON)).toEqual({ visibility: Visibility.PUBLIC });
-  });
-  test("PAGE — member includes member pages in OR", () => {
-    expect((profileListWhere("PAGE", MEMBER) as { OR: unknown[] }).OR).toHaveLength(2);
-  });
-  test("eventListWhere / postListWhere — anon PUBLIC-only", () => {
-    expect(eventListWhere(ANON)).toEqual({ visibility: Visibility.PUBLIC });
-    expect(postListWhere(ANON)).toEqual({ visibility: Visibility.PUBLIC });
+  test("member → LISTED plus own user + member pages", () => {
+    expect((eventListWhere(MEMBER) as { OR: unknown[] }).OR).toHaveLength(3);
+    expect((postListWhere(MEMBER) as { OR: unknown[] }).OR).toHaveLength(3);
   });
 });
 
 // ── collectionVisibilityWhere (an entity's own collection) ────────────────────
 
 describe("collectionVisibilityWhere", () => {
-  const restricted = { visibility: { in: [Visibility.PUBLIC, Visibility.UNLISTED] } };
+  const restricted = { visibility: { in: [ContentVisibility.LISTED, ContentVisibility.UNLISTED] } };
 
   test("USER — owner sees all", async () => {
     expect(await collectionVisibilityWhere("USER", "owner-1", OWNER)).toEqual({});
   });
-  test("USER — anon/non-follower restricted to PUBLIC+UNLISTED", async () => {
+  test("USER — anon/non-follower restricted to LISTED+UNLISTED", async () => {
     expect(await collectionVisibilityWhere("USER", "owner-1", ANON)).toEqual(restricted);
     expect(await collectionVisibilityWhere("USER", "owner-1", VIEWER)).toEqual(restricted);
   });
@@ -258,11 +238,9 @@ describe("collectionVisibilityWhere", () => {
     followYes();
     expect(await collectionVisibilityWhere("USER", "owner-1", VIEWER)).toEqual({});
   });
-  test("PAGE — member sees all; non-member restricted", async () => {
+  test("PAGE — member sees all; non-member restricted; follower sees all", async () => {
     expect(await collectionVisibilityWhere("PAGE", "page-1", MEMBER)).toEqual({});
     expect(await collectionVisibilityWhere("PAGE", "page-1", VIEWER)).toEqual(restricted);
-  });
-  test("PAGE — follower sees all", async () => {
     followYes();
     expect(await collectionVisibilityWhere("PAGE", "page-1", VIEWER)).toEqual({});
   });
@@ -280,7 +258,7 @@ describe("embed selectors exclude sensitive profile fields", () => {
   });
 
   test("publicPageEmbedFields carries no sensitive fields", () => {
-    for (const key of [...SENSITIVE, "headline", "visibility"]) {
+    for (const key of [...SENSITIVE, "headline", "profileVisibility", "contentVisibility"]) {
       expect(Object.prototype.hasOwnProperty.call(publicPageEmbedFields, key)).toBe(false);
     }
   });
@@ -289,81 +267,68 @@ describe("embed selectors exclude sensitive profile fields", () => {
 // ── resolveParentVisibility (inheritance for newly-created content) ───────────
 
 describe("resolveParentVisibility", () => {
-  test("page context wins and short-circuits — returns the page's visibility", async () => {
-    vi.mocked(prisma.page.findUnique).mockResolvedValue({ visibility: Visibility.PRIVATE } as never);
-    expect(await resolveParentVisibility("owner-1", "page-1", "event-1")).toBe(Visibility.PRIVATE);
-    // Page short-circuits — event/user are never consulted.
+  test("page context wins and short-circuits — returns the page's contentVisibility", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ contentVisibility: ContentVisibility.PRIVATE } as never);
+    expect(await resolveParentVisibility("owner-1", "page-1", "event-1")).toBe(ContentVisibility.PRIVATE);
     expect(prisma.event.findUnique).not.toHaveBeenCalled();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
-  test("event context (no page) — returns the event's visibility", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ visibility: Visibility.UNLISTED } as never);
-    expect(await resolveParentVisibility("owner-1", null, "event-1")).toBe(Visibility.UNLISTED);
+  test("event context (no page) — returns the event's stored visibility", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({ visibility: ContentVisibility.UNLISTED } as never);
+    expect(await resolveParentVisibility("owner-1", null, "event-1")).toBe(ContentVisibility.UNLISTED);
   });
 
-  test("standalone (no page/event) — returns the author's visibility", async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ visibility: Visibility.PRIVATE } as never);
-    expect(await resolveParentVisibility("owner-1")).toBe(Visibility.PRIVATE);
+  test("standalone (no page/event) — returns the author's contentVisibility", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ contentVisibility: ContentVisibility.PRIVATE } as never);
+    expect(await resolveParentVisibility("owner-1")).toBe(ContentVisibility.PRIVATE);
   });
 
-  test("missing parent row → defaults to PUBLIC (inherits safe-public, doesn't crash)", async () => {
+  test("missing parent row → defaults to LISTED (doesn't crash)", async () => {
     vi.mocked(prisma.page.findUnique).mockResolvedValue(null as never);
-    expect(await resolveParentVisibility("owner-1", "missing-page")).toBe(Visibility.PUBLIC);
+    expect(await resolveParentVisibility("owner-1", "missing-page")).toBe(ContentVisibility.LISTED);
   });
 });
 
-// ── syncDescendantVisibility (cascade when a parent's visibility changes) ─────
+// ── syncDescendantVisibility (cascade when a parent's contentVisibility changes) ─
 
 describe("syncDescendantVisibility", () => {
   test("PAGE → cascades to the page's posts, its events, and those events' posts", async () => {
     vi.mocked(prisma.event.findMany).mockResolvedValue([{ id: "e1" }, { id: "e2" }] as never);
 
-    await syncDescendantVisibility("PAGE", "page-1", Visibility.PRIVATE);
+    await syncDescendantVisibility("PAGE", "page-1", ContentVisibility.PRIVATE);
 
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { pageId: "page-1" },
-      data: { visibility: Visibility.PRIVATE },
+      data: { visibility: ContentVisibility.PRIVATE },
     });
     expect(prisma.event.updateMany).toHaveBeenCalledWith({
       where: { pageId: "page-1" },
-      data: { visibility: Visibility.PRIVATE },
+      data: { visibility: ContentVisibility.PRIVATE },
     });
-    // Posts attached to the page's events flip too.
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { eventId: { in: ["e1", "e2"] } },
-      data: { visibility: Visibility.PRIVATE },
+      data: { visibility: ContentVisibility.PRIVATE },
     });
   });
 
   test("USER → only standalone content cascades (page-authored content is excluded)", async () => {
-    await syncDescendantVisibility("USER", "owner-1", Visibility.PRIVATE);
-
-    // The pageId: null / eventId: null scoping IS the identity-scoping invariant:
-    // a user's visibility flip must not touch content they authored as a page.
+    await syncDescendantVisibility("USER", "owner-1", ContentVisibility.PRIVATE);
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { userId: "owner-1", pageId: null, eventId: null },
-      data: { visibility: Visibility.PRIVATE },
+      data: { visibility: ContentVisibility.PRIVATE },
     });
     expect(prisma.event.updateMany).toHaveBeenCalledWith({
       where: { userId: "owner-1", pageId: null },
-      data: { visibility: Visibility.PRIVATE },
+      data: { visibility: ContentVisibility.PRIVATE },
     });
   });
 
-  test("USER → with no child events, the event-attached-posts update is skipped", async () => {
-    vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
-    await syncDescendantVisibility("USER", "owner-1", Visibility.UNLISTED);
-    const calls = vi.mocked(prisma.post.updateMany).mock.calls;
-    expect(calls).toHaveLength(1);
-    expect(calls[0][0]).toMatchObject({ where: { userId: "owner-1", pageId: null, eventId: null } });
-  });
-
-  test("EVENT → cascades only to the event's posts", async () => {
-    await syncDescendantVisibility("EVENT", "event-1", Visibility.PRIVATE);
+  test("a LISTED→UNLISTED flip writes UNLISTED to descendants", async () => {
+    await syncDescendantVisibility("EVENT", "event-1", ContentVisibility.UNLISTED);
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { eventId: "event-1" },
-      data: { visibility: Visibility.PRIVATE },
+      data: { visibility: ContentVisibility.UNLISTED },
     });
     expect(prisma.event.updateMany).not.toHaveBeenCalled();
   });
@@ -373,7 +338,7 @@ describe("syncDescendantVisibility", () => {
       post: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       event: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     };
-    await syncDescendantVisibility("EVENT", "event-1", Visibility.PRIVATE, tx as never);
+    await syncDescendantVisibility("EVENT", "event-1", ContentVisibility.PRIVATE, tx as never);
     expect(tx.post.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.post.updateMany).not.toHaveBeenCalled();
   });
@@ -383,34 +348,24 @@ describe("syncDescendantVisibility", () => {
 
 describe("resolveProfileAccess", () => {
   test("PUBLIC → FULL for anyone", async () => {
-    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PUBLIC }, ANON)).toBe("FULL");
-    expect(await resolveProfileAccess("PAGE", { id: "page-9", visibility: Visibility.PUBLIC }, ANON)).toBe("FULL");
+    expect(await resolveProfileAccess("USER", { id: "owner-1", profileVisibility: ProfileVisibility.PUBLIC }, ANON)).toBe("FULL");
+    expect(await resolveProfileAccess("PAGE", { id: "page-9", profileVisibility: ProfileVisibility.PUBLIC }, ANON)).toBe("FULL");
   });
 
-  test("UNLISTED reached directly → FULL (never LOCKED)", async () => {
-    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.UNLISTED }, ANON)).toBe("FULL");
+  test("PRIVATE, logged-in non-member → LOCKED (stub)", async () => {
+    expect(await resolveProfileAccess("USER", { id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe("LOCKED");
+    expect(await resolveProfileAccess("PAGE", { id: "page-9", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe("LOCKED");
   });
 
-  test("PRIVATE, logged-in non-member → LOCKED (stub), not HIDDEN", async () => {
-    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe("LOCKED");
-    expect(await resolveProfileAccess("PAGE", { id: "page-9", visibility: Visibility.PRIVATE }, VIEWER)).toBe("LOCKED");
+  test("PRIVATE, anonymous viewer → LOCKED (discoverable stub, no longer existence-denied)", async () => {
+    expect(await resolveProfileAccess("USER", { id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, ANON)).toBe("LOCKED");
+    expect(await resolveProfileAccess("PAGE", { id: "page-9", profileVisibility: ProfileVisibility.PRIVATE }, ANON)).toBe("LOCKED");
   });
 
-  test("PRIVATE, anonymous viewer → HIDDEN (existence-deny, no identity leak)", async () => {
-    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PRIVATE }, ANON)).toBe("HIDDEN");
-    expect(await resolveProfileAccess("PAGE", { id: "page-9", visibility: Visibility.PRIVATE }, ANON)).toBe("HIDDEN");
-  });
-
-  test("PRIVATE user with a follow edge → FULL", async () => {
+  test("PRIVATE with an edge (follower / member / owner) → FULL", async () => {
+    expect(await resolveProfileAccess("PAGE", { id: "page-1", profileVisibility: ProfileVisibility.PRIVATE }, MEMBER)).toBe("FULL");
+    expect(await resolveProfileAccess("USER", { id: "viewer-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe("FULL");
     followYes();
-    expect(await resolveProfileAccess("USER", { id: "owner-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe("FULL");
-  });
-
-  test("PRIVATE page where viewer is a member → FULL", async () => {
-    expect(await resolveProfileAccess("PAGE", { id: "page-1", visibility: Visibility.PRIVATE }, MEMBER)).toBe("FULL");
-  });
-
-  test("owner of a PRIVATE profile → FULL", async () => {
-    expect(await resolveProfileAccess("USER", { id: "viewer-1", visibility: Visibility.PRIVATE }, VIEWER)).toBe("FULL");
+    expect(await resolveProfileAccess("USER", { id: "owner-1", profileVisibility: ProfileVisibility.PRIVATE }, VIEWER)).toBe("FULL");
   });
 });

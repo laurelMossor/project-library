@@ -22,6 +22,10 @@ export async function GET(
 		if (!(await canViewEvent(event, viewer))) {
 			return notFound("Event not found");
 		}
+		// DRAFT events (and their child posts) are visible only to the owner.
+		if (event.status === "DRAFT" && viewer.userId !== event.userId) {
+			return notFound("Event not found");
+		}
 
 		const posts = await getEventUpdates(id, viewer);
 		return NextResponse.json(posts);

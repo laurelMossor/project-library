@@ -1,26 +1,36 @@
 // ⚠️ SERVER-ONLY: Visibility enforcement layer
 //
-// One source of truth for the three-tier model (PUBLIC / UNLISTED / PRIVATE).
-// Users and pages are treated the same wherever possible — one parametrized
-// utility per concern, backed by shared relationship primitives — so a rule
-// change can't be applied to one entity type and missed on another.
+// One source of truth for the model. Two INDEPENDENT sibling concerns:
+//   profileVisibility  PUBLIC | PRIVATE            — who can find/enter a profile
+//   contentVisibility  LISTED | UNLISTED | PRIVATE — where a post/event surfaces
+// Post/Event carry a derived `visibility` (ContentVisibility) inherited from the owner's
+// contentVisibility; it is never client-set. Enforcement is content-authoritative: content
+// gates read the content's own visibility, so the profile's privacy does not re-gate
+// already-created content at runtime (leaving room for a future per-item override).
 //
-//   Relationship primitives   isFollower / isFollowingPage / isMember
-//   Profile view gate         canViewProfile(kind, entity, viewer)   (+ canViewEvent/canViewPost)
+//   Relationship primitives   isFollower / isFollowingPage / isMember / canViewByOwnerEdge
+//   Profile view gate         canViewProfile(kind, entity, viewer)   (+ resolveProfileAccess)
+//   Content view gate         canViewEvent / canViewPost
 //   Route guard               requireViewableProfile(kind, id, viewer)
-//   Global list filters       profileListWhere(kind) / eventListWhere / postListWhere
+//   Global list filters       profileListWhere / eventListWhere / postListWhere
 //   Own-collection filter     collectionVisibilityWhere(kind, id, viewer)
-//   Cascade                   syncDescendantVisibility
+//   Inheritance / cascade     resolveParentVisibility / syncDescendantVisibility
 //
-// Access model: a PRIVATE entity is viewable by its owner OR a relationship edge —
-// a *follow* for users, *follow OR membership* for pages. Do NOT scatter visibility
-// checks into individual route handlers — add them here.
+// Do NOT scatter visibility checks into individual route handlers — add them here.
 
-import { Visibility, ResourceType } from "@prisma/client";
+import { ContentVisibility, ProfileVisibility, ResourceType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getSessionContext } from "./session";
 
 type ProfileKind = "USER" | "PAGE";
+
+// Content that appears in global feeds / collections. Single source so the list filters
+// below can't drift from each other.
+export const FEED_VISIBILITY: ContentVisibility[] = [ContentVisibility.LISTED];
+export const PROFILE_COLLECTION_VISIBILITY: ContentVisibility[] = [
+  ContentVisibility.LISTED,
+  ContentVisibility.UNLISTED,
+];
 
 // ---------------------------------------------------------------------------
 // Viewer context — built once per request, cheap
@@ -75,18 +85,36 @@ export function isMember(viewer: ViewerContext, pageId: string): boolean {
   return viewer.memberPageIds.includes(pageId);
 }
 
-// ---------------------------------------------------------------------------
-// Detail mode — single-entity gates. PUBLIC/UNLISTED pass; PRIVATE needs a
-// relationship edge (or ownership).
-// ---------------------------------------------------------------------------
-
-/** Can the viewer see this profile (user or page)? */
-export async function canViewProfile(
-  kind: ProfileKind,
-  entity: { id: string; visibility: Visibility },
+/**
+ * May the viewer see PRIVATE content owned by `ownerUserId` (and optionally hosted by
+ * `pageId`)? Owner, page member/follower (page-owned), or owner-follower (standalone).
+ * Single source for the post/event edge check so the two gates can't drift.
+ */
+async function canViewByOwnerEdge(
+  ownerUserId: string,
+  pageId: string | null,
   viewer: ViewerContext,
 ): Promise<boolean> {
-  if (entity.visibility !== Visibility.PRIVATE) return true;
+  if (!viewer.userId) return false;
+  if (viewer.userId === ownerUserId) return true;
+  if (pageId) {
+    if (isMember(viewer, pageId)) return true;
+    return isFollowingPage(viewer.userId, pageId);
+  }
+  return isFollower(viewer.userId, ownerUserId);
+}
+
+// ---------------------------------------------------------------------------
+// Detail mode — single-entity gates.
+// ---------------------------------------------------------------------------
+
+/** Can the viewer see this profile (user or page)? PUBLIC always; PRIVATE needs owner/edge. */
+export async function canViewProfile(
+  kind: ProfileKind,
+  entity: { id: string; profileVisibility: ProfileVisibility },
+  viewer: ViewerContext,
+): Promise<boolean> {
+  if (entity.profileVisibility !== ProfileVisibility.PRIVATE) return true;
   if (!viewer.userId) return false;
   if (kind === "USER") {
     if (viewer.userId === entity.id) return true;
@@ -99,7 +127,7 @@ export async function canViewProfile(
 
 /** Thin wrapper — see canViewProfile. */
 export function canViewUser(
-  user: { id: string; visibility: Visibility },
+  user: { id: string; profileVisibility: ProfileVisibility },
   viewer: ViewerContext,
 ): Promise<boolean> {
   return canViewProfile("USER", user, viewer);
@@ -107,129 +135,107 @@ export function canViewUser(
 
 /** Thin wrapper — see canViewProfile. */
 export function canViewPage(
-  page: { id: string; visibility: Visibility },
+  page: { id: string; profileVisibility: ProfileVisibility },
   viewer: ViewerContext,
 ): Promise<boolean> {
   return canViewProfile("PAGE", page, viewer);
 }
 
 /**
- * Tri-state profile access for the SSR dispatcher — one resolver for both User
- * and Page so the gate can't drift between entity types.
+ * Tri-state profile access for the SSR dispatcher.
  *
- *   FULL    → viewer may see the whole profile (PUBLIC/UNLISTED, owner, or edge)
- *   LOCKED  → profile is PRIVATE, exists, and the viewer is logged-in but lacks an
- *             edge → render a header-only stub with a request affordance (NOT content)
- *   HIDDEN  → caller should `notFound()` (existence-deny)
- *
- * LOCKED only ever applies to PRIVATE, and only to a logged-in viewer: anonymous
- * viewers still get existence-deny (HIDDEN), since they can't request anyway and we
- * don't leak a private entity's identity to the public. UNLISTED always passes
- * canViewProfile when reached directly, so it resolves FULL.
+ *   FULL    → viewer may see the whole profile (PUBLIC, owner, or edge)
+ *   LOCKED  → profile is PRIVATE and the viewer lacks an edge → render an identity-only stub
+ *             with a request affordance (NOT content). Applies to anonymous viewers too, since
+ *             PRIVATE profiles are discoverable in search — the stub reveals nothing beyond
+ *             what search already shows.
+ *   HIDDEN  → caller should notFound() (only reached for a genuinely missing entity).
  */
 export type ProfileAccess = "FULL" | "LOCKED" | "HIDDEN";
 
 export async function resolveProfileAccess(
   kind: ProfileKind,
-  entity: { id: string; visibility: Visibility },
+  entity: { id: string; profileVisibility: ProfileVisibility },
   viewer: ViewerContext,
 ): Promise<ProfileAccess> {
   if (await canViewProfile(kind, entity, viewer)) return "FULL";
-  if (entity.visibility === Visibility.PRIVATE && viewer.userId) return "LOCKED";
+  if (entity.profileVisibility === ProfileVisibility.PRIVATE) return "LOCKED";
   return "HIDDEN";
 }
 
-/** Check if the viewer can see an Event entity. */
+/** Check if the viewer can see an Event entity (reads the event's derived visibility). */
 export async function canViewEvent(
-  event: { id: string; userId: string; pageId: string | null; visibility: Visibility },
+  event: { id: string; userId: string; pageId: string | null; visibility: ContentVisibility },
   viewer: ViewerContext,
 ): Promise<boolean> {
-  if (event.visibility !== Visibility.PRIVATE) return true;
-  if (!viewer.userId) return false;
-  if (viewer.userId === event.userId) return true;
-  if (event.pageId) {
-    if (isMember(viewer, event.pageId)) return true;
-    return isFollowingPage(viewer.userId, event.pageId);
-  }
-  // Standalone (user-owned) event — visible to the owner's followers
-  return isFollower(viewer.userId, event.userId);
+  if (event.visibility !== ContentVisibility.PRIVATE) return true;
+  return canViewByOwnerEdge(event.userId, event.pageId, viewer);
 }
 
-/** Check if the viewer can see a Post entity (uses post.visibility directly). */
+/** Check if the viewer can see a Post entity (reads the post's derived visibility). */
 export async function canViewPost(
   post: {
     id: string;
     userId: string;
     pageId: string | null;
     eventId: string | null;
-    visibility: Visibility;
+    visibility: ContentVisibility;
   },
   viewer: ViewerContext,
 ): Promise<boolean> {
-  if (post.visibility !== Visibility.PRIVATE) return true;
+  if (post.visibility !== ContentVisibility.PRIVATE) return true;
   if (!viewer.userId) return false;
-  if (viewer.userId === post.userId) return true;
-  if (post.pageId) {
-    if (isMember(viewer, post.pageId)) return true;
-    return isFollowingPage(viewer.userId, post.pageId);
-  }
+  // Event-attached posts inherit the event's owner/page edge.
   if (post.eventId) {
     const event = await prisma.event.findUnique({
       where: { id: post.eventId },
       select: { userId: true, pageId: true },
     });
     if (!event) return false;
-    if (viewer.userId === event.userId) return true;
-    if (event.pageId) {
-      if (isMember(viewer, event.pageId)) return true;
-      return isFollowingPage(viewer.userId, event.pageId);
-    }
-    return isFollower(viewer.userId, event.userId);
+    return canViewByOwnerEdge(event.userId, event.pageId, viewer);
   }
-  // Standalone (user-owned) post — visible to the owner's followers
-  return isFollower(viewer.userId, post.userId);
+  return canViewByOwnerEdge(post.userId, post.pageId, viewer);
 }
 
 /**
- * Fetch a profile by id and gate it in one step. Returns `{ id, visibility }`
- * when viewable, or `null` when missing OR not viewable (both → 404, so the
- * route never leaks existence). De-dups the fetch+gate+notFound boilerplate
- * across the profile/relationship routes.
+ * Fetch a profile by id and gate it in one step. Returns `{ id, profileVisibility }` when
+ * viewable, or `null` when missing OR not viewable (both → 404, so the route never leaks
+ * existence). De-dups the fetch+gate+notFound boilerplate across the profile/relationship routes.
  */
 export async function requireViewableProfile(
   kind: ProfileKind,
   id: string,
   viewer: ViewerContext,
-): Promise<{ id: string; visibility: Visibility } | null> {
+): Promise<{ id: string; profileVisibility: ProfileVisibility } | null> {
   const entity =
     kind === "USER"
-      ? await prisma.user.findUnique({ where: { id }, select: { id: true, visibility: true } })
-      : await prisma.page.findUnique({ where: { id }, select: { id: true, visibility: true } });
+      ? await prisma.user.findUnique({ where: { id }, select: { id: true, profileVisibility: true } })
+      : await prisma.page.findUnique({ where: { id }, select: { id: true, profileVisibility: true } });
   if (!entity) return null;
   if (!(await canViewProfile(kind, entity, viewer))) return null;
   return entity;
 }
 
 // ---------------------------------------------------------------------------
-// Global list mode — feeds, search. Returns PUBLIC content plus the viewer's
-// own. UNLISTED and PRIVATE are never surfaced in global lists.
+// Global list mode — feeds, search.
 // ---------------------------------------------------------------------------
 
-/** Prisma where fragment for profile (user/page) list/search queries. */
-export function profileListWhere(kind: ProfileKind, viewer: ViewerContext) {
-  const publicClause = { visibility: Visibility.PUBLIC };
-  if (!viewer.userId) return publicClause;
-  if (kind === "USER") return { OR: [publicClause, { id: viewer.userId }] };
-  return { OR: [publicClause, { id: { in: viewer.memberPageIds } }] };
+/**
+ * Prisma where fragment for profile (user/page) list/search queries.
+ * Both PUBLIC and PRIVATE profiles are discoverable — PRIVATE renders as an identity-only
+ * stub (see the search field trim + LOCKED stub), so there is no visibility restriction here.
+ */
+export function profileListWhere(_kind: ProfileKind, _viewer: ViewerContext) {
+  return {};
 }
 
-/** Prisma where fragment for Event list queries. */
+/** Prisma where fragment for Event list queries. Only LISTED content, plus the viewer's own. */
 export function eventListWhere(viewer: ViewerContext) {
-  const publicClause = { visibility: Visibility.PUBLIC };
-  if (!viewer.userId) return publicClause;
+  const listedClause = { visibility: { in: FEED_VISIBILITY } };
+  if (!viewer.userId) return listedClause;
   return {
     OR: [
-      publicClause,
+      listedClause,
       { userId: viewer.userId },
       ...(viewer.memberPageIds.length > 0
         ? [{ pageId: { in: viewer.memberPageIds } }]
@@ -240,11 +246,11 @@ export function eventListWhere(viewer: ViewerContext) {
 
 /** Prisma where fragment for Post list queries (combined with status filter by caller). */
 export function postListWhere(viewer: ViewerContext) {
-  const publicClause = { visibility: Visibility.PUBLIC };
-  if (!viewer.userId) return publicClause;
+  const listedClause = { visibility: { in: FEED_VISIBILITY } };
+  if (!viewer.userId) return listedClause;
   return {
     OR: [
-      publicClause,
+      listedClause,
       { userId: viewer.userId },
       ...(viewer.memberPageIds.length > 0
         ? [{ pageId: { in: viewer.memberPageIds } }]
@@ -255,9 +261,8 @@ export function postListWhere(viewer: ViewerContext) {
 
 // ---------------------------------------------------------------------------
 // Own-collection mode — a single entity's own profile/page collection.
-// Distinct from global feeds: anyone who reached the entity sees its
-// PUBLIC + UNLISTED content; owner / follower (user) / member-or-follower (page)
-// also see PRIVATE.
+// Anyone who reached the entity sees its LISTED + UNLISTED content; owner / follower (user) /
+// member-or-follower (page) also see PRIVATE.
 // ---------------------------------------------------------------------------
 
 /** True if the viewer may see PRIVATE content belonging to this profile. */
@@ -275,8 +280,7 @@ async function maySeePrivateOf(
 
 /**
  * Prisma visibility fragment for an entity's OWN collection query.
- * `{}` (no restriction) when the viewer may see PRIVATE; otherwise PUBLIC+UNLISTED.
- * Single source of truth for the four getX-by-Y collection functions.
+ * `{}` (no restriction) when the viewer may see PRIVATE; otherwise LISTED + UNLISTED.
  */
 export async function collectionVisibilityWhere(
   kind: ProfileKind,
@@ -284,45 +288,45 @@ export async function collectionVisibilityWhere(
   viewer?: ViewerContext,
 ): Promise<object> {
   if (await maySeePrivateOf(kind, id, viewer)) return {};
-  return { visibility: { in: [Visibility.PUBLIC, Visibility.UNLISTED] } };
+  return { visibility: { in: PROFILE_COLLECTION_VISIBILITY } };
 }
 
 // ---------------------------------------------------------------------------
-// Inheritance — the visibility a newly-created child should adopt from its parent.
+// Inheritance — the content visibility a newly-created child adopts from its parent.
 // ---------------------------------------------------------------------------
 
-/** Resolve the visibility a new post/event should inherit: page → event → user → PUBLIC. */
+/** Resolve the visibility a new post/event should inherit: page → event → user → LISTED. */
 export async function resolveParentVisibility(
   userId: string,
   pageId?: string | null,
   eventId?: string | null,
-): Promise<Visibility> {
+): Promise<ContentVisibility> {
   if (pageId) {
-    const page = await prisma.page.findUnique({ where: { id: pageId }, select: { visibility: true } });
-    return page?.visibility ?? Visibility.PUBLIC;
+    const page = await prisma.page.findUnique({ where: { id: pageId }, select: { contentVisibility: true } });
+    return page?.contentVisibility ?? ContentVisibility.LISTED;
   }
   if (eventId) {
     const event = await prisma.event.findUnique({ where: { id: eventId }, select: { visibility: true } });
-    return event?.visibility ?? Visibility.PUBLIC;
+    return event?.visibility ?? ContentVisibility.LISTED;
   }
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { visibility: true } });
-  return user?.visibility ?? Visibility.PUBLIC;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { contentVisibility: true } });
+  return user?.contentVisibility ?? ContentVisibility.LISTED;
 }
 
 // ---------------------------------------------------------------------------
 // Cascade — keep descendant Post/Event visibility in step with a parent change.
-// Call inside the same transaction as the parent update.
+// Call inside the same transaction as the parent update. Pass the already-derived value.
 // ---------------------------------------------------------------------------
 
 /**
- * Sync descendant visibility when a parent User/Page/Event changes visibility.
+ * Sync descendant visibility when a parent User/Page/Event changes content visibility.
  * Covers child posts AND child events (and posts attached to those events).
  * Pass `tx` when inside a Prisma transaction; otherwise uses the global client.
  */
 export async function syncDescendantVisibility(
   parentType: "USER" | "PAGE" | "EVENT",
   parentId: string,
-  newVisibility: Visibility,
+  newVisibility: ContentVisibility,
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ): Promise<void> {
   const client = (tx ?? prisma) as typeof prisma;

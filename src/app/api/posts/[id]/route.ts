@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-import { getViewerContext, canViewPost } from "@/lib/utils/server/visibility";
+import { getViewerContext, canViewPost, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
 const MAX_PINNED_POSTS = 3;
 
@@ -209,7 +209,12 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const updateData: Record<string, unknown> = {};
-		if (pageId !== undefined) updateData.pageId = pageId;
+		if (pageId !== undefined) {
+			updateData.pageId = pageId;
+			// Re-parenting changes the owning profile — re-derive the post's content visibility
+			// so it can't retain a broader visibility than its new parent allows.
+			updateData.visibility = await resolveParentVisibility(existing.userId, pageId, null);
+		}
 		if (title !== undefined) updateData.title = title?.trim() || null;
 		if (content !== undefined) updateData.content = content.trim();
 		if (processedTags !== undefined) updateData.tags = processedTags;

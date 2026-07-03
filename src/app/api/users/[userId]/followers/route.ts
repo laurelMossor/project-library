@@ -11,7 +11,7 @@ export async function GET(
 	try {
 		const { userId } = await params;
 		const [user, viewer] = await Promise.all([
-			prisma.user.findUnique({ where: { id: userId }, select: { id: true, visibility: true } }),
+			prisma.user.findUnique({ where: { id: userId }, select: { id: true, profileVisibility: true } }),
 			getViewerContext(),
 		]);
 

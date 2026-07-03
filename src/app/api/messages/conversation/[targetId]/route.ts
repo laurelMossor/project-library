@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { publicUserFields } from "@/lib/utils/server/user";
+import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 
 /**
@@ -67,7 +67,7 @@ export async function GET(request: Request, { params }: Params) {
 		if (type === "user") {
 			const targetUser = await prisma.user.findUnique({
 				where: { id: targetId },
-				select: publicUserFields,
+				select: publicUserEmbedFields,
 			});
 			if (!targetUser) {
 				return notFound("User not found");
@@ -124,7 +124,7 @@ export async function GET(request: Request, { params }: Params) {
 			where: { conversationId },
 			include: {
 				sender: {
-					select: publicUserFields,
+					select: publicUserEmbedFields,
 				},
 			},
 			orderBy: { createdAt: "asc" },
@@ -171,6 +171,14 @@ export async function PATCH(request: Request, { params }: Params) {
 			asPageId = body.asPageId ?? null;
 		} catch {
 			// No body is fine — defaults to personal identity
+		}
+
+		// Acting as a page must be verified from the session, never trusted from the body.
+		if (asPageId) {
+			const allowed = await canPostAsPage(ctx.userId, asPageId);
+			if (!allowed) {
+				return badRequest("You don't have permission to act as this page");
+			}
 		}
 
 		const identityConvIds = await getConversationIdsForIdentity(ctx.userId, asPageId);

@@ -6,6 +6,7 @@ import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { canManageEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
+import { getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,13 +24,17 @@ export async function POST(request: Request, { params }: Params) {
 	try {
 		const { id } = await params;
 
-		// Verify event exists and is published
-		const event = await prisma.event.findUnique({
-			where: { id },
-			select: { id: true, status: true },
-		});
+		// Verify event exists and is viewable — a viewer who can't see the event 404s (no
+		// existence oracle), before we even consider its published state.
+		const [event, viewer] = await Promise.all([
+			prisma.event.findUnique({
+				where: { id },
+				select: { id: true, userId: true, pageId: true, visibility: true, status: true },
+			}),
+			getViewerContext(),
+		]);
 
-		if (!event) {
+		if (!event || !(await canViewEvent(event, viewer))) {
 			return notFound("Event not found");
 		}
 

@@ -17,7 +17,8 @@ export const personalProfileFields = {
 	bio: true,
 	interests: true,
 	location: true,
-	visibility: true,
+	profileVisibility: true,
+	contentVisibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
@@ -36,7 +37,8 @@ export const publicUserFields = {
 	bio: true,
 	interests: true,
 	location: true,
-	visibility: true,
+	profileVisibility: true,
+	contentVisibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
@@ -89,7 +91,8 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		visibility?: import("@prisma/client").Visibility;
+		profileVisibility?: import("@prisma/client").ProfileVisibility;
+		contentVisibility?: import("@prisma/client").ContentVisibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	},
@@ -106,7 +109,8 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		visibility?: import("@prisma/client").Visibility;
+		profileVisibility?: import("@prisma/client").ProfileVisibility;
+		contentVisibility?: import("@prisma/client").ContentVisibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	} = {};
@@ -119,7 +123,8 @@ export async function updateUserProfile(
 	if (data.bio !== undefined) updateData.bio = data.bio;
 	if (data.interests !== undefined) updateData.interests = data.interests;
 	if (data.location !== undefined) updateData.location = data.location;
-	if (data.visibility !== undefined) updateData.visibility = data.visibility;
+	if (data.profileVisibility !== undefined) updateData.profileVisibility = data.profileVisibility;
+	if (data.contentVisibility !== undefined) updateData.contentVisibility = data.contentVisibility;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
 	if (data.aboutContent !== undefined) updateData.aboutContent = data.aboutContent;
 

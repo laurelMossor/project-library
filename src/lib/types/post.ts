@@ -1,4 +1,4 @@
-import { PostStatus } from "@prisma/client";
+import { PostStatus, ContentVisibility } from "@prisma/client";
 import { BaseCollectionItem } from "./collection-item";
 import { ImageItem } from "./image";
 
@@ -16,7 +16,7 @@ export interface PostItem {
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
 	status: PostStatus;
-	visibility: "PUBLIC" | "UNLISTED" | "PRIVATE";
+	visibility: ContentVisibility;
 	pinnedAt: Date | null; // When set, post is pinned to top of profile/page collection
 	tags: string[];
 	topics: string[];

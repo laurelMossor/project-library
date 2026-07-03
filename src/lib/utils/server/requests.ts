@@ -10,12 +10,12 @@
 // what the visibility layer reads.
 
 import { prisma } from "./prisma";
-import { AccessRequestKind, PermissionRole, ResourceType, Visibility } from "@prisma/client";
+import { AccessRequestKind, PermissionRole, ResourceType, ProfileVisibility } from "@prisma/client";
 import { canManagePage, grantPermission } from "./permission";
 import { logAction } from "./log";
 
 export type EntityRef = { type: "USER" | "PAGE"; id: string };
-type TargetRef = EntityRef & { visibility: Visibility };
+type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
 
 /** Prisma client or a $transaction client. */
 type Client = typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -97,7 +97,7 @@ export async function requestOrCreateFollow(
   target: TargetRef,
 ): Promise<{ status: "followed" | "requested" }> {
   // BLOCK-SEAM: a future isBlocked(requester, target) check goes here.
-  if (target.visibility !== Visibility.PRIVATE) {
+  if (target.profileVisibility !== ProfileVisibility.PRIVATE) {
     await prisma.follow.create({ data: followEdgeData(requester, target) });
     emitActivity("follow.created", requester, target);
     return { status: "followed" };
@@ -113,12 +113,12 @@ export async function requestOrCreateFollow(
  */
 export async function requestOrJoinPage(
   userId: string,
-  page: { id: string; visibility: Visibility },
+  page: { id: string; profileVisibility: ProfileVisibility },
 ): Promise<{ status: "joined" | "requested"; role?: PermissionRole }> {
   const requester: EntityRef = { type: "USER", id: userId };
   const target: EntityRef = { type: "PAGE", id: page.id };
   // BLOCK-SEAM: a future isBlocked(userId, page) check goes here.
-  if (page.visibility !== Visibility.PRIVATE) {
+  if (page.profileVisibility !== ProfileVisibility.PRIVATE) {
     await grantPermission(userId, page.id, ResourceType.PAGE, PermissionRole.MEMBER);
     emitActivity("membership.joined", requester, target);
     return { status: "joined", role: PermissionRole.MEMBER };

@@ -10,7 +10,7 @@ import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget 
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 import type { ViewerContext } from "./visibility";
-import { syncDescendantVisibility, collectionVisibilityWhere, resolveParentVisibility } from "./visibility";
+import { collectionVisibilityWhere, resolveParentVisibility } from "./visibility";
 
 /** Transform Prisma query result to EventItem */
 function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
@@ -120,21 +120,14 @@ export async function updateEvent(id: string, data: EventUpdateInput): Promise<E
 	if (data.longitude !== undefined) updateData.longitude = data.longitude;
 	if (data.tags !== undefined) updateData.tags = data.tags;
 	if (data.status !== undefined) updateData.status = data.status;
-	if (data.visibility !== undefined) updateData.visibility = data.visibility;
 
-	// Note: Images should be managed separately via image API endpoints
+	// Note: Images should be managed separately via image API endpoints.
+	// Visibility is derived from the owning profile's contentVisibility — never set here.
 
-	const event = await prisma.$transaction(async (tx) => {
-		const updated = await tx.event.update({
-			where: { id },
-			data: updateData,
-			select: eventWithUserFields,
-		});
-		// Cascade visibility change to child posts
-		if (data.visibility !== undefined) {
-			await syncDescendantVisibility("EVENT", id, data.visibility, tx);
-		}
-		return updated;
+	const event = await prisma.event.update({
+		where: { id },
+		data: updateData,
+		select: eventWithUserFields,
 	});
 
 	const images = await getImagesForTarget("EVENT", event.id);

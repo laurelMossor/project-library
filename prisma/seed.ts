@@ -51,14 +51,15 @@ export type SeedProfileElement = {
   sortOrder: number;
 };
 
-export type SeedVisibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+export type SeedProfileVisibility = "PUBLIC" | "PRIVATE";
+export type SeedContentVisibility = "LISTED" | "UNLISTED" | "PRIVATE";
 
 export type SeedPost = {
   title?: string;
   content: string;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
-  visibility?: SeedVisibility;
+  visibility?: SeedContentVisibility;
   imageFilenames?: string[];
   updates?: { title?: string; content: string }[];
 };
@@ -71,7 +72,7 @@ export type SeedEvent = {
   longitude?: number;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
-  visibility?: SeedVisibility;
+  visibility?: SeedContentVisibility;
   imageFilenames?: string[];
 } & (
   | { eventDate: string; eventStartTime: string; eventTimezone: string; eventDateTime?: never }
@@ -89,7 +90,8 @@ export type SeedUserPacket = {
   bio?: string;
   interests?: string[];
   location?: string;
-  visibility?: SeedVisibility;
+  profileVisibility?: SeedProfileVisibility;
+  contentVisibility?: SeedContentVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -104,7 +106,8 @@ export type SeedPagePacket = {
   bio?: string;
   interests?: string[];
   location?: string;
-  visibility?: SeedVisibility;
+  profileVisibility?: SeedProfileVisibility;
+  contentVisibility?: SeedContentVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -389,7 +392,8 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
-        ...(packet.visibility ? { visibility: packet.visibility } : {}),
+        ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
+        ...(packet.contentVisibility ? { contentVisibility: packet.contentVisibility } : {}),
         handleRecord: { create: { handle } },
       },
       select: { id: true },
@@ -431,7 +435,8 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
-        ...(packet.visibility ? { visibility: packet.visibility } : {}),
+        ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
+        ...(packet.contentVisibility ? { contentVisibility: packet.contentVisibility } : {}),
         createdByUserId: creator.id,
         handleRecord: { create: { handle } },
       },

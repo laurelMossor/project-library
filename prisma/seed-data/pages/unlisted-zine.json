@@ -5,7 +5,8 @@
   "bio": "This page is unlisted — it won't appear in search or Explore, but anyone with the link can view it.",
   "interests": ["zines", "publishing"],
   "location": "Portland, OR",
-  "visibility": "UNLISTED",
+  "profileVisibility": "PUBLIC",
+  "contentVisibility": "UNLISTED",
   "creatorHandle": "alice.example",
   "posts": [
     {

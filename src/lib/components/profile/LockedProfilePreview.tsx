@@ -9,10 +9,10 @@ type LockedProfilePreviewProps = {
 /**
  * Header-only stub for a PRIVATE profile the viewer can't (yet) see.
  *
- * Renders only the safe identity block (header + request affordance) plus a
- * notice — never the private content (no ProfileBody, no collection). The
- * JSON/content routes still existence-deny, and PRIVATE profiles never surface
- * in search/lists, so this stub is only reachable by someone who has the handle.
+ * Renders only the safe identity block (name/handle/avatar + request affordance)
+ * plus a notice — never the private content, and never headline/location/bio.
+ * PRIVATE profiles ARE discoverable in search now, so this stub is reachable by
+ * anyone; it must therefore reveal nothing beyond identity (hence identityOnly).
  */
 export function LockedProfilePreview({ profile }: LockedProfilePreviewProps) {
 	const isPage = profile.type === "PAGE";
@@ -21,7 +21,7 @@ export function LockedProfilePreview({ profile }: LockedProfilePreviewProps) {
 	return (
 		<CenteredLayout maxWidth="6xl">
 			<div className="flex flex-col gap-6">
-				<ProfileIdentityBlock profile={profile} />
+				<ProfileIdentityBlock profile={profile} identityOnly />
 
 				<div className="rounded-lg border border-soft-grey/60 bg-soft-grey/10 px-6 py-8 text-center">
 					<p className="text-base font-semibold text-rich-brown">This profile is private</p>
