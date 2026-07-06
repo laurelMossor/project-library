@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { ContentVisibility } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-import { getViewerContext, canViewPost, resolveParentVisibility } from "@/lib/utils/server/visibility";
+import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
 const MAX_PINNED_POSTS = 3;
 
@@ -47,7 +47,7 @@ const postFields = {
 	title: true,
 	content: true,
 	status: true,
-	visibility: true,
+	contentVisibility: true,
 	pinnedAt: true,
 	tags: true,
 	topics: true,
@@ -99,12 +99,11 @@ export async function GET(request: Request, { params }: Params) {
 
 		const viewer = await getViewerContext();
 
-		// Draft posts are only visible to the author
-		if (post.status === "DRAFT" && post.userId !== viewer.userId) {
+		// DRAFT posts are visible only to their owner (author or a manager of the hosting page);
+		// everyone else — and anyone who can't pass the content gate — gets 404, never an oracle.
+		if (post.status === "DRAFT" && !(await isContentOwner(viewer, post))) {
 			return notFound("Post not found");
 		}
-
-		// Visibility gate: PRIVATE posts are 404 for unauthorized viewers
 		if (!(await canViewPost(post, viewer))) {
 			return notFound("Post not found");
 		}
@@ -122,26 +121,22 @@ export async function GET(request: Request, { params }: Params) {
  */
 export async function PATCH(request: Request, { params }: Params) {
 	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
+		const { id } = await params;
+		const viewer = await getViewerContext();
+		if (!viewer.userId) {
 			return unauthorized();
 		}
 
-		const { id } = await params;
-
-		// Verify post exists and check authorization
-		const existing = await prisma.post.findUnique({
-			where: { id },
-			select: { userId: true, pageId: true, content: true },
-		});
-
+		// Gate viewability first (missing / not-viewable → 404, no existence oracle — finding #20),
+		// then refine to edit permission: the author, or a manager of the post's page → else 403.
+		const existing = await requireViewablePost(id, viewer);
 		if (!existing) {
 			return notFound("Post not found");
 		}
 
-		const isAuthor = existing.userId === ctx.userId;
+		const isAuthor = existing.userId === viewer.userId;
 		const isPageEditor = existing.pageId
-			? await canPostAsPage(ctx.userId, existing.pageId)
+			? await canPostAsPage(viewer.userId, existing.pageId)
 			: false;
 
 		if (!isAuthor && !isPageEditor) {
@@ -157,11 +152,11 @@ export async function PATCH(request: Request, { params }: Params) {
 		// If switching author page, verify permission for the new page
 		if (pageId !== undefined) {
 			if (pageId !== null) {
-				const allowed = await canPostAsPage(ctx.userId, pageId);
+				const allowed = await canPostAsPage(viewer.userId, pageId);
 				if (!allowed) {
 					return badRequest("You don't have permission to post as this page");
 				}
-			} else if (existing.userId !== ctx.userId) {
+			} else if (existing.userId !== viewer.userId) {
 				// Switching to personal identity — only the post author can do this
 				return NextResponse.json({ error: "Only the post author can change the posting identity" }, { status: 403 });
 			}
@@ -209,11 +204,16 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const updateData: Record<string, unknown> = {};
+		// Re-parenting (pageId change) re-derives the post's content visibility from its NEW parent —
+		// passing the real eventId so an event-attached post inherits the event's visibility, not the
+		// author's profile default (finding 3). Child update posts cascade to match.
+		let reparentedVisibility: ContentVisibility | undefined;
 		if (pageId !== undefined) {
 			updateData.pageId = pageId;
-			// Re-parenting changes the owning profile — re-derive the post's content visibility
-			// so it can't retain a broader visibility than its new parent allows.
-			updateData.visibility = await resolveParentVisibility(existing.userId, pageId, null);
+			if ((pageId || null) !== existing.pageId) {
+				reparentedVisibility = await resolveParentVisibility(existing.userId, pageId || null, existing.eventId);
+				updateData.contentVisibility = reparentedVisibility;
+			}
 		}
 		if (title !== undefined) updateData.title = title?.trim() || null;
 		if (content !== undefined) updateData.content = content.trim();
@@ -222,8 +222,10 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
 		if (status === "PUBLISHED" || status === "DRAFT") {
 			if (status === "PUBLISHED") {
-				// Use incoming content if being set now, otherwise check current content
-				const publishContent = content !== undefined ? content.trim() : existing.content;
+				// Use incoming content if being set now, otherwise check the stored content.
+				const publishContent = content !== undefined
+					? content.trim()
+					: (await prisma.post.findUnique({ where: { id }, select: { content: true } }))?.content ?? "";
 				if (!publishContent || publishContent.trim().length === 0) {
 					return badRequest("Cannot publish a post with empty content");
 				}
@@ -231,10 +233,19 @@ export async function PATCH(request: Request, { params }: Params) {
 			updateData.status = status;
 		}
 
-		const post = await prisma.post.update({
-			where: { id },
-			data: updateData,
-			select: postFields,
+		const post = await prisma.$transaction(async (tx) => {
+			const updated = await tx.post.update({
+				where: { id },
+				data: updateData,
+				select: postFields,
+			});
+			if (reparentedVisibility !== undefined) {
+				await tx.post.updateMany({
+					where: { parentPostId: id },
+					data: { contentVisibility: reparentedVisibility },
+				});
+			}
+			return updated;
 		});
 
 		return NextResponse.json(post);
@@ -250,24 +261,19 @@ export async function PATCH(request: Request, { params }: Params) {
  */
 export async function DELETE(request: Request, { params }: Params) {
 	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
+		const { id } = await params;
+		const viewer = await getViewerContext();
+		if (!viewer.userId) {
 			return unauthorized();
 		}
 
-		const { id } = await params;
-
-		// Verify post exists and belongs to user
-		const existing = await prisma.post.findUnique({
-			where: { id },
-			select: { userId: true },
-		});
-
+		// Gate viewability first (404 for missing / not-viewable), then author-only delete (403).
+		const existing = await requireViewablePost(id, viewer);
 		if (!existing) {
 			return notFound("Post not found");
 		}
 
-		if (existing.userId !== ctx.userId) {
+		if (existing.userId !== viewer.userId) {
 			return NextResponse.json(
 				{ error: "You can only delete your own posts" },
 				{ status: 403 }

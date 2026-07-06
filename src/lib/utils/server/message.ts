@@ -1,6 +1,24 @@
 // ⚠️ SERVER-ONLY: Messaging utility functions
 import { prisma } from "./prisma";
 
+/**
+ * Conversation IDs for ONE identity. With `asPageId` set, only that page's conversations;
+ * otherwise only the user's own (personal) conversations. This is the server-side identity
+ * scope for the inbox/conversation routes so a page admin's personal inbox never leaks page
+ * conversations (and vice-versa) — the split is enforced here, not in the client (findings #16/#25).
+ */
+export async function getConversationIdsForIdentity(
+  userId: string,
+  asPageId: string | null,
+): Promise<string[]> {
+  const where = asPageId ? { pageId: asPageId } : { userId };
+  const records = await prisma.conversationParticipant.findMany({
+    where,
+    select: { conversationId: true },
+  });
+  return records.map((p) => p.conversationId);
+}
+
 export interface ConversationSummary {
   id: string;
   participants: Array<{

@@ -4,27 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-
-/**
- * Returns conversation IDs for a specific identity.
- * When asPageId is provided, returns only that page's conversations.
- * Otherwise returns only the user's direct conversations.
- */
-async function getConversationIdsForIdentity(
-	userId: string,
-	asPageId: string | null,
-): Promise<string[]> {
-	const where = asPageId
-		? { pageId: asPageId }
-		: { userId };
-
-	const records = await prisma.conversationParticipant.findMany({
-		where,
-		select: { conversationId: true },
-	});
-
-	return records.map((p) => p.conversationId);
-}
+import { getConversationIdsForIdentity } from "@/lib/utils/server/message";
 
 interface Params {
 	params: Promise<{ targetId: string }>;

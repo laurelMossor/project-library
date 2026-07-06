@@ -47,16 +47,30 @@ ALTER TABLE "pages" ALTER COLUMN "visibility" SET DEFAULT 'LISTED';
 ALTER TABLE "posts" ALTER COLUMN "visibility" SET DEFAULT 'LISTED';
 ALTER TABLE "events" ALTER COLUMN "visibility" SET DEFAULT 'LISTED';
 
--- 7) Recompute descendant content visibility from the owner's contentVisibility, fixing any
---    content born LISTED under a non-listed parent before the create-path fix. Mirrors
---    20260618000000; order matters (events before event-attached posts).
+-- 7) Fix content that was born too PUBLIC under a stricter parent (the audit's root cause:
+--    content defaulted to PUBLIC/LISTED even when its owner's contentVisibility was narrower).
+--    NARROW-ONLY: a row is rewritten to the parent's value only when the parent is strictly
+--    stricter than the child (rank LISTED < UNLISTED < PRIVATE). This never widens content a
+--    user deliberately narrowed (e.g. a PRIVATE event under a PUBLIC-content profile stays
+--    PRIVATE). Order matters (events before event-attached posts). At this point the post/event
+--    column is still named "visibility" — the rename to "contentVisibility" is a later migration.
 UPDATE "events" e SET "visibility" = p."contentVisibility"
-  FROM "pages" p WHERE e."pageId" = p."id";
+  FROM "pages" p WHERE e."pageId" = p."id"
+    AND (CASE p."contentVisibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END)
+      > (CASE e."visibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END);
 UPDATE "events" e SET "visibility" = u."contentVisibility"
-  FROM "users" u WHERE e."pageId" IS NULL AND e."userId" = u."id";
+  FROM "users" u WHERE e."pageId" IS NULL AND e."userId" = u."id"
+    AND (CASE u."contentVisibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END)
+      > (CASE e."visibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END);
 UPDATE "posts" po SET "visibility" = p."contentVisibility"
-  FROM "pages" p WHERE po."pageId" = p."id";
+  FROM "pages" p WHERE po."pageId" = p."id"
+    AND (CASE p."contentVisibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END)
+      > (CASE po."visibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END);
 UPDATE "posts" po SET "visibility" = u."contentVisibility"
-  FROM "users" u WHERE po."pageId" IS NULL AND po."eventId" IS NULL AND po."userId" = u."id";
+  FROM "users" u WHERE po."pageId" IS NULL AND po."eventId" IS NULL AND po."userId" = u."id"
+    AND (CASE u."contentVisibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END)
+      > (CASE po."visibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END);
 UPDATE "posts" po SET "visibility" = e."visibility"
-  FROM "events" e WHERE po."eventId" = e."id";
+  FROM "events" e WHERE po."eventId" = e."id"
+    AND (CASE e."visibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END)
+      > (CASE po."visibility" WHEN 'LISTED' THEN 0 WHEN 'UNLISTED' THEN 1 WHEN 'PRIVATE' THEN 2 END);

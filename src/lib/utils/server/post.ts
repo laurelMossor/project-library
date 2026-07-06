@@ -2,12 +2,12 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import type { PostItem, PostCollectionItem, PostCreateInput, PostUpdateInput } from "@/lib/types/post";
+import type { PostItem, PostCollectionItem, PostCreateInput } from "@/lib/types/post";
 import { postCollectionFields, postWithUserFields } from "./fields";
 import { getImagesForTargetsBatch } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
-import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
 import { ContentVisibility } from "@prisma/client";
 
 /**
@@ -18,18 +18,24 @@ import { ContentVisibility } from "@prisma/client";
 export async function getEventUpdates(eventId: string, viewer?: ViewerContext): Promise<PostItem[]> {
 	const event = await prisma.event.findUnique({
 		where: { id: eventId },
-		select: { id: true, userId: true, pageId: true, visibility: true },
+		select: { id: true, userId: true, pageId: true, contentVisibility: true },
 	});
 	if (!event) return [];
 
 	const canSeePrivate = viewer
 		? await canViewEvent(event, viewer)
-		: event.visibility !== ContentVisibility.PRIVATE;
+		: event.contentVisibility !== ContentVisibility.PRIVATE;
+
+	// Only the event owner (author or page manager) sees DRAFT child updates; everyone else
+	// is limited to PUBLISHED, so a published event's unfinished draft update can't leak here
+	// (finding 4 — GET /api/events/[id]/posts).
+	const isOwner = viewer ? await isContentOwner(viewer, event) : false;
 
 	const posts = await prisma.post.findMany({
 		where: {
 			eventId,
-			...(canSeePrivate ? {} : { visibility: { in: PROFILE_COLLECTION_VISIBILITY } }),
+			...(isOwner ? {} : { status: "PUBLISHED" as const }),
+			...(canSeePrivate ? {} : { contentVisibility: { in: PROFILE_COLLECTION_VISIBILITY } }),
 		},
 		orderBy: { createdAt: "desc" },
 		select: postWithUserFields,
@@ -145,7 +151,7 @@ export async function createPost(
 		}
 	}
 
-	const visibility = await resolveParentVisibility(userId, data.pageId, data.eventId);
+	const contentVisibility = await resolveParentVisibility(userId, data.pageId, data.eventId, data.parentPostId);
 
 	// Create the post
 	const post = await prisma.post.create({
@@ -157,7 +163,7 @@ export async function createPost(
 			title: data.title?.trim() || null,
 			content: data.content.trim(),
 			tags: data.tags || [],
-			visibility,
+			contentVisibility,
 		},
 		select: postWithUserFields,
 	});
@@ -165,57 +171,9 @@ export async function createPost(
 	return post as PostItem;
 }
 
-/**
- * Update an existing post
- */
-export async function updatePost(
-	postId: string,
-	data: PostUpdateInput
-): Promise<PostItem> {
-	const updateData: {
-		title?: string | null;
-		content?: string;
-		tags?: string[];
-	} = {};
-
-	if (data.title !== undefined) {
-		updateData.title = data.title?.trim() || null;
-	}
-
-	if (data.content !== undefined) {
-		if (!data.content || data.content.trim().length === 0) {
-			throw new Error("Content cannot be empty");
-		}
-		updateData.content = data.content.trim();
-	}
-
-	if (data.tags !== undefined) {
-		updateData.tags = data.tags;
-	}
-
-	// Ensure we have at least one field to update
-	if (Object.keys(updateData).length === 0) {
-		throw new Error("No fields to update");
-	}
-
-	try {
-		const post = await prisma.post.update({
-			where: { id: postId },
-			data: updateData,
-			select: postWithUserFields,
-		});
-
-		return post as PostItem;
-	} catch (error) {
-		if (error instanceof Error) {
-			if (error.message.includes("Record to update not found")) {
-				throw new Error("Post not found");
-			}
-			throw error;
-		}
-		throw new Error("Failed to update post in database");
-	}
-}
+// NOTE: post updates go through `PATCH /api/posts/:id`, which owns validation, permission, and
+// re-parent-visibility logic. The former `updatePost` server util here was unused (the client
+// `post-client.ts` has its own same-named fetch wrapper) and was removed to avoid a second write path.
 
 /**
  * Delete a post
@@ -232,14 +190,14 @@ export async function deletePost(postId: string): Promise<void> {
  * Inherits visibility from the parent page (or user if standalone).
  */
 export async function createDraftPost(userId: string, pageId?: string): Promise<PostItem> {
-	const visibility = await resolveParentVisibility(userId, pageId);
+	const contentVisibility = await resolveParentVisibility(userId, pageId);
 	const post = await prisma.post.create({
 		data: {
 			userId,
 			pageId: pageId || null,
 			content: "",
 			status: "DRAFT",
-			visibility,
+			contentVisibility,
 		},
 		select: postWithUserFields,
 	});

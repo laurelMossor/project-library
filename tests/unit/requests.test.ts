@@ -52,7 +52,7 @@ describe("requestOrCreateFollow", () => {
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
   });
 
-  test("UNLISTED target → instant follow", async () => {
+  test("PUBLIC page target → instant follow", async () => {
     const res = await requestOrCreateFollow(requester, { type: "PAGE", id: "p2", profileVisibility: ProfileVisibility.PUBLIC});
     expect(res).toEqual({ status: "followed" });
     expect(prisma.follow.create).toHaveBeenCalledTimes(1);

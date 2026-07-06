@@ -8,7 +8,7 @@ import { ConversationThread } from "./ConversationThread";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { CardUser, CardPageWithRole, getCardUserDisplayName } from "@/lib/types/card";
 import { truncateText } from "@/lib/utils/text";
-import { API_MESSAGE } from "@/lib/const/routes";
+import { API_MESSAGE, API_MESSAGES_INBOX } from "@/lib/const/routes";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -126,7 +126,9 @@ export function MessagesPageView() {
 		setInboxLoading(true);
 		setInboxError(null);
 		try {
-			const res = await fetch("/api/messages/inbox");
+			// Scope the request to the active identity; the server returns only that identity's
+			// conversations, so no client-side filtering is needed.
+			const res = await fetch(API_MESSAGES_INBOX(activePageId));
 			if (!res.ok) throw new Error("Failed to load");
 			setConversations(await res.json());
 		} catch {
@@ -204,11 +206,9 @@ export function MessagesPageView() {
 		if (inboxError) return <p className="text-sm text-red-500 text-center py-12">{inboxError}</p>;
 
 		const entityId = activeEntityMeta.entityId;
-		const filtered = conversations.filter((conv) =>
-			conv.participants.some((p) =>
-				activeEntityType === "user" ? p.user?.id === entityId : p.page?.id === entityId
-			)
-		);
+		// The inbox request is already scoped to the active identity server-side (findings #16/#25),
+		// so render the conversations as returned — no client-side identity filter.
+		const filtered = conversations;
 
 		if (filtered.length === 0) {
 			return <p className="text-sm text-dusty-grey text-center py-12">No messages yet.</p>;

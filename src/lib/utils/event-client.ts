@@ -56,7 +56,6 @@ export async function updateEvent(
 		longitude?: number | null;
 		tags?: string[];
 		status?: string;
-		visibility?: "PUBLIC" | "UNLISTED" | "PRIVATE";
 		pageId?: string | null;
 	}
 ): Promise<EventItem> {

@@ -116,6 +116,9 @@ export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 export const API_MESSAGES = "/api/messages";
 export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
+/** Inbox for the active identity — pass `asPageId` to scope to a managed page, omit for personal. */
+export const API_MESSAGES_INBOX = (asPageId?: string | null) =>
+	asPageId ? `/api/messages/inbox?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/inbox";
 
 // ============================================================================
 // Other Pages

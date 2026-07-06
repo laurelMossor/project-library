@@ -15,7 +15,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
     follow: { findFirst: vi.fn() },
     permission: { findMany: vi.fn() },
-    post: { updateMany: vi.fn() },
+    post: { findUnique: vi.fn(), updateMany: vi.fn() },
     event: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     user: { findUnique: vi.fn() },
     page: { findUnique: vi.fn() },
@@ -123,7 +123,7 @@ describe("canViewEvent", () => {
     id: "event-1",
     userId: "owner-1",
     pageId,
-    visibility,
+    contentVisibility: visibility,
   });
 
   test("LISTED / UNLISTED → visible to anonymous", async () => {
@@ -158,7 +158,7 @@ describe("canViewPost", () => {
     userId: "owner-1",
     pageId,
     eventId,
-    visibility,
+    contentVisibility: visibility,
   });
 
   test("LISTED / UNLISTED → visible to anonymous", async () => {
@@ -213,8 +213,8 @@ describe("profileListWhere — all profiles discoverable", () => {
 
 describe("eventListWhere / postListWhere — only LISTED content, plus own", () => {
   test("anon → LISTED-only", () => {
-    expect(eventListWhere(ANON)).toEqual({ visibility: { in: [ContentVisibility.LISTED] } });
-    expect(postListWhere(ANON)).toEqual({ visibility: { in: [ContentVisibility.LISTED] } });
+    expect(eventListWhere(ANON)).toEqual({ contentVisibility: { in: [ContentVisibility.LISTED] } });
+    expect(postListWhere(ANON)).toEqual({ contentVisibility: { in: [ContentVisibility.LISTED] } });
   });
   test("member → LISTED plus own user + member pages", () => {
     expect((eventListWhere(MEMBER) as { OR: unknown[] }).OR).toHaveLength(3);
@@ -225,7 +225,7 @@ describe("eventListWhere / postListWhere — only LISTED content, plus own", () 
 // ── collectionVisibilityWhere (an entity's own collection) ────────────────────
 
 describe("collectionVisibilityWhere", () => {
-  const restricted = { visibility: { in: [ContentVisibility.LISTED, ContentVisibility.UNLISTED] } };
+  const restricted = { contentVisibility: { in: [ContentVisibility.LISTED, ContentVisibility.UNLISTED] } };
 
   test("USER — owner sees all", async () => {
     expect(await collectionVisibilityWhere("USER", "owner-1", OWNER)).toEqual({});
@@ -275,8 +275,21 @@ describe("resolveParentVisibility", () => {
   });
 
   test("event context (no page) — returns the event's stored visibility", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ visibility: ContentVisibility.UNLISTED } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({ contentVisibility: ContentVisibility.UNLISTED } as never);
     expect(await resolveParentVisibility("owner-1", null, "event-1")).toBe(ContentVisibility.UNLISTED);
+  });
+
+  test("parent-post context (no page/event) — inherits the parent post's visibility (finding 5)", async () => {
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({ contentVisibility: ContentVisibility.PRIVATE } as never);
+    expect(await resolveParentVisibility("owner-1", null, null, "parent-1")).toBe(ContentVisibility.PRIVATE);
+    // Falls through to the parent-post branch — the author's own default is never consulted.
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("page still short-circuits ahead of a parent post", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ contentVisibility: ContentVisibility.UNLISTED } as never);
+    expect(await resolveParentVisibility("owner-1", "page-1", null, "parent-1")).toBe(ContentVisibility.UNLISTED);
+    expect(prisma.post.findUnique).not.toHaveBeenCalled();
   });
 
   test("standalone (no page/event) — returns the author's contentVisibility", async () => {
@@ -300,15 +313,15 @@ describe("syncDescendantVisibility", () => {
 
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { pageId: "page-1" },
-      data: { visibility: ContentVisibility.PRIVATE },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
     });
     expect(prisma.event.updateMany).toHaveBeenCalledWith({
       where: { pageId: "page-1" },
-      data: { visibility: ContentVisibility.PRIVATE },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
     });
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { eventId: { in: ["e1", "e2"] } },
-      data: { visibility: ContentVisibility.PRIVATE },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
     });
   });
 
@@ -316,11 +329,11 @@ describe("syncDescendantVisibility", () => {
     await syncDescendantVisibility("USER", "owner-1", ContentVisibility.PRIVATE);
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { userId: "owner-1", pageId: null, eventId: null },
-      data: { visibility: ContentVisibility.PRIVATE },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
     });
     expect(prisma.event.updateMany).toHaveBeenCalledWith({
       where: { userId: "owner-1", pageId: null },
-      data: { visibility: ContentVisibility.PRIVATE },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
     });
   });
 
@@ -328,7 +341,7 @@ describe("syncDescendantVisibility", () => {
     await syncDescendantVisibility("EVENT", "event-1", ContentVisibility.UNLISTED);
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { eventId: "event-1" },
-      data: { visibility: ContentVisibility.UNLISTED },
+      data: { contentVisibility: ContentVisibility.UNLISTED },
     });
     expect(prisma.event.updateMany).not.toHaveBeenCalled();
   });

@@ -19,6 +19,28 @@ const BUCKET_NAME = "uploads";
 // const USE_SIGNED_URLS = false;
 // const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour; unused while USE_SIGNED_URLS is false
 
+/**
+ * Does `url` resolve to this app's own storage (the Supabase `uploads` bucket in prod, or the
+ * local /uploads/ static path in dev)? Guards the /api/images metadata route so a client can't
+ * persist an Image row pointing at an arbitrary external host (finding #23).
+ */
+export function isAllowedImageUrl(url: string): boolean {
+	if (typeof url !== "string" || url.length === 0) return false;
+	// Dev: local static uploads served from public/uploads/.
+	if (url.startsWith("/uploads/")) return true;
+	const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+	if (!supabaseUrl) return false;
+	const prefix = `${supabaseUrl.replace(/\/+$/, "")}/storage/v1/object/public/${BUCKET_NAME}/`;
+	return url.startsWith(prefix);
+}
+
+/** A storage object path must stay within the bucket — no absolute paths or `..` traversal. */
+export function isAllowedStoragePath(path: string): boolean {
+	if (typeof path !== "string" || path.length === 0) return false;
+	if (path.startsWith("/")) return false;
+	return !path.split("/").includes("..");
+}
+
 export type UploadImageResult =
 	| { imageUrl: string; path: string; error: null }
 	| { imageUrl: null; path: string | null; error: string };

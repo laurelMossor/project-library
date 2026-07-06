@@ -192,17 +192,24 @@ export async function POST(request: Request) {
 			}
 		}
 
-		// If parentPostId provided, verify parent exists and has no parent itself (one-level deep)
+		// If parentPostId provided, verify parent exists, has no parent itself (one-level deep),
+		// and that the caller may post an update on it (author, or a manager of the parent's page).
 		if (parentPostId) {
 			const parentPost = await prisma.post.findUnique({
 				where: { id: parentPostId },
-				select: { id: true, parentPostId: true },
+				select: { id: true, parentPostId: true, userId: true, pageId: true },
 			});
 			if (!parentPost) {
 				return badRequest("Parent post not found");
 			}
 			if (parentPost.parentPostId) {
 				return badRequest("Cannot nest posts more than one level deep");
+			}
+			const parentOwned = parentPost.pageId
+				? await canPostAsPage(ctx.userId, parentPost.pageId)
+				: parentPost.userId === ctx.userId;
+			if (!parentOwned) {
+				return badRequest("You can only add updates to your own posts");
 			}
 		}
 
@@ -231,9 +238,10 @@ export async function POST(request: Request) {
 				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
-				// Inherit visibility from the parent (page → event → user) so content
-				// created under a PRIVATE/UNLISTED parent is never born PUBLIC.
-				visibility: await resolveParentVisibility(ctx.userId, pageId || null, eventId || null),
+				// Inherit visibility from the parent (page → event → parentPost → user) so an
+				// update to a PRIVATE/UNLISTED parent is never born LISTED (findings — content
+				// is derived, never client-set).
+				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null, eventId || null, parentPostId || null),
 				...(isDraft ? { status: "DRAFT" } : {}),
 			},
 			select: postWithUserFields,

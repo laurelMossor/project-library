@@ -69,9 +69,8 @@ export default async function HandleProfilePage({ params }: Props) {
 
 		const profile: ProfileEntity = { type: "USER", data: user };
 
-		// Visibility gate: FULL renders; LOCKED shows the private stub; HIDDEN → 404.
+		// Visibility gate: FULL renders the profile; LOCKED shows the identity-only private stub.
 		const access = await resolveProfileAccess("USER", user, viewer);
-		if (access === "HIDDEN") notFound();
 		if (access === "LOCKED") return <LockedProfilePreview profile={profile} />;
 
 		const isOwnProfile = viewerId === user.id;
@@ -141,9 +140,8 @@ export default async function HandleProfilePage({ params }: Props) {
 
 		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
 
-		// Visibility gate: FULL renders; LOCKED shows the private stub; HIDDEN → 404.
+		// Visibility gate: FULL renders the profile; LOCKED shows the identity-only private stub.
 		const access = await resolveProfileAccess("PAGE", page, viewer);
-		if (access === "HIDDEN") notFound();
 		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
 
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;

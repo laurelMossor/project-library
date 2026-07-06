@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
+import { canManageAttachmentTarget } from "@/lib/utils/server/image-attachment";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,7 +20,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
 		const { id } = await params;
 
-		// Find the attachment
+		// Find the attachment (with its target and the image's uploader)
 		const attachment = await prisma.imageAttachment.findUnique({
 			where: { id },
 			include: {
@@ -33,10 +34,15 @@ export async function DELETE(request: Request, { params }: Params) {
 			return notFound("Image attachment not found");
 		}
 
-		// Verify ownership via the image
-		if (attachment.image.uploadedByUserId !== ctx.userId) {
+		// Allow removal by the image's uploader OR a manager of the target it's attached to (a page
+		// ADMIN/EDITOR removing an image a member added, etc.) — not the uploader alone (finding #22).
+		const isUploader = attachment.image.uploadedByUserId === ctx.userId;
+		const managesTarget = isUploader
+			? true
+			: await canManageAttachmentTarget(ctx.userId, attachment.type, attachment.targetId);
+		if (!isUploader && !managesTarget) {
 			return NextResponse.json(
-				{ error: "You can only remove your own image attachments" },
+				{ error: "You can only remove image attachments you uploaded or manage" },
 				{ status: 403 }
 			);
 		}

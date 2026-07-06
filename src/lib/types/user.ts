@@ -1,8 +1,6 @@
 import type { ProfileElementItem } from "./profile-element";
 import type { ContentVisibility, ProfileVisibility } from "@prisma/client";
 
-export type { ContentVisibility, ProfileVisibility };
-
 export interface ProfileData {
 	firstName?: string;
 	middleName?: string;

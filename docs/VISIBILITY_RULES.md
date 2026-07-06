@@ -5,9 +5,6 @@
 > read it before touching any route that reads/lists/mutates user, page, event, post, message,
 > or image data. When extending privacy features you are *applying* these helpers to a new
 > surface, never inventing a new rule in a route handler.
->
-> Point-in-time leak audit that motivated the current model:
-> `docs/audits/visibility-findings-2026-07-03.md`.
 
 ---
 
@@ -19,7 +16,7 @@ Visibility is **two orthogonal concerns**, one per object:
 |-------|----|--------|---------|
 | `profileVisibility` | User, Page | `PUBLIC` \| `PRIVATE` | the **profile page** — full profile vs identity stub |
 | `contentVisibility` | User, Page | `LISTED` \| `UNLISTED` \| `PRIVATE` | the **default** a new post/event inherits |
-| `visibility` | Post, Event | `LISTED` \| `UNLISTED` \| `PRIVATE` | the item's own **effective** distribution (inherited; not client-set) |
+| `contentVisibility` | Post, Event | `LISTED` \| `UNLISTED` \| `PRIVATE` | the item's own **effective** distribution (inherited; not client-set) |
 
 - **`PUBLIC` profile** — full profile, discoverable in search.
 - **`PRIVATE` profile** — still discoverable in search, but renders an **identity-only stub**
@@ -28,14 +25,22 @@ Visibility is **two orthogonal concerns**, one per object:
 - **`UNLISTED` content** — on the profile only, never in the public collections.
 - **`PRIVATE` content** — visible only to the owner + relationship edge (follower / member).
 
-The two are **independent** (siblings, not a hierarchy). A public profile can keep its posts
-private ("find me and read my bio, but my posts are connections-only"); a private profile could
-later publish one unlisted item. Changing one field never silently changes the other.
+The two are **independent** (siblings, not a hierarchy), with **one guard**: a `PRIVATE` profile's
+`contentVisibility` default cannot be `LISTED`. A public profile can keep its posts private ("find
+me and read my bio, but my posts are connections-only"), and a private profile can keep its default
+`UNLISTED` or `PRIVATE` — but a private profile whose entire output floods the public feeds is
+incoherent, so that one pairing is rejected (UI removes the Listed option while private; the server
+rejects the merged combo in `saveMyProfile`). Otherwise changing one field never silently changes
+the other; switching a profile back to `PUBLIC` leaves content visibility untouched.
+
+The guard constrains only the **profile-wide default**. A *future* per-item override (e.g. a single
+"For Sale" post that is `LISTED` while the owner's profile default stays `PRIVATE`) lives on the
+item's own `contentVisibility` field and is intentionally out of scope for this guard.
 
 **Content is never client-set.** A new post/event inherits its owner's `contentVisibility` via
-`resolveParentVisibility` (page → event → user → `LISTED`). The `Post`/`Event.visibility` column is
-3-value so a *future* per-item override is a pure UI addition — but today no route accepts a
-client `visibility`.
+`resolveParentVisibility` (page → event → parentPost → user → `LISTED`). The `Post`/`Event.contentVisibility`
+column is 3-value so a *future* per-item override is a pure UI addition — but today no route accepts a
+client content visibility.
 
 ---
 
@@ -69,7 +74,13 @@ client `visibility`.
    viewer's own. UNLISTED and PRIVATE content never reach the collections.
 
 7. **Not-viewable content 404s (never 403).** A detail/mutation route for content the viewer can't
-   see returns 404, so it can't be told apart from "missing".
+   see returns 404, so it can't be told apart from "missing". This includes **mutation** routes
+   (PATCH/DELETE): gate viewability first (→ 404), then authorize the edit (→ 403 only for
+   viewable-but-not-editable). Use `requireViewableEvent` / `requireViewablePost`.
+
+7a. **A LOCKED profile hides its collection everywhere.** A PRIVATE-profile page's JSON collection
+   routes (`/api/pages/[id]/posts`, `/events`) gate on `requireViewableProfile` and 404 for
+   non-edge viewers, matching the SSR stub — the JSON API must not serve what the page view hides.
 
 8. **Embeds carry only attribution fields.** Nested selects on another entity ship
    `publicUserEmbedFields` / `publicPageEmbedFields` (id/handle/name/avatar) — never bio, location,
@@ -95,7 +106,8 @@ client `visibility`.
 | a global content feed / search | `postListWhere` / `eventListWhere` (filter `FEED_VISIBILITY`) |
 | a profile search | `profileListWhere` (returns `{}`) + strip stub fields for PRIVATE (see `search.ts`) |
 | one entity's OWN collection | `collectionVisibilityWhere(kind, id, viewer)` (LISTED+UNLISTED, +PRIVATE if edge) |
-| a new child's visibility | `resolveParentVisibility(userId, pageId?, eventId?)` |
+| a new child's visibility | `resolveParentVisibility(userId, pageId?, eventId?, parentPostId?)` |
+| a page's own collection JSON | gate on `requireViewableProfile("PAGE", id, viewer)` first (LOCKED page → 404) |
 | a profile's contentVisibility changed | `syncDescendantVisibility(type, id, contentVis, tx)` |
 | "who may see this owned content" | `canViewByOwnerEdge(ownerUserId, pageId, viewer)` (used inside the post/event gates) |
 | building request context | `getViewerContext()` — call once at the top of a handler |

@@ -21,6 +21,7 @@
 import { ContentVisibility, ProfileVisibility, ResourceType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getSessionContext } from "./session";
+import { canManageEntity } from "./permission";
 
 type ProfileKind = "USER" | "PAGE";
 
@@ -142,16 +143,18 @@ export function canViewPage(
 }
 
 /**
- * Tri-state profile access for the SSR dispatcher.
+ * Two-state profile access for the SSR dispatcher (the caller has already resolved existence).
  *
- *   FULL    → viewer may see the whole profile (PUBLIC, owner, or edge)
- *   LOCKED  → profile is PRIVATE and the viewer lacks an edge → render an identity-only stub
- *             with a request affordance (NOT content). Applies to anonymous viewers too, since
- *             PRIVATE profiles are discoverable in search — the stub reveals nothing beyond
- *             what search already shows.
- *   HIDDEN  → caller should notFound() (only reached for a genuinely missing entity).
+ *   FULL   → viewer may see the whole profile (PUBLIC, owner, or edge)
+ *   LOCKED → profile is PRIVATE and the viewer lacks an edge → render an identity-only stub with a
+ *            request affordance (NOT content). Applies to anonymous viewers too, since PRIVATE
+ *            profiles are discoverable in search — the stub reveals nothing beyond what search shows.
+ *
+ * There is no HIDDEN state: a PUBLIC profile is always FULL, so the only non-FULL case is a PRIVATE
+ * profile without an edge (→ LOCKED). Existence-deny is the caller's job (it 404s a missing entity
+ * before calling this).
  */
-export type ProfileAccess = "FULL" | "LOCKED" | "HIDDEN";
+export type ProfileAccess = "FULL" | "LOCKED";
 
 export async function resolveProfileAccess(
   kind: ProfileKind,
@@ -159,16 +162,15 @@ export async function resolveProfileAccess(
   viewer: ViewerContext,
 ): Promise<ProfileAccess> {
   if (await canViewProfile(kind, entity, viewer)) return "FULL";
-  if (entity.profileVisibility === ProfileVisibility.PRIVATE) return "LOCKED";
-  return "HIDDEN";
+  return "LOCKED";
 }
 
 /** Check if the viewer can see an Event entity (reads the event's derived visibility). */
 export async function canViewEvent(
-  event: { id: string; userId: string; pageId: string | null; visibility: ContentVisibility },
+  event: { id: string; userId: string; pageId: string | null; contentVisibility: ContentVisibility },
   viewer: ViewerContext,
 ): Promise<boolean> {
-  if (event.visibility !== ContentVisibility.PRIVATE) return true;
+  if (event.contentVisibility !== ContentVisibility.PRIVATE) return true;
   return canViewByOwnerEdge(event.userId, event.pageId, viewer);
 }
 
@@ -179,11 +181,11 @@ export async function canViewPost(
     userId: string;
     pageId: string | null;
     eventId: string | null;
-    visibility: ContentVisibility;
+    contentVisibility: ContentVisibility;
   },
   viewer: ViewerContext,
 ): Promise<boolean> {
-  if (post.visibility !== ContentVisibility.PRIVATE) return true;
+  if (post.contentVisibility !== ContentVisibility.PRIVATE) return true;
   if (!viewer.userId) return false;
   // Event-attached posts inherit the event's owner/page edge.
   if (post.eventId) {
@@ -216,6 +218,77 @@ export async function requireViewableProfile(
   return entity;
 }
 
+/**
+ * Is the viewer the "owner" of this content for gating purposes — its author, or a
+ * manager (ADMIN/EDITOR) of the hosting page? Plain page MEMBERs are NOT owners. This is
+ * the single source for the DRAFT-visibility rule so a page admin sees co-authored drafts
+ * (finding 8) while a stranger does not.
+ */
+export async function isContentOwner(
+  viewer: ViewerContext,
+  content: { userId: string; pageId: string | null },
+): Promise<boolean> {
+  if (!viewer.userId) return false;
+  if (content.pageId) return canManageEntity(viewer.userId, { page: { id: content.pageId } });
+  return viewer.userId === content.userId;
+}
+
+type ViewableEvent = {
+  id: string;
+  userId: string;
+  pageId: string | null;
+  status: "DRAFT" | "PUBLISHED";
+  contentVisibility: ContentVisibility;
+};
+
+/**
+ * Fetch an Event by id and gate it in one step: DRAFT events are visible only to their owner
+ * (author or page manager), and non-owners must pass the content visibility gate. Returns the
+ * event when viewable, or `null` when missing OR not viewable (both → 404, so the route can't
+ * be used as an existence oracle). De-dups the fetch+gate boilerplate across the event routes.
+ */
+export async function requireViewableEvent(
+  id: string,
+  viewer: ViewerContext,
+): Promise<ViewableEvent | null> {
+  const event = await prisma.event.findUnique({
+    where: { id },
+    select: { id: true, userId: true, pageId: true, status: true, contentVisibility: true },
+  });
+  if (!event) return null;
+  if (event.status === "DRAFT" && !(await isContentOwner(viewer, event))) return null;
+  if (!(await canViewEvent(event, viewer))) return null;
+  return event;
+}
+
+type ViewablePost = {
+  id: string;
+  userId: string;
+  pageId: string | null;
+  eventId: string | null;
+  status: "DRAFT" | "PUBLISHED";
+  contentVisibility: ContentVisibility;
+};
+
+/**
+ * Fetch a Post by id and gate it in one step (mirror of requireViewableEvent): DRAFT posts are
+ * visible only to their owner; non-owners must pass the content gate. Returns the post or `null`
+ * (missing OR not viewable → 404).
+ */
+export async function requireViewablePost(
+  id: string,
+  viewer: ViewerContext,
+): Promise<ViewablePost | null> {
+  const post = await prisma.post.findUnique({
+    where: { id },
+    select: { id: true, userId: true, pageId: true, eventId: true, status: true, contentVisibility: true },
+  });
+  if (!post) return null;
+  if (post.status === "DRAFT" && !(await isContentOwner(viewer, post))) return null;
+  if (!(await canViewPost(post, viewer))) return null;
+  return post;
+}
+
 // ---------------------------------------------------------------------------
 // Global list mode — feeds, search.
 // ---------------------------------------------------------------------------
@@ -231,7 +304,7 @@ export function profileListWhere(_kind: ProfileKind, _viewer: ViewerContext) {
 
 /** Prisma where fragment for Event list queries. Only LISTED content, plus the viewer's own. */
 export function eventListWhere(viewer: ViewerContext) {
-  const listedClause = { visibility: { in: FEED_VISIBILITY } };
+  const listedClause = { contentVisibility: { in: FEED_VISIBILITY } };
   if (!viewer.userId) return listedClause;
   return {
     OR: [
@@ -246,7 +319,7 @@ export function eventListWhere(viewer: ViewerContext) {
 
 /** Prisma where fragment for Post list queries (combined with status filter by caller). */
 export function postListWhere(viewer: ViewerContext) {
-  const listedClause = { visibility: { in: FEED_VISIBILITY } };
+  const listedClause = { contentVisibility: { in: FEED_VISIBILITY } };
   if (!viewer.userId) return listedClause;
   return {
     OR: [
@@ -288,26 +361,36 @@ export async function collectionVisibilityWhere(
   viewer?: ViewerContext,
 ): Promise<object> {
   if (await maySeePrivateOf(kind, id, viewer)) return {};
-  return { visibility: { in: PROFILE_COLLECTION_VISIBILITY } };
+  return { contentVisibility: { in: PROFILE_COLLECTION_VISIBILITY } };
 }
 
 // ---------------------------------------------------------------------------
 // Inheritance — the content visibility a newly-created child adopts from its parent.
 // ---------------------------------------------------------------------------
 
-/** Resolve the visibility a new post/event should inherit: page → event → user → LISTED. */
+/**
+ * Resolve the content visibility a new post/event should inherit from its parent:
+ * page → event → parentPost → user → LISTED. The first matching parent wins, so an update
+ * to a PRIVATE parent post is born PRIVATE even when its author's profile default is LISTED
+ * (finding 5). Never widens: it copies the parent's stored value verbatim.
+ */
 export async function resolveParentVisibility(
   userId: string,
   pageId?: string | null,
   eventId?: string | null,
+  parentPostId?: string | null,
 ): Promise<ContentVisibility> {
   if (pageId) {
     const page = await prisma.page.findUnique({ where: { id: pageId }, select: { contentVisibility: true } });
     return page?.contentVisibility ?? ContentVisibility.LISTED;
   }
   if (eventId) {
-    const event = await prisma.event.findUnique({ where: { id: eventId }, select: { visibility: true } });
-    return event?.visibility ?? ContentVisibility.LISTED;
+    const event = await prisma.event.findUnique({ where: { id: eventId }, select: { contentVisibility: true } });
+    return event?.contentVisibility ?? ContentVisibility.LISTED;
+  }
+  if (parentPostId) {
+    const parent = await prisma.post.findUnique({ where: { id: parentPostId }, select: { contentVisibility: true } });
+    return parent?.contentVisibility ?? ContentVisibility.LISTED;
   }
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { contentVisibility: true } });
   return user?.contentVisibility ?? ContentVisibility.LISTED;
@@ -330,7 +413,7 @@ export async function syncDescendantVisibility(
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ): Promise<void> {
   const client = (tx ?? prisma) as typeof prisma;
-  const data = { visibility: newVisibility };
+  const data = { contentVisibility: newVisibility };
 
   switch (parentType) {
     case "PAGE": {

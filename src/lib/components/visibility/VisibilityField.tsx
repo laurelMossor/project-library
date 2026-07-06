@@ -3,7 +3,7 @@
 import { VisibilitySelector, type SelectorOption } from "./VisibilitySelector";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
-import type { ProfileVisibility, ContentVisibility } from "@/lib/types/user";
+import type { ProfileVisibility, ContentVisibility } from "@prisma/client";
 
 const PROFILE_OPTIONS: SelectorOption<ProfileVisibility>[] = [
 	{
@@ -54,13 +54,20 @@ export function VisibilityField({ label, initialProfileVisibility, initialConten
 	const profile = useInlineField<ProfileVisibility>("profileVisibility", initialProfileVisibility);
 	const content = useInlineField<ContentVisibility>("contentVisibility", initialContentVisibility);
 
-	// Sensible default coupling at set-time (fields stay independent afterward): making a profile
-	// PRIVATE defaults its content to PRIVATE; making it PUBLIC restores LISTED. Either can be
-	// changed independently after.
+	// The two fields are independent EXCEPT for one guard: a PRIVATE profile can't have LISTED
+	// content (a locked profile whose posts flood public feeds is incoherent). While the profile
+	// is private, Listed is removed from the content options, and switching to private snaps a
+	// currently-Listed default down to Private (a narrowing — never a widen). Switching back to
+	// public re-enables Listed and leaves the content value untouched (no forced reset — this is
+	// what removes the old silent mass-widening on save).
+	const isPrivateProfile = profile.value === "PRIVATE";
+	const contentOptions = isPrivateProfile
+		? CONTENT_OPTIONS.filter((o) => o.value !== "LISTED")
+		: CONTENT_OPTIONS;
+
 	function onProfileChange(next: ProfileVisibility) {
 		profile.setValue(next);
-		if (next === "PRIVATE") content.setValue("PRIVATE");
-		else if (content.value === "PRIVATE") content.setValue("LISTED");
+		if (next === "PRIVATE" && content.value === "LISTED") content.setValue("PRIVATE");
 	}
 
 	return (
@@ -80,7 +87,7 @@ export function VisibilityField({ label, initialProfileVisibility, initialConten
 				<VisibilitySelector
 					value={content.value}
 					onChange={content.setValue}
-					options={CONTENT_OPTIONS}
+					options={contentOptions}
 					name="contentVisibility"
 					legend="Where your posts appear"
 					disabled={!canEdit}

@@ -15,7 +15,7 @@
       "title": "Private update",
       "content": "This post is on a PRIVATE profile — only Pat's followers (and Pat) can see it.",
       "status": "PUBLISHED",
-      "visibility": "PRIVATE"
+      "contentVisibility": "PRIVATE"
     }
   ]
 }

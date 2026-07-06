@@ -16,7 +16,7 @@ export interface PostItem {
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
 	status: PostStatus;
-	visibility: ContentVisibility;
+	contentVisibility: ContentVisibility;
 	pinnedAt: Date | null; // When set, post is pinned to top of profile/page collection
 	tags: string[];
 	topics: string[];
@@ -87,7 +87,7 @@ export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _c
 		title: post.title,
 		content: post.content,
 		status: post.status,
-		visibility: post.visibility ?? "PUBLIC",
+		contentVisibility: post.contentVisibility ?? ContentVisibility.LISTED,
 		tags: post.tags,
 		topics: post.topics,
 		type: "post",

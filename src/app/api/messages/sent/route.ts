@@ -1,23 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 
 /**
- * GET /api/messages/sent
- * Get messages sent by the current user
- * Protected endpoint
+ * GET /api/messages/sent?asPageId=<id>
+ * Messages the current user sent AS the active identity — personal (asPageId=null) or a single
+ * managed page. Scoped server-side so a page's sent messages don't bleed into the personal view
+ * (findings #16/#25). Protected endpoint.
  */
-export async function GET() {
+export async function GET(request: Request) {
 	try {
 		const ctx = await getSessionContext();
 		if (!ctx) {
 			return unauthorized();
 		}
 
+		const asPageId = new URL(request.url).searchParams.get("asPageId") || null;
+		if (asPageId) {
+			const allowed = await canPostAsPage(ctx.userId, asPageId);
+			if (!allowed) {
+				return badRequest("You don't have permission to act as this page");
+			}
+		}
+
 		const messages = await prisma.message.findMany({
-			where: { senderId: ctx.userId },
+			where: { senderId: ctx.userId, asPageId },
 			include: {
 				conversation: {
 					include: {

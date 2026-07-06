@@ -5,6 +5,40 @@ import { prisma } from "./prisma";
 import { ImageItem } from "../../types/image";
 import { AttachmentTarget } from "@prisma/client";
 import { imageFields } from "./fields";
+import { canManageEntity } from "./permission";
+
+/**
+ * Can `userId` manage the entity an attachment points at? Resolves the (type, targetId) pair to
+ * its owning user/page and defers to `canManageEntity` (author, or ADMIN/EDITOR of the page).
+ * IMAGE / MESSAGE targets have no ownership path here → false. Used to authorize attachment
+ * mutations by the *target's* manager, not just the image's uploader.
+ */
+export async function canManageAttachmentTarget(
+	userId: string,
+	type: AttachmentTarget,
+	targetId: string,
+): Promise<boolean> {
+	switch (type) {
+		case AttachmentTarget.PAGE:
+			return canManageEntity(userId, { page: { id: targetId } });
+		case AttachmentTarget.EVENT: {
+			const event = await prisma.event.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true } });
+			if (!event) return false;
+			return event.pageId
+				? canManageEntity(userId, { page: { id: event.pageId } })
+				: canManageEntity(userId, { user: { id: event.userId } });
+		}
+		case AttachmentTarget.POST: {
+			const post = await prisma.post.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true } });
+			if (!post) return false;
+			return post.pageId
+				? canManageEntity(userId, { page: { id: post.pageId } })
+				: canManageEntity(userId, { user: { id: post.userId } });
+		}
+		default:
+			return false;
+	}
+}
 
 /**
  * Attach an image to a target (page, event, or post)

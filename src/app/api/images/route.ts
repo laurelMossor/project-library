@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { isAllowedImageUrl, isAllowedStoragePath } from "@/lib/utils/server/storage";
 
 /**
  * POST /api/images
@@ -28,6 +29,12 @@ export async function POST(request: Request) {
 
 		if (!path || typeof path !== "string") {
 			return badRequest("path is required");
+		}
+
+		// The url/path are client-supplied — only persist ones that resolve to this app's own
+		// storage bucket, so an Image row can't point at an arbitrary external host (finding #23).
+		if (!isAllowedImageUrl(url) || !isAllowedStoragePath(path)) {
+			return badRequest("url and path must reference an uploaded file in this app's storage");
 		}
 
 		if (altText !== undefined && altText !== null) {

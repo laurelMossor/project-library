@@ -101,7 +101,6 @@ model User {
   bio           String?
   interests     String[] @default([])
   location      String?
-  visibility        ContentVisibility @default(LISTED) // DEPRECATED: kept through Phase 1; dropped in Phase 2
   profileVisibility ProfileVisibility @default(PUBLIC)
   contentVisibility ContentVisibility @default(LISTED)
   avatarImageId String?
@@ -216,7 +215,6 @@ model Page {
   bio        String?
   interests  String[]       @default([])
   location   String?
-  visibility        ContentVisibility @default(LISTED) // DEPRECATED: kept through Phase 1; dropped in Phase 2
   profileVisibility ProfileVisibility @default(PUBLIC)
   contentVisibility ContentVisibility @default(LISTED)
 
@@ -355,7 +353,7 @@ model Post {
   title      String?
   content    String
   status     PostStatus @default(DRAFT)
-  visibility ContentVisibility @default(LISTED)
+  contentVisibility ContentVisibility @default(LISTED)
   pinnedAt   DateTime?
 
   createdAt DateTime @default(now())
@@ -398,7 +396,7 @@ model Event {
   latitude      Float?
   longitude     Float?
   status        EventStatus @default(DRAFT)
-  visibility    ContentVisibility  @default(LISTED)
+  contentVisibility ContentVisibility @default(LISTED)
   pinnedAt      DateTime?
 
   createdAt DateTime @default(now())

@@ -131,7 +131,7 @@ export async function POST(request: Request) {
 					eventTimezone: eventTimezone || null,
 					location: (location || "").trim(),
 					// Inherit visibility from the hosting page (or the creating user).
-					visibility: await resolveParentVisibility(ctx.userId, pageId || null),
+					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 					status: "DRAFT",
 					tags: [],
 					topics: [],
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
 				tags: processedTags || [],
 				topics: Array.isArray(topics) ? topics : [],
 				// Inherit visibility from the hosting page (or the creating user).
-				visibility: await resolveParentVisibility(ctx.userId, pageId || null),
+				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 				status: "PUBLISHED",
 			},
 			select: eventWithUserFields,

@@ -135,6 +135,40 @@ export async function saveMyProfile(
   const error = validateProfileFields(kind, picked);
   if (error) return { ok: false, error };
 
+  // Guard: a PRIVATE profile can't have LISTED content as its profile-wide default — the one
+  // incoherent pair (a locked profile whose entire output floods public feeds). Merge the
+  // incoming change with the STORED state so a partial save (only one field dirty) can't slip
+  // the combo past the check. This constrains only the profile-wide default; a future per-item
+  // override (e.g. a single "For Sale" post LISTED while the profile default stays PRIVATE) lives
+  // on the post/event's own field and is intentionally NOT gated here.
+  const guardError = await assertProfileContentPairing(kind, id, picked);
+  if (guardError) return { ok: false, error: guardError };
+
   const profile = await updateProfileWithCascade(kind, id, picked, elements);
   return { ok: true, profile };
+}
+
+/** Reject the PRIVATE-profile + LISTED-content default combination, evaluated on the merged
+ *  (stored + incoming) state. Returns an error string or null. Exported for unit testing. */
+export async function assertProfileContentPairing(
+  kind: ProfileKind,
+  id: string,
+  picked: FieldMap,
+): Promise<string | null> {
+  const incomingProfileVis = picked.profileVisibility as ProfileVisibility | undefined;
+  const incomingContentVis = picked.contentVisibility as ContentVisibility | undefined;
+  // Nothing visibility-related changed → nothing to check.
+  if (incomingProfileVis === undefined && incomingContentVis === undefined) return null;
+
+  const current =
+    kind === "USER"
+      ? await prisma.user.findUnique({ where: { id }, select: { profileVisibility: true, contentVisibility: true } })
+      : await prisma.page.findUnique({ where: { id }, select: { profileVisibility: true, contentVisibility: true } });
+
+  const mergedProfileVis = incomingProfileVis ?? current?.profileVisibility;
+  const mergedContentVis = incomingContentVis ?? current?.contentVisibility;
+  if (mergedProfileVis === ProfileVisibility.PRIVATE && mergedContentVis === ContentVisibility.LISTED) {
+    return "A private profile can't have listed content — choose Unlisted or Private for your posts.";
+  }
+  return null;
 }

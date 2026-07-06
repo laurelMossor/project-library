@@ -13,7 +13,7 @@
       "title": "Unlisted post",
       "content": "This post is on an unlisted page — reachable by direct link but not in public feeds.",
       "status": "PUBLISHED",
-      "visibility": "UNLISTED"
+      "contentVisibility": "UNLISTED"
     }
   ]
 }

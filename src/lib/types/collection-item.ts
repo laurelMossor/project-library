@@ -25,7 +25,7 @@ export interface BaseCollectionItem {
 	title: string | null;
 	content: string;
 	status: "DRAFT" | "PUBLISHED";
-	visibility: ContentVisibility;
+	contentVisibility: ContentVisibility;
 	tags: string[];
 	topics: string[];
 	user: { id: string; handle: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };

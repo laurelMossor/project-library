@@ -22,7 +22,7 @@ At the start of a new session, before responding to the first substantive reques
 2. `docs/guidance/STATUS.md` — current milestone, what's done, what's in flight, blockers. Infer the state of active work from here rather than loading specific tickets upfront.
 3. `docs/guidance/JOURNAL.md` — most recent ~5 entries for session-over-session continuity
 
-When the request touches **visibility, privacy, authorization, or any route that reads/lists/mutates user, page, event, post, message, or image data**, also read **`docs/guidance/VISIBILITY_RULES.md`** first — the durable contract for the three-tier model (PUBLIC/UNLISTED/PRIVATE). All enforcement lives in `src/lib/utils/server/visibility.ts`; you *apply* its helpers, never re-implement a gate in a route. The point-in-time leak audit is `docs/audits/visibility-findings-2026-07-03.md`.
+When the request touches **visibility, privacy, authorization, or any route that reads/lists/mutates user, page, event, post, message, or image data**, also read **`docs/VISIBILITY_RULES.md`** first — the durable contract for the two-field model: `profileVisibility` (PUBLIC/PRIVATE, the profile page) and `contentVisibility` (LISTED/UNLISTED/PRIVATE, where posts/events surface). All enforcement lives in `src/lib/utils/server/visibility.ts`; you *apply* its helpers, never re-implement a gate in a route.
 
 When the request touches the closed beta plan specifically, also fetch:
 
