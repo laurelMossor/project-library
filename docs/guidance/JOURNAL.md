@@ -7,9 +7,12 @@
 5. Cover only the headline changes and any live blocker. Leave file lists, function names, and "also did X" tails to the diff and STATUS — the journal is the *why/what*, not the *every*.
 6. Litmus test before saving: if you'd expect "cut this in half," it already needs it.
 
-**Target shape (don't exceed this density):**
-> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Still pending: `npm run validate` and the prod migration.
+**Target shape:**
+> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
+
+#### Entry: Sun 07/05/2026 21:33 PDT
+`/prolib-review` of `visibility-audit` plus the agreed remediation. The findings were edge-cases of a sound model, not a broken one. Renamed the per-item column to `contentVisibility` and centralized the draft/view gate into `requireViewableEvent`/`requireViewablePost`, so re-parenting re-derives, page co-managers see drafts, and unviewable content 404s. Added the guard that a PRIVATE profile can't have LISTED content, scoped messaging to the active identity, and dropped the deprecated column last. 247 unit and 50 E2E green. 
 
 #### Entry: Sun 06/28/2026 14:14 PDT
 `/prolib-review` of `netwerk-4` plus the agreed fixes. Most flagged security risks were refuted against the code (no approve/deny IDOR, no null-target bypass). The real catch was inconsistent authority: editors could approve join/follow requests but not manage members. Per Laurel's call, request approval and listing are now ADMIN-only via a new `canActOnRequest` helper, with the UI Requests-tab gate dropped to match. Also hardened two silently-swallowed errors (last-admin leave, add-member). Verified live: an editor now gets 401 on the requests API, an admin 200. Added route-level tests for the last-admin guard. 
