@@ -48,7 +48,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
 		const { pageId } = await params;
 		const page = await prisma.page.findUnique({
 			where: { id: pageId },
-			select: { id: true, visibility: true },
+			select: { id: true, profileVisibility: true },
 		});
 		if (!page) return notFound("Page not found");
 

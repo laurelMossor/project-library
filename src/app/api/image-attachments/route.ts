@@ -77,6 +77,13 @@ export async function POST(request: Request) {
 					{ status: 403 }
 				);
 			}
+		} else {
+			// MESSAGE / IMAGE (and any future target type) have no ownership path here —
+			// default-deny so an image can't be injected onto a target the caller doesn't own.
+			return NextResponse.json(
+				{ error: "Unsupported attachment target" },
+				{ status: 400 }
+			);
 		}
 
 		// When replace=true, remove existing attachments for this target and delete their

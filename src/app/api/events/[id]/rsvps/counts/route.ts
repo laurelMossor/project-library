@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
 import { notFound, serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { getRsvpCounts } from "@/lib/utils/server/rsvp";
+import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,12 +20,10 @@ export async function GET(request: Request, { params }: Params) {
 	try {
 		const { id } = await params;
 
-		// Verify event exists
-		const event = await prisma.event.findUnique({
-			where: { id },
-			select: { id: true },
-		});
-
+		// One gate: a viewer who can't see the event (missing / PRIVATE / others' draft) 404s, so
+		// the count can't be used as an existence or size oracle.
+		const viewer = await getViewerContext();
+		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");
 		}

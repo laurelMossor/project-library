@@ -5,6 +5,7 @@ import { prisma } from "./utils/server/prisma";
 import { LOGIN } from "./const/routes";
 import { logAction } from "./utils/server/log";
 import { normalizeEmail } from "./validations";
+import { canPostAsPage } from "./utils/server/permission";
 
 /**
  * Thrown when credentials are valid but the account's email isn't verified.
@@ -109,9 +110,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 				// Users don't default to a page on sign in
 				token.activePageId = undefined;
 			}
-			// Allow updating activePageId via session update (from API routes)
+			// Allow updating activePageId via session update. The client can call
+			// useSession().update() directly, so this value is NOT trusted — validate the caller may
+			// act as the page before persisting it to the token, at the choke point (finding #9). This
+			// branch only runs on an explicit update() (Node runtime), so the DB call is safe here.
 			if (trigger === "update" && sessionData?.activePageId !== undefined) {
-				token.activePageId = sessionData.activePageId;
+				const nextActivePageId = sessionData.activePageId as string | null;
+				if (!nextActivePageId) {
+					token.activePageId = undefined;
+				} else if (typeof token.sub === "string" && (await canPostAsPage(token.sub, nextActivePageId))) {
+					token.activePageId = nextActivePageId;
+				}
+				// An unauthorized / unknown page id is ignored — the token keeps its prior identity.
 			}
 			return token;
 		},

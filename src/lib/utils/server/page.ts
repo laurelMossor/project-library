@@ -13,7 +13,8 @@ export const publicPageFields = {
   bio: true,
   interests: true,
   location: true,
-  visibility: true,
+  profileVisibility: true,
+  contentVisibility: true,
   addressLine1: true,
   addressLine2: true,
   city: true,
@@ -67,7 +68,8 @@ export async function updatePageProfile(
     category?: string | null;
     avatarImageId?: string | null;
     aboutContent?: string | null;
-    visibility?: import("@prisma/client").Visibility;
+    profileVisibility?: import("@prisma/client").ProfileVisibility;
+    contentVisibility?: import("@prisma/client").ContentVisibility;
   },
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ) {

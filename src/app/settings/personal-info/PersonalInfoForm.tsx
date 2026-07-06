@@ -278,7 +278,11 @@ function UserFields({ data }: { data: PersonalUser }) {
 			</div>
 
 			{/* Visibility */}
-			<VisibilityField label="Profile Visibility" initial={data.visibility ?? "PUBLIC"} />
+			<VisibilityField
+				label="Profile Visibility"
+				initialProfileVisibility={data.profileVisibility ?? "PUBLIC"}
+				initialContentVisibility={data.contentVisibility ?? "LISTED"}
+			/>
 		</div>
 	);
 }
@@ -569,7 +573,11 @@ function PageFields({ data }: { data: PublicPage }) {
 			</div>
 
 			{/* Visibility */}
-			<VisibilityField label="Page Visibility" initial={data.visibility ?? "PUBLIC"} />
+			<VisibilityField
+				label="Page Visibility"
+				initialProfileVisibility={data.profileVisibility ?? "PUBLIC"}
+				initialContentVisibility={data.contentVisibility ?? "LISTED"}
+			/>
 		</div>
 	);
 }

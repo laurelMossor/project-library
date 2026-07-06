@@ -8,13 +8,14 @@
   "bio": "This is an example PRIVATE profile. Only Pat's followers can see this page and its posts.",
   "interests": ["printmaking"],
   "location": "Portland, OR",
-  "visibility": "PRIVATE",
+  "profileVisibility": "PRIVATE",
+  "contentVisibility": "PRIVATE",
   "posts": [
     {
       "title": "Private update",
       "content": "This post is on a PRIVATE profile — only Pat's followers (and Pat) can see it.",
       "status": "PUBLISHED",
-      "visibility": "PRIVATE"
+      "contentVisibility": "PRIVATE"
     }
   ]
 }

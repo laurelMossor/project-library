@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { canManageEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
+import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,12 +23,11 @@ export async function POST(request: Request, { params }: Params) {
 	try {
 		const { id } = await params;
 
-		// Verify event exists and is published
-		const event = await prisma.event.findUnique({
-			where: { id },
-			select: { id: true, status: true },
-		});
-
+		// A viewer who can't see the event (missing / PRIVATE / another owner's draft) 404s BEFORE
+		// the published-state check, so a non-owner can't distinguish an unpublished draft (would be
+		// 400) from a missing event (404) — closing the draft existence oracle (finding 10).
+		const viewer = await getViewerContext();
+		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");
 		}
@@ -63,14 +62,12 @@ export async function GET(request: Request, { params }: Params) {
 		}
 
 		const { id } = await params;
+		const viewer = await getViewerContext();
 
-		// Verify event exists; the attendee list is visible to whoever can manage
-		// the event — the creator, or any ADMIN/EDITOR of the hosting page.
-		const event = await prisma.event.findUnique({
-			where: { id },
-			select: { userId: true, pageId: true },
-		});
-
+		// Gate viewability first: a viewer who can't see the event 404s (no existence oracle) before
+		// the manage check. The attendee list (names + emails) is then restricted to whoever can
+		// manage the event — the creator, or any ADMIN/EDITOR of the hosting page.
+		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");
 		}

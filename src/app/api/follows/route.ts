@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 			// Verify target user exists (and read its visibility for the gate)
 			const targetUser = await prisma.user.findUnique({
 				where: { id: followingUserId },
-				select: { id: true, visibility: true },
+				select: { id: true, profileVisibility: true },
 			});
 			if (!targetUser) {
 				return notFound("User to follow not found");
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 			const result = await requestOrCreateFollow(requester, {
 				type: "USER",
 				id: targetUser.id,
-				visibility: targetUser.visibility,
+				profileVisibility: targetUser.profileVisibility,
 			});
 			return NextResponse.json(result, { status: 201 });
 		}
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 		// Verify target page exists (and read its visibility for the gate)
 		const targetPage = await prisma.page.findUnique({
 			where: { id: followingPageId },
-			select: { id: true, visibility: true },
+			select: { id: true, profileVisibility: true },
 		});
 		if (!targetPage) {
 			return notFound("Page to follow not found");
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 		const result = await requestOrCreateFollow(requester, {
 			type: "PAGE",
 			id: targetPage.id,
-			visibility: targetPage.visibility,
+			profileVisibility: targetPage.profileVisibility,
 		});
 		return NextResponse.json(result, { status: 201 });
 	} catch (error) {

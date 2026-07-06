@@ -1,9 +1,14 @@
 // ⚠️ SERVER-ONLY: Profile search utility
 import { prisma } from "./prisma";
+import { ProfileVisibility } from "@prisma/client";
 import type { SearchResultItem } from "@/lib/types/search";
 import { profileListWhere, type ViewerContext } from "./visibility";
 
 const ANON_VIEWER: ViewerContext = { userId: null, memberPageIds: [] };
+
+// PRIVATE profiles are discoverable in search but render as identity-only stubs — their
+// headline/interests must not ride along. (See the LOCKED profile stub.)
+const isPrivate = (v: ProfileVisibility) => v === ProfileVisibility.PRIVATE;
 
 const searchUserFields = {
 	id: true,
@@ -11,6 +16,7 @@ const searchUserFields = {
 	displayName: true,
 	headline: true,
 	interests: true,
+	profileVisibility: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
 } as const;
@@ -21,6 +27,7 @@ const searchPageFields = {
 	name: true,
 	headline: true,
 	interests: true,
+	profileVisibility: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
 } as const;
@@ -67,8 +74,8 @@ export async function searchProfiles(
 				id: u.id,
 				handle: u.handle,
 				name: u.displayName ?? u.handle,
-				headline: u.headline,
-				interests: u.interests,
+				headline: isPrivate(u.profileVisibility) ? null : u.headline,
+				interests: isPrivate(u.profileVisibility) ? [] : u.interests,
 				avatarImageId: u.avatarImageId,
 				avatarImage: u.avatarImage,
 			});
@@ -99,8 +106,8 @@ export async function searchProfiles(
 				id: p.id,
 				handle: p.handle,
 				name: p.name,
-				headline: p.headline,
-				interests: p.interests,
+				headline: isPrivate(p.profileVisibility) ? null : p.headline,
+				interests: isPrivate(p.profileVisibility) ? [] : p.interests,
 				avatarImageId: p.avatarImageId,
 				avatarImage: p.avatarImage,
 			});

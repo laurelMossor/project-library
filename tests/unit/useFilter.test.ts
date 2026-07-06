@@ -39,7 +39,7 @@ function makeEvent(overrides: Partial<EventItem> = {}): EventItem {
     latitude: null,
     longitude: null,
     status: "PUBLISHED",
-    visibility: "PUBLIC",
+    contentVisibility: "LISTED",
     images: [],
     ...overrides,
   };
@@ -63,7 +63,7 @@ function makePost(overrides: Partial<PostCollectionItem> = {}): PostCollectionIt
     parentPostId: null,
     pinnedAt: null,
     status: "PUBLISHED" as const,
-    visibility: "PUBLIC",
+    contentVisibility: "LISTED",
     images: [],
     ...overrides,
   };

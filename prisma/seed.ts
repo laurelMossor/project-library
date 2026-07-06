@@ -35,6 +35,8 @@ import {
   PermissionRole,
   ResourceType,
   AttachmentTarget,
+  ProfileVisibility,
+  ContentVisibility,
 } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -51,14 +53,17 @@ export type SeedProfileElement = {
   sortOrder: number;
 };
 
-export type SeedVisibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
+// Derived from the Prisma schema (the source of truth) rather than hand-written unions,
+// so a future enum change can't silently drift the seed layer.
+export type SeedProfileVisibility = ProfileVisibility;
+export type SeedContentVisibility = ContentVisibility;
 
 export type SeedPost = {
   title?: string;
   content: string;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
-  visibility?: SeedVisibility;
+  contentVisibility?: SeedContentVisibility;
   imageFilenames?: string[];
   updates?: { title?: string; content: string }[];
 };
@@ -71,7 +76,7 @@ export type SeedEvent = {
   longitude?: number;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
-  visibility?: SeedVisibility;
+  contentVisibility?: SeedContentVisibility;
   imageFilenames?: string[];
 } & (
   | { eventDate: string; eventStartTime: string; eventTimezone: string; eventDateTime?: never }
@@ -89,7 +94,8 @@ export type SeedUserPacket = {
   bio?: string;
   interests?: string[];
   location?: string;
-  visibility?: SeedVisibility;
+  profileVisibility?: SeedProfileVisibility;
+  contentVisibility?: SeedContentVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -104,7 +110,8 @@ export type SeedPagePacket = {
   bio?: string;
   interests?: string[];
   location?: string;
-  visibility?: SeedVisibility;
+  profileVisibility?: SeedProfileVisibility;
+  contentVisibility?: SeedContentVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -389,7 +396,8 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
-        ...(packet.visibility ? { visibility: packet.visibility } : {}),
+        ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
+        ...(packet.contentVisibility ? { contentVisibility: packet.contentVisibility } : {}),
         handleRecord: { create: { handle } },
       },
       select: { id: true },
@@ -431,7 +439,8 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
-        ...(packet.visibility ? { visibility: packet.visibility } : {}),
+        ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
+        ...(packet.contentVisibility ? { contentVisibility: packet.contentVisibility } : {}),
         createdByUserId: creator.id,
         handleRecord: { create: { handle } },
       },
@@ -589,7 +598,7 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
-          ...(postData.visibility ? { visibility: postData.visibility } : {}),
+          ...(postData.contentVisibility ? { contentVisibility: postData.contentVisibility } : {}),
         },
         select: { id: true },
       });
@@ -634,7 +643,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
-          ...(eventData.visibility ? { visibility: eventData.visibility } : {}),
+          ...(eventData.contentVisibility ? { contentVisibility: eventData.contentVisibility } : {}),
         },
         select: { id: true },
       });
@@ -692,7 +701,7 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
-          ...(postData.visibility ? { visibility: postData.visibility } : {}),
+          ...(postData.contentVisibility ? { contentVisibility: postData.contentVisibility } : {}),
         },
         select: { id: true },
       });
@@ -730,7 +739,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
-          ...(eventData.visibility ? { visibility: eventData.visibility } : {}),
+          ...(eventData.contentVisibility ? { contentVisibility: eventData.contentVisibility } : {}),
         },
         select: { id: true },
       });

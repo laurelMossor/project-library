@@ -52,7 +52,7 @@ export const eventBaseFields = {
   latitude: true,
   longitude: true,
   status: true,
-  visibility: true,
+  contentVisibility: true,
   pinnedAt: true,
   tags: true,
   topics: true,
@@ -73,8 +73,9 @@ export const eventWithUserFields = {
 /** Event fields for collection views — includes update count and most recent update */
 export const eventCollectionFields = {
   ...eventWithUserFields,
-  _count: { select: { updates: true } },
+  _count: { select: { updates: { where: { status: "PUBLISHED" as const } } } },
   updates: {
+    where: { status: "PUBLISHED" as const },
     take: 1,
     orderBy: { createdAt: "desc" as const },
     select: {
@@ -103,7 +104,7 @@ export const postBaseFields = {
   title: true,
   content: true,
   status: true,
-  visibility: true,
+  contentVisibility: true,
   pinnedAt: true,
   tags: true,
   topics: true,
@@ -136,8 +137,9 @@ export const postWithUserFields = {
 /** Post fields for collection views — includes update count and most recent update */
 export const postCollectionFields = {
   ...postWithUserFields,
-  _count: { select: { updates: true } },
+  _count: { select: { updates: { where: { status: "PUBLISHED" as const } } } },
   updates: {
+    where: { status: "PUBLISHED" as const },
     take: 1,
     orderBy: { createdAt: "desc" as const },
     select: {

@@ -7,7 +7,7 @@
  * permission.test.ts); this spec asserts the deterministic, non-mutating
  * surfaces so it can't go flaky on shared DB state:
  *
- *   - anonymous viewer of a PRIVATE profile still gets existence-deny (404)
+ *   - anonymous viewer of a PRIVATE profile sees the discoverable identity-only stub (not a 404)
  *   - a logged-in non-member gets the LOCKED stub, NOT the private content
  *   - the follow button reflects the pending request ("Requested")
  *   - a PUBLIC entity keeps instant-follow (no request)
@@ -20,11 +20,13 @@
 import { test, expect } from "@playwright/test";
 import { STORAGE_STATE, submitLogin } from "./helpers/auth";
 
-// ── Existence-deny is preserved for anonymous viewers ─────────────────────────
-test("anonymous viewer of a PRIVATE profile still gets the not-found page", async ({ page }) => {
+// ── Anonymous viewers see the discoverable identity-only stub, never the content ──
+test("anonymous viewer of a PRIVATE profile sees the locked stub, not a 404 or the content", async ({ page }) => {
   await page.goto("/private-pat.example");
-  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
-  await expect(page.getByText("This profile is private")).not.toBeVisible();
+  await expect(page.getByText("This profile is private")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Page not found" })).not.toBeVisible();
+  // Identity shows, but the private content must not.
+  await expect(page.getByText("Private update")).not.toBeVisible();
 });
 
 // ── Logged-in non-member sees the locked stub, not the content ────────────────

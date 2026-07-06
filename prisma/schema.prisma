@@ -10,8 +10,17 @@ datasource db {
 // Enums
 // ========================
 
-enum Visibility {
+// Profile access: who can find/enter a profile. Both are discoverable in search;
+// PRIVATE renders an identity-only stub + request-to-connect.
+enum ProfileVisibility {
   PUBLIC
+  PRIVATE
+}
+
+// Content distribution: where a post/event surfaces. LISTED = public collections + profile;
+// UNLISTED = profile only; PRIVATE = connections only. (Renamed from `Visibility`; PUBLIC→LISTED.)
+enum ContentVisibility {
+  LISTED
   UNLISTED
   PRIVATE
 }
@@ -92,7 +101,8 @@ model User {
   bio           String?
   interests     String[] @default([])
   location      String?
-  visibility    Visibility @default(PUBLIC)
+  profileVisibility ProfileVisibility @default(PUBLIC)
+  contentVisibility ContentVisibility @default(LISTED)
   avatarImageId String?
   avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
@@ -205,7 +215,8 @@ model Page {
   bio        String?
   interests  String[]       @default([])
   location   String?
-  visibility Visibility @default(PUBLIC)
+  profileVisibility ProfileVisibility @default(PUBLIC)
+  contentVisibility ContentVisibility @default(LISTED)
 
   // Address (useful for small biz, community spaces)
   addressLine1 String?
@@ -342,7 +353,7 @@ model Post {
   title      String?
   content    String
   status     PostStatus @default(DRAFT)
-  visibility Visibility @default(PUBLIC)
+  contentVisibility ContentVisibility @default(LISTED)
   pinnedAt   DateTime?
 
   createdAt DateTime @default(now())
@@ -385,7 +396,7 @@ model Event {
   latitude      Float?
   longitude     Float?
   status        EventStatus @default(DRAFT)
-  visibility    Visibility  @default(PUBLIC)
+  contentVisibility ContentVisibility @default(LISTED)
   pinnedAt      DateTime?
 
   createdAt DateTime @default(now())

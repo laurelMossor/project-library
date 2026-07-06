@@ -9,7 +9,7 @@ import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { logAction } from "@/lib/utils/server/log";
-import { getViewerContext, eventListWhere } from "@/lib/utils/server/visibility";
+import { getViewerContext, eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -130,6 +130,8 @@ export async function POST(request: Request) {
 					eventDateTime: parsedDateTime,
 					eventTimezone: eventTimezone || null,
 					location: (location || "").trim(),
+					// Inherit visibility from the hosting page (or the creating user).
+					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 					status: "DRAFT",
 					tags: [],
 					topics: [],
@@ -200,6 +202,8 @@ export async function POST(request: Request) {
 				longitude: parsedLongitude,
 				tags: processedTags || [],
 				topics: Array.isArray(topics) ? topics : [],
+				// Inherit visibility from the hosting page (or the creating user).
+				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 				status: "PUBLISHED",
 			},
 			select: eventWithUserFields,

@@ -106,7 +106,6 @@ export async function getPagesForUser(userId: string) {
       bio: true,
       interests: true,
       location: true,
-      visibility: true,
       avatarImageId: true,
       avatarImage: { select: { url: true } },
       createdAt: true,

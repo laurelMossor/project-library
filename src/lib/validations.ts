@@ -1,5 +1,5 @@
 import { ProfileData } from "./types/user";
-import type { Visibility } from "@prisma/client";
+import type { ProfileVisibility, ContentVisibility } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
@@ -138,10 +138,15 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 		}
 	}
 
-	// Validate visibility: optional enum
-	if (data.visibility !== undefined && data.visibility !== null) {
-		if (!["PUBLIC", "UNLISTED", "PRIVATE"].includes(data.visibility)) {
-			return { valid: false, error: "visibility must be PUBLIC, UNLISTED, or PRIVATE" };
+	// Validate profileVisibility + contentVisibility: optional enums
+	if (data.profileVisibility !== undefined && data.profileVisibility !== null) {
+		if (!["PUBLIC", "PRIVATE"].includes(data.profileVisibility)) {
+			return { valid: false, error: "profileVisibility must be PUBLIC or PRIVATE" };
+		}
+	}
+	if (data.contentVisibility !== undefined && data.contentVisibility !== null) {
+		if (!["LISTED", "UNLISTED", "PRIVATE"].includes(data.contentVisibility)) {
+			return { valid: false, error: "contentVisibility must be LISTED, UNLISTED, or PRIVATE" };
 		}
 	}
 
@@ -313,11 +318,7 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		}
 	}
 
-	if (data.visibility !== undefined && data.visibility !== null) {
-		if (!["PUBLIC", "UNLISTED", "PRIVATE"].includes(data.visibility)) {
-			return { valid: false, error: "visibility must be PUBLIC, UNLISTED, or PRIVATE" };
-		}
-	}
+	// Event visibility is derived from the owning profile — not validated/accepted here.
 
 	return { valid: true };
 }
@@ -571,7 +572,8 @@ export function validatePageUpdateData(data: {
 	zip?: string | null;
 	category?: string | null;
 	avatarImageId?: string | null;
-	visibility?: Visibility | null;
+	profileVisibility?: ProfileVisibility | null;
+	contentVisibility?: ContentVisibility | null;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -688,10 +690,15 @@ export function validatePageUpdateData(data: {
 		}
 	}
 
-	// Validate visibility: optional enum (mirrors validateProfileData)
-	if (data.visibility !== undefined && data.visibility !== null) {
-		if (!["PUBLIC", "UNLISTED", "PRIVATE"].includes(data.visibility)) {
-			return { valid: false, error: "visibility must be PUBLIC, UNLISTED, or PRIVATE" };
+	// Validate profileVisibility + contentVisibility: optional enums (mirrors validateProfileData)
+	if (data.profileVisibility !== undefined && data.profileVisibility !== null) {
+		if (!["PUBLIC", "PRIVATE"].includes(data.profileVisibility)) {
+			return { valid: false, error: "profileVisibility must be PUBLIC or PRIVATE" };
+		}
+	}
+	if (data.contentVisibility !== undefined && data.contentVisibility !== null) {
+		if (!["LISTED", "UNLISTED", "PRIVATE"].includes(data.contentVisibility)) {
+			return { valid: false, error: "contentVisibility must be LISTED, UNLISTED, or PRIVATE" };
 		}
 	}
 
