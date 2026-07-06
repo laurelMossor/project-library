@@ -14,6 +14,9 @@
 #### Entry: Sun 07/05/2026 21:33 PDT
 `/prolib-review` of `visibility-audit` plus the agreed remediation. The findings were edge-cases of a sound model, not a broken one. Renamed the per-item column to `contentVisibility` and centralized the draft/view gate into `requireViewableEvent`/`requireViewablePost`, so re-parenting re-derives, page co-managers see drafts, and unviewable content 404s. Added the guard that a PRIVATE profile can't have LISTED content, scoped messaging to the active identity, and dropped the deprecated column last. 247 unit and 50 E2E green. 
 
+#### Entry: Wed 07/01/2026 15:42 PDT
+Shipped uptime and deploy safety on `health-check`. `GET /api/health` exercises the real Post, Event, and User read paths, so it catches schema drift and not just dead connections. A scheduled GitHub Actions workflow pings prod every ~15 minutes and emails on failure. The build now runs `prisma migrate deploy` before serving, closing the silent-outage gap from 04/19. Error tracking for 400/500 anomalies is deferred to a Backlog ticket. 
+
 #### Entry: Sun 06/28/2026 14:14 PDT
 `/prolib-review` of `netwerk-4` plus the agreed fixes. Most flagged security risks were refuted against the code (no approve/deny IDOR, no null-target bypass). The real catch was inconsistent authority: editors could approve join/follow requests but not manage members. Per Laurel's call, request approval and listing are now ADMIN-only via a new `canActOnRequest` helper, with the UI Requests-tab gate dropped to match. Also hardened two silently-swallowed errors (last-admin leave, add-member). Verified live: an editor now gets 401 on the requests API, an admin 200. Added route-level tests for the last-admin guard. 
 
