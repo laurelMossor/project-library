@@ -23,6 +23,33 @@ type ElementOwner =
 	| { userId: string; pageId?: never }
 	| { pageId: string; userId?: never };
 
+// The only fields a client may mutate on an existing element. Ownership columns
+// (userId/pageId) and id are deliberately excluded — otherwise an element update
+// could reassign, orphan, or double-own a row (INV-6). Mirrors pickProfileFields
+// in profile-update.ts. A DB CHECK on profile_elements is the backstop.
+export const ELEMENT_MUTABLE_KEYS = [
+	"kind",
+	"label",
+	"value",
+	"caption",
+	"url",
+	"sortOrder",
+	"visible",
+] as const;
+
+/**
+ * Whitelist the client-mutable keys of an element-update payload, dropping
+ * userId/pageId/id and any unknown key. Pure — safe to unit test.
+ */
+export function pickElementFields(data: Record<string, unknown>): Record<string, unknown> {
+	const patch: Record<string, unknown> = {};
+	for (const key of ELEMENT_MUTABLE_KEYS) {
+		if (data[key] === undefined) continue;
+		patch[key] = key === "kind" ? (data[key] as ProfileElementKind) : data[key];
+	}
+	return patch;
+}
+
 export async function listProfileElements(owner: ElementOwner) {
 	return prisma.profileElement.findMany({
 		where: owner.userId
@@ -65,10 +92,10 @@ export async function updateProfileElement(
 	if (owner.userId && existing.userId !== owner.userId) throw new Error("Forbidden");
 	if (owner.pageId && existing.pageId !== owner.pageId) throw new Error("Forbidden");
 
-	const { id: _id, ...rest } = data as Record<string, unknown> & { id?: string };
+	// Whitelist mutable keys — never let userId/pageId/id from the client through.
 	return prisma.profileElement.update({
 		where: { id: elementId },
-		data: rest,
+		data: pickElementFields(data as Record<string, unknown>),
 		select: profileElementFields,
 	});
 }
