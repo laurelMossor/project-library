@@ -142,14 +142,24 @@ export function createPasswordResetToken(
 }
 
 /**
- * Validate a reset token and mark it used, atomically. Returns the userId so
- * the caller can update the password hash. Does NOT update the password itself
- * (keeps this util free of bcrypt / password policy concerns).
+ * Validate a reset token and, in the SAME transaction, set the new password hash and bump
+ * tokenVersion (invalidating every existing JWT for the user). Keeping the token-consume and
+ * the password write atomic means a crash can't burn the single-use token without changing
+ * the password. The caller hashes the password (bcrypt / policy stays out of this util) and
+ * passes the hash in.
  */
-export function consumePasswordResetToken(rawToken: string): Promise<ConsumeTokenResult> {
+export function consumePasswordResetToken(
+	rawToken: string,
+	passwordHash: string,
+): Promise<ConsumeTokenResult> {
 	return consumeUserToken(
 		passwordResetDelegate,
 		rawToken,
 		"This password reset link is invalid or has expired.",
+		(tx, userId) =>
+			tx.user.update({
+				where: { id: userId },
+				data: { passwordHash, tokenVersion: { increment: 1 } },
+			}),
 	);
 }

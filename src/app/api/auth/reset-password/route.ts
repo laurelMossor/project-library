@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { badRequest, serverError } from "@/lib/utils/errors";
 import { validateAuthToken, validatePassword } from "@/lib/validations";
-import { prisma } from "@/lib/utils/server/prisma";
 import { consumePasswordResetToken } from "@/lib/utils/server/auth-tokens";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { logAction } from "@/lib/utils/server/log";
@@ -37,19 +36,14 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const result = await consumePasswordResetToken(token);
+		// Hash first, then consume the token and write the password + tokenVersion bump in one
+		// transaction (auth-tokens.consumePasswordResetToken). tokenVersion invalidates every
+		// existing JWT — a reset logs out all active sessions. See the session callback in lib/auth.ts.
+		const passwordHash = await bcrypt.hash(password, 10);
+		const result = await consumePasswordResetToken(token, passwordHash);
 		if (!result.ok) {
 			return badRequest(result.error);
 		}
-
-		const passwordHash = await bcrypt.hash(password, 10);
-		// Bump tokenVersion to invalidate every existing JWT for this user — a
-		// reset (often triggered by suspected compromise) logs out all active
-		// sessions, not just future logins. See the session callback in lib/auth.ts.
-		await prisma.user.update({
-			where: { id: result.userId },
-			data: { passwordHash, tokenVersion: { increment: 1 } },
-		});
 
 		logAction("user.password_reset", result.userId);
 		return NextResponse.json({ message: "Password updated. You can now log in." });

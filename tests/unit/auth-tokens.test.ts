@@ -110,7 +110,7 @@ describe("consumeEmailVerificationToken", () => {
 });
 
 describe("consumePasswordResetToken", () => {
-	test("happy path: marks token used, returns userId (no password change here)", async () => {
+	test("happy path: marks token used AND sets password + bumps tokenVersion in one tx", async () => {
 		tx.passwordResetToken.findUnique.mockResolvedValue({
 			id: "tok-1",
 			userId: "user-1",
@@ -118,25 +118,32 @@ describe("consumePasswordResetToken", () => {
 			expiresAt: new Date(Date.now() + 60_000),
 		});
 
-		const result = await consumePasswordResetToken("rawtoken");
+		const result = await consumePasswordResetToken("rawtoken", "hashed-pw");
 
 		expect(result).toEqual({ ok: true, userId: "user-1" });
 		expect(tx.passwordResetToken.update).toHaveBeenCalledWith(
 			expect.objectContaining({ where: { id: "tok-1" } }),
 		);
-		// This util must not touch the user's password.
-		expect(tx.user.update).not.toHaveBeenCalled();
+		// The password write is atomic with the token consume — a crash can't burn the
+		// single-use token without changing the password.
+		expect(tx.user.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "user-1" },
+				data: expect.objectContaining({ passwordHash: "hashed-pw", tokenVersion: { increment: 1 } }),
+			}),
+		);
 	});
 
-	test("rejects an expired token", async () => {
+	test("rejects an expired token (no password write)", async () => {
 		tx.passwordResetToken.findUnique.mockResolvedValue({
 			id: "tok-1",
 			userId: "user-1",
 			usedAt: null,
 			expiresAt: new Date(Date.now() - 1),
 		});
-		const result = await consumePasswordResetToken("rawtoken");
+		const result = await consumePasswordResetToken("rawtoken", "hashed-pw");
 		expect(result.ok).toBe(false);
 		expect(tx.passwordResetToken.update).not.toHaveBeenCalled();
+		expect(tx.user.update).not.toHaveBeenCalled();
 	});
 });

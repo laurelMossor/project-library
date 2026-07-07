@@ -1,8 +1,11 @@
 // ⚠️ SERVER-ONLY: uses Prisma. Do not import in client components.
 
 import { prisma } from "./prisma";
-import { ProfileElementKind } from "@prisma/client";
+import { ProfileElementKind, type Prisma } from "@prisma/client";
 import type { ElementCreate, ElementUpdate } from "@/lib/types/inline-edit";
+
+/** Optional transaction client — pass when these ops must be atomic with a wrapping tx. */
+type Db = Prisma.TransactionClient | typeof prisma;
 
 export const profileElementFields = {
 	id: true,
@@ -62,9 +65,10 @@ export async function listProfileElements(owner: ElementOwner) {
 
 export async function createProfileElement(
 	owner: ElementOwner,
-	data: ElementCreate
+	data: ElementCreate,
+	tx?: Db
 ) {
-	return prisma.profileElement.create({
+	return (tx ?? prisma).profileElement.create({
 		data: {
 			...(owner.userId ? { userId: owner.userId } : { pageId: owner.pageId }),
 			kind: data.kind as ProfileElementKind,
@@ -81,10 +85,12 @@ export async function createProfileElement(
 export async function updateProfileElement(
 	elementId: string,
 	owner: ElementOwner,
-	data: Omit<ElementUpdate, "id">
+	data: Omit<ElementUpdate, "id">,
+	tx?: Db
 ) {
+	const db = tx ?? prisma;
 	// Verify ownership before update
-	const existing = await prisma.profileElement.findUnique({
+	const existing = await db.profileElement.findUnique({
 		where: { id: elementId },
 		select: { userId: true, pageId: true },
 	});
@@ -93,7 +99,7 @@ export async function updateProfileElement(
 	if (owner.pageId && existing.pageId !== owner.pageId) throw new Error("Forbidden");
 
 	// Whitelist mutable keys — never let userId/pageId/id from the client through.
-	return prisma.profileElement.update({
+	return db.profileElement.update({
 		where: { id: elementId },
 		data: pickElementFields(data as Record<string, unknown>),
 		select: profileElementFields,
@@ -102,10 +108,11 @@ export async function updateProfileElement(
 
 export async function deleteProfileElements(
 	elementIds: string[],
-	owner: ElementOwner
+	owner: ElementOwner,
+	tx?: Db
 ) {
 	if (elementIds.length === 0) return;
-	await prisma.profileElement.deleteMany({
+	await (tx ?? prisma).profileElement.deleteMany({
 		where: {
 			id: { in: elementIds },
 			...(owner.userId ? { userId: owner.userId } : { pageId: owner.pageId }),
@@ -114,8 +121,8 @@ export async function deleteProfileElements(
 }
 
 /**
- * Process an elements sub-payload (creates, updates, deletes) inside a
- * transaction-like flow. Caller wraps in prisma.$transaction if needed.
+ * Process an elements sub-payload (creates, updates, deletes). Pass `tx` to run the ops
+ * inside a wrapping transaction so a rollback undoes them too (used by updateProfileWithCascade).
  */
 export async function processElementsPayload(
 	owner: ElementOwner,
@@ -123,7 +130,8 @@ export async function processElementsPayload(
 		create?: ElementCreate[];
 		update?: ElementUpdate[];
 		delete?: string[];
-	}
+	},
+	tx?: Db
 ) {
 	const results = {
 		created: [] as Awaited<ReturnType<typeof createProfileElement>>[],
@@ -132,20 +140,20 @@ export async function processElementsPayload(
 
 	if (elements.create?.length) {
 		for (const draft of elements.create) {
-			const created = await createProfileElement(owner, draft);
+			const created = await createProfileElement(owner, draft, tx);
 			results.created.push(created);
 		}
 	}
 
 	if (elements.update?.length) {
 		for (const { id, ...rest } of elements.update) {
-			const updated = await updateProfileElement(id, owner, rest);
+			const updated = await updateProfileElement(id, owner, rest, tx);
 			results.updated.push(updated);
 		}
 	}
 
 	if (elements.delete?.length) {
-		await deleteProfileElements(elements.delete, owner);
+		await deleteProfileElements(elements.delete, owner, tx);
 	}
 
 	return results;

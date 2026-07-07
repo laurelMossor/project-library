@@ -68,7 +68,7 @@ describe("POST /api/auth/forgot-password", () => {
 });
 
 describe("POST /api/auth/reset-password", () => {
-	test("valid token + password → 200, updates hash and bumps tokenVersion", async () => {
+	test("valid token + password → 200, consumes token with the new hash (atomic write)", async () => {
 		vi.mocked(consumePasswordResetToken).mockResolvedValue({ ok: true, userId: "user-1" });
 		const res = await resetPassword(
 			post("http://localhost/api/auth/reset-password", {
@@ -77,13 +77,13 @@ describe("POST /api/auth/reset-password", () => {
 			}),
 		);
 		expect(res.status).toBe(200);
-		// Bumping tokenVersion is what invalidates the user's existing sessions.
-		expect(prisma.user.update).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { id: "user-1" },
-				data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
-			}),
-		);
+		// The password write + tokenVersion bump now happen inside consumePasswordResetToken's
+		// transaction; the route hashes first and passes the hash in (never the raw password).
+		expect(consumePasswordResetToken).toHaveBeenCalledWith("a".repeat(32), expect.any(String));
+		const passedHash = vi.mocked(consumePasswordResetToken).mock.calls[0][1];
+		expect(passedHash).not.toBe("newpassword123");
+		// The route no longer writes the user directly — the util owns that write.
+		expect(prisma.user.update).not.toHaveBeenCalled();
 	});
 
 	test("malformed token → 400 before touching the DB", async () => {
