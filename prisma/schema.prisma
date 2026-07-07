@@ -271,12 +271,14 @@ model Page {
 // ========================
 //
 // Single source of truth for "who owns the URL /<handle>".
-// Each row links to exactly one User OR one Page (mutually exclusive via the
-// two unique partial FKs). Lookups by handle never need a UNION across users
-// and pages — one indexed lookup, one row.
+// Each row links to exactly one User OR one Page. The two userId/pageId unique indexes
+// guarantee at-most-one owner of each kind, but NOT mutual exclusion — the DB CHECK
+// `handles_one_owner` enforces exactly-one (added in migration
+// 20260706000100_add_invariant_check_constraints). Lookups by handle never need a UNION
+// across users and pages — one indexed lookup, one row.
 //
-// Handles are always stored lowercase (enforced at the application layer
-// on every write — signup, page creation, future handle changes).
+// Handles are always stored lowercase — lowercased in the shared create utils on every
+// write (signup, page creation) and backstopped by the DB CHECK `handles_lowercase`.
 //
 // Used by:
 // - /[handle] route: dispatches to UserProfile or PageProfile
@@ -339,9 +341,11 @@ model Permission {
 // - attached to an Event (eventId set)
 // - an update to another Post (parentPostId set, one level deep)
 //
-// Child posts (updates) store pageId redundantly for query convenience.
+// Child posts (updates) store pageId redundantly for query convenience; a reply's pageId
+// always equals its parent's, derived server-side on create/edit (not client-set) — INV-3.
 // App enforces: updates cannot themselves have children (no nesting).
-// DB CHECK: parentPostId IS NULL OR eventId IS NULL
+// DB CHECK `posts_parent_xor_event` (parentPostId IS NULL OR eventId IS NULL) — added in
+// migration 20260706000100_add_invariant_check_constraints.
 
 model Post {
   id           String  @id @default(cuid())
@@ -445,7 +449,8 @@ model Rsvp {
 //
 // Exactly one of followerId / followerPageId is the follower.
 // Exactly one of followingUserId / followingPageId is the followee.
-// Enforce via DB CHECK constraint in migration.
+// DB CHECKs `follows_one_follower` / `follows_one_followee` enforce this — added in
+// migration 20260706000100_add_invariant_check_constraints.
 
 model Follow {
   id        String   @id @default(cuid())
@@ -590,7 +595,9 @@ model ConversationParticipant {
   conversationId String
   createdAt      DateTime @default(now())
 
-  // Exactly one set: User participant or Page participant
+  // Exactly one set: User participant or Page participant. DB CHECK
+  // `conversation_participants_one_owner` enforces this (added in migration
+  // 20260706000100_add_invariant_check_constraints).
   userId String?
   pageId String?
 
@@ -646,7 +653,9 @@ model Topic {
 // ========================
 //
 // Polymorphic ownership — exactly one of userId or pageId is set.
-// Follows the same pattern as Follow and ConversationParticipant.
+// Follows the same pattern as Follow and ConversationParticipant. DB CHECK
+// `profile_elements_one_owner` enforces this (added in migration
+// 20260706000100_add_invariant_check_constraints).
 
 model ProfileElement {
   id        String             @id @default(cuid())
