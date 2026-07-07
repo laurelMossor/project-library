@@ -115,27 +115,11 @@ export async function sendMessage(
   return message;
 }
 
-/** Create a new DM conversation between a user and another user or page */
-export async function createConversation(
-  initiatorUserId: string,
-  targetUserId?: string,
-  targetPageId?: string
-) {
-  return prisma.conversation.create({
-    data: {
-      participants: {
-        create: [
-          { userId: initiatorUserId },
-          ...(targetUserId ? [{ userId: targetUserId }] : []),
-          ...(targetPageId ? [{ pageId: targetPageId }] : []),
-        ],
-      },
-    },
-    include: {
-      participants: true,
-    },
-  });
-}
+// NOTE: the former `createConversation` util was removed — it was unused (zero callers) and
+// its participant-array shape couldn't express a page-as-sender. Conversations are created
+// inline in `POST /api/messages`, which builds single-key participant rows with asPageId
+// scoping. Rebuild here with the exactly-one-owner invariant baked in if a server caller is
+// ever needed.
 
 /** Mark messages as read */
 export async function markMessagesRead(conversationId: string, userId: string) {

@@ -8,6 +8,7 @@ import { getImagesForTargetsBatch } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
 import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { canPostAsPage } from "./permission";
 import { ContentVisibility } from "@prisma/client";
 
 /**
@@ -117,48 +118,83 @@ export async function getPostsByPage(
 }
 
 /**
- * Create a new post
- * Can be standalone (no pageId/eventId/parentPostId) or attached to a page/event/parent
+ * Thrown for caller/client-fixable problems (bad references, missing permission,
+ * invariant violations). Routes map this to a 400; anything else is a 500.
+ */
+export class PostInputError extends Error {}
+
+type CreatePostData = PostCreateInput & {
+	topics?: string[];
+	/** Draft creation (from /posts/new) allows empty content. */
+	isDraft?: boolean;
+};
+
+/**
+ * Create a post — the single guarded write path for post creation. Standalone, on a page,
+ * an event update, or a reply. Enforces the invariants at the choke point rather than in
+ * each route (INV-1/2/3/8): a post is an event-update XOR a reply; replies are one level
+ * deep and inherit their parent's page; page-authored posts require ADMIN/EDITOR.
  */
 export async function createPost(
 	userId: string,
-	data: PostCreateInput
+	data: CreatePostData
 ): Promise<PostItem> {
-	// Validate content is not empty
-	if (!data.content || data.content.trim().length === 0) {
-		throw new Error("Content is required and cannot be empty");
+	// INV-1: a post is an event update XOR a reply, never both.
+	if (data.eventId && data.parentPostId) {
+		throw new PostInputError("A post cannot be both an event update and a reply");
 	}
 
-	// If eventId is set, verify event exists
-	if (data.eventId) {
-		const event = await prisma.event.findUnique({
-			where: { id: data.eventId },
-			select: { id: true },
-		});
-		if (!event) {
-			throw new Error("Event not found");
-		}
+	// Draft creation may start empty; everything else needs content.
+	if (!data.isDraft && (!data.content || data.content.trim().length === 0)) {
+		throw new PostInputError("Content is required and cannot be empty");
 	}
 
 	// A reply inherits its page from the parent (INV-3); a client-supplied pageId is only
-	// meaningful for non-reply posts.
+	// meaningful for non-reply posts. effectivePageId is the value actually written.
 	let effectivePageId: string | null = data.parentPostId ? null : data.pageId || null;
 
-	// If parentPostId is set, verify parent post exists and adopt its page context
 	if (data.parentPostId) {
+		// Reply: parent must exist, be top-level (INV-2), and be owned by the caller.
 		const parentPost = await prisma.post.findUnique({
 			where: { id: data.parentPostId },
-			select: { id: true, pageId: true },
+			select: { id: true, parentPostId: true, userId: true, pageId: true },
 		});
 		if (!parentPost) {
-			throw new Error("Parent post not found");
+			throw new PostInputError("Parent post not found");
+		}
+		if (parentPost.parentPostId) {
+			throw new PostInputError("Cannot nest posts more than one level deep");
+		}
+		const parentOwned = parentPost.pageId
+			? await canPostAsPage(userId, parentPost.pageId)
+			: parentPost.userId === userId;
+		if (!parentOwned) {
+			throw new PostInputError("You can only add updates to your own posts");
 		}
 		effectivePageId = parentPost.pageId;
+	} else if (data.pageId) {
+		// Page-authored post (INV-8): caller must hold ADMIN/EDITOR on the page.
+		if (!(await canPostAsPage(userId, data.pageId))) {
+			throw new PostInputError("You don't have permission to post as this page");
+		}
+	}
+
+	if (data.eventId) {
+		// Event update: event must exist and be owned by the caller.
+		const event = await prisma.event.findUnique({
+			where: { id: data.eventId },
+			select: { userId: true },
+		});
+		if (!event) {
+			throw new PostInputError("Event not found");
+		}
+		if (event.userId !== userId) {
+			throw new PostInputError("Cannot create post for an event you don't own");
+		}
 	}
 
 	const contentVisibility = await resolveParentVisibility(userId, effectivePageId, data.eventId, data.parentPostId);
 
-	// Create the post
 	const post = await prisma.post.create({
 		data: {
 			userId,
@@ -166,9 +202,13 @@ export async function createPost(
 			eventId: data.eventId || null,
 			parentPostId: data.parentPostId || null,
 			title: data.title?.trim() || null,
-			content: data.content.trim(),
+			content: data.content?.trim() || "",
 			tags: data.tags || [],
+			topics: data.topics || [],
 			contentVisibility,
+			// Posts are born DRAFT (schema default) and published via PATCH /api/posts/:id;
+			// isDraft is explicit only for clarity at the draft-then-edit entry point.
+			...(data.isDraft ? { status: "DRAFT" as const } : {}),
 		},
 		select: postWithUserFields,
 	});
@@ -179,6 +219,12 @@ export async function createPost(
 // NOTE: post updates go through `PATCH /api/posts/:id`, which owns validation, permission, and
 // re-parent-visibility logic. The former `updatePost` server util here was unused (the client
 // `post-client.ts` has its own same-named fetch wrapper) and was removed to avoid a second write path.
+//
+// NOTE: the former `createDraftPost` and `publishPost` server utils were removed — both were
+// unused (zero server callers) and unguarded. Their real entry points are the client wrappers in
+// `post-client.ts`: draft creation hits `POST /api/posts` with `{ isDraft: true }` (→ createPost
+// above), and publish hits `PATCH /api/posts/:id` with `{ status: "PUBLISHED" }` (which validates
+// non-empty content). Rebuild here with guards baked in if a server-side caller is ever needed.
 
 /**
  * Delete a post
@@ -187,36 +233,4 @@ export async function deletePost(postId: string): Promise<void> {
 	await prisma.post.delete({
 		where: { id: postId },
 	});
-}
-
-/**
- * Create a minimal DRAFT post for the draft-then-inline-edit flow.
- * Called server-side when an owner navigates to /posts/new.
- * Inherits visibility from the parent page (or user if standalone).
- */
-export async function createDraftPost(userId: string, pageId?: string): Promise<PostItem> {
-	const contentVisibility = await resolveParentVisibility(userId, pageId);
-	const post = await prisma.post.create({
-		data: {
-			userId,
-			pageId: pageId || null,
-			content: "",
-			status: "DRAFT",
-			contentVisibility,
-		},
-		select: postWithUserFields,
-	});
-	return post as PostItem;
-}
-
-/**
- * Publish a post — flips status from DRAFT to PUBLISHED.
- */
-export async function publishPost(postId: string): Promise<PostItem> {
-	const post = await prisma.post.update({
-		where: { id: postId },
-		data: { status: "PUBLISHED" },
-		select: postWithUserFields,
-	});
-	return post as PostItem;
 }
