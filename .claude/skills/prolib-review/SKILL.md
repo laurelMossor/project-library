@@ -230,18 +230,30 @@ editing. Specifically:
   dropped? How aggressive should any refactor be — the PR's own code only, or the
   develop-side code it shares duplication with? Surface design forks (e.g. *where* a fix
   should live) and get a decision. Use `AskUserQuestion` for the genuine choices.
+  **These answers settle *what* to do — they are NOT approval to start editing.** A "fix
+  them all" / "fix now" / "investigate now" answer chooses scope; it does not skip the
+  plan gate in step 9.
 - **Wait for "we're done discussing."** Don't pre-empt the user by starting a plan while
   scope is still open.
 
-### 9. Kick off a plan once the discussion concludes
+### 9. Plan and get approval BEFORE editing — a hard gate
 
-Only when the user signals scope is settled, *then* move into planning for the agreed-on
-changes — enter plan mode and produce an implementation plan (don't silently auto-apply
-`/code-review --fix`). The plan covers only what was agreed, names the files/helpers to
-reuse, and includes a verification section. Verify with **targeted checks** (the
-affected unit/E2E tests, a typecheck of touched files). Don't run `npm run validate`
-and don't ask the user to run it either — it's the CI merge gate and runs
-automatically on every PR.
+Settling scope (step 8) is **not** a green light to edit. Once scope is settled, enter
+plan mode (`EnterPlanMode`), write the implementation plan for the agreed changes, and
+call `ExitPlanMode` to get the user's approval. **Do not edit a single file — not even a
+one-line comment fix, a test, or an "obviously safe" change — until that plan is
+approved.** (Filing a ticket or spawning a task for an out-of-scope finding is fine
+without the gate; touching the working tree is not.)
+
+The most common failure here is treating the user's scope answers ("fix them all", "fix
+now") as authorization and jumping straight to edits — don't. Scope answers tell you
+*which* findings to plan; the plan + `ExitPlanMode` is what unlocks editing.
+
+The plan covers only what was agreed, names the files/helpers to reuse, and includes a
+verification section. Verify with **targeted checks** (the affected unit/E2E tests, a
+typecheck of touched files). Don't run `npm run validate` and don't ask the user to run
+it either — it's the CI merge gate and runs automatically on every PR. Don't silently
+auto-apply `/code-review --fix`.
 
 ---
 
