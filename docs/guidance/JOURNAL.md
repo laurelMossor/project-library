@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Mon 07/06/2026 19:25 PDT
+Audited schema-invariant enforcement on `schema-invariant-fixes`, then landed the fixes. The core finding was that five "DB CHECK" comments described constraints that were never migrated, so those invariants held only by memory. Added the seven missing CHECK constraints and closed a live hole where a profile-element update could reassign ownership. Converged post creation onto one guarded `createPost` and made replies inherit their parent's page, which also fixes the visibility cascade missing them. 265 unit green and all fixes verified live.
+
 #### Entry: Sun 07/05/2026 21:33 PDT
 `/prolib-review` of `visibility-audit` plus the agreed remediation. The findings were edge-cases of a sound model, not a broken one. Renamed the per-item column to `contentVisibility` and centralized the draft/view gate into `requireViewableEvent`/`requireViewablePost`, so re-parenting re-derives, page co-managers see drafts, and unviewable content 404s. Added the guard that a PRIVATE profile can't have LISTED content, scoped messaging to the active identity, and dropped the deprecated column last. 247 unit and 50 E2E green. 
 
