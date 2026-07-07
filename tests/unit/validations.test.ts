@@ -259,13 +259,13 @@ describe("validateEventData", () => {
     })).toMatchObject({ valid: false });
   });
 
-  test("rejects missing location", () => {
+  test("accepts a missing location (optional — Partiful-style)", () => {
     expect(validateEventData({
       title: "Event",
       content: "Details",
       eventDateTime: futureDate,
       location: "",
-    })).toMatchObject({ valid: false });
+    })).toEqual({ valid: true });
   });
 
   test("rejects title over 150 characters", () => {
@@ -302,7 +302,13 @@ describe("validateEventPublishable", () => {
     })).toEqual({ valid: true });
   });
 
-  test("rejects an empty draft being published (blank title/content/location)", () => {
+  test("accepts a location-less event (title + content + future date is enough)", () => {
+    expect(validateEventPublishable({
+      title: "Ready", content: "Details", eventDateTime: futureDate, location: "",
+    })).toEqual({ valid: true });
+  });
+
+  test("rejects an empty draft being published (blank title + content)", () => {
     expect(validateEventPublishable({
       title: "", content: "", eventDateTime: new Date(0), location: "",
     })).toMatchObject({ valid: false });
