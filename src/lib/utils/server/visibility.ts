@@ -266,6 +266,7 @@ type ViewablePost = {
   userId: string;
   pageId: string | null;
   eventId: string | null;
+  parentPostId: string | null;
   status: "DRAFT" | "PUBLISHED";
   contentVisibility: ContentVisibility;
 };
@@ -281,7 +282,7 @@ export async function requireViewablePost(
 ): Promise<ViewablePost | null> {
   const post = await prisma.post.findUnique({
     where: { id },
-    select: { id: true, userId: true, pageId: true, eventId: true, status: true, contentVisibility: true },
+    select: { id: true, userId: true, pageId: true, eventId: true, parentPostId: true, status: true, contentVisibility: true },
   });
   if (!post) return null;
   if (post.status === "DRAFT" && !(await isContentOwner(viewer, post))) return null;
@@ -407,7 +408,7 @@ export async function resolveParentVisibility(
  * Pass `tx` when inside a Prisma transaction; otherwise uses the global client.
  */
 export async function syncDescendantVisibility(
-  parentType: "USER" | "PAGE" | "EVENT",
+  parentType: "USER" | "PAGE" | "EVENT" | "POST",
   parentId: string,
   newVisibility: ContentVisibility,
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
@@ -417,6 +418,7 @@ export async function syncDescendantVisibility(
 
   switch (parentType) {
     case "PAGE": {
+      // Direct page posts (and their replies — a reply shares its parent's pageId, INV-3).
       await client.post.updateMany({ where: { pageId: parentId }, data });
       const events = await client.event.findMany({
         where: { pageId: parentId },
@@ -424,17 +426,24 @@ export async function syncDescendantVisibility(
       });
       await client.event.updateMany({ where: { pageId: parentId }, data });
       if (events.length > 0) {
-        await client.post.updateMany({
-          where: { eventId: { in: events.map((e) => e.id) } },
-          data,
-        });
+        const eventIds = events.map((e) => e.id);
+        // Posts attached to the page's events, plus replies to those posts (pageId null).
+        await client.post.updateMany({ where: { eventId: { in: eventIds } }, data });
+        await client.post.updateMany({ where: { parentPost: { eventId: { in: eventIds } } }, data });
       }
       break;
     }
     case "USER": {
-      // Only standalone content (no page context)
+      // Only standalone content (no page/event context). parentPostId:null keeps this from
+      // grabbing replies to page/event posts, which the PAGE/EVENT branches own.
       await client.post.updateMany({
-        where: { userId: parentId, pageId: null, eventId: null },
+        where: { userId: parentId, pageId: null, eventId: null, parentPostId: null },
+        data,
+      });
+      // Replies to the user's own standalone posts (a reply carries pageId null, so the clause
+      // above would otherwise sweep in replies to page/event posts too — hence the parentPost filter).
+      await client.post.updateMany({
+        where: { parentPost: { userId: parentId, pageId: null, eventId: null } },
         data,
       });
       const events = await client.event.findMany({
@@ -443,15 +452,20 @@ export async function syncDescendantVisibility(
       });
       await client.event.updateMany({ where: { userId: parentId, pageId: null }, data });
       if (events.length > 0) {
-        await client.post.updateMany({
-          where: { eventId: { in: events.map((e) => e.id) } },
-          data,
-        });
+        const eventIds = events.map((e) => e.id);
+        await client.post.updateMany({ where: { eventId: { in: eventIds } }, data });
+        await client.post.updateMany({ where: { parentPost: { eventId: { in: eventIds } } }, data });
       }
       break;
     }
     case "EVENT":
+      // Posts on the event, plus replies to those posts.
       await client.post.updateMany({ where: { eventId: parentId }, data });
+      await client.post.updateMany({ where: { parentPost: { eventId: parentId } }, data });
+      break;
+    case "POST":
+      // Replies to a single post (updates cannot nest, so one level is complete).
+      await client.post.updateMany({ where: { parentPostId: parentId }, data });
       break;
   }
 }

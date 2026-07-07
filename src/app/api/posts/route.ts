@@ -156,6 +156,12 @@ export async function POST(request: Request) {
 		const data = await request.json();
 		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
 
+		// A post is an event update XOR a reply — never both (INV-1). The DB CHECK is the
+		// real guarantee; this is the friendly 400.
+		if (eventId && parentPostId) {
+			return badRequest("A post cannot be both an event update and a reply");
+		}
+
 		// Draft creation (from /posts/new) skips content validation — content starts empty
 		if (!isDraft) {
 			const contentValidation = validatePostContent(content);
@@ -170,8 +176,12 @@ export async function POST(request: Request) {
 			return badRequest(titleValidation.error || "Invalid post title");
 		}
 
-		// If pageId provided, verify user has permission to post as this page
-		if (pageId) {
+		// A reply inherits its page from the parent (INV-3), so a client-sent pageId is only
+		// meaningful for non-reply posts. effectivePageId is the value actually written.
+		let effectivePageId: string | null = parentPostId ? null : pageId || null;
+
+		// If pageId provided (non-reply), verify user has permission to post as this page
+		if (pageId && !parentPostId) {
 			const allowed = await canPostAsPage(ctx.userId, pageId);
 			if (!allowed) {
 				return badRequest("You don't have permission to post as this page");
@@ -211,6 +221,9 @@ export async function POST(request: Request) {
 			if (!parentOwned) {
 				return badRequest("You can only add updates to your own posts");
 			}
+			// The reply lives in the same page context as its parent (INV-3) — never the
+			// client-supplied pageId.
+			effectivePageId = parentPost.pageId;
 		}
 
 		// Process tags
@@ -233,7 +246,7 @@ export async function POST(request: Request) {
 				userId: ctx.userId,
 				content: content?.trim() || "",
 				title: title?.trim() || null,
-				pageId: pageId || null,
+				pageId: effectivePageId,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,
@@ -241,7 +254,7 @@ export async function POST(request: Request) {
 				// Inherit visibility from the parent (page → event → parentPost → user) so an
 				// update to a PRIVATE/UNLISTED parent is never born LISTED (findings — content
 				// is derived, never client-set).
-				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null, eventId || null, parentPostId || null),
+				contentVisibility: await resolveParentVisibility(ctx.userId, effectivePageId, eventId || null, parentPostId || null),
 				...(isDraft ? { status: "DRAFT" } : {}),
 			},
 			select: postWithUserFields,

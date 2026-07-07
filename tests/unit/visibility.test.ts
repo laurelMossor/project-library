@@ -306,11 +306,12 @@ describe("resolveParentVisibility", () => {
 // ── syncDescendantVisibility (cascade when a parent's contentVisibility changes) ─
 
 describe("syncDescendantVisibility", () => {
-  test("PAGE → cascades to the page's posts, its events, and those events' posts", async () => {
+  test("PAGE → cascades to page posts, its events, those events' posts, and replies to event posts", async () => {
     vi.mocked(prisma.event.findMany).mockResolvedValue([{ id: "e1" }, { id: "e2" }] as never);
 
     await syncDescendantVisibility("PAGE", "page-1", ContentVisibility.PRIVATE);
 
+    // Direct page posts — replies to page posts share the parent's pageId (INV-3), so this catches them too.
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { pageId: "page-1" },
       data: { contentVisibility: ContentVisibility.PRIVATE },
@@ -323,12 +324,24 @@ describe("syncDescendantVisibility", () => {
       where: { eventId: { in: ["e1", "e2"] } },
       data: { contentVisibility: ContentVisibility.PRIVATE },
     });
+    // Replies to those event posts (pageId null) — reachable only via the parentPost relation.
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { parentPost: { eventId: { in: ["e1", "e2"] } } },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
+    });
   });
 
-  test("USER → only standalone content cascades (page-authored content is excluded)", async () => {
+  test("USER → standalone content cascades, but NOT replies to page/event posts (Gap 2)", async () => {
     await syncDescendantVisibility("USER", "owner-1", ContentVisibility.PRIVATE);
+    // Standalone posts are constrained to top level (parentPostId null) so page/event-post
+    // replies — which carry pageId null — are not swept in.
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
-      where: { userId: "owner-1", pageId: null, eventId: null },
+      where: { userId: "owner-1", pageId: null, eventId: null, parentPostId: null },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
+    });
+    // Replies to the user's own standalone posts are reached explicitly via parentPost.
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { parentPost: { userId: "owner-1", pageId: null, eventId: null } },
       data: { contentVisibility: ContentVisibility.PRIVATE },
     });
     expect(prisma.event.updateMany).toHaveBeenCalledWith({
@@ -337,13 +350,25 @@ describe("syncDescendantVisibility", () => {
     });
   });
 
-  test("a LISTED→UNLISTED flip writes UNLISTED to descendants", async () => {
+  test("EVENT → cascades to event posts and replies to them", async () => {
     await syncDescendantVisibility("EVENT", "event-1", ContentVisibility.UNLISTED);
     expect(prisma.post.updateMany).toHaveBeenCalledWith({
       where: { eventId: "event-1" },
       data: { contentVisibility: ContentVisibility.UNLISTED },
     });
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { parentPost: { eventId: "event-1" } },
+      data: { contentVisibility: ContentVisibility.UNLISTED },
+    });
     expect(prisma.event.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("POST → cascades to a post's replies (Gap 1: page post flip reaches its reply)", async () => {
+    await syncDescendantVisibility("POST", "post-1", ContentVisibility.PRIVATE);
+    expect(prisma.post.updateMany).toHaveBeenCalledWith({
+      where: { parentPostId: "post-1" },
+      data: { contentVisibility: ContentVisibility.PRIVATE },
+    });
   });
 
   test("uses the provided transaction client, not the global prisma", async () => {
@@ -351,7 +376,7 @@ describe("syncDescendantVisibility", () => {
       post: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       event: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     };
-    await syncDescendantVisibility("EVENT", "event-1", ContentVisibility.PRIVATE, tx as never);
+    await syncDescendantVisibility("POST", "post-1", ContentVisibility.PRIVATE, tx as never);
     expect(tx.post.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.post.updateMany).not.toHaveBeenCalled();
   });

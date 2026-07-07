@@ -4,7 +4,7 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility } from "@/lib/utils/server/visibility";
+import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
 
 const MAX_PINNED_POSTS = 3;
 
@@ -149,6 +149,12 @@ export async function PATCH(request: Request, { params }: Params) {
 		const data = await request.json();
 		const { title, content, tags, topics, pinnedAt, status, pageId } = data;
 
+		// A reply inherits its page from its parent post (INV-3) — it cannot be re-pointed
+		// to a different page directly; the parent's page is the single source of truth.
+		if (pageId !== undefined && existing.parentPostId) {
+			return badRequest("A reply inherits its page from its parent post and cannot be moved");
+		}
+
 		// If switching author page, verify permission for the new page
 		if (pageId !== undefined) {
 			if (pageId !== null) {
@@ -240,10 +246,13 @@ export async function PATCH(request: Request, { params }: Params) {
 				select: postFields,
 			});
 			if (reparentedVisibility !== undefined) {
+				// Replies live in the parent's page context (INV-3) and inherit its visibility —
+				// keep both in sync when the parent is re-parented.
 				await tx.post.updateMany({
 					where: { parentPostId: id },
-					data: { contentVisibility: reparentedVisibility },
+					data: { pageId: pageId || null },
 				});
+				await syncDescendantVisibility("POST", id, reparentedVisibility, tx);
 			}
 			return updated;
 		});

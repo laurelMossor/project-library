@@ -140,24 +140,29 @@ export async function createPost(
 		}
 	}
 
-	// If parentPostId is set, verify parent post exists
+	// A reply inherits its page from the parent (INV-3); a client-supplied pageId is only
+	// meaningful for non-reply posts.
+	let effectivePageId: string | null = data.parentPostId ? null : data.pageId || null;
+
+	// If parentPostId is set, verify parent post exists and adopt its page context
 	if (data.parentPostId) {
 		const parentPost = await prisma.post.findUnique({
 			where: { id: data.parentPostId },
-			select: { id: true },
+			select: { id: true, pageId: true },
 		});
 		if (!parentPost) {
 			throw new Error("Parent post not found");
 		}
+		effectivePageId = parentPost.pageId;
 	}
 
-	const contentVisibility = await resolveParentVisibility(userId, data.pageId, data.eventId, data.parentPostId);
+	const contentVisibility = await resolveParentVisibility(userId, effectivePageId, data.eventId, data.parentPostId);
 
 	// Create the post
 	const post = await prisma.post.create({
 		data: {
 			userId,
-			pageId: data.pageId || null,
+			pageId: effectivePageId,
 			eventId: data.eventId || null,
 			parentPostId: data.parentPostId || null,
 			title: data.title?.trim() || null,
