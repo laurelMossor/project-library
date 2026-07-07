@@ -70,6 +70,10 @@ Most tickets arrive with **no** criteria, so this step is the rule, not the exce
   Extract, don't invent:
   - Bug → list the **steps to reproduce** and the **expected correct behavior**.
   - Feature → turn the description / informal checklist into observable checks.
+  - **Visibility/privacy ticket → "correct" is defined by `docs/VISIBILITY_RULES.md`**
+    (two-field profile/content model, locked identity stub for PRIVATE profiles,
+    404-never-403 for unviewable content). Read it before drafting, so the criteria
+    match the contract rather than intuition about how privacy "should" work.
 
 Good criteria are **concrete and browser-observable** — each line is something you can
 actually drive and see. Avoid vague ones ("works well", "looks good"); they aren't

@@ -9,9 +9,9 @@ description: >-
   and wanting a check before commit. Prefer this over a bare /code-review here,
   because the bare review doesn't know ProLib's conventions (route constants,
   server-util query layout, permission helpers, identity scoping) or its schema
-  invariants (post/event mutual exclusion, draft visibility, conversation asPageId
-  scoping). Not for QA/acceptance of a finished ticket against the running app —
-  that's /prolib-qa.
+  invariants (post/event mutual exclusion, two-field profile/content visibility,
+  draft gating, conversation asPageId scoping). Not for QA/acceptance of a finished
+  ticket against the running app — that's /prolib-qa.
 ---
 
 # ProLib Code Review
@@ -40,13 +40,15 @@ trace by hand.
 Invoke the built-in **`/code-review`** on the current diff.
 
 - **Default effort: `high`.**
-- **Escalate to `extra`** when the diff touches any of: auth (`src/lib/auth.ts`,
+- **Escalate to `xhigh`** when the diff touches any of: auth (`src/lib/auth.ts`,
   NextAuth), **permissions** (`src/lib/utils/server/permission.ts`, role checks),
   **visibility / messaging** (`src/lib/utils/server/visibility.ts`, conversations —
   identity scoping is a data-leak surface here), or the **Prisma schema**
   (`prisma/schema.prisma`). Correctness matters more than token cost there.
-- Model: run on whatever the session is already using (Opus by default). Don't force
-  a model switch.
+- **When escalating for visibility/messaging, also read `docs/VISIBILITY_RULES.md`**
+  before the layer-2 pass — it's the durable contract layer 2 checks against, with its
+  own route checklist (§3) and known anti-patterns (§4).
+- Model: run on whatever the session is already using. Don't force a model switch.
 
 ### 2. Structural map — does the diff respect the layers?
 
@@ -56,15 +58,19 @@ catch is a diff that *reaches past* a layer.
 ```
 Client (RSC / "use client")
   └─ API route handlers — src/app/api/{auth,events,posts,pages,me,messages,follows,
-        images,image-attachments,search,session,topics,upload,users,notion}/
+        images,image-attachments,requests,search,session,topics,upload,users,notion}/
         │  THIN: parse → authorize → delegate. Should NOT inline Prisma queries.
         ▼
   Permission / visibility gate — src/lib/utils/server/{permission.ts, visibility.ts}
         permission.ts: canPostAsPage, canManagePage, canManageEntity, hasPermission,
-                       getPagesForUser, getUserMemberships, grant/revokePermission
-        visibility.ts: getViewerContext, canViewUser/Page/Event/Post,
-                       userListWhere/pageListWhere/eventListWhere/postListWhere,
-                       syncChildPostVisibility, convertFollowersToMembers
+                       getManagedPageIds (ADMIN/EDITOR — the authorization one),
+                       getPagesForUser (MEMBER-inclusive — display only, never authz),
+                       grant/revokePermission
+        visibility.ts: getViewerContext, resolveProfileAccess/requireViewableProfile,
+                       canViewPost/canViewEvent, requireViewablePost/requireViewableEvent,
+                       postListWhere/eventListWhere/profileListWhere/
+                       collectionVisibilityWhere, resolveParentVisibility,
+                       syncDescendantVisibility
         │  ENFORCEMENT POINT — mutations & reads pass through here.
         ▼
   Server-util query layer — src/lib/utils/server/{user,page,post,event,follow,
@@ -99,17 +105,27 @@ stable invariants, which are the high-value catches:
   `pageId: null`, or page-authored items leak into the personal view. Conversation /
   message queries must scope by **`asPageId`** — without it a page admin's personal
   inbox leaks page conversations.
-- **Visibility cascade & inheritance.** `Visibility` enum is `PUBLIC | UNLISTED |
-  PRIVATE` (default `PUBLIC`) on User, Page, Event, Post. When a User/Page/Event changes
-  visibility, descendants must be kept in step via **`syncDescendantVisibility`** (child
-  posts, the entity's events, and those events' posts) — called inside the parent's update
-  transaction. New content inherits its parent's visibility via **`resolveParentVisibility`**
-  (page → event → user → PUBLIC). Access to now-private content is granted by the **follow
-  edge** (users) or **follow/membership** (pages) — there is no follower→member conversion.
-  A diff that changes visibility but skips these helpers is a finding. (Verify these names
-  against `visibility.ts` — they have drifted before.)
-- **Draft visibility.** Events default to `DRAFT`; only `PUBLISHED` is publicly visible.
-  A public-facing query that forgets the status filter (or bypasses the `*ListWhere`
+- **Two-field visibility.** The contract is **`docs/VISIBILITY_RULES.md`** — read it
+  whenever the diff touches this; don't re-derive its rules here. `profileVisibility`
+  (`PUBLIC | PRIVATE`, User/Page) governs the profile page; `contentVisibility`
+  (`LISTED | UNLISTED | PRIVATE`, User/Page/Event/Post) governs where content surfaces.
+  The high-value catches:
+  - Content visibility is **derived, never client-set**. Create routes go through the
+    `createPost`/`createEvent` utils, which call `resolveParentVisibility`
+    (page → event → parentPost → user → `LISTED`). `contentVisibility` deliberately has
+    **no schema default** so a raw `prisma.*.create` without it fails — a diff that
+    re-adds a default, hardcodes a value, or accepts client visibility is a finding.
+  - A profile's `contentVisibility` change cascades to descendants via
+    **`syncDescendantVisibility`** in the same transaction; a `profileVisibility`-only
+    change must **not** touch content.
+  - A `PRIVATE` profile cannot pair with `LISTED` content (guarded in `saveMyProfile`).
+  - PRIVATE profiles render an **identity-only locked stub** (no 404, no existence-deny);
+    PRIVATE *content* the viewer can't see **404s, never 403**.
+- **Draft visibility.** Posts *and* events default to `DRAFT`; only `PUBLISHED` is
+  publicly visible. `requireViewablePost` / `requireViewableEvent` centralize the
+  draft + visibility gate (owner/co-manager sees drafts; everyone else 404s) — gate
+  detail **and mutation** routes with them *before* authorizing the edit. A
+  public-facing query that forgets the status filter (or bypasses the `*ListWhere`
   helpers) leaks drafts.
 - **Permission creation.** Creating a Page must auto-create
   `Permission(userId, pageId, PAGE, ADMIN)`.
@@ -167,7 +183,8 @@ adequate, say so explicitly rather than manufacturing a gap.
 
 Paths, function names, and invariants drift. Before reporting a layer-2 finding that
 names a specific field, enum value, helper, or file, confirm it against the source of
-truth — **`prisma/schema.prisma`** for schema/enum/relation claims, and
+truth — **`prisma/schema.prisma`** for schema/enum/relation claims,
+**`docs/VISIBILITY_RULES.md`** for visibility-rule claims, and
 **`src/lib/utils/server/`**, **`src/lib/const/routes.ts`**, **`src/lib/validations.ts`**
 for "this should live in X" claims. If the code and this skill disagree, **the code
 wins** — report the discrepancy (and flag that this skill or `PROJECT_GUIDELINES.md`
@@ -221,9 +238,10 @@ editing. Specifically:
 Only when the user signals scope is settled, *then* move into planning for the agreed-on
 changes — enter plan mode and produce an implementation plan (don't silently auto-apply
 `/code-review --fix`). The plan covers only what was agreed, names the files/helpers to
-reuse, and includes a verification section. When the changes are later implemented,
-**prompt the user to run `npm run validate`** rather than running it yourself — it's
-token-heavy.
+reuse, and includes a verification section. Verify with **targeted checks** (the
+affected unit/E2E tests, a typecheck of touched files). Don't run `npm run validate`
+and don't ask the user to run it either — it's the CI merge gate and runs
+automatically on every PR.
 
 ---
 

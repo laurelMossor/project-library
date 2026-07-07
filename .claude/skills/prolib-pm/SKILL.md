@@ -85,13 +85,17 @@ session. Cite real `file:line` anchors so the agent starts from reality.
 
 1. **Goal** — one-sentence outcome.
 2. **Session bootstrap** — which docs to read first (always PROJECT_GUIDELINES.md +
-   STATUS.md; add JOURNAL.md and the relevant ticket URLs as needed).
+   STATUS.md; add JOURNAL.md and the relevant ticket URLs as needed). When the bundle
+   touches **visibility, privacy, authorization, or messaging**, the bootstrap list
+   must include `docs/VISIBILITY_RULES.md` — the receiving agent applies that contract,
+   never re-derives a gate in a route.
 3. **Context** — brief project description + tech stack, enough for a cold start.
 4. **Scope** — numbered tasks, each with: what the problem is, and the file paths
    *verified live*.
-5. **Acceptance criteria** — checkboxes. Include `npm run validate` for any work that
-   changes code (the receiving agent runs it; per house rule the *orchestrator* never
-   runs validate itself).
+5. **Acceptance criteria** — checkboxes, each verifiable with a **targeted check**
+   (the specific unit/E2E tests the work should add or keep green, an endpoint
+   response, an observable behavior). Do **not** include `npm run validate` — nobody
+   runs it manually; it's the CI merge gate and runs automatically on the PR.
 6. **Out of scope** — explicit exclusions to prevent scope creep.
 
 **Skeleton** — a brief usually lands close to this shape (adapt freely; it's a starting
@@ -115,7 +119,7 @@ SCOPE
 
 ACCEPTANCE CRITERIA
 - [ ] <observable outcome>
-- [ ] npm run validate passes        ← only if code changed
+- [ ] <the targeted test(s) covering the change pass>   ← CI runs full validate on the PR
 
 OUT OF SCOPE
 - <explicit exclusion>
@@ -136,7 +140,7 @@ acceptance.
 feature is big or under-defined). Then the brief directs the agent to **investigate the
 live codebase first**, resolve the open design questions with recommendations, and write
 the spec to `docs/specs/`. Same grounding rule: cite real `file:line`. Such a brief has
-no `npm run validate` criterion (no code changed).
+no test criteria (no code changed).
 
 **Adapting to agent context.** If a bundle is going to the same agent that just finished
 a related one, write a shorter follow-up. If it's a fresh agent, the prompt must be fully
