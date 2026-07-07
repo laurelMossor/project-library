@@ -397,7 +397,7 @@ async function main() {
         interests: packet.interests ?? [],
         location: packet.location ?? null,
         ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
-        ...(packet.contentVisibility ? { contentVisibility: packet.contentVisibility } : {}),
+        contentVisibility: packet.contentVisibility ?? "LISTED",
         handleRecord: { create: { handle } },
       },
       select: { id: true },
@@ -440,7 +440,7 @@ async function main() {
         interests: packet.interests ?? [],
         location: packet.location ?? null,
         ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
-        ...(packet.contentVisibility ? { contentVisibility: packet.contentVisibility } : {}),
+        contentVisibility: packet.contentVisibility ?? "LISTED",
         createdByUserId: creator.id,
         handleRecord: { create: { handle } },
       },
@@ -591,6 +591,9 @@ async function main() {
     }
 
     for (const postData of packet.posts ?? []) {
+      // Standalone user post inherits the user's content visibility unless overridden
+      // (mirrors resolveParentVisibility); replies below inherit this post's value.
+      const postVisibility = postData.contentVisibility ?? packet.contentVisibility ?? "LISTED";
       const post = await prisma.post.create({
         data: {
           userId: user.id,
@@ -598,7 +601,7 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
-          ...(postData.contentVisibility ? { contentVisibility: postData.contentVisibility } : {}),
+          contentVisibility: postVisibility,
         },
         select: { id: true },
       });
@@ -622,6 +625,8 @@ async function main() {
             parentPostId: post.id,
             title: update.title ?? null,
             content: update.content,
+            // Reply inherits its parent's page (null here) and visibility (INV-3).
+            contentVisibility: postVisibility,
           },
         });
       }
@@ -643,7 +648,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
-          ...(eventData.contentVisibility ? { contentVisibility: eventData.contentVisibility } : {}),
+          contentVisibility: eventData.contentVisibility ?? packet.contentVisibility ?? "LISTED",
         },
         select: { id: true },
       });
@@ -701,7 +706,8 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
-          ...(postData.contentVisibility ? { contentVisibility: postData.contentVisibility } : {}),
+          // Page post inherits the page's content visibility unless overridden.
+          contentVisibility: postData.contentVisibility ?? packet.contentVisibility ?? "LISTED",
         },
         select: { id: true },
       });
@@ -739,7 +745,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
-          ...(eventData.contentVisibility ? { contentVisibility: eventData.contentVisibility } : {}),
+          contentVisibility: eventData.contentVisibility ?? packet.contentVisibility ?? "LISTED",
         },
         select: { id: true },
       });

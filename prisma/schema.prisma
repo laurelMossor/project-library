@@ -102,7 +102,7 @@ model User {
   interests     String[] @default([])
   location      String?
   profileVisibility ProfileVisibility @default(PUBLIC)
-  contentVisibility ContentVisibility @default(LISTED)
+  contentVisibility ContentVisibility
   avatarImageId String?
   avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
@@ -216,7 +216,7 @@ model Page {
   interests  String[]       @default([])
   location   String?
   profileVisibility ProfileVisibility @default(PUBLIC)
-  contentVisibility ContentVisibility @default(LISTED)
+  contentVisibility ContentVisibility
 
   // Address (useful for small biz, community spaces)
   addressLine1 String?
@@ -357,7 +357,7 @@ model Post {
   title      String?
   content    String
   status     PostStatus @default(DRAFT)
-  contentVisibility ContentVisibility @default(LISTED)
+  contentVisibility ContentVisibility
   pinnedAt   DateTime?
 
   createdAt DateTime @default(now())
@@ -400,7 +400,7 @@ model Event {
   latitude      Float?
   longitude     Float?
   status        EventStatus @default(DRAFT)
-  contentVisibility ContentVisibility @default(LISTED)
+  contentVisibility ContentVisibility
   pinnedAt      DateTime?
 
   createdAt DateTime @default(now())

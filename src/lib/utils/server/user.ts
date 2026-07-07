@@ -175,6 +175,9 @@ export async function createUser(data: {
 			lastName: data.lastName ?? null,
 			displayName,
 			emailVerified: data.emailVerified ?? null,
+			// New accounts default to open distribution; explicit since the column no longer
+			// carries a DB default (a forgotten derivation must fail at compile time, not fall to LISTED).
+			contentVisibility: "LISTED",
 			handleRecord: { create: { handle: data.handle } },
 		},
 		select: { id: true },

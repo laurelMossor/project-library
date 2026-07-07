@@ -107,6 +107,9 @@ export async function consumeInviteAndCreateUser(args: {
 					firstName: null,
 					middleName: null,
 					lastName: null,
+					// New accounts default to open distribution; explicit since the column no longer
+					// carries a DB default.
+					contentVisibility: "LISTED",
 					handleRecord: { create: { handle: args.handle } },
 				},
 				select: { id: true },

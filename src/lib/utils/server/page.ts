@@ -121,6 +121,9 @@ export async function createPage(
         bio: data.bio?.trim() || null,
         interests: data.interests || [],
         location: data.location?.trim() || null,
+        // New pages default to open distribution; explicit since the column no longer
+        // carries a DB default.
+        contentVisibility: "LISTED",
         handleRecord: { create: { handle: data.handle } },
       },
       select: publicPageFields,
