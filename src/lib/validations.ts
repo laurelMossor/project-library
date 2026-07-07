@@ -195,14 +195,15 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		}
 	}
 
-	if (!data.location || typeof data.location !== "string") {
-		return { valid: false, error: "Event location is required" };
-	}
-	if (data.location.trim().length === 0) {
-		return { valid: false, error: "Event location cannot be empty" };
-	}
-	if (data.location.length > 255) {
-		return { valid: false, error: "Event location must be 255 characters or less" };
+	// Location is optional (Partiful-style — an event can be published as "location TBD").
+	// If provided, it must be a string within the length cap.
+	if (data.location !== undefined && data.location !== null && data.location !== "") {
+		if (typeof data.location !== "string") {
+			return { valid: false, error: "Event location must be a string" };
+		}
+		if (data.location.length > 255) {
+			return { valid: false, error: "Event location must be 255 characters or less" };
+		}
 	}
 
 	if (data.tags) {
@@ -321,6 +322,17 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 	// Event visibility is derived from the owning profile — not validated/accepted here.
 
 	return { valid: true };
+}
+
+/**
+ * Gate the DRAFT→PUBLISHED transition (INV-10): a published event must have a non-empty
+ * title + content and a valid future date (location is optional — Partiful-style). Callers
+ * merge the stored row with the incoming patch and pass the result, so a draft that was
+ * created empty cannot be flipped to PUBLISHED without those fields being set. Delegates to
+ * validateEventData so the publish bar and the create bar never diverge.
+ */
+export function validateEventPublishable(merged: EventCreateInput): { valid: boolean; error?: string } {
+	return validateEventData(merged);
 }
 
 // RSVP validation utilities

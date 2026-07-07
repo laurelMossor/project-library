@@ -48,19 +48,26 @@ asserting anything. (Signup is **invite-only** via `/signup?invite=…` and rate
 
 ## Seeded pages — who admins what
 
-All six page files in `prisma/seed-data/pages/` are seeded. The file's `creatorHandle`
-becomes the page **ADMIN**; `editors[]` become EDITORs. This map lets you pick the right
+All six page files in `prisma/seed-data/pages/` are seeded — with one gate: `laurel`
+uses a `$env:` password, and when that env var is unset (CI, a fresh contributor) the
+seed **skips laurel and the three laurel-owned pages**. If those pages are missing
+locally, that's why, not a bug. The file's `creatorHandle` becomes the page **ADMIN**;
+`editors[]` become EDITORs. This map lets you pick the right
 entity for a criterion without hunting through the UI — and shows which pages a QA actor
 can actually edit.
 
-| Page | Handle | Visibility | Admin | QA-editable? | Notable content |
+Visibility is two fields per `docs/VISIBILITY_RULES.md`: **profile** (PUBLIC/PRIVATE —
+full profile vs identity-only locked stub) and **content** (LISTED/UNLISTED/PRIVATE —
+where posts/events surface).
+
+| Page | Handle | Profile / content vis | Admin | QA-editable? | Notable content |
 |---|---|---|---|---|---|
-| Portland Makers Guild | `portland-makers-guild` | PUBLIC | alice (editor: sam) | ✅ as alice/sam | avatar image, 1 published post, 1 published event — **the go-to page for page-edit / page-authorship / page-avatar tests** |
-| Unlisted Zine | `unlisted-zine` | UNLISTED | alice | ✅ as alice | use for "unlisted page" visibility checks |
-| Secret Workshop | `secret-workshop` | PRIVATE | sam | ✅ as sam | use for PRIVATE visibility-gate checks (404 for non-members) |
-| Spats Improv | `spatsimprov` | PUBLIC | laurel | ❌ owner is off-limits | view-only for QA |
-| Baywatch Events | `baywatch` | PUBLIC | laurel | ❌ owner is off-limits | view-only for QA |
-| The Project Library | `theprojectlibrary` | PUBLIC | laurel | ❌ owner is off-limits | view-only for QA |
+| Portland Makers Guild | `portland-makers-guild` | PUBLIC / LISTED | alice (editor: sam) | ✅ as alice/sam | avatar image, 1 published post, 1 published event — **the go-to page for page-edit / page-authorship / page-avatar tests** |
+| Unlisted Zine | `unlisted-zine` | PUBLIC / UNLISTED | alice | ✅ as alice | use for "unlisted content" checks (on the profile, never in Explore/feeds) |
+| Secret Workshop | `secret-workshop` | PRIVATE / PRIVATE | sam | ✅ as sam | use for PRIVATE checks: non-member viewers (anon *and* logged-in) get the **identity-only locked stub** with a request-to-follow/join affordance — not a 404; the page's JSON collection routes (`/api/pages/[id]/posts`, `/events`) do 404 |
+| Spats Improv | `spatsimprov` | PUBLIC / LISTED | laurel | ❌ owner is off-limits | view-only for QA |
+| Baywatch Events | `baywatch` | PUBLIC / LISTED | laurel | ❌ owner is off-limits | view-only for QA |
+| The Project Library | `theprojectlibrary` | PUBLIC / LISTED | laurel | ❌ owner is off-limits | view-only for QA |
 
 Practical consequence: when a criterion is about **page ownership/editing**, log in as
 **alice** and use **portland-makers-guild** (or **sam** + **secret-workshop** for PRIVATE).
@@ -84,8 +91,11 @@ These are the real route directories under `src/app/` — there is **no `/u/<han
   deep-link straight into edit mode with `?edit=true`.
 - `/settings` — settings hub (heading "Settings" / "User Settings"; lists Edit Public
   Profile, Edit Personal Information, Manage Connections, and a Page Settings section)
-- `/settings/personal-info` — personal-info form, **including the profile-visibility
-  selector** (PUBLIC / UNLISTED / PRIVATE)
+- `/settings/personal-info` — personal-info form, **including both visibility
+  selectors**: profile visibility (PUBLIC / PRIVATE) and content visibility
+  (LISTED / UNLISTED / PRIVATE). They are independent fields — see
+  `docs/VISIBILITY_RULES.md` for what each governs (a PRIVATE profile can't pair
+  with LISTED content; the UI hides that option).
 - `/connections` — manage connections
 - `/messages` — messaging
 - `/posts/new`, `/events/new`, `/pages/new` — create flows (each creates a *draft* then

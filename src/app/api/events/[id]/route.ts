@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ContentVisibility } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
-import { validateEventUpdateData } from "@/lib/validations";
+import { validateEventUpdateData, validateEventPublishable } from "@/lib/validations";
 import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
@@ -137,6 +137,32 @@ export async function PATCH(request: Request, { params }: Params) {
 		});
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid event data");
+		}
+
+		// INV-10: publishing a draft requires a complete event. validateEventUpdateData only
+		// checks fields *present* in the patch, so a draft created empty could otherwise be
+		// flipped to PUBLISHED blank. Merge the stored row with the incoming patch and gate.
+		if (status === "PUBLISHED" && existing.status === "DRAFT") {
+			const stored = await prisma.event.findUnique({
+				where: { id },
+				select: {
+					title: true, content: true, eventDateTime: true, eventTimezone: true,
+					location: true, latitude: true, longitude: true, tags: true,
+				},
+			});
+			const publishCheck = validateEventPublishable({
+				title: (title !== undefined ? title : stored?.title) ?? "",
+				content: (content !== undefined ? content : stored?.content) ?? "",
+				eventDateTime: parsedDateTime !== undefined ? parsedDateTime : stored?.eventDateTime ?? new Date(0),
+				eventTimezone: (eventTimezone !== undefined ? eventTimezone : stored?.eventTimezone) ?? undefined,
+				location: (location !== undefined ? location : stored?.location) ?? "",
+				latitude: parsedLatitude !== undefined ? parsedLatitude : stored?.latitude,
+				longitude: parsedLongitude !== undefined ? parsedLongitude : stored?.longitude,
+				tags: processedTags !== undefined ? processedTags : stored?.tags,
+			});
+			if (!publishCheck.valid) {
+				return badRequest(publishCheck.error || "Cannot publish an incomplete event");
+			}
 		}
 
 		const updateData: Record<string, unknown> = {};

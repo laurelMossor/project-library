@@ -48,9 +48,9 @@ export async function updateProfileWithCascade(
       await autoApprovePendingOnUnlock({ type: kind, id }, tx);
     }
 
-    // Element ops run on the global client (pre-existing); wrapped by this tx.
+    // Element ops run on this tx so a rollback undoes them alongside the profile/visibility writes.
     if (elements) {
-      await processElementsPayload(kind === "USER" ? { userId: id } : { pageId: id }, elements);
+      await processElementsPayload(kind === "USER" ? { userId: id } : { pageId: id }, elements, tx);
     }
 
     return kind === "USER"

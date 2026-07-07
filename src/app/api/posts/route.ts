@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { getViewerContext, postListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
+import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { createPost, PostInputError } from "@/lib/utils/server/post";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { postCollectionFields, postWithUserFields } from "@/lib/utils/server/fields";
+import { postCollectionFields } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -156,64 +156,20 @@ export async function POST(request: Request) {
 		const data = await request.json();
 		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
 
-		// Draft creation (from /posts/new) skips content validation — content starts empty
+		// HTTP-shape validation (length limits) stays at the edge; createPost owns the
+		// data invariants (XOR, nesting, page permission, child pageId — INV-1/2/3/8).
 		if (!isDraft) {
 			const contentValidation = validatePostContent(content);
 			if (!contentValidation.valid) {
 				return badRequest(contentValidation.error || "Invalid post content");
 			}
 		}
-
-		// Validate title if provided
 		const titleValidation = validatePostTitle(title);
 		if (!titleValidation.valid) {
 			return badRequest(titleValidation.error || "Invalid post title");
 		}
 
-		// If pageId provided, verify user has permission to post as this page
-		if (pageId) {
-			const allowed = await canPostAsPage(ctx.userId, pageId);
-			if (!allowed) {
-				return badRequest("You don't have permission to post as this page");
-			}
-		}
-
-		// Verify event exists if provided
-		if (eventId) {
-			const event = await prisma.event.findUnique({
-				where: { id: eventId },
-				select: { userId: true },
-			});
-			if (!event) {
-				return badRequest("Event not found");
-			}
-			if (event.userId !== ctx.userId) {
-				return badRequest("Cannot create post for an event you don't own");
-			}
-		}
-
-		// If parentPostId provided, verify parent exists, has no parent itself (one-level deep),
-		// and that the caller may post an update on it (author, or a manager of the parent's page).
-		if (parentPostId) {
-			const parentPost = await prisma.post.findUnique({
-				where: { id: parentPostId },
-				select: { id: true, parentPostId: true, userId: true, pageId: true },
-			});
-			if (!parentPost) {
-				return badRequest("Parent post not found");
-			}
-			if (parentPost.parentPostId) {
-				return badRequest("Cannot nest posts more than one level deep");
-			}
-			const parentOwned = parentPost.pageId
-				? await canPostAsPage(ctx.userId, parentPost.pageId)
-				: parentPost.userId === ctx.userId;
-			if (!parentOwned) {
-				return badRequest("You can only add updates to your own posts");
-			}
-		}
-
-		// Process tags
+		// Normalize tags (accept comma-string or array) before handing to the util.
 		let processedTags: string[] = [];
 		if (tags) {
 			if (typeof tags === "string") {
@@ -228,24 +184,24 @@ export async function POST(request: Request) {
 			}
 		}
 
-		const post = await prisma.post.create({
-			data: {
-				userId: ctx.userId,
-				content: content?.trim() || "",
-				title: title?.trim() || null,
+		let post;
+		try {
+			post = await createPost(ctx.userId, {
+				content,
+				title,
 				pageId: pageId || null,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
-				// Inherit visibility from the parent (page → event → parentPost → user) so an
-				// update to a PRIVATE/UNLISTED parent is never born LISTED (findings — content
-				// is derived, never client-set).
-				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null, eventId || null, parentPostId || null),
-				...(isDraft ? { status: "DRAFT" } : {}),
-			},
-			select: postWithUserFields,
-		});
+				isDraft: !!isDraft,
+			});
+		} catch (err) {
+			if (err instanceof PostInputError) {
+				return badRequest(err.message);
+			}
+			throw err;
+		}
 
 		logAction("post.created", ctx.userId, {
 			postId: post.id,

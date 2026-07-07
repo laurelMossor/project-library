@@ -6,6 +6,7 @@ import {
   validateMessageContent,
   validatePostData,
   validateEventData,
+  validateEventPublishable,
   validatePageData,
 } from "@/lib/validations";
 import { generateHandle } from "@/lib/utils/handle";
@@ -258,13 +259,13 @@ describe("validateEventData", () => {
     })).toMatchObject({ valid: false });
   });
 
-  test("rejects missing location", () => {
+  test("accepts a missing location (optional — Partiful-style)", () => {
     expect(validateEventData({
       title: "Event",
       content: "Details",
       eventDateTime: futureDate,
       location: "",
-    })).toMatchObject({ valid: false });
+    })).toEqual({ valid: true });
   });
 
   test("rejects title over 150 characters", () => {
@@ -284,6 +285,38 @@ describe("validateEventData", () => {
       eventDateTime: futureDate,
       location: "Portland, OR",
       tags,
+    })).toMatchObject({ valid: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateEventPublishable (INV-10 — DRAFT→PUBLISHED gate)
+// ---------------------------------------------------------------------------
+
+describe("validateEventPublishable", () => {
+  const futureDate = new Date(Date.now() + 86_400_000);
+
+  test("accepts a complete event (same bar as create)", () => {
+    expect(validateEventPublishable({
+      title: "Ready", content: "Details", eventDateTime: futureDate, location: "Portland, OR",
+    })).toEqual({ valid: true });
+  });
+
+  test("accepts a location-less event (title + content + future date is enough)", () => {
+    expect(validateEventPublishable({
+      title: "Ready", content: "Details", eventDateTime: futureDate, location: "",
+    })).toEqual({ valid: true });
+  });
+
+  test("rejects an empty draft being published (blank title + content)", () => {
+    expect(validateEventPublishable({
+      title: "", content: "", eventDateTime: new Date(0), location: "",
+    })).toMatchObject({ valid: false });
+  });
+
+  test("rejects publishing an event whose date has lapsed", () => {
+    expect(validateEventPublishable({
+      title: "Stale", content: "Details", eventDateTime: new Date(2000, 1, 1), location: "Portland, OR",
     })).toMatchObject({ valid: false });
   });
 });

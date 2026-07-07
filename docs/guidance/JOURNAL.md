@@ -11,6 +11,15 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Mon 07/06/2026 20:01 PDT
+Ran `/prolib-review` on `schema-invariant-fixes` with three adversarial Fable agents on the cascade, the migrations, and the createPost refactor. No blocking bugs — all three traced clean. Fixed the minor findings: a reply now derives its visibility from its parent post rather than the page, and the CHECK-constraints migration gained a pre-deploy handle-collision preflight plus a corrected comment. Added route tests for the PATCH re-parent wiring. Filed the pre-existing event-update composer question as a ticket. Also tightened the review skill so scope answers no longer read as edit approval.
+
+#### Entry: Mon 07/06/2026 19:33 PDT
+Audited the three `/prolib-*` skills and de-staled them. The worst rot was in `/prolib-review`, written before the 07-03 visibility rewrite. It still described the old single `Visibility` enum and named helpers that no longer exist. Rewrote its invariants for the two-field model and made it defer to `docs/VISIBILITY_RULES.md` instead of duplicating the contract. Also killed a dead escalation instruction and the stale "run validate" rule, since CI runs validate on every PR.
+
+#### Entry: Mon 07/06/2026 19:25 PDT
+Audited schema-invariant enforcement on `schema-invariant-fixes`, then landed the fixes. The core finding was that five "DB CHECK" comments described constraints that were never migrated, so those invariants held only by memory. Added the seven missing CHECK constraints and closed a live hole where a profile-element update could reassign ownership. Converged post creation onto one guarded `createPost` and made replies inherit their parent's page, which also fixes the visibility cascade missing them. 265 unit green and all fixes verified live.
+
 #### Entry: Sun 07/05/2026 21:33 PDT
 `/prolib-review` of `visibility-audit` plus the agreed remediation. The findings were edge-cases of a sound model, not a broken one. Renamed the per-item column to `contentVisibility` and centralized the draft/view gate into `requireViewableEvent`/`requireViewablePost`, so re-parenting re-derives, page co-managers see drafts, and unviewable content 404s. Added the guard that a PRIVATE profile can't have LISTED content, scoped messaging to the active identity, and dropped the deprecated column last. 247 unit and 50 E2E green. 
 

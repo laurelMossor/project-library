@@ -143,8 +143,8 @@ export async function updateUserProfile(
  * single SQL transaction at the driver layer, satisfying PR 2's invariant
  * that User and Handle either both exist or neither does.
  *
- * Caller is responsible for:
- *   - Lowercasing `handle` (per PR 2 normalization rule).
+ * The handle is lowercased here (the canonical storage form — INV-7), so callers
+ * cannot accidentally persist mixed case. Caller is still responsible for:
  *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first.
  *
  * If a concurrent registration claims the handle between the pre-check and
@@ -164,18 +164,23 @@ export async function createUser(data: {
 }): Promise<{ userId: string }> {
 	const names = [data.firstName, data.lastName].filter(Boolean).join(" ");
 	const displayName = data.displayName ?? (names || null);
+	// Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
+	const handle = data.handle.toLowerCase();
 
 	const user = await prisma.user.create({
 		data: {
 			email: data.email,
-			handle: data.handle,
+			handle,
 			passwordHash: data.passwordHash,
 			firstName: data.firstName ?? null,
 			middleName: data.middleName ?? null,
 			lastName: data.lastName ?? null,
 			displayName,
 			emailVerified: data.emailVerified ?? null,
-			handleRecord: { create: { handle: data.handle } },
+			// New accounts default to open distribution; explicit since the column no longer
+			// carries a DB default (a forgotten derivation must fail at compile time, not fall to LISTED).
+			contentVisibility: "LISTED",
+			handleRecord: { create: { handle } },
 		},
 		select: { id: true },
 	});
