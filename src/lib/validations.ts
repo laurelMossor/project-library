@@ -323,6 +323,17 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 	return { valid: true };
 }
 
+/**
+ * Gate the DRAFT→PUBLISHED transition (INV-10): a published event must have the same
+ * non-empty title/content/location + valid future date that a directly-created event
+ * requires. Callers merge the stored row with the incoming patch and pass the result, so a
+ * draft that was created empty cannot be flipped to PUBLISHED without those fields being set.
+ * Delegates to validateEventData so the publish bar and the create bar never diverge.
+ */
+export function validateEventPublishable(merged: EventCreateInput): { valid: boolean; error?: string } {
+	return validateEventData(merged);
+}
+
 // RSVP validation utilities
 
 const VALID_RSVP_STATUSES = ["GOING", "MAYBE", "CANT_MAKE_IT"] as const;
