@@ -46,8 +46,8 @@ export type ConsumeInviteResult =
  * Validates invite token, marks it used, and creates the user (with
  * companion Handle row) in one transaction.
  *
- * Caller is responsible for:
- *   - Lowercasing `handle` (per PR 2 normalization rule).
+ * The handle is lowercased here (canonical storage form — INV-7). Caller is still
+ * responsible for:
  *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first
  *     (the `isHandleTaken` check is a UX pre-check; the DB unique constraint
  *     on `handles.handle` is the actual guarantee).
@@ -65,6 +65,8 @@ export async function consumeInviteAndCreateUser(args: {
 	rawInviteToken: string;
 }): Promise<ConsumeInviteResult> {
 	const tokenHash = hashInviteToken(args.rawInviteToken);
+	// Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
+	const handle = args.handle.toLowerCase();
 
 	try {
 		return await prisma.$transaction(async (tx) => {
@@ -102,7 +104,7 @@ export async function consumeInviteAndCreateUser(args: {
 			const user = await tx.user.create({
 				data: {
 					email: args.normalizedEmail,
-					handle: args.handle,
+					handle,
 					passwordHash: args.passwordHash,
 					firstName: null,
 					middleName: null,
@@ -110,7 +112,7 @@ export async function consumeInviteAndCreateUser(args: {
 					// New accounts default to open distribution; explicit since the column no longer
 					// carries a DB default.
 					contentVisibility: "LISTED",
-					handleRecord: { create: { handle: args.handle } },
+					handleRecord: { create: { handle } },
 				},
 				select: { id: true },
 			});

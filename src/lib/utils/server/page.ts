@@ -92,8 +92,8 @@ export async function updatePageProfile(
  *   1. Page (with nested `handleRecord: { create }` — atomic at driver layer)
  *   2. Permission (creator gets ADMIN role for the new page)
  *
- * Caller is responsible for:
- *   - Lowercasing `handle` (per PR 2 normalization rule).
+ * The handle is lowercased here (canonical storage form — INV-7). Caller is still
+ * responsible for:
  *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first.
  *
  * Race condition handling: if a concurrent caller wins the handle between
@@ -111,12 +111,14 @@ export async function createPage(
     location?: string;
   }
 ) {
+  // Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
+  const handle = data.handle.toLowerCase();
   return prisma.$transaction(async (tx) => {
     const page = await tx.page.create({
       data: {
         createdByUserId: userId,
         name: data.name.trim(),
-        handle: data.handle,
+        handle,
         headline: data.headline?.trim() || null,
         bio: data.bio?.trim() || null,
         interests: data.interests || [],
@@ -124,7 +126,7 @@ export async function createPage(
         // New pages default to open distribution; explicit since the column no longer
         // carries a DB default.
         contentVisibility: "LISTED",
-        handleRecord: { create: { handle: data.handle } },
+        handleRecord: { create: { handle } },
       },
       select: publicPageFields,
     });
