@@ -12,6 +12,12 @@
 -- Every cleanup is a no-op on healthy rows. ADD CONSTRAINT ... CHECK takes an ACCESS EXCLUSIVE
 -- lock and scans the table; tables are small at this stage. If that changes, split into
 -- ADD CONSTRAINT ... NOT VALID + VALIDATE CONSTRAINT.
+--
+-- PRE-DEPLOY PREFLIGHT (run read-only against prod before releasing this migration):
+--   SELECT handle FROM handles WHERE handle <> lower(handle);
+-- For each result, check for a case-insensitive twin. If any exists, the handles cleanup below
+-- will deliberately fail this migration mid-deploy (see that section) — resolve the collisions
+-- by hand first. Zero rows returned → this migration applies cleanly.
 
 -- ── posts: an event update XOR a reply, never both (INV-1) ──
 -- Cleanup: a row with both is a bug/exploit artifact; keep the reply edge (threading is
@@ -46,8 +52,14 @@ ALTER TABLE "profile_elements" ADD CONSTRAINT "profile_elements_one_owner"
 -- ── handles: exactly one owner + always lowercase (INV-7) ──
 -- Cleanup: orphan rows (no owner) are dead URLs — delete; both-set keeps the user (mirrors
 -- profile_elements). Lowercase only where doing so does NOT collide with an existing row; a
--- genuine collision must fail this migration loudly (the CHECK below rejects the leftover
--- mixed-case row) rather than silently dropping someone's URL.
+-- genuine collision must fail this migration loudly rather than silently drop someone's URL.
+-- Two collision shapes, both abort the transaction (full rollback, no partial state):
+--   * "Foo" alongside an existing "foo": the NOT EXISTS guard skips "Foo"; the leftover
+--     mixed-case row then fails the handles_lowercase CHECK below.
+--   * "Foo" and "FOO" with no "foo": the case-sensitive NOT EXISTS clears both, the UPDATE
+--     tries to set both to "foo", and the second hits a unique violation on handles_handle_key
+--     — i.e. this shape aborts at the UPDATE, not at the CHECK.
+-- Run the pre-deploy preflight in the header to detect either shape before releasing.
 DELETE FROM "handles" WHERE "userId" IS NULL AND "pageId" IS NULL;
 UPDATE "handles" SET "pageId" = NULL WHERE "userId" IS NOT NULL AND "pageId" IS NOT NULL;
 UPDATE "handles" h

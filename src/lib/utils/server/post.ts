@@ -193,7 +193,13 @@ export async function createPost(
 		}
 	}
 
-	const contentVisibility = await resolveParentVisibility(userId, effectivePageId, data.eventId, data.parentPostId);
+	// A reply inherits its PARENT POST's visibility, not the page's — this matches what
+	// syncDescendantVisibility("POST", ...) writes on a re-parent, and stays correct if a
+	// future per-item override ever lets a post's visibility diverge from its page. For
+	// non-replies, derive from the (effective) page → event → user chain as usual.
+	const contentVisibility = data.parentPostId
+		? await resolveParentVisibility(userId, null, null, data.parentPostId)
+		: await resolveParentVisibility(userId, effectivePageId, data.eventId, null);
 
 	const post = await prisma.post.create({
 		data: {

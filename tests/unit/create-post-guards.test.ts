@@ -20,6 +20,7 @@ vi.mock("@/lib/utils/server/visibility", () => ({
 import { createPost, PostInputError } from "@/lib/utils/server/post";
 import { prisma } from "@/lib/utils/server/prisma";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { resolveParentVisibility } from "@/lib/utils/server/visibility";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -67,6 +68,16 @@ describe("createPost guards", () => {
     expect(prisma.post.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ pageId: "page-parent" }) })
     );
+  });
+
+  test("a reply derives visibility from its PARENT POST, not the page (matches the cascade)", async () => {
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({
+      id: "p1", parentPostId: null, userId: "u1", pageId: "page-parent",
+    } as never);
+    await createPost("u1", { content: "x", parentPostId: "p1" });
+    // The parentPost branch must win — pageId/eventId are passed null so the parent post's
+    // own stored visibility is inherited, even though the reply is written with the page's id.
+    expect(resolveParentVisibility).toHaveBeenCalledWith("u1", null, null, "p1");
   });
 
   test("rejects an event update on an event the user does not own", async () => {
