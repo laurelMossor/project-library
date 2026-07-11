@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sat 07/11/2026 12:55 PDT
+Reviewed and hardened the `health-check` branch, then brought it current. `/prolib-review` surfaced three findings on the new `/api/health` endpoint. The 503 body no longer leaks raw errors to anonymous callers, `migrate deploy` is now guarded to production builds only, and the endpoint is rate-limited. Rebased onto `develop` to pick up the visibility rework, then reset the local DB to clear the schema drift that was failing e2e. All validate stages pass green. Live blocker unchanged: the Netwerk stack still needs a deliberate expand/contract prod migration before `develop` merges to `main`.
+
 #### Entry: Mon 07/06/2026 20:01 PDT
 Ran `/prolib-review` on `schema-invariant-fixes` with three adversarial Fable agents on the cascade, the migrations, and the createPost refactor. No blocking bugs — all three traced clean. Fixed the minor findings: a reply now derives its visibility from its parent post rather than the page, and the CHECK-constraints migration gained a pre-deploy handle-collision preflight plus a corrected comment. Added route tests for the PATCH re-parent wiring. Filed the pre-existing event-update composer question as a ticket. Also tightened the review skill so scope answers no longer read as edit approval.
 
