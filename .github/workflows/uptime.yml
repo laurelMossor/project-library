@@ -1,0 +1,48 @@
+# Uptime monitor for The Project Library.
+#
+# Pings the production health endpoint on a schedule. If the site (or the DB / the
+# collections read path it exercises) is down, this job fails — and GitHub emails the
+# author of this workflow file automatically. This is the cheap, no-extra-account
+# alternative to a dedicated uptime service.
+#
+# To receive the failure emails: GitHub → Settings → Notifications → Actions → email.
+#
+# Caveats:
+#  - Scheduled runs can be delayed under GitHub load; treat this as "within ~15-30 min"
+#    detection, not real-time.
+#  - GitHub auto-disables scheduled workflows after 60 days of no repo activity.
+name: Uptime
+
+on:
+  schedule:
+    # Every 15 minutes. Keeps well within free Actions minutes and avoids the 5-min cliff.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {} # allow manual runs for testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HEALTH_URL: "https://theprojectlibrary.com/api/health"
+    steps:
+      - name: Ping health endpoint
+        run: |
+          echo "Pinging $HEALTH_URL"
+          # --fail: non-2xx exits non-zero. --retry: ride out a single transient blip.
+          body=$(curl --fail --show-error --silent \
+                      --retry 2 --retry-delay 5 --max-time 20 \
+                      "$HEALTH_URL")
+          status=$?
+          echo "Response body: $body"
+          if [ $status -ne 0 ]; then
+            echo "::error::Health check request failed (curl exit $status) for $HEALTH_URL"
+            exit 1
+          fi
+          # Second assertion: the endpoint can return 200 only when healthy, but guard
+          # against an unexpected 200 that isn't actually "ok".
+          if ! echo "$body" | grep -q '"status":"ok"'; then
+            echo "::error::Health endpoint did not report status:ok — $body"
+            exit 1
+          fi
+          echo "Health check passed."

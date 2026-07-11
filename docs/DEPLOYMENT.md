@@ -29,10 +29,10 @@ must exist before that build serves traffic.**
      uses it. Never drop-and-deploy in one step.
 3. **Commit the migration files** (`prisma/migrations/**`) together with the code
    that depends on them, and merge to `main` (CI must be green — see below).
-4. **Deploy.** With the recommended automation (next section), the Vercel build
-   runs `prisma migrate deploy` **before** it builds/serves, so the schema is
-   always in place first. If you deploy *without* that automation, run the
-   migration **before** promoting the new code:
+4. **Deploy.** The Vercel build runs `prisma migrate deploy` **before** it
+   builds/serves (see "Automated" section below), so the schema is always in place
+   first. If you ever deploy outside that pipeline, run the migration **before**
+   promoting the new code:
    ```bash
    npm run db:migrate:deploy   # applies pending migrations to prod (.env.production)
    ```
@@ -54,28 +54,76 @@ deploy:
    ```
 - [ ] Skim the Vercel runtime logs for a burst of 500s right after the deploy.
 
-> **Worth doing once:** wire up uptime + error alerting (e.g. a Vercel log drain,
-> Sentry, or a simple uptime pinger) so a broken deploy pages *you* instead of
-> waiting to be discovered. This is the real fix for the silent-outage class.
+> Uptime alerting is now automated (see **Monitoring** below), so a broken deploy
+> pages you instead of waiting to be discovered — but the manual post-deploy glance
+> above is still worth 30 seconds.
 
 ---
 
-## Recommended: automate `migrate deploy` in the build
+## Monitoring (uptime + health)
 
-This removes the "I forgot to run migrations" failure mode entirely — the build
-applies pending migrations before it serves. In `package.json`:
+The silent-outage class (site up, but content/DB broken — as on 04/19) is now
+covered without any third-party account:
+
+- **Health endpoint — `GET /api/health`** ([src/app/api/health/route.ts](../src/app/api/health/route.ts)).
+  Public, uncached. Runs the **real** read paths, not just connectivity: a
+  `SELECT 1` gate, then the actual Post/Event collection queries (same selects as
+  `/explore`) and a User/auth-data query, plus a required-env presence check.
+  Returns `200 {"status":"ok", checks:{…}}` when all pass, `503` otherwise. Because
+  it exercises the live schema, a missing/renamed column (the 04/19 failure mode)
+  surfaces as a 503 — a bare `SELECT 1` would not have caught it.
+  - Deliberately *excluded* (side-effectful/peripheral): real login, sending a test
+    email, image storage / map tiles. Add a separate "deep" check later if wanted.
+
+- **Uptime pinger — `.github/workflows/uptime.yml`.** A scheduled GitHub Actions
+  job curls `https://theprojectlibrary.com/api/health` every ~15 min (plus manual
+  `workflow_dispatch`). If it doesn't get `200` + `"status":"ok"`, the run fails and
+  GitHub emails the workflow author.
+  - **You must enable the email:** GitHub → Settings → Notifications → Actions →
+    email. Without it, a failed run is silent.
+  - Caveats: scheduled runs can lag under GitHub load (treat as ~15–30 min
+    detection); GitHub auto-disables the schedule after 60 days of repo inactivity.
+
+- **Error tracking (individual 4xx/5xx anomalies)** is *not* wired up yet — see the
+  deferred "Anomaly / error reporting for 400s/500s" ticket. Until then, Vercel
+  runtime logs capture 500s if you need to dig in.
+
+---
+
+## Automated: `migrate deploy` runs in the build ✅ (implemented)
+
+This removes the "I forgot to run migrations" failure mode entirely — the Vercel
+**production** build applies pending migrations before it serves. The `package.json`
+build script is now:
 
 ```json
 {
   "scripts": {
-    "build": "prisma generate && prisma migrate deploy && next build"
+    "build": "prisma generate && npm run build:migrate && next build",
+    "build:migrate": "sh -c 'if [ \"$VERCEL_ENV\" = production ]; then npx prisma migrate deploy; else echo \"Skipping migrate deploy (VERCEL_ENV=${VERCEL_ENV:-unset})\"; fi'"
   }
 }
 ```
 
-Trade-off: every deploy now runs `migrate deploy`. That's exactly what you want
-for additive migrations. For a **destructive** migration, follow the two-deploy
-expand/contract pattern above so an automated apply is still safe.
+**Production-only by design.** The guard keys on `VERCEL_ENV` (`production` |
+`preview` | `development`) — *not* `NODE_ENV`, which Vercel sets to `production` for
+preview builds too. So only production builds run `migrate deploy`; preview/branch and
+local builds print a skip line and continue straight to `next build`. This makes it
+impossible for a preview build to mutate a database schema — fail-safe by construction,
+independent of how each environment's `DATABASE_URL`/`DIRECT_URL` is scoped.
+
+Requires `DIRECT_URL` to be set in the Vercel project env vars (it is). If the
+migration fails on a production build, `sh` exits non-zero, the `&&` chain breaks, the
+build fails, and the **old** deploy keeps serving — a safe, fail-closed outcome.
+
+Trade-offs:
+- Every **production** deploy runs `migrate deploy`. That's exactly what you want for
+  additive migrations. For a **destructive** migration, follow the two-deploy
+  expand/contract pattern above so an automated apply is still safe.
+- **Preview builds do *not* auto-apply migrations.** A schema change reaches a live DB
+  only via a deliberate production deploy (or a manual `npm run db:migrate:deploy`). If
+  you ever need a preview to exercise a brand-new migration, apply it to that preview's
+  DB by hand.
 
 ---
 
