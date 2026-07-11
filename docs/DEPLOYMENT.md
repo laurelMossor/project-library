@@ -93,24 +93,37 @@ covered without any third-party account:
 ## Automated: `migrate deploy` runs in the build ✅ (implemented)
 
 This removes the "I forgot to run migrations" failure mode entirely — the Vercel
-build applies pending migrations before it serves. The `package.json` build script
-is now:
+**production** build applies pending migrations before it serves. The `package.json`
+build script is now:
 
 ```json
 {
   "scripts": {
-    "build": "prisma generate && prisma migrate deploy && next build"
+    "build": "prisma generate && npm run build:migrate && next build",
+    "build:migrate": "sh -c 'if [ \"$VERCEL_ENV\" = production ]; then npx prisma migrate deploy; else echo \"Skipping migrate deploy (VERCEL_ENV=${VERCEL_ENV:-unset})\"; fi'"
   }
 }
 ```
 
-Requires `DIRECT_URL` to be set in the Vercel project env vars (it is). If the
-migration fails, the build fails and the **old** deploy keeps serving — a safe,
-fail-closed outcome.
+**Production-only by design.** The guard keys on `VERCEL_ENV` (`production` |
+`preview` | `development`) — *not* `NODE_ENV`, which Vercel sets to `production` for
+preview builds too. So only production builds run `migrate deploy`; preview/branch and
+local builds print a skip line and continue straight to `next build`. This makes it
+impossible for a preview build to mutate a database schema — fail-safe by construction,
+independent of how each environment's `DATABASE_URL`/`DIRECT_URL` is scoped.
 
-Trade-off: every deploy now runs `migrate deploy`. That's exactly what you want
-for additive migrations. For a **destructive** migration, follow the two-deploy
-expand/contract pattern above so an automated apply is still safe.
+Requires `DIRECT_URL` to be set in the Vercel project env vars (it is). If the
+migration fails on a production build, `sh` exits non-zero, the `&&` chain breaks, the
+build fails, and the **old** deploy keeps serving — a safe, fail-closed outcome.
+
+Trade-offs:
+- Every **production** deploy runs `migrate deploy`. That's exactly what you want for
+  additive migrations. For a **destructive** migration, follow the two-deploy
+  expand/contract pattern above so an automated apply is still safe.
+- **Preview builds do *not* auto-apply migrations.** A schema change reaches a live DB
+  only via a deliberate production deploy (or a manual `npm run db:migrate:deploy`). If
+  you ever need a preview to exercise a brand-new migration, apply it to that preview's
+  DB by hand.
 
 ---
 

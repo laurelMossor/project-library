@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { postCollectionFields, eventCollectionFields } from "@/lib/utils/server/fields";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 
 // Never cache — a stale health check is useless. Every request re-runs the probes live.
 export const dynamic = "force-dynamic";
@@ -20,7 +21,15 @@ const REQUIRED_ENV = ["AUTH_SECRET", "DATABASE_URL", "DIRECT_URL"] as const;
  * exist). No session/login is created, so this never touches `logAction` or the rate
  * limiter. Returns 200 when everything passes, 503 otherwise.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  // Throttle first, before any DB work — a flood should never reach the probes.
+  // 60/min per IP is generous: never trips the 15-min pinger or normal monitors.
+  const limited = await enforceRateLimit(request, "health", {
+    maxRequests: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
   const checks = {
     config: false,
     db: false,
@@ -61,12 +70,19 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    // Full detail goes to the server log (Vercel) only. The response stays generic —
+    // this endpoint is public, and Prisma messages leak column/table names. The `checks`
+    // object above already tells an operator which probe failed. Raw message is included
+    // only in non-prod to keep local debugging convenient.
     console.error("GET /api/health error:", error);
     return NextResponse.json(
       {
         status: "error",
         checks,
-        error: error instanceof Error ? error.message : "unknown error",
+        error: "Health check failed",
+        ...(process.env.NODE_ENV !== "production" && {
+          detail: error instanceof Error ? error.message : "unknown error",
+        }),
       },
       { status: 503 }
     );
