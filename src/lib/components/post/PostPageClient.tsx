@@ -15,7 +15,10 @@ import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfil
 import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { Tag } from "@/lib/components/tag/Tag";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
+import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { CommentSection } from "@/lib/components/comment/CommentSection";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { updatePost, deletePost } from "@/lib/utils/post-client";
 import { AuthError } from "@/lib/utils/auth-client";
@@ -196,7 +199,7 @@ function PostPageContent({
 						{isLoggedIn && !isOwner && (
 							<Link
 								href={MESSAGE_CONVERSATION({ id: post.userId, type: "user" })}
-								className="px-3 py-1 text-sm font-medium border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+								className="px-3 py-1 text-sm font-medium border border-soft-grey rounded-full hover:bg-grey-white transition-colors"
 							>
 								Message
 							</Link>
@@ -215,13 +218,16 @@ function PostPageContent({
 					isEditing={editingField === "content"}
 					onEditStart={() => setEditingField("content")}
 					onCancel={() => setEditingField(null)}
-					displayContent={
-						<div className={`p-3 rounded-lg min-h-[10rem] ${!(content as string) ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
+					displayContent={(() => {
+						const body = (
 							<InlinePlaceholder value={content as string} placeholder="What are you working on or thinking about?">
-								<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{content as string}</p>
+								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap">{content as string}</p>
 							</InlinePlaceholder>
-						</div>
-					}
+						);
+						return (content as string)
+							? <div className="p-3 rounded-lg min-h-[10rem]">{body}</div>
+							: <DashedPlaceholder className="p-3 min-h-[10rem]">{body}</DashedPlaceholder>;
+					})()}
 					editContent={
 						<textarea
 							value={(content as string) || ""}
@@ -229,7 +235,7 @@ function PostPageContent({
 							placeholder="What are you working on or thinking about?"
 							rows={8}
 							maxLength={10000}
-							className="w-full text-base leading-relaxed text-gray-700 border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
+							className="w-full text-base leading-relaxed text-warm-grey border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
 							autoFocus
 						/>
 					}
@@ -268,7 +274,7 @@ function PostPageContent({
 
 				{/* Footer actions */}
 				{isOwner && (
-					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
+					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-soft-grey">
 						<DeleteConfirmButton
 							label="Delete Post"
 							itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
@@ -286,7 +292,7 @@ function PostPageContent({
 							<button
 								type="button"
 								onClick={() => setIsEditing(true)}
-								className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-rich-brown transition-colors cursor-pointer"
+								className="flex items-center gap-1.5 text-sm font-medium text-misty-forest hover:text-rich-brown transition-colors cursor-pointer"
 							>
 								<PencilIcon className="w-3.5 h-3.5" />
 								Edit
@@ -317,36 +323,51 @@ export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn 
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
 	const isDraft = post.status === "DRAFT";
+	const isPublished = post.status === "PUBLISHED";
 
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-misty-forest hover:text-rich-brown hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>
-			<InlineEditSession
-				resource={post as unknown as Record<string, unknown>}
-				onSave={async ({ fields }) => {
-					const updated = await updatePost(post.id, fields as Parameters<typeof updatePost>[1]);
-					setPost((prev) => ({ ...prev, ...updated }));
-					return updated as unknown as Record<string, unknown>;
-				}}
-				onSaved={(updated) => {
-					setPost((prev) => ({ ...prev, ...(updated as Partial<PostItem>) }));
-				}}
-				canEdit={isOwner}
-				publishable={isOwner && isDraft}
-				canPublish={(current) => Boolean((current.content as string)?.trim())}
-				publishHint="Add some content to publish"
-			>
-				<PostPageContent
-					post={post}
-					setPost={setPost}
-					images={images}
-					isOwner={isOwner}
+			<ContentCard>
+				<InlineEditSession
+					resource={post as unknown as Record<string, unknown>}
+					onSave={async ({ fields }) => {
+						const updated = await updatePost(post.id, fields as Parameters<typeof updatePost>[1]);
+						setPost((prev) => ({ ...prev, ...updated }));
+						return updated as unknown as Record<string, unknown>;
+					}}
+					onSaved={(updated) => {
+						setPost((prev) => ({ ...prev, ...(updated as Partial<PostItem>) }));
+					}}
+					canEdit={isOwner}
+					publishable={isOwner && isDraft}
+					canPublish={(current) => Boolean((current.content as string)?.trim())}
+					publishHint="Add some content to publish"
+				>
+					<PostPageContent
+						post={post}
+						setPost={setPost}
+						images={images}
+						isOwner={isOwner}
+						isLoggedIn={isLoggedIn}
+					/>
+				</InlineEditSession>
+			</ContentCard>
+
+			{/* Comments live below the post, in their own card. Published posts only —
+			    a draft is visible only to its owner and can't yet be commented on. */}
+			{isPublished && (
+				<CommentSection
+					target={{ kind: "post", id: post.id }}
+					ownerUserId={post.userId}
+					ownerPageId={post.pageId}
+					isContentOwner={isOwner}
 					isLoggedIn={isLoggedIn}
 				/>
-			</InlineEditSession>
+			)}
 		</PostPageShell>
 	);
 }

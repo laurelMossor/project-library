@@ -28,7 +28,10 @@ import { PencilIcon } from "@/lib/components/icons/icons";
 import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
+import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { CommentSection } from "@/lib/components/comment/CommentSection";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { RsvpStatus } from "@/lib/types/rsvp";
@@ -227,7 +230,7 @@ function EventPageContent({
 						{isLoggedIn && !isOwner && (
 							<Link
 								href={MESSAGE_CONVERSATION({ id: event.userId, type: "user" })}
-								className="px-3 py-1 text-sm font-medium border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+								className="px-3 py-1 text-sm font-medium border border-soft-grey rounded-full hover:bg-grey-white transition-colors"
 							>
 								Message
 							</Link>
@@ -246,13 +249,16 @@ function EventPageContent({
 					isEditing={editingField === "content"}
 					onEditStart={() => setEditingField("content")}
 					onCancel={() => setEditingField(null)}
-					displayContent={
-						<div className={`p-3 rounded-lg min-h-[10rem] ${!(content as string) ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
+					displayContent={(() => {
+						const body = (
 							<InlinePlaceholder value={content as string} placeholder="What should people know?">
-								<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{content as string}</p>
+								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap">{content as string}</p>
 							</InlinePlaceholder>
-						</div>
-					}
+						);
+						return (content as string)
+							? <div className="p-3 rounded-lg min-h-[10rem]">{body}</div>
+							: <DashedPlaceholder className="p-3 min-h-[10rem]">{body}</DashedPlaceholder>;
+					})()}
 					editContent={
 						<textarea
 							value={(content as string) || ""}
@@ -260,7 +266,7 @@ function EventPageContent({
 							placeholder="What should people know?"
 							rows={6}
 							maxLength={5000}
-							className="w-full text-base leading-relaxed text-gray-700 border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
+							className="w-full text-base leading-relaxed text-warm-grey border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
 							autoFocus
 						/>
 					}
@@ -274,8 +280,8 @@ function EventPageContent({
 					onCancel={() => setEditingField(null)}
 					displayContent={
 						<div className="space-y-3">
-							<div className="rounded-xl border border-gray-200 p-4">
-								<p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Location</p>
+							<div className="rounded-xl border border-soft-grey p-4">
+								<p className="text-xs font-semibold uppercase tracking-wider text-misty-forest mb-1">Location</p>
 								<InlinePlaceholder value={locationDisplay as string | null} placeholder={isOwner ? "Add a location" : "TBD"}>
 									<p className="text-lg font-medium text-rich-brown">{locationDisplay as string}</p>
 								</InlinePlaceholder>
@@ -352,7 +358,7 @@ function EventPageContent({
 
 				{/* Footer actions */}
 				{isOwner && (
-					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
+					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-soft-grey">
 						<DeleteConfirmButton
 							label="Delete Event"
 							itemTitle={event.title || "Untitled Event"}
@@ -370,7 +376,7 @@ function EventPageContent({
 							<button
 								type="button"
 								onClick={() => setIsEditing(true)}
-								className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-rich-brown transition-colors cursor-pointer"
+								className="flex items-center gap-1.5 text-sm font-medium text-misty-forest hover:text-rich-brown transition-colors cursor-pointer"
 							>
 								<PencilIcon className="w-3.5 h-3.5" />
 								Edit
@@ -442,38 +448,53 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 		};
 	}, [event.id]);
 
+	const isPublished = event.status === "PUBLISHED";
+
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-misty-forest hover:text-rich-brown hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>
-			<InlineEditSession
-				resource={event as unknown as Record<string, unknown>}
-				onSave={async ({ fields }: SavePayload) => {
-					const updated = await updateEvent(event.id, fields as Parameters<typeof updateEvent>[1]);
-					setEvent((prev) => ({ ...prev, ...updated }));
-					return updated as unknown as Record<string, unknown>;
-				}}
-				onSaved={(updated) => {
-					setEvent((prev) => ({ ...prev, ...(updated as Partial<EventItem>) }));
-				}}
-				onCommitFiles={handleCommitFiles as (files: Record<string, File>) => Promise<Partial<Record<string, unknown>> | void>}
-				canEdit={isOwner}
-				publishable={isOwner && isDraft}
-				canPublish={(current) => Boolean((current.title as string)?.trim())}
-				publishHint="Add an event name to publish"
-			>
-				<EventPageContent
-					event={event}
-					setEvent={setEvent}
-					isOwner={isOwner}
+			<ContentCard>
+				<InlineEditSession
+					resource={event as unknown as Record<string, unknown>}
+					onSave={async ({ fields }: SavePayload) => {
+						const updated = await updateEvent(event.id, fields as Parameters<typeof updateEvent>[1]);
+						setEvent((prev) => ({ ...prev, ...updated }));
+						return updated as unknown as Record<string, unknown>;
+					}}
+					onSaved={(updated) => {
+						setEvent((prev) => ({ ...prev, ...(updated as Partial<EventItem>) }));
+					}}
+					onCommitFiles={handleCommitFiles as (files: Record<string, File>) => Promise<Partial<Record<string, unknown>> | void>}
+					canEdit={isOwner}
+					publishable={isOwner && isDraft}
+					canPublish={(current) => Boolean((current.title as string)?.trim())}
+					publishHint="Add an event name to publish"
+				>
+					<EventPageContent
+						event={event}
+						setEvent={setEvent}
+						isOwner={isOwner}
+						isLoggedIn={isLoggedIn}
+						initialName={initialName}
+						initialEmail={initialEmail}
+						existingRsvpStatus={existingRsvpStatus}
+					/>
+				</InlineEditSession>
+			</ContentCard>
+
+			{/* Comments live below the event, in their own card. Published events only. */}
+			{isPublished && (
+				<CommentSection
+					target={{ kind: "event", id: event.id }}
+					ownerUserId={event.userId}
+					ownerPageId={event.pageId}
+					isContentOwner={isOwner}
 					isLoggedIn={isLoggedIn}
-					initialName={initialName}
-					initialEmail={initialEmail}
-					existingRsvpStatus={existingRsvpStatus}
 				/>
-			</InlineEditSession>
+			)}
 		</PostPageShell>
 	);
 }

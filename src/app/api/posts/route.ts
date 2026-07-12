@@ -6,7 +6,7 @@ import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { createPost, PostInputError } from "@/lib/utils/server/post";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { postCollectionFields } from "@/lib/utils/server/fields";
+import { postCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -128,8 +128,7 @@ export async function GET(request: Request) {
 			...p,
 			type: COLLECTION_TYPES.POST,
 			images: imagesMap.get(p.id) || [],
-			_count: { updates: _count.updates },
-			recentUpdate: updates[0] || null,
+			...toCollectionMeta({ _count, updates }),
 		}));
 
 		return NextResponse.json(postsWithImages);

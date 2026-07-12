@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/fields";
+import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { canPostAsPage } from "@/lib/utils/server/permission";
@@ -83,8 +83,7 @@ export async function GET(request: Request) {
 			...e,
 			type: COLLECTION_TYPES.EVENT,
 			images: imagesMap.get(e.id) || [],
-			_count: { updates: _count.updates },
-			recentUpdate: updates[0] || null,
+			...toCollectionMeta({ _count, updates }),
 		}));
 
 		return NextResponse.json(eventsWithImages);

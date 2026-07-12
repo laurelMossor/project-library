@@ -6,9 +6,7 @@ import { CollectionType } from "@/lib/types/collection";
 import { getEventPosts, getPostUpdates } from "@/lib/utils/post-client";
 import { formatDateTime } from "@/lib/utils/datetime";
 import Link from "next/link";
-import { PUBLIC_PROFILE } from "@/lib/const/routes";
-import { getUserDisplayName } from "@/lib/types/user";
-import { getCardUserInitials, getCardPageInitials } from "@/lib/types/card";
+import { resolveCardIdentity } from "@/lib/types/card";
 
 type PostsListProps = {
 	collectionId: string;
@@ -44,11 +42,11 @@ export function PostsList({
 	}, [collectionId, collectionType]);
 
 	if (loading) {
-		return <div className="text-sm text-gray-500">Loading posts...</div>;
+		return <div className="text-sm text-misty-forest">Loading posts...</div>;
 	}
 
 	if (error) {
-		return <div className="text-sm text-red-500">{error}</div>;
+		return <div className="text-sm text-novel-red">{error}</div>;
 	}
 
 	if (posts.length === 0) {
@@ -64,49 +62,31 @@ export function PostsList({
 			)}
 			<div className="space-y-4">
 				{displayPosts.map((post) => {
-					// Determine display info from user/page
-					const user = post.user;
-					const page = post.page;
-
-					const displayName = page
-						? page.name
-						: user
-						? getUserDisplayName(user)
-						: null;
-
-				const profileHref = page
-					? PUBLIC_PROFILE(page.handle)
-					: user
-					? PUBLIC_PROFILE(user.handle)
-					: "#";
-
-					const initials = page
-						? getCardPageInitials(page.name)
-						: user
-						? getCardUserInitials(user)
-						: "?";
+					// Resolve the posting identity — a page takes precedence over the author.
+					const entity = post.page ?? post.user ?? null;
+					const identity = entity ? resolveCardIdentity(entity) : null;
 
 					return (
 						<div key={post.id} className="border-l-2 border-soft-grey pl-4 py-2">
 							{/* Attribution */}
-							{displayName && (
+							{identity && (
 								<div className="flex items-center gap-2 mb-2">
 									{/* Inline avatar for posts */}
 									<Link
-										href={profileHref}
-										className="w-8 h-8 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity text-xs text-gray-600 font-medium"
+										href={identity.href}
+										className="w-8 h-8 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity text-xs text-warm-grey font-medium"
 									>
-										{initials}
+										{identity.initials}
 									</Link>
 									<div className="flex items-center gap-1">
 										<Link
-											href={profileHref}
+											href={identity.href}
 											className="text-xs text-rich-brown hover:underline font-medium"
 										>
-											{displayName}
+											{identity.name}
 										</Link>
 									</div>
-									<span className="text-xs text-gray-400">
+									<span className="text-xs text-dusty-grey">
 										{formatDateTime(post.createdAt)}
 									</span>
 								</div>
@@ -115,8 +95,8 @@ export function PostsList({
 								<h4 className="font-medium text-rich-brown mb-1">{post.title}</h4>
 							)}
 							<p className="text-sm text-warm-grey whitespace-pre-wrap">{post.content}</p>
-							{!displayName && (
-								<p className="text-xs text-gray-400 mt-1">
+							{!identity && (
+								<p className="text-xs text-dusty-grey mt-1">
 									{formatDateTime(post.createdAt)}
 								</p>
 							)}
@@ -125,7 +105,7 @@ export function PostsList({
 				})}
 			</div>
 			{maxPosts && posts.length > maxPosts && (
-				<p className="text-sm text-gray-500 mt-2">
+				<p className="text-sm text-misty-forest mt-2">
 					+{posts.length - maxPosts} more {posts.length - maxPosts === 1 ? "post" : "posts"}
 				</p>
 			)}

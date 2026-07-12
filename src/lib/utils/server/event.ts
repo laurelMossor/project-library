@@ -3,7 +3,7 @@
 
 import { prisma } from "./prisma";
 import { EventItem } from "../../types/event";
-import { eventWithUserFields, eventCollectionFields, EventFromQuery } from "./fields";
+import { eventWithUserFields, eventCollectionFields, EventFromQuery, toCollectionMeta } from "./fields";
 import { deleteImage } from "./storage";
 import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -53,8 +53,7 @@ export async function getEventsByUser(
 
 	return events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
-		_count: { updates: _count.updates },
-		recentUpdate: updates[0] || null,
+		...toCollectionMeta({ _count, updates }),
 	}));
 }
 
@@ -79,8 +78,7 @@ export async function getEventsByPage(
 
 	return events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
-		_count: { updates: _count.updates },
-		recentUpdate: updates[0] || null,
+		...toCollectionMeta({ _count, updates }),
 	}));
 }
 

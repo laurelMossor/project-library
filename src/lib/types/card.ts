@@ -5,6 +5,7 @@
 
 import { getUserDisplayName } from "./user";
 import { getUserInitials, getPageInitials } from "@/lib/utils/text";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import type { ImageItem } from "./image";
 
 // ============================================================================
@@ -105,3 +106,26 @@ export function getCardPageDisplayName(page: CardPage): string {
 // Delegate to shared initials utilities in utils/text.ts
 export const getCardUserInitials = (user: CardUser): string => getUserInitials(user);
 export const getCardPageInitials = (pageName: string): string => getPageInitials(pageName);
+
+/** The display fields resolved from a User-or-Page card entity. */
+export type ResolvedIdentity = {
+	name: string;
+	handle: string;
+	/** Profile URL for this identity. */
+	href: string;
+	initials: string;
+};
+
+/**
+ * Resolve a User-or-Page into its display fields in one place — name, @handle, profile href,
+ * and initials — so cards, lists, and comment rows stop re-deriving the user-vs-page branch.
+ */
+export function resolveCardIdentity(entity: CardEntity): ResolvedIdentity {
+	const page = isCardPage(entity);
+	return {
+		name: page ? entity.name : getCardUserDisplayName(entity),
+		handle: entity.handle,
+		href: PUBLIC_PROFILE(entity.handle),
+		initials: page ? getPageInitials(entity.name) : getUserInitials(entity),
+	};
+}

@@ -73,7 +73,8 @@ export const eventWithUserFields = {
 /** Event fields for collection views — includes update count and most recent update */
 export const eventCollectionFields = {
   ...eventWithUserFields,
-  _count: { select: { updates: { where: { status: "PUBLISHED" as const } } } },
+  // updates count is PUBLISHED-only; comments have no status, so count them all.
+  _count: { select: { updates: { where: { status: "PUBLISHED" as const } }, comments: true } },
   updates: {
     where: { status: "PUBLISHED" as const },
     take: 1,
@@ -137,7 +138,8 @@ export const postWithUserFields = {
 /** Post fields for collection views — includes update count and most recent update */
 export const postCollectionFields = {
   ...postWithUserFields,
-  _count: { select: { updates: { where: { status: "PUBLISHED" as const } } } },
+  // updates count is PUBLISHED-only; comments have no status, so count them all.
+  _count: { select: { updates: { where: { status: "PUBLISHED" as const } }, comments: true } },
   updates: {
     where: { status: "PUBLISHED" as const },
     take: 1,
@@ -153,3 +155,47 @@ export const postCollectionFields = {
 
 /** Post shape as returned by postWithUserFields query */
 export type PostFromQuery = Prisma.PostGetPayload<{ select: typeof postWithUserFields }>;
+
+/**
+ * Comment with attribution embeds. `author` is always the human; `asPage` is set when the
+ * comment was made "as" a page. Both use the attribution-only selectors so a private
+ * profile/page's details never ride along on a comment (VISIBILITY_RULES §8).
+ */
+export const commentWithAuthorFields = {
+  id: true,
+  authorId: true,
+  asPageId: true,
+  postId: true,
+  eventId: true,
+  content: true,
+  createdAt: true,
+  updatedAt: true,
+  author: {
+    select: publicUserEmbedFields,
+  },
+  asPage: {
+    select: publicPageEmbedFields,
+  },
+} as const;
+
+/** Comment shape as returned by commentWithAuthorFields query */
+export type CommentFromQuery = Prisma.CommentGetPayload<{ select: typeof commentWithAuthorFields }>;
+
+// ========================
+// Collection card meta
+// ========================
+
+type RecentUpdate = { id: string; title: string | null; content: string; createdAt: Date };
+
+/**
+ * The card-meta half of a *CollectionFields query result: the engagement counts plus the
+ * single most-recent update. Centralized so a new count (comments was the second) is one edit,
+ * not one per collection fetcher. Callers strip `_count`/`updates` from their spread and merge
+ * this in: `const { _count, updates, ...rest } = row; return { ...rest, ...toCollectionMeta(row) }`.
+ */
+export function toCollectionMeta(row: { _count: { updates: number; comments: number }; updates: RecentUpdate[] }) {
+  return {
+    _count: { updates: row._count.updates, comments: row._count.comments },
+    recentUpdate: row.updates[0] ?? null,
+  };
+}
