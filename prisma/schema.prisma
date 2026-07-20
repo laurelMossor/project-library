@@ -457,8 +457,9 @@ model Rsvp {
 // content and carry no title/status/tags/visibility.
 //
 // - Author is always the logged-in user (accountability); asPageId optionally
-//   records "commented as this Page" (mirrors Message), verified server-side via
-//   canPostAsPage — never trusted from the client.
+//   records "commented as this Page", verified server-side via canPostAsPage —
+//   never trusted from the client. Deleting that Page nulls asPageId (SetNull), so
+//   the comment falls back to author attribution rather than losing the human's words.
 // - Polymorphic target: exactly one of postId/eventId. DB CHECK
 //   `comments_post_xor_event` ((post_id IS NULL) <> (event_id IS NULL)) enforces this.
 // - No visibility column: read access is INHERITED from the parent post/event
@@ -479,7 +480,7 @@ model Comment {
   updatedAt DateTime @updatedAt
 
   author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  asPage        Page?     @relation(fields: [asPageId], references: [id], onDelete: Cascade)
+  asPage        Page?     @relation(fields: [asPageId], references: [id], onDelete: SetNull)
   post          Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
   event         Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
