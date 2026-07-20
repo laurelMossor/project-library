@@ -3,7 +3,7 @@
 
 import { prisma } from "./prisma";
 import type { PostItem, PostCollectionItem, PostCreateInput } from "@/lib/types/post";
-import { postCollectionFields, postWithUserFields } from "./fields";
+import { postCollectionFields, postWithUserFields, toCollectionMeta } from "./fields";
 import { getImagesForTargetsBatch } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
@@ -81,8 +81,7 @@ export async function getPostsByUser(
 		...p,
 		type: COLLECTION_TYPES.POST as "post",
 		images: imagesMap.get(p.id) || [],
-		_count: { updates: _count.updates },
-		recentUpdate: updates[0] || null,
+		...toCollectionMeta({ _count, updates }),
 	}));
 }
 
@@ -112,8 +111,7 @@ export async function getPostsByPage(
 		...p,
 		type: COLLECTION_TYPES.POST as "post",
 		images: imagesMap.get(p.id) || [],
-		_count: { updates: _count.updates },
-		recentUpdate: updates[0] || null,
+		...toCollectionMeta({ _count, updates }),
 	}));
 }
 

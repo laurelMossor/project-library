@@ -12,22 +12,12 @@
 import { prisma } from "./prisma";
 import { AccessRequestKind, PermissionRole, ResourceType, ProfileVisibility } from "@prisma/client";
 import { canManagePage, grantPermission } from "./permission";
-import { logAction } from "./log";
+import { emitActivity, type EntityRef } from "./activity";
 
-export type EntityRef = { type: "USER" | "PAGE"; id: string };
 type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
 
 /** Prisma client or a $transaction client. */
 type Client = typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
-
-// ---------------------------------------------------------------------------
-// Notification seam — no-op dispatch until the Activity Notifications
-// dispatcher ships (NETWERK backlog). Centralized so wiring it later is a
-// single function body, not a scatter of call sites.
-// ---------------------------------------------------------------------------
-function emitActivity(action: string, actor: EntityRef, target: EntityRef): void {
-  logAction(action, actor.type === "USER" ? actor.id : undefined, { actor, target });
-}
 
 // ---------------------------------------------------------------------------
 // Field mappers — turn an EntityRef into the polymorphic columns.

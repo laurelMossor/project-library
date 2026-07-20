@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sun 07/12/2026 12:34 PDT
+Built commenting on Posts and Events on `netwerk-5`. A dedicated `Comment` model backs a guarded server layer and a separate Comments card with compose, edit, and delete. A commenter can act as themselves or a page they manage, and comments inherit the parent's viewability. Editing is author-only, while deletion also allows the content owner. The build exposed real duplication, which I consolidated into shared helpers, and I refreshed the shared Button and form primitives to the palette. 291 unit tests pass and the flow is verified live. Live blocker unchanged: the Netwerk stack still needs its expand/contract prod migration before `develop` merges to `main`.
+
 #### Entry: Sat 07/11/2026 12:55 PDT
 Reviewed and hardened the `health-check` branch, then brought it current. `/prolib-review` surfaced three findings on the new `/api/health` endpoint. The 503 body no longer leaks raw errors to anonymous callers, `migrate deploy` is now guarded to production builds only, and the endpoint is rate-limited. Rebased onto `develop` to pick up the visibility rework, then reset the local DB to clear the schema drift that was failing e2e. All validate stages pass green. Live blocker unchanged: the Netwerk stack still needs a deliberate expand/contract prod migration before `develop` merges to `main`.
 

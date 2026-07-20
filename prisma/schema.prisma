@@ -97,22 +97,23 @@ model User {
   displayName String?
 
   // Profile
-  headline      String?
-  bio           String?
-  interests     String[] @default([])
-  location      String?
+  headline          String?
+  bio               String?
+  interests         String[]          @default([])
+  location          String?
   profileVisibility ProfileVisibility @default(PUBLIC)
   contentVisibility ContentVisibility
-  avatarImageId String?
-  avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  avatarImageId     String?
+  avatarImage       Image?            @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
   // Microsite
   aboutContent String?
 
   // Backrefs (Prisma sugar — actual FKs live on the content tables)
-  posts  Post[]
-  events Event[]
-  images Image[]
+  posts    Post[]
+  events   Event[]
+  images   Image[]
+  comments Comment[] // comments authored by this user
 
   // Pages
   createdPages Page[]
@@ -211,10 +212,10 @@ model Page {
   name   String
   handle String @unique
 
-  headline   String?
-  bio        String?
-  interests  String[]       @default([])
-  location   String?
+  headline          String?
+  bio               String?
+  interests         String[]          @default([])
+  location          String?
   profileVisibility ProfileVisibility @default(PUBLIC)
   contentVisibility ContentVisibility
 
@@ -241,8 +242,9 @@ model Page {
   createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   // Content posted "as" this page
-  posts  Post[]
-  events Event[]
+  posts    Post[]
+  events   Event[]
+  comments Comment[] // comments made "as" this page
 
   // Social
   followers Follow[] @relation("PageFollowed")
@@ -354,11 +356,11 @@ model Post {
   eventId      String?
   parentPostId String?
 
-  title      String?
-  content    String
-  status     PostStatus @default(DRAFT)
+  title             String?
+  content           String
+  status            PostStatus        @default(DRAFT)
   contentVisibility ContentVisibility
-  pinnedAt   DateTime?
+  pinnedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -368,6 +370,8 @@ model Post {
   event      Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
   parentPost Post?  @relation("PostUpdates", fields: [parentPostId], references: [id], onDelete: Cascade)
   updates    Post[] @relation("PostUpdates")
+
+  comments Comment[]
 
   tags   String[] @default([])
   topics String[] @default([])
@@ -392,16 +396,16 @@ model Event {
   userId String
   pageId String?
 
-  title         String?
-  content       String
-  eventDateTime DateTime
-  eventTimezone String?
-  location      String
-  latitude      Float?
-  longitude     Float?
-  status        EventStatus @default(DRAFT)
+  title             String?
+  content           String
+  eventDateTime     DateTime
+  eventTimezone     String?
+  location          String
+  latitude          Float?
+  longitude         Float?
+  status            EventStatus       @default(DRAFT)
   contentVisibility ContentVisibility
-  pinnedAt      DateTime?
+  pinnedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -410,6 +414,8 @@ model Event {
   page    Page?  @relation(fields: [pageId], references: [id], onDelete: Cascade)
   updates Post[]
   rsvps   Rsvp[]
+
+  comments Comment[]
 
   tags   String[] @default([])
   topics String[] @default([])
@@ -441,6 +447,48 @@ model Rsvp {
   @@unique([eventId, email])
   @@index([eventId])
   @@map("rsvps")
+}
+
+// ========================
+// Comments (community responses on Posts & Events)
+// ========================
+//
+// A dedicated, single-responsibility model — NOT a Post. Comments are not feed
+// content and carry no title/status/tags/visibility.
+//
+// - Author is always the logged-in user (accountability); asPageId optionally
+//   records "commented as this Page" (mirrors Message), verified server-side via
+//   canPostAsPage — never trusted from the client.
+// - Polymorphic target: exactly one of postId/eventId. DB CHECK
+//   `comments_post_xor_event` ((post_id IS NULL) <> (event_id IS NULL)) enforces this.
+// - No visibility column: read access is INHERITED from the parent post/event
+//   (routes gate via requireViewablePost/requireViewableEvent).
+// - parentCommentId is RESERVED for a future one-level reply feature; unused in v1.
+
+model Comment {
+  id              String  @id @default(cuid())
+  authorId        String
+  asPageId        String?
+  postId          String?
+  eventId         String?
+  parentCommentId String? // RESERVED for future replies — unused in v1
+
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  asPage        Page?     @relation(fields: [asPageId], references: [id], onDelete: Cascade)
+  post          Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  event         Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies       Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([authorId])
+  @@map("comments")
 }
 
 // ========================
@@ -658,25 +706,25 @@ model Topic {
 // 20260706000100_add_invariant_check_constraints).
 
 model ProfileElement {
-  id        String             @id @default(cuid())
-  kind      ProfileElementKind
+  id   String             @id @default(cuid())
+  kind ProfileElementKind
 
   // Polymorphic ownership — exactly one must be set
-  userId    String?
-  pageId    String?
+  userId String?
+  pageId String?
 
   label     String?
   value     String
   caption   String?
   url       String?
   sortOrder Int
-  visible   Boolean            @default(true)
+  visible   Boolean @default(true)
 
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  page      Page?              @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([userId, sortOrder])
   @@index([pageId, sortOrder])

@@ -470,6 +470,20 @@ export function validateMessageContent(content: string): { valid: boolean; error
 	return { valid: true };
 }
 
+/** Validate a comment body (required, non-empty, capped). Mirrors validateMessageContent. */
+export function validateCommentContent(content: string): { valid: boolean; error?: string } {
+	if (!content || typeof content !== "string") {
+		return { valid: false, error: "Comment is required" };
+	}
+	if (content.trim().length === 0) {
+		return { valid: false, error: "Comment cannot be empty" };
+	}
+	if (content.length > 5000) {
+		return { valid: false, error: "Comment must be 5000 characters or less" };
+	}
+	return { valid: true };
+}
+
 // Page validation utilities
 
 export interface PageCreateData {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { API_MESSAGE, API_MESSAGES, LOGIN_WITH_CALLBACK, MESSAGES } from "@/lib/const/routes";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { formatRelativeTime } from "@/lib/utils/datetime";
 
 interface Message {
 	id: string;
@@ -25,21 +26,6 @@ interface ConversationThreadProps {
 	targetType: "user" | "page";
 	/** Sent on behalf of a page when the user is acting as one */
 	asPageId?: string;
-}
-
-function formatMessageTime(date: Date | string): string {
-	const messageDate = typeof date === "string" ? new Date(date) : date;
-	const now = new Date();
-	const diffMs = now.getTime() - messageDate.getTime();
-	const diffMins = Math.floor(diffMs / 60000);
-	const diffHours = Math.floor(diffMs / 3600000);
-	const diffDays = Math.floor(diffMs / 86400000);
-
-	if (diffMins < 1) return "Just now";
-	if (diffMins < 60) return `${diffMins}m ago`;
-	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays < 7) return `${diffDays}d ago`;
-	return messageDate.toLocaleDateString();
 }
 
 export function ConversationThread({ targetId, targetType, asPageId }: ConversationThreadProps) {
@@ -161,7 +147,7 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 								<div className={`max-w-[70%] rounded p-3 ${isSent ? "bg-black text-white" : "bg-gray-200 text-black"}`}>
 									<p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
 									<p className={`text-xs mt-1 ${isSent ? "text-gray-300" : "text-gray-500"}`}>
-										{formatMessageTime(message.createdAt)}
+										{formatRelativeTime(message.createdAt)}
 									</p>
 								</div>
 							</div>
