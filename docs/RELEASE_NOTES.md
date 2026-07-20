@@ -8,12 +8,14 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ## [Unreleased] — v0.4.0 "Netwerk" (in progress)
 
-The Netwerk release: privacy/visibility, transactional email, and release safety. Work landing on `develop`; not yet tagged.
+The Netwerk release: privacy/visibility, membership, transactional email, and release safety. Work landing on `develop`; not yet tagged.
 
-- **Visibility model** — unified `Visibility` enum (Public / Unlisted / Private) across users, pages, events, and posts, with a centralized enforcement layer and cascade-sync so children stay in step when a parent flips.
-- **Visibility enforcement hardening** — closed a leak class where the JSON API detail/relationship routes didn't gate private/unlisted content the way SSR pages did; consolidated behind shared `visibility.ts` primitives.
+- **Two-field visibility model** — split into `profileVisibility` (Public / Private — the profile page) and `contentVisibility` (Listed / Unlisted / Private — where posts and events surface), replacing the earlier single `Visibility` enum. Centralized in `visibility.ts` with cascade-sync so children re-derive when a parent flips, and a guard that a Private profile can't hold Listed content.
+- **Visibility enforcement hardening** — closed a leak class where JSON API detail/relationship routes didn't gate private/unlisted content the way SSR pages did; draft/view gating centralized into `requireViewable*` helpers (re-parenting re-derives, co-managers see drafts, unviewable content 404s); messaging scoped to the active identity so a page admin's personal inbox can't leak page threads.
+- **Membership & access requests** — activated the MEMBER role: pages have members who can be added / removed / role-changed, with a shared last-admin guard and self-leave for any role. Request-to-Follow / Request-to-Join approval flow on a new `AccessRequest` model (approval is ADMIN-only); Private profiles show a locked preview to logged-in viewers instead of a 404.
 - **Transactional email** — email verification + password reset via a swappable Resend sender with React Email templates; account verification enforced at login; no-enumeration, constant-time auth responses.
-- **CI & release safety** — GitHub Actions `validate` gate (lint, typecheck, unit, E2E, build) on every PR with branch protection; a red branch is now un-mergeable. Hardened deployment runbook.
+- **Schema-invariant hardening** — added the DB CHECK constraints that several "invariant" comments had only assumed; converged post creation onto one guarded `createPost`; closed a hole where a profile-element update could reassign ownership.
+- **CI, uptime & release safety** — GitHub Actions `validate` gate (lint, typecheck, unit, E2E, build) on every PR with branch protection, so a red branch is now un-mergeable; `GET /api/health` exercises real Post/Event/User read paths (catches schema drift, not just dead connections) with a scheduled prod ping; the build runs `prisma migrate deploy` before serving. Hardened expand/contract deployment runbook.
 - **Bug-fix & inline-edit rounds** — converged profile-update routes onto one shared executor (fixed silent data-loss on avatar/cover/visibility saves); made `session.dirtyFields` the single source of truth for inline fields.
 - **Tooling** — `/prolib-qa` and `/prolib-review` skills; Playwright E2E suite efficacy pass (faster, fewer flaky tests).
 
