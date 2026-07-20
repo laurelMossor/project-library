@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getViewerContext, requireViewablePost, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { getCommentForModeration, canModerateComment, canEditComment, deleteComment, updateComment } from "@/lib/utils/server/comment";
 import { validateCommentContent } from "@/lib/validations";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 
 /** Resolve a comment's already-gated parent, or null (missing/unviewable). */
@@ -24,6 +25,12 @@ export async function DELETE(
 	if (!viewer.userId) {
 		return unauthorized();
 	}
+
+	const limited = await enforceRateLimit(request, "comment-mutate", {
+		maxRequests: 30,
+		windowMs: 60 * 1000,
+	});
+	if (limited) return limited;
 
 	try {
 		const comment = await getCommentForModeration(id);
@@ -63,6 +70,12 @@ export async function PATCH(
 	if (!viewer.userId) {
 		return unauthorized();
 	}
+
+	const limited = await enforceRateLimit(request, "comment-mutate", {
+		maxRequests: 30,
+		windowMs: 60 * 1000,
+	});
+	if (limited) return limited;
 
 	try {
 		const comment = await getCommentForModeration(id);

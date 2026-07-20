@@ -65,11 +65,14 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 		select: commentWithAuthorFields,
 	});
 
-	// Notify the content owner that someone commented. No-op dispatch until the
-	// Activity Notifications dispatcher ships (see activity.ts).
+	// Notify the content owner that someone commented — unless they're commenting on their
+	// own content (actor == target), which needs no self-notification. No-op dispatch until
+	// the Activity Notifications dispatcher ships (see activity.ts).
 	const actor: EntityRef = data.asPageId ? { type: "PAGE", id: data.asPageId } : { type: "USER", id: userId };
 	const target: EntityRef = owner.pageId ? { type: "PAGE", id: owner.pageId } : { type: "USER", id: owner.userId };
-	emitActivity("comment.created", actor, target);
+	if (actor.type !== target.type || actor.id !== target.id) {
+		emitActivity("comment.created", actor, target);
+	}
 
 	return comment as CommentItem;
 }
