@@ -24,9 +24,21 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   },
 }));
 vi.mock("@/lib/utils/server/log", () => ({ logAction: vi.fn() }));
-// requests.ts → activity.ts → notification.ts → visibility.ts pulls the auth chain at import; these
-// tests never touch the session, so stub the module to keep the suite isolated (mirrors the other
-// server-util suites that reach the notification seam).
+
+// ⚠️ GOTCHA — stub the session module in any unit suite that reaches the notification write path.
+//
+// Anything that fires a notification imports the dispatcher, and that import fans out to the auth
+// stack at LOAD time (before a single test runs):
+//   requests.ts / rsvp.ts / comment.ts → activity.ts → notification.ts → visibility.ts →
+//   session.ts → auth.ts → next-auth
+// next-auth's ESM entry doesn't resolve under Vitest, so the suite dies during import with a
+// MISLEADING error that names next-auth, not your test:
+//   "Cannot find module '.../node_modules/next/server' ... Did you mean 'next/server.js'?"
+//
+// It is NOT a real dependency of these tests — the code paths here never read the session. Stubbing
+// the module short-circuits the auth import so the suite loads. If you add a new server-util suite
+// that touches follows / RSVPs / comments / notifications and see that next-auth error, copy this
+// line (siblings: notification-routes, notification-dispatch, membership-route, comment-routes).
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 
 import {
