@@ -92,6 +92,8 @@ type ConnectionsData = {
 type ConnectionsPageViewProps = {
 	entity: CardEntity;
 	currentUserId: string;
+	/** Tab to open on load (e.g. from a `?tab=Requests` notification deep-link). Ignored if not a visible tab. */
+	initialTab?: string;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -273,7 +275,7 @@ function ConnectionList({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageViewProps) {
+export function ConnectionsPageView({ entity, currentUserId, initialTab }: ConnectionsPageViewProps) {
 	const isPage = isCardPage(entity);
 	const entityType = isPage ? "page" : "user";
 	const role = isPage ? (entity as CardPageWithRole).role : undefined;
@@ -422,6 +424,9 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 		{ id: "Membership", label: "Membership" },
 		...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
 	];
+
+	// Honor a deep-link tab (?tab=Requests) only if it's an actually-visible tab for this viewer.
+	const defaultTop = topTabs.some((t) => t.id === initialTab) ? (initialTab as TopTab) : undefined;
 
 	function getCount(_leftId: string, top: TopTab): number {
 		if (!data) return 0;
@@ -619,6 +624,7 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 	return (
 		<TabbedPanel<TopTab, string>
 			topTabs={topTabs}
+			defaultTop={defaultTop}
 			leftTabs={leftTabs}
 			getCount={getCount}
 			renderLeftTab={() => (

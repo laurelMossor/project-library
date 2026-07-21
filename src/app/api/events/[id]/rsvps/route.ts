@@ -6,6 +6,8 @@ import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { canManageEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
+import { emitActivity, type EntityRef, type ActorRef } from "@/lib/utils/server/activity";
+import { NotificationObject } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,7 +44,22 @@ export async function POST(request: Request, { params }: Params) {
 			return badRequest(validation.error || "Invalid RSVP data");
 		}
 
-		const rsvp = await createOrUpdateRsvp(id, data);
+		const { rsvp, created } = await createOrUpdateRsvp(id, data);
+
+		// Notify the host — only on a NEW rsvp (editing must not re-notify). Prefer the authenticated
+		// user; fall back to the guest name. The cast keeps this working before AND after the
+		// Rsvp.userId fast-follow lands (today the column is absent, so it's always a guest).
+		if (created) {
+			const target: EntityRef = event.pageId
+				? { type: "PAGE", id: event.pageId }
+				: { type: "USER", id: event.userId };
+			const rsvpUserId = (rsvp as { userId?: string | null }).userId ?? null;
+			const actor: ActorRef = rsvpUserId
+				? { type: "USER", id: rsvpUserId }
+				: { type: "ANON", label: data.name.trim() };
+			await emitActivity("rsvp.created", actor, target, { type: NotificationObject.EVENT, id });
+		}
+
 		return NextResponse.json(rsvp, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/events/:id/rsvps error:", error);

@@ -3,6 +3,7 @@
 import { SessionProvider } from "next-auth/react";
 import { ActiveProfileProvider } from "@/lib/contexts/ActiveProfileContext";
 import { UnreadCountProvider } from "@/lib/contexts/UnreadCountContext";
+import { NotificationProvider } from "@/lib/components/notifications/NotificationContext";
 import { Session } from "next-auth";
 
 interface ProvidersProps {
@@ -15,7 +16,9 @@ export function Providers({ children, session }: ProvidersProps) {
 		<SessionProvider session={session}>
 			<ActiveProfileProvider>
 				<UnreadCountProvider>
-					{children}
+					<NotificationProvider>
+						{children}
+					</NotificationProvider>
 				</UnreadCountProvider>
 			</ActiveProfileProvider>
 		</SessionProvider>

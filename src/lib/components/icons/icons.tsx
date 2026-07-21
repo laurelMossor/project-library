@@ -72,6 +72,14 @@ export function HamburgerIcon({ className  }: IconProps) {
     );
 }
 
+export function BellIcon({ className }: IconProps) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className={className} fill="currentColor">
+            <path d="M224 0c-17.7 0-32 14.3-32 32l0 19.2C119.5 66 64 130.6 64 208l0 18.8c0 47-17.3 92.4-48.5 127.6l-7.4 8.3c-8.4 9.5-10.4 23-5.3 34.5S16.4 448 29.1 448l389.8 0c12.7 0 24.2-7.5 29.3-19.2s3.1-25-5.3-34.5l-7.4-8.3C403.3 327.2 386 281.8 386 234.8l0-26.8c0-77.4-55.5-142-128-156.8L258 32c0-17.7-14.3-32-32-32l-2 0zm0 96c61.9 0 112 50.1 112 112l0 26.8c0 57.5 20.4 113.1 57.5 156.2L54.5 391C91.6 347.9 112 292.3 112 234.8L112 208c0-61.9 50.1-112 112-112zm64 416l-128 0c0 17 6.7 33.3 18.7 45.3S207 576 224 576s33.3-6.7 45.3-18.7S288 529 288 512z"/>
+        </svg>
+    );
+}
+
 export function CalendarIcon({ className  }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" className={className} fill="currentColor">

@@ -12,6 +12,7 @@ import { hasSession } from "@/lib/utils/auth-client";
 import { UserHomeIcon, AtSignIcon } from "@/lib/components/icons/icons";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
+import { useNotificationCount } from "@/lib/components/notifications/NotificationContext";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { Session } from "next-auth";
 import { NavProfileShell } from "./NavProfileShell";
@@ -27,6 +28,13 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 
 	const { activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
 	const { unreadData } = useUnreadCount();
+	const { data: notifData } = useNotificationCount();
+
+	// One "has something new" dot per identity, combining unread messages + activity notifications.
+	const identityHasActivity = (key: "personal" | string) =>
+		key === "personal"
+			? unreadData.personal > 0 || notifData.personal > 0
+			: (unreadData.pages[key] ?? 0) > 0 || (notifData.pages[key] ?? 0) > 0;
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [switcherExpanded, setSwitcherExpanded] = useState(false);
@@ -115,7 +123,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							<div className="w-[260px]">
 								<ProfileTag entity={currentUser as CardEntity} size="md" asLink={false} variant="compact" />
 							</div>
-							{unreadData.personal > 0 && <NotificationDot />}
+							{identityHasActivity("personal") && <NotificationDot />}
 						</div>
 					)}
 
@@ -131,7 +139,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							<div className="w-[260px]">
 								<ProfileTag entity={page} size="md" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
 							</div>
-							{(unreadData.pages[page.id] ?? 0) > 0 && <NotificationDot />}
+							{identityHasActivity(page.id) && <NotificationDot />}
 						</div>
 					))}
 

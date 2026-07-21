@@ -89,11 +89,11 @@ export async function requestOrCreateFollow(
   // BLOCK-SEAM: a future isBlocked(requester, target) check goes here.
   if (target.profileVisibility !== ProfileVisibility.PRIVATE) {
     await prisma.follow.create({ data: followEdgeData(requester, target) });
-    emitActivity("follow.created", requester, target);
+    await emitActivity("follow.created", requester, target);
     return { status: "followed" };
   }
   await upsertAccessRequest(AccessRequestKind.FOLLOW, requester, target);
-  emitActivity("follow.requested", requester, target);
+  await emitActivity("follow.requested", requester, target);
   return { status: "requested" };
 }
 
@@ -110,11 +110,11 @@ export async function requestOrJoinPage(
   // BLOCK-SEAM: a future isBlocked(userId, page) check goes here.
   if (page.profileVisibility !== ProfileVisibility.PRIVATE) {
     await grantPermission(userId, page.id, ResourceType.PAGE, PermissionRole.MEMBER);
-    emitActivity("membership.joined", requester, target);
+    await emitActivity("membership.joined", requester, target);
     return { status: "joined", role: PermissionRole.MEMBER };
   }
   await upsertAccessRequest(AccessRequestKind.JOIN, requester, target);
-  emitActivity("membership.requested", requester, target);
+  await emitActivity("membership.requested", requester, target);
   return { status: "requested" };
 }
 
@@ -214,6 +214,18 @@ export async function approveRequest(actorUserId: string, requestId: string): Pr
     await materialize(req, tx);
     await tx.accessRequest.delete({ where: { id: req.id } });
   });
+
+  // Tell the requester they're in. Fires AFTER the transaction commits (never inside it): the
+  // actor is the entity that was approved, the recipient is the original requester. Links to the
+  // actor's profile, like NEW_FOLLOWER. emitActivity never throws.
+  const approver: EntityRef = req.targetUserId
+    ? { type: "USER", id: req.targetUserId }
+    : { type: "PAGE", id: req.targetPageId! };
+  const requester: EntityRef = req.requesterId
+    ? { type: "USER", id: req.requesterId }
+    : { type: "PAGE", id: req.requesterPageId! };
+  await emitActivity("request.approved", approver, requester);
+
   return { ok: true, status: "approved" };
 }
 
