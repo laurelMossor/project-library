@@ -75,15 +75,27 @@ Most tickets arrive with **no** criteria, so this step is the rule, not the exce
     404-never-403 for unviewable content). Read it before drafting, so the criteria
     match the contract rather than intuition about how privacy "should" work.
 
-Good criteria are **concrete and browser-observable** — each line is something you can
-actually drive and see. Avoid vague ones ("works well", "looks good"); they aren't
-checkable. Aim for a short checklist:
+Write each criterion as a **manual test scenario**, not an assertion — a concrete thing
+you will *do* in the running app, plus the **observable result** that means it passed.
+The goal is to exercise what was built and surface issues a unit test can't see: wrong
+copy, a dead link, a stale badge, a missing refresh, a 500 in the console. Phrase them
+**action-first** ("do X → see Y") so there's no way to "check" one without having driven
+it. Avoid vague lines ("works well", "looks good") — they aren't checkable.
 
 ```
-- [ ] Logged-in user can open the "Lend a tool" form from the Tools page
-- [ ] Submitting with a blank title shows a validation error; no row is created
-- [ ] On success the tool appears in the owner's "My listings" without a reload
+- [ ] As alice, open the Tools page → the "Lend a tool" button is visible and opens the form
+- [ ] Submit with a blank title → inline validation error, and no listing is created (confirm via hard reload)
+- [ ] Submit a valid listing → it appears in alice's "My listings" without a manual refresh
 ```
+
+**A box gets checked ONLY when you drove that scenario live and saw the expected
+result.** A passing unit test, reading the code, or "I wrote it so it works" are **not**
+grounds to check a box — driving the real app is the entire point of this skill, because
+it catches what those miss (the dead deep-link, the badge that won't clear, the edit that
+re-fires). If you didn't drive a scenario, leave it unchecked and say so. Never mark one
+scenario "verified" because a *sibling* scenario shares its code path — each row is its
+own live drive. When the author of the code is the one QA'ing, this is the exact trap:
+high confidence in the diff is not evidence from the running app.
 
 **Show the drafted criteria to the user and wait for approval/edits before testing.**
 This 10-second gate is what keeps QA honest — you're testing against *their* definition
@@ -160,10 +172,12 @@ before writing anything. Otherwise proceed directly to step 6.
 Write to Notion right after reporting each ticket's result. Don't batch across tickets
 or wait for a separate user confirmation. Do all three:
 
-1. **Check off the acceptance criteria in the ticket body.** Fetch the ticket's block
-   children, find the `to_do` blocks under the "Acceptance Criteria" heading, and PATCH
-   each one to `checked: true`. If the criteria haven't been written yet (step 2 was
-   skipped or deferred), append them now with `checked: true` for passed items.
+1. **Check off the scenarios you drove and passed.** Fetch the ticket's block children,
+   find the `to_do` blocks under the "Acceptance Criteria" heading, and PATCH `checked:
+   true` **only for scenarios you actually drove live and that passed**. Leave un-driven
+   or failed scenarios unchecked — an unchecked box is honest signal, not a gap to paper
+   over. If the criteria weren't written yet, append them now, checking only the driven-
+   and-passed ones. Never label the section "verified live" unless every checked row was.
 2. **Move Status** — `Done` on pass, `In progress` (or as directed) on fail.
 3. **Add a QA-result comment** — the verdict + date + a one-line summary of what was
    checked.
