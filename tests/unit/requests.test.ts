@@ -24,6 +24,10 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   },
 }));
 vi.mock("@/lib/utils/server/log", () => ({ logAction: vi.fn() }));
+// requests.ts → activity.ts → notification.ts → visibility.ts pulls the auth chain at import; these
+// tests never touch the session, so stub the module to keep the suite isolated (mirrors the other
+// server-util suites that reach the notification seam).
+vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 
 import {
   requestOrCreateFollow,
