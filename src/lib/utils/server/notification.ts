@@ -9,6 +9,7 @@ import { prisma } from "./prisma";
 import { publicUserEmbedFields } from "./user";
 import { publicPageEmbedFields } from "./fields";
 import { notificationHref } from "@/lib/utils/notification-href";
+import { canViewPost, canViewEvent, type ViewerContext } from "./visibility";
 import type { CardUser, CardPage } from "@/lib/types/card";
 import type { NotificationItem, NotificationContextKey, NotificationCounts } from "@/lib/types/notification";
 
@@ -64,6 +65,7 @@ const notificationRowSelect = {
 export async function getNotificationsForUser(
 	recipientUserId: string,
 	context: NotificationContextKey,
+	viewer: ViewerContext,
 	limit = DEFAULT_LIMIT,
 ): Promise<NotificationItem[]> {
 	const rows = await prisma.notification.findMany({
@@ -84,16 +86,34 @@ export async function getNotificationsForUser(
 	const userMap = new Map(users.map((u) => [u.id, u as CardUser]));
 	const pageMap = new Map(pages.map((p) => [p.id, p as CardPage]));
 
-	// Batch-hydrate object titles (POST/EVENT only; PAGE objects need no title in the identity-scoped copy).
+	// Batch-hydrate object titles (POST/EVENT only; PAGE objects need no title in the identity-scoped
+	// copy). Gated through the visibility layer with the recipient AS the viewer: today every emitter
+	// notifies the object's owner, but a future emitter that targets a non-owner must not leak a
+	// PRIVATE/draft title — so a title the viewer can't see is dropped. Non-PRIVATE content
+	// short-circuits `true`, keeping the common path query-free.
 	const postIds = rows.filter((r) => r.objectType === "POST" && r.objectId).map((r) => r.objectId!);
 	const eventIds = rows.filter((r) => r.objectType === "EVENT" && r.objectId).map((r) => r.objectId!);
 	const [posts, events] = await Promise.all([
-		postIds.length ? prisma.post.findMany({ where: { id: { in: postIds } }, select: { id: true, title: true } }) : [],
-		eventIds.length ? prisma.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, title: true } }) : [],
+		postIds.length
+			? prisma.post.findMany({
+				where: { id: { in: postIds } },
+				select: { id: true, userId: true, pageId: true, eventId: true, contentVisibility: true, title: true },
+			})
+			: [],
+		eventIds.length
+			? prisma.event.findMany({
+				where: { id: { in: eventIds } },
+				select: { id: true, userId: true, pageId: true, contentVisibility: true, title: true },
+			})
+			: [],
+	]);
+	const [viewablePosts, viewableEvents] = await Promise.all([
+		Promise.all(posts.map(async (p) => ((await canViewPost(p, viewer)) ? p : null))),
+		Promise.all(events.map(async (e) => ((await canViewEvent(e, viewer)) ? e : null))),
 	]);
 	const titleMap = new Map<string, string | null>([
-		...posts.map((p) => [p.id, p.title] as const),
-		...events.map((e) => [e.id, e.title] as const),
+		...viewablePosts.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.id, p.title] as const),
+		...viewableEvents.filter((e): e is NonNullable<typeof e> => !!e).map((e) => [e.id, e.title] as const),
 	]);
 
 	return rows.map((r): NotificationItem => {

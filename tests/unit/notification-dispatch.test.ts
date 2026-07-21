@@ -12,6 +12,9 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 		notification: { createMany: vi.fn() },
 	},
 }));
+// activity.ts → notification.ts → visibility.ts pulls the auth chain at import; the dispatcher never
+// touches the session, so stub the module to keep this suite isolated (mirrors notification-routes).
+vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 
 import { emitActivity } from "@/lib/utils/server/activity";
 import { prisma } from "@/lib/utils/server/prisma";

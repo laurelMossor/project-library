@@ -13,6 +13,9 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 		post: { findMany: vi.fn() },
 		event: { findMany: vi.fn() },
 		rsvp: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+		// getViewerContext reads permissions; the visibility title-gate reads follow edges.
+		permission: { findMany: vi.fn() },
+		follow: { findFirst: vi.fn() },
 	},
 }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
@@ -20,6 +23,7 @@ vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 import { GET as listGET } from "@/app/api/notifications/route";
 import { GET as countGET } from "@/app/api/notifications/unread-count/route";
 import { PATCH as readPATCH } from "@/app/api/notifications/read/route";
+import { getNotificationsForUser } from "@/lib/utils/server/notification";
 import { createOrUpdateRsvp } from "@/lib/utils/server/rsvp";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
@@ -28,7 +32,7 @@ const notif = vi.mocked(prisma.notification);
 const rsvp = vi.mocked(prisma.rsvp);
 
 function asUser(userId: string | null) {
-	vi.mocked(getSessionContext).mockResolvedValue(userId ? { userId } : (null as never));
+	vi.mocked(getSessionContext).mockResolvedValue(userId ? { userId, activePageId: null } : (null as never));
 }
 
 beforeEach(() => {
@@ -36,6 +40,10 @@ beforeEach(() => {
 	notif.findMany.mockResolvedValue([] as never);
 	notif.groupBy.mockResolvedValue([] as never);
 	notif.updateMany.mockResolvedValue({ count: 0 } as never);
+	// getViewerContext → no managed pages; follow edges → none, unless a test overrides.
+	vi.mocked(prisma.permission.findMany).mockResolvedValue([] as never);
+	vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never);
+	vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
 });
 
 describe("notification routes — auth + scoping", () => {
@@ -77,6 +85,28 @@ describe("notification routes — auth + scoping", () => {
 		asUser(null);
 		const req = new Request("http://x/api/notifications/read", { method: "PATCH", body: "{}" });
 		expect((await readPATCH(req)).status).toBe(401);
+	});
+});
+
+describe("getNotificationsForUser — object-title visibility gate", () => {
+	test("drops the title of an object the recipient can't view; passes a viewable one", async () => {
+		const viewer = { userId: "me", memberPageIds: [] };
+		const row = (id: string, objectId: string) => ({
+			id, createdAt: new Date(), readAt: null, type: "COMMENT",
+			actorUserId: null, actorPageId: null, actorName: "x", objectType: "POST", objectId,
+		});
+		notif.findMany.mockResolvedValue([row("n1", "mine"), row("n2", "secret")] as never);
+		vi.mocked(prisma.post.findMany).mockResolvedValue([
+			// Owned + LISTED → viewable, title passes through.
+			{ id: "mine", userId: "me", pageId: null, eventId: null, contentVisibility: "LISTED", title: "My Post" },
+			// Another user's PRIVATE post, no follow edge → not viewable, title dropped.
+			{ id: "secret", userId: "other", pageId: null, eventId: null, contentVisibility: "PRIVATE", title: "Secret" },
+		] as never);
+
+		const items = await getNotificationsForUser("me", "personal", viewer);
+		const byId = Object.fromEntries(items.map((i) => [i.id, i.objectTitle]));
+		expect(byId.n1).toBe("My Post");
+		expect(byId.n2).toBeNull();
 	});
 });
 
