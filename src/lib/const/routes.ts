@@ -41,6 +41,8 @@ export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 export const SETTINGS = "/settings";
 export const PERSONAL_INFO = "/settings/personal-info";
 export const CONNECTIONS = "/connections";
+export const CONNECTIONS_TAB_QUERY = "tab"; // ?tab= selects the initial connections tab
+export const CONNECTIONS_REQUESTS = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Requests`; // deep-link to the Requests tab
 
 export const PAGE_NEW = "/pages/new";
 
@@ -121,6 +123,11 @@ export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 export const API_MESSAGES = "/api/messages";
 export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
+
+// Activity notifications
+export const API_NOTIFICATIONS = "/api/notifications"; // GET list (?context=personal|<pageId>)
+export const API_NOTIFICATIONS_UNREAD_COUNT = "/api/notifications/unread-count"; // GET { personal, pages }
+export const API_NOTIFICATIONS_READ = "/api/notifications/read"; // PATCH mark a context's unread read
 /** Inbox for the active identity — pass `asPageId` to scope to a managed page, omit for personal. */
 export const API_MESSAGES_INBOX = (asPageId?: string | null) =>
 	asPageId ? `/api/messages/inbox?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/inbox";

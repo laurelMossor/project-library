@@ -73,7 +73,8 @@ describe("createComment guards", () => {
     expect(emitActivity).toHaveBeenCalledWith(
       "comment.created",
       { type: "USER", id: "u1" },
-      { type: "USER", id: "owner" }
+      { type: "USER", id: "owner" },
+      { type: "POST", id: "p1" }
     );
   });
 
@@ -83,7 +84,8 @@ describe("createComment guards", () => {
     expect(emitActivity).toHaveBeenCalledWith(
       "comment.created",
       { type: "PAGE", id: "my-page" },
-      { type: "PAGE", id: "host-page" }
+      { type: "PAGE", id: "host-page" },
+      { type: "POST", id: "p1" }
     );
   });
 });

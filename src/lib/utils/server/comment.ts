@@ -5,7 +5,8 @@ import { prisma } from "./prisma";
 import { commentWithAuthorFields } from "./fields";
 import { canPostAsPage } from "./permission";
 import { isContentOwner, type ViewerContext } from "./visibility";
-import { emitActivity, type EntityRef } from "./activity";
+import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
+import { NotificationObject } from "@prisma/client";
 import type { CommentItem } from "@/lib/types/comment";
 
 /**
@@ -65,13 +66,16 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 		select: commentWithAuthorFields,
 	});
 
-	// Notify the content owner that someone commented — unless they're commenting on their
-	// own content (actor == target), which needs no self-notification. No-op dispatch until
-	// the Activity Notifications dispatcher ships (see activity.ts).
+	// Notify the content owner that someone commented — unless they're commenting on their own
+	// content (actor == target), which needs no self-notification. The object is the post/event so
+	// the bell row deep-links to it.
 	const actor: EntityRef = data.asPageId ? { type: "PAGE", id: data.asPageId } : { type: "USER", id: userId };
 	const target: EntityRef = owner.pageId ? { type: "PAGE", id: owner.pageId } : { type: "USER", id: owner.userId };
 	if (actor.type !== target.type || actor.id !== target.id) {
-		emitActivity("comment.created", actor, target);
+		const object: ObjectRef = data.postId
+			? { type: NotificationObject.POST, id: data.postId }
+			: { type: NotificationObject.EVENT, id: data.eventId! };
+		await emitActivity("comment.created", actor, target, object);
 	}
 
 	return comment as CommentItem;

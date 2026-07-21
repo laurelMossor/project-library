@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Mon 07/20/2026 17:25 PDT
+Built Activity Notifications on `netwerk-6`, evolving the existing no-op `emitActivity` seam into a real dispatcher. After researching how others model this, we settled on the Activity Streams actor·verb·object shape, fanning out one row per recipient so page activity reaches managers with admin-only targeting for requests. The bell is identity-scoped like messages, and I extracted the message unread-count polling into a shared hook both contexts now consume. Seven types ship in-app; authenticated RSVP is an inert guard that lights up when `Rsvp.userId` lands, and email plus preferences are deferred to their own tickets. 320 unit tests pass and the follow→bell loop is verified live.
+
 #### Entry: Mon 07/20/2026 10:52 PDT
 `/prolib-review` of the `netwerk-5` comments PR, then the agreed fixes. The build was clean and layer-correct. The real catch was `Comment.asPage` cascading on delete, so removing a page destroyed the human author's words instead of falling back to author attribution. Switched it to `SET NULL` via a new migration, rate-limited comment edit/delete, and stopped self-notifications. Added integration-style route tests that run the real visibility gate rather than mocking it, so a dropped gate now fails a test. 28 comment tests green and the migration verified against the dev DB. 
 

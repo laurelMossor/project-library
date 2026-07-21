@@ -72,6 +72,27 @@ enum ProfileElementKind {
   TEXT
 }
 
+// Activity-notification verb (what happened). Grows by one value per new activity — a bounded,
+// type-safe set. See the Notification model + docs/scratch/ACTIVITY_NOTIFICATIONS_PRD.md.
+enum NotificationType {
+  COMMENT
+  FOLLOW_REQUEST
+  JOIN_REQUEST
+  NEW_FOLLOWER
+  NEW_MEMBER
+  RSVP
+  REQUEST_APPROVED
+}
+
+// What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
+// Notification.objectId (FK-less, mirrors ImageAttachment.targetType + targetId). A user is never
+// the object — a follow's users are already the actor + recipient.
+enum NotificationObject {
+  POST
+  EVENT
+  PAGE
+}
+
 // ========================
 // Users (identity + auth)
 // ========================
@@ -142,6 +163,10 @@ model User {
   // Auth email tokens
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+
+  // Activity notifications (received in this user's bell; caused by this user as an actor)
+  notificationsReceived Notification[] @relation("NotificationsReceived")
+  notificationsActed    Notification[] @relation("NotificationsActed")
 
   @@map("users")
 }
@@ -262,6 +287,10 @@ model Page {
 
   // Microsite elements
   elements ProfileElement[]
+
+  // Activity notifications (page-context deliveries to this page's managers; caused by this page as actor)
+  notifications      Notification[] @relation("PageNotifications")
+  notificationsActed Notification[] @relation("NotificationsActedAs")
 
   @@index([createdByUserId])
   @@index([createdAt])
@@ -676,6 +705,53 @@ model Message {
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@map("messages")
+}
+
+// ========================
+// Activity notifications
+// ========================
+//
+// The Activity Streams "actor · verb · object" model, one delivery per row, scoped to an identity.
+// Read a row as: "recipient, in their context capacity, is told actor did [type] on object."
+// Each pole mirrors an existing precedent — recipient ~ Comment.author, actor ~ Follow.follower,
+// object ~ ImageAttachment.target*. Full rationale: docs/scratch/ACTIVITY_NOTIFICATIONS_PRD.md.
+//
+// Delivery is fan-out: page-directed activity writes one row per managing user who may act on it
+// (ADMIN+EDITOR for informational types; ADMIN-only for request types), each tagged with
+// contextPageId so the bell can scope to the active identity. This differs from messaging (one
+// page-owned row) on purpose — a shared row can't express "admins only". See PRD §1a.
+
+model Notification {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  // Recipient — always a user (whose bell), scoped to an identity: contextPageId null = personal,
+  // else a page they manage. Fan-out sets contextPageId per recipient.
+  recipientUserId String
+  contextPageId   String?
+  recipient   User  @relation("NotificationsReceived", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  contextPage Page? @relation("PageNotifications", fields: [contextPageId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+
+  // Actor — who caused it. A user or a page (exactly-zero-or-one, DB CHECK
+  // `notifications_actor_at_most_one_account`); an account-less guest RSVP carries actorName instead.
+  actorUserId String?
+  actorPageId String?
+  actorName   String?
+  actorUser   User? @relation("NotificationsActed", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorPage   Page? @relation("NotificationsActedAs", fields: [actorPageId], references: [id], onDelete: Cascade)
+
+  // Object — what it's about, for the deep link. Enum-typed polymorphic pointer + loose id (no FK).
+  // Nullable: NEW_FOLLOWER / NEW_MEMBER / REQUEST_APPROVED link to the actor, request types to the
+  // static Requests tab.
+  objectType NotificationObject?
+  objectId   String?
+
+  @@index([recipientUserId, contextPageId, readAt])
+  @@index([recipientUserId, contextPageId, createdAt])
+  @@map("notifications")
 }
 
 // ========================
