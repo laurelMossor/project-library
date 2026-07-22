@@ -4,7 +4,7 @@
 // read/write is scoped to a (recipientUserId, context) pair — that scoping is the security
 // boundary. Actor + object are hydrated at read time via the attribution-only embed selectors.
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type NotificationType, type NotificationObject } from "@prisma/client";
 import { prisma } from "./prisma";
 import { publicUserEmbedFields } from "./user";
 import { publicPageEmbedFields } from "./fields";
@@ -20,10 +20,16 @@ function contextWhere(recipientUserId: string, context: NotificationContextKey) 
 	return { recipientUserId, contextPageId: context === "personal" ? null : context };
 }
 
-/** Write the fan-out rows for one activity. Called by the dispatcher. */
-export async function createNotifications(rows: Prisma.NotificationCreateManyInput[]): Promise<void> {
-	if (rows.length === 0) return;
-	await prisma.notification.createMany({ data: rows });
+/** A created notification's identity fields — enough for the dispatcher to enqueue its email. */
+export type CreatedNotification = { id: string; recipientUserId: string; contextPageId: string | null; type: NotificationType };
+
+/** Write the fan-out rows for one activity, returning the created rows (with ids) for email enqueue. */
+export async function createNotifications(rows: Prisma.NotificationCreateManyInput[]): Promise<CreatedNotification[]> {
+	if (rows.length === 0) return [];
+	return prisma.notification.createManyAndReturn({
+		data: rows,
+		select: { id: true, recipientUserId: true, contextPageId: true, type: true },
+	});
 }
 
 /** Per-identity unread counts for the bell + profile-switcher dots (same shape as messages). */
@@ -61,6 +67,19 @@ const notificationRowSelect = {
 	objectId: true,
 } as const;
 
+/** The raw notification fields the hydrator needs — the shape of `notificationRowSelect`. */
+export type NotificationRowForHydration = {
+	id: string;
+	createdAt: Date;
+	readAt: Date | null;
+	type: NotificationType;
+	actorUserId: string | null;
+	actorPageId: string | null;
+	actorName: string | null;
+	objectType: NotificationObject | null;
+	objectId: string | null;
+};
+
 /** The latest notifications for one identity's bell, hydrated (actor, object title, deep link). */
 export async function getNotificationsForUser(
 	recipientUserId: string,
@@ -74,6 +93,18 @@ export async function getNotificationsForUser(
 		take: limit,
 		select: notificationRowSelect,
 	});
+	return hydrateNotificationRows(rows, viewer);
+}
+
+/**
+ * Hydrate raw notification rows into display items — batch-loads actors + object titles (the title read
+ * gated through the visibility layer with `viewer` as the recipient), and builds each deep link. Shared
+ * by the bell (getNotificationsForUser) and the email flush so both hydrate identically.
+ */
+export async function hydrateNotificationRows(
+	rows: NotificationRowForHydration[],
+	viewer: ViewerContext,
+): Promise<NotificationItem[]> {
 	if (rows.length === 0) return [];
 
 	// Batch-hydrate actors (users + pages) via the attribution-only selectors.

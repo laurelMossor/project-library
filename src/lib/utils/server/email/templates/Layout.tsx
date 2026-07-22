@@ -4,6 +4,7 @@ import {
 	Head,
 	Hr,
 	Html,
+	Link,
 	Preview,
 	Section,
 	Text,
@@ -25,11 +26,13 @@ export const brand = {
 interface LayoutProps {
 	/** Short inbox-preview snippet shown before the email is opened. */
 	preview: string;
+	/** When set, the footer shows a "Manage email preferences" link (notification emails). */
+	managePrefsUrl?: string;
 	children: ReactNode;
 }
 
 /** Shared shell for all transactional emails — wordmark header + footer. */
-export function Layout({ preview, children }: LayoutProps) {
+export function Layout({ preview, managePrefsUrl, children }: LayoutProps) {
 	return (
 		<Html>
 			<Head />
@@ -44,6 +47,13 @@ export function Layout({ preview, children }: LayoutProps) {
 					<Text style={footer}>
 						The Project Library — creativity, mutuality, and lifelong learning.
 					</Text>
+					{managePrefsUrl ? (
+						<Text style={footer}>
+							<Link href={managePrefsUrl} style={footerLink}>
+								Manage email preferences
+							</Link>
+						</Text>
+					) : null}
 				</Container>
 			</Body>
 		</Html>
@@ -92,5 +102,10 @@ const footer: React.CSSProperties = {
 	color: brand.mistyForest,
 	fontSize: "12px",
 	lineHeight: "18px",
-	margin: 0,
+	margin: "0 0 4px",
+};
+
+const footerLink: React.CSSProperties = {
+	color: brand.mossGreen,
+	textDecoration: "underline",
 };

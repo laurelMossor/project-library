@@ -11,6 +11,12 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Wed 07/22/2026 13:09 PDT
+`/prolib-review` of the `netwerk-7` Email Notifications branch, then the agreed fixes. The one real bug was the page-context message email deep link. It sent a page manager to a conversation their personal session can't open, because the messages view scopes by active identity. The link now carries the page as a one-shot URL param that switches identity on landing and then clears itself. Also added an age-based dead-letter so a permanently-failing send stops retrying forever, and a P2002 retry on the preference write. Backed it with the missing message fan-out unit test and two new E2E specs. All green.
+
+#### Entry: Wed 07/22/2026 11:52 PDT
+Built Email Notifications on `netwerk-7`. Producers enqueue to an `EmailOutbox`, and a scheduled flush coalesces each recipient's still-unread, preference-on activity into one profile-grouped email. A GitHub Action pings a protected endpoint every ~15 minutes, so the interval is the coalescing window and anything read in time is never emailed. Preferences are per user-and-context, so every manager of a page sets their own, with a per-context master driving one-click unsubscribe. Mid-build I reshaped the model from a polymorphic owner to `(userId, contextPageId)` and practiced a clean manual migration rollback to keep one tidy migration. 358 unit tests pass and the settings save round-trips live. Filed a P0 prod-config prereq ticket (secrets + migration cutover).
+
 #### Entry: Tue 07/21/2026 10:42 PDT
 `/prolib-review` of the `netwerk-6` Activity Notifications branch. The build was clean and layer-correct, with no bugs. The one real hazard was the bell's object-title read, which hydrated post and event titles with no visibility gate. It was safe only because every current emitter notifies the owner, but a future non-owner emitter would leak a private title. Routed that read through `canViewPost`/`canViewEvent` with the recipient as viewer, and added a regression test that fails if a title leaks. Also fixed a pre-existing type error in the PR's own test.
 

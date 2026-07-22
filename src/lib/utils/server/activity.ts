@@ -8,10 +8,12 @@
 // rationale: docs/scratch/ACTIVITY_NOTIFICATIONS_PRD.md.
 
 import type { Prisma } from "@prisma/client";
-import { NotificationType, NotificationObject, PermissionRole, ResourceType } from "@prisma/client";
+import { NotificationType, NotificationObject, PermissionRole, ResourceType, EmailSourceType } from "@prisma/client";
 import { logAction } from "./log";
 import { getResourcePermissions } from "./permission";
 import { createNotifications } from "./notification";
+import { enqueueEmails } from "./email-outbox";
+import { NOTIFICATION_TYPE_TO_CATEGORY } from "./notification-category";
 
 /** An identity that is a user or a page. */
 export type EntityRef = { type: "USER" | "PAGE"; id: string };
@@ -87,17 +89,12 @@ async function resolveRecipients(
 		.map((r) => ({ ...base, ...r }));
 }
 
-/** Preference-filter seam. No-op today; the preferences ticket fills this in without touching call sites. */
-function filterByPreferences(rows: Prisma.NotificationCreateManyInput[]): Prisma.NotificationCreateManyInput[] {
-	return rows;
-}
-
 /**
  * Record that `actor` did `action` toward `target` (optionally about `object`), persisting a
- * notification per recipient. Awaited by callers so the write is guaranteed in-request, but NEVER
- * throws — a dispatch failure logs and is swallowed so it can't roll back or 500 the triggering
- * action. (Runs in-request rather than via `after()` because the write is a cheap local createMany;
- * revisit deferral when the slow email channel lands.)
+ * notification per recipient AND enqueuing an email per recipient. Awaited by callers so the writes are
+ * guaranteed in-request, but NEVER throws — a dispatch failure logs and is swallowed so it can't roll
+ * back or 500 the triggering action. Email delivery is deferred: enqueue is a cheap local insert; the
+ * scheduled flush (email-flush.ts) applies preferences + read-suppression and actually sends.
  */
 export async function emitActivity(
 	action: string,
@@ -114,8 +111,20 @@ export async function emitActivity(
 			}
 			return;
 		}
-		const rows = filterByPreferences(await resolveRecipients(type, target, actor, object));
-		if (rows.length > 0) await createNotifications(rows);
+		const rows = await resolveRecipients(type, target, actor, object);
+		if (rows.length === 0) return;
+		const created = await createNotifications(rows);
+		// Enqueue one email per created notification (its recipient identity + mapped category). The email
+		// set matches the bell set for free — same rows, already role-filtered + self-filtered above.
+		await enqueueEmails(
+			created.map((n) => ({
+				recipientUserId: n.recipientUserId,
+				contextPageId: n.contextPageId,
+				category: NOTIFICATION_TYPE_TO_CATEGORY[n.type],
+				sourceType: EmailSourceType.NOTIFICATION,
+				sourceId: n.id,
+			})),
+		);
 	} catch (err) {
 		logAction("activity.dispatch_failed", undefined, { action, error: String(err) });
 	}

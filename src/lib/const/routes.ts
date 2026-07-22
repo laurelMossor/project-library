@@ -40,6 +40,13 @@ export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 // Session-scoped — active profile resolved from session, no handle in URL
 export const SETTINGS = "/settings";
 export const PERSONAL_INFO = "/settings/personal-info";
+export const NOTIFICATIONS_SETTINGS = "/settings/notifications";
+
+// Unsubscribe (per-section link in notification emails; stateless token, no login)
+export const UNSUBSCRIBE = "/unsubscribe";
+export const UNSUBSCRIBE_TOKEN_QUERY = "token";
+export const UNSUBSCRIBE_WITH_TOKEN = (token: string) =>
+	`${UNSUBSCRIBE}?${UNSUBSCRIBE_TOKEN_QUERY}=${encodeURIComponent(token)}`;
 export const CONNECTIONS = "/connections";
 export const CONNECTIONS_TAB_QUERY = "tab"; // ?tab= selects the initial connections tab
 export const CONNECTIONS_REQUESTS = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Requests`; // deep-link to the Requests tab
@@ -69,7 +76,10 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 // Message Routes
 // ============================================================================
 export const MESSAGES = "/messages";
-export const MESSAGE_CONVERSATION = ({ id, type }: { id: string; type: "user" | "page" }) => `/messages/${type === "page" ? "p" : "u"}/${id}`;
+// `asPageId` (optional) makes the link open the conversation under a page identity the viewer
+// manages — a one-shot entry consumed and stripped by the conversation page (see its useEffect).
+export const MESSAGE_CONVERSATION = ({ id, type, asPageId }: { id: string; type: "user" | "page"; asPageId?: string | null }) =>
+	`/messages/${type === "page" ? "p" : "u"}/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
 
 // ============================================================================
 // API Routes
@@ -85,7 +95,12 @@ export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
+export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
 export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
+
+// Unsubscribe + the scheduled email flush (pinged by a GitHub Action)
+export const API_UNSUBSCRIBE = "/api/unsubscribe";
+export const API_NOTIFICATIONS_FLUSH = "/api/notifications/flush";
 
 // Event API Routes
 export const API_EVENTS = "/api/events";

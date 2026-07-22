@@ -5,6 +5,8 @@
  *   - Pages with handle matching "playwright-test-*"
  *   - Messages sent by automated tests ("Hello from Playwright…")
  *   - Users created by the signup test (handle matching "tst*")
+ *   - Email notification preferences left by the settings spec for the seed actors
+ *     (rows are sparse — a stray toggle would shift the code defaults on the next run)
  *
  * Events, posts, and follows are cleaned up by their own tests and do not
  * need handling here.
@@ -40,14 +42,17 @@ export default async function globalTeardown() {
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
-    const [pages, messages, users] = await Promise.all([
+    const [pages, messages, users, prefs] = await Promise.all([
       prisma.page.deleteMany({ where: { handle: { startsWith: "playwright-test-" } } }),
       prisma.message.deleteMany({ where: { content: { startsWith: "Hello from Playwright" } } }),
       prisma.user.deleteMany({ where: { handle: { startsWith: "tst" } } }),
+      prisma.notificationPreference.deleteMany({
+        where: { user: { handle: { in: ["alice.example", "sam.example"] } } },
+      }),
     ]);
 
     console.log(
-      `[teardown] cleaned up — pages: ${pages.count}, messages: ${messages.count}, users: ${users.count}`
+      `[teardown] cleaned up — pages: ${pages.count}, messages: ${messages.count}, users: ${users.count}, prefs: ${prefs.count}`
     );
   } finally {
     await prisma.$disconnect();

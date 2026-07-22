@@ -41,8 +41,10 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 
 	useEffect(() => {
 		fetchConversation();
+		// asPageId is a dep so a deep-link identity switch (personal → page) refetches under the new
+		// identity rather than relying on remount timing.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [targetId, targetType]);
+	}, [targetId, targetType, asPageId]);
 
 	// Poll for new messages every 60 seconds when visible
 	useEffect(() => {
@@ -54,7 +56,7 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 		}, 60000);
 		return () => clearInterval(intervalId);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [targetId, targetType, sending]);
+	}, [targetId, targetType, sending, asPageId]);
 
 	useEffect(() => {
 		const el = messagesContainerRef.current;

@@ -93,6 +93,23 @@ enum NotificationObject {
   PAGE
 }
 
+// User-facing grouping for email notification preferences. Each in-app NotificationType maps to
+// exactly one of these (see notification-category.ts); MESSAGES has no NotificationType — direct
+// messages are a separate model and enqueue for email directly.
+enum NotificationCategory {
+  COMMENTS
+  REQUESTS
+  FOLLOWS
+  MESSAGES
+  RSVPS
+}
+
+// What an EmailOutbox row points at, so the flush can read the source's readAt for read-suppression.
+enum EmailSourceType {
+  NOTIFICATION
+  MESSAGE
+}
+
 // ========================
 // Users (identity + auth)
 // ========================
@@ -167,6 +184,9 @@ model User {
   // Activity notifications (received in this user's bell; caused by this user as an actor)
   notificationsReceived Notification[] @relation("NotificationsReceived")
   notificationsActed    Notification[] @relation("NotificationsActed")
+
+  // This user's email preferences (personal + one set per page they manage)
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
@@ -291,6 +311,9 @@ model Page {
   // Activity notifications (page-context deliveries to this page's managers; caused by this page as actor)
   notifications      Notification[] @relation("PageNotifications")
   notificationsActed Notification[] @relation("NotificationsActedAs")
+
+  // Managers' email preferences scoped to this page (one set per manager)
+  notificationPreferences NotificationPreference[]
 
   @@index([createdByUserId])
   @@index([createdAt])
@@ -752,6 +775,60 @@ model Notification {
   @@index([recipientUserId, contextPageId, readAt])
   @@index([recipientUserId, contextPageId, createdAt])
   @@map("notifications")
+}
+
+// One user's email preference for one context. `userId` is always the human (whose inbox);
+// `contextPageId` is null for their personal profile, else a page they manage — so every manager of a
+// page has their OWN rows for that page, independent of other managers. `category` set = that category's
+// on/off; `category` NULL = the per-context email MASTER (the unsubscribe / kill-switch target), so an
+// admin unsubscribing a page only silences their own page emails. Sparse: a missing row means "use the
+// code default" (notification-category.ts); a missing master defaults on. Uniqueness is enforced by
+// partial unique indexes in the migration (NOT a Prisma @@unique — Postgres treats the nullable
+// contextPageId/category as distinct, same reason Follow uses split @@unique pairs), so writes use
+// find-then-write-in-$transaction, not upsert.
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId        String
+  contextPageId String?
+  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextPage   Page? @relation(fields: [contextPageId], references: [id], onDelete: Cascade)
+
+  category NotificationCategory? // null = the per-context email master
+  enabled  Boolean
+
+  @@index([userId])
+  @@index([contextPageId])
+  @@map("notification_preferences")
+}
+
+// The pending-email queue. Producers (the activity dispatcher + the message-send route) enqueue one
+// row per recipient identity; the scheduled flush (/api/notifications/flush) consumes it, groups by
+// recipient into one profile-grouped email, and stamps sentAt. `sentAt IS NULL` = pending, backed by
+// a partial index (email_outbox_pending) so the flush scans only the hot set, not history.
+model EmailOutbox {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Recipient identity — the row is delivered to recipientUser's address; contextPageId (null =
+  // personal, else a managed page) selects which identity's preferences + master govern.
+  recipientUserId String
+  contextPageId   String?
+
+  category   NotificationCategory
+  sourceType EmailSourceType
+  sourceId   String // Notification.id or Message.id — read at flush time for read-suppression
+
+  // Concurrency claim: a flush run stamps this before sending so overlapping runs don't double-send.
+  claimedAt DateTime?
+  // null = pending; set when emailed or suppressed. `outcome` records which (SENT / SUPPRESSED_*).
+  sentAt  DateTime?
+  outcome String?
+
+  @@index([recipientUserId, contextPageId])
+  @@map("email_outbox")
 }
 
 // ========================
