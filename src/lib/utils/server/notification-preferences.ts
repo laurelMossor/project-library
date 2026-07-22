@@ -9,7 +9,7 @@
 // `category` set is that category's on/off; a row with `category` NULL is the per-context master (default
 // on). A missing category row falls back to CATEGORY_EMAIL_DEFAULT.
 
-import { NotificationCategory } from "@prisma/client";
+import { NotificationCategory, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { CATEGORY_EMAIL_DEFAULT } from "./notification-category";
 
@@ -88,14 +88,26 @@ export async function getEffectivePrefs(
  */
 async function writePref(id: EmailIdentity, category: NotificationCategory | null, enabled: boolean): Promise<void> {
 	const where = { userId: id.recipientUserId, contextPageId: id.contextPageId, category };
-	await prisma.$transaction(async (tx) => {
-		const existing = await tx.notificationPreference.findFirst({ where, select: { id: true } });
-		if (existing) {
-			await tx.notificationPreference.update({ where: { id: existing.id }, data: { enabled } });
-		} else {
-			await tx.notificationPreference.create({ data: { ...where, enabled } });
+	const findThenWrite = () =>
+		prisma.$transaction(async (tx) => {
+			const existing = await tx.notificationPreference.findFirst({ where, select: { id: true } });
+			if (existing) {
+				await tx.notificationPreference.update({ where: { id: existing.id }, data: { enabled } });
+			} else {
+				await tx.notificationPreference.create({ data: { ...where, enabled } });
+			}
+		});
+	try {
+		await findThenWrite();
+	} catch (err) {
+		// A concurrent writer inserted the row between our findFirst and create; the partial unique index
+		// rejects the duplicate (P2002). Retry once — the row now exists, so this resolves to an update.
+		if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+			await findThenWrite();
+			return;
 		}
-	});
+		throw err;
+	}
 }
 
 /** Flip an identity's per-context email master (the unsubscribe / settings kill-switch). */

@@ -49,7 +49,8 @@ const notifFindMany = vi.mocked(prisma.notification.findMany);
 const send = vi.mocked(sendNotificationEmail);
 
 function outboxRow(over: Partial<any> = {}): any {
-	return { id: "o1", recipientUserId: "alice", contextPageId: null, category: "COMMENTS", sourceType: "NOTIFICATION", sourceId: "n1", claimedAt: null, sentAt: null, ...over };
+	// createdAt defaults to "now" so a row is fresh (not dead-letter-aged) unless a test overrides it.
+	return { id: "o1", recipientUserId: "alice", contextPageId: null, category: "COMMENTS", sourceType: "NOTIFICATION", sourceId: "n1", claimedAt: null, sentAt: null, createdAt: new Date(), ...over };
 }
 function alice() {
 	return { id: "alice", email: "alice@test.dev", handle: "alice", firstName: "Al", lastName: "Ice", displayName: null, avatarImageId: null, avatarImage: null };
@@ -126,5 +127,63 @@ describe("flushEmailOutbox", () => {
 		expect(stampedOutcomes()).not.toContain("SENT");
 		// claim released: an updateMany set claimedAt back to null
 		expect(outboxUpdateMany.mock.calls.some((c) => (c[0] as any)?.data?.claimedAt === null)).toBe(true);
+	});
+
+	test("the claim step reclaims stale-claimed rows (orphan recovery), not just null claims", async () => {
+		outboxFindMany.mockResolvedValue([] as never); // empty is fine — we only assert the claim WHERE
+		await flushEmailOutbox();
+		const claimWhere = (outboxUpdateMany.mock.calls[0]?.[0] as any)?.where;
+		expect(claimWhere?.sentAt).toBeNull();
+		expect(claimWhere?.OR).toEqual([
+			{ claimedAt: null },
+			{ claimedAt: { lt: expect.any(Date) } },
+		]);
+	});
+
+	test("a page-context message row deep-links with the page identity (asPageId)", async () => {
+		outboxFindMany.mockResolvedValue([
+			outboxRow({ id: "o1", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES", contextPageId: "pageX" }),
+		] as never);
+		vi.mocked(prisma.message.findMany).mockResolvedValue([
+			{ id: "m1", senderId: "sam", asPageId: null, content: "hello there", readAt: null },
+		] as never);
+		// The section identity is the page (contextPageId) → must be in the page map.
+		vi.mocked(prisma.page.findMany).mockResolvedValue([
+			{ id: "pageX", name: "Repair Café", handle: "repair-cafe", avatarImage: null },
+		] as never);
+		// Both user.findMany calls (recipients + senders) share this mock: alice is the recipient (needs an
+		// email), sam is the message sender.
+		vi.mocked(prisma.user.findMany).mockResolvedValue([
+			alice(),
+			{ id: "sam", handle: "sam", firstName: "Sam", lastName: null, displayName: null, avatarImageId: null, avatarImage: null },
+		] as never);
+
+		await flushEmailOutbox();
+		expect(send).toHaveBeenCalledTimes(1);
+		const props = send.mock.calls[0][1] as any;
+		const href = props.sections[0].rows[0].href as string;
+		expect(href).toContain("/messages/u/sam");
+		expect(href).toContain("asPageId=pageX");
+	});
+
+	test("dead-letter: a send failure stamps aged-out rows FAILED_MAX_AGE while releasing fresh ones", async () => {
+		const old = new Date(Date.now() - 48 * 60 * 60 * 1000); // > 24h → past the dead-letter horizon
+		outboxFindMany.mockResolvedValue([
+			outboxRow({ id: "old", sourceId: "n1", createdAt: old }),
+			outboxRow({ id: "fresh", sourceId: "n2", createdAt: new Date() }),
+		] as never);
+		notifFindMany.mockResolvedValue([
+			{ id: "n1", readAt: null, type: "COMMENT" },
+			{ id: "n2", readAt: null, type: "COMMENT" },
+		] as never);
+		send.mockResolvedValue({ ok: false, error: "bounced" } as never);
+
+		await flushEmailOutbox();
+		// The aged row is terminally stamped; the fresh row is released for retry.
+		const failedCall = outboxUpdateMany.mock.calls.find((c) => (c[0] as any)?.data?.outcome === "FAILED_MAX_AGE");
+		expect((failedCall?.[0] as any)?.where?.id?.in).toEqual(["old"]);
+		const releaseCall = outboxUpdateMany.mock.calls.find((c) => (c[0] as any)?.data?.claimedAt === null);
+		expect((releaseCall?.[0] as any)?.where?.id?.in).toEqual(["fresh"]);
+		expect(stampedOutcomes()).not.toContain("SENT");
 	});
 });

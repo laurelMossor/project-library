@@ -5,6 +5,7 @@
  * writePref's find-then-write (never `upsert`, because of the partial indexes).
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
 	prisma: {
@@ -129,5 +130,21 @@ describe("writePref — find-then-write (no upsert)", () => {
 			expect.objectContaining({ where: { userId: "alice", contextPageId: null, category: null } }),
 		);
 		expect(prisma.notificationPreference.update).toHaveBeenCalledWith({ where: { id: "m1" }, data: { enabled: false } });
+	});
+
+	test("recovers from a concurrent-insert P2002 by retrying as an update", async () => {
+		// First pass: no row → create races a concurrent insert and hits the partial unique index (P2002).
+		// Retry pass: the row now exists → find + update.
+		vi.mocked(prisma.notificationPreference.findFirst)
+			.mockResolvedValueOnce(null as never)
+			.mockResolvedValueOnce({ id: "raced1" } as never);
+		vi.mocked(prisma.notificationPreference.create).mockRejectedValueOnce(
+			new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "test" }),
+		);
+
+		await setPref({ recipientUserId: "alice", contextPageId: "pageX" }, "COMMENTS" as never, false);
+
+		expect(prisma.notificationPreference.create).toHaveBeenCalledTimes(1);
+		expect(prisma.notificationPreference.update).toHaveBeenCalledWith({ where: { id: "raced1" }, data: { enabled: false } });
 	});
 });

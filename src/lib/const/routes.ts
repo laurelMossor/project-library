@@ -76,7 +76,10 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 // Message Routes
 // ============================================================================
 export const MESSAGES = "/messages";
-export const MESSAGE_CONVERSATION = ({ id, type }: { id: string; type: "user" | "page" }) => `/messages/${type === "page" ? "p" : "u"}/${id}`;
+// `asPageId` (optional) makes the link open the conversation under a page identity the viewer
+// manages — a one-shot entry consumed and stripped by the conversation page (see its useEffect).
+export const MESSAGE_CONVERSATION = ({ id, type, asPageId }: { id: string; type: "user" | "page"; asPageId?: string | null }) =>
+	`/messages/${type === "page" ? "p" : "u"}/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
 
 // ============================================================================
 // API Routes

@@ -21,8 +21,16 @@ import { truncateText } from "@/lib/utils/text";
 import { logAction } from "./log";
 import type { ViewerContext } from "./visibility";
 
-/** Reclaim a row whose flush crashed mid-run after this long, so nothing is orphaned. */
+// Reclaim a row whose flush crashed mid-run after this long, so nothing is orphaned. This is also what
+// makes delivery at-least-once: if a provider send SUCCEEDS but the process dies before we stamp the
+// rows SENT, the claim goes stale and the next window re-sends. We accept a rare duplicate over a
+// dropped notification — the right trade for this channel (send-then-stamp, never stamp-then-send).
 const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+// Dead-letter horizon: a row that has been pending this long (across repeated send failures) is stamped
+// terminally instead of retried forever, so a permanently-bad address can't be re-attempted every window
+// indefinitely (which would harm sender reputation). Generous enough to ride out a transient outage.
+const MAX_PENDING_AGE_MS = 24 * 60 * 60 * 1000;
 
 export interface FlushResult {
 	claimed: number;
@@ -169,7 +177,10 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 						? pageMap.get(m.asPageId) ? resolveCardIdentity(pageMap.get(m.asPageId)! as never).name : "Someone"
 						: senderUserMap.get(m.senderId) ? resolveCardIdentity(senderUserMap.get(m.senderId)! as never).name : "Someone";
 					const other = m.asPageId ? { id: m.asPageId, type: "page" as const } : { id: m.senderId, type: "user" as const };
-					return { text: `${senderName}: ${truncateText(m.content, 120)}`, href: absoluteUrl(MESSAGE_CONVERSATION(other)) };
+					// A page-recipient row carries the page context so the link opens the page-owned
+					// conversation under that identity (the viewer's session default is personal). Personal
+					// rows (contextPageId null) get an unchanged link.
+					return { text: `${senderName}: ${truncateText(m.content, 120)}`, href: absoluteUrl(MESSAGE_CONVERSATION({ ...other, asPageId: contextPageId })) };
 				});
 
 			const emailRows = [...notifEmailRows, ...msgEmailRows];
@@ -196,12 +207,12 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 				await stampOutcomes(recipientRows.map((r) => ({ id: r.id, outcome: "SENT" })), now);
 				sent += 1;
 			} else {
-				// Provider rejected — leave for the next window to retry.
-				await releaseClaims(recipientRows);
+				// Provider rejected — retry next window, unless the row has aged out (dead-letter).
+				await deadLetterOrRelease(recipientRows, now);
 			}
 		} catch (err) {
 			logAction("email_flush.send_failed", undefined, { recipientUserId, error: String(err) });
-			await releaseClaims(recipientRows);
+			await deadLetterOrRelease(recipientRows, now);
 		}
 	}
 
@@ -225,6 +236,22 @@ async function resetClaims(rows: { id: string }[], outcome: string, now: Date): 
 /** Release a claim so the next flush retries these rows (send failure). */
 async function releaseClaims(rows: { id: string }[]): Promise<void> {
 	await prisma.emailOutbox.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { claimedAt: null } });
+}
+
+/**
+ * On send failure, split rows by age: rows pending past MAX_PENDING_AGE_MS are dead-lettered (terminal
+ * FAILED_MAX_AGE) so a permanently-failing send stops being retried every window; the rest have their
+ * claim released to retry next window.
+ */
+async function deadLetterOrRelease(rows: { id: string; createdAt: Date }[], now: Date): Promise<void> {
+	const expired: { id: string }[] = [];
+	const retryable: { id: string }[] = [];
+	for (const r of rows) {
+		if (now.getTime() - r.createdAt.getTime() > MAX_PENDING_AGE_MS) expired.push(r);
+		else retryable.push(r);
+	}
+	if (expired.length) await stampOutcomes(expired.map((r) => ({ id: r.id, outcome: "FAILED_MAX_AGE" })), now);
+	if (retryable.length) await releaseClaims(retryable);
 }
 
 /** Stable groupBy preserving first-seen key order. */
