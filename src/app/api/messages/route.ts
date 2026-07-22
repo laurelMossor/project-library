@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { NotificationCategory, EmailSourceType, PermissionRole, ResourceType } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateMessageContent } from "@/lib/validations";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { canPostAsPage, getResourcePermissions } from "@/lib/utils/server/permission";
+import { enqueueEmails, type EmailOutboxEntry } from "@/lib/utils/server/email-outbox";
 import { logAction } from "@/lib/utils/server/log";
 
 /**
@@ -148,6 +150,27 @@ export async function POST(request: Request) {
 			where: { id: conversationId },
 			data: { updatedAt: new Date() },
 		});
+
+		// Enqueue an email for the recipient identity(ies). The scheduled flush applies preferences +
+		// read-suppression and coalesces, so a rapid exchange that's read in-window sends nothing. Guarded
+		// so email work can never fail the 201. A page recipient fans out to its ADMIN/EDITOR managers,
+		// each with their own (per-manager) preference for that page; the sender is never emailed.
+		try {
+			const entries: EmailOutboxEntry[] = [];
+			if (recipientUserId) {
+				entries.push({ recipientUserId, contextPageId: null, category: NotificationCategory.MESSAGES, sourceType: EmailSourceType.MESSAGE, sourceId: message.id });
+			} else if (recipientPageId) {
+				const managers = await getResourcePermissions(recipientPageId, ResourceType.PAGE);
+				for (const m of managers) {
+					if (m.role !== PermissionRole.ADMIN && m.role !== PermissionRole.EDITOR) continue;
+					if (m.userId === ctx.userId) continue; // never email the sender about their own message
+					entries.push({ recipientUserId: m.userId, contextPageId: recipientPageId, category: NotificationCategory.MESSAGES, sourceType: EmailSourceType.MESSAGE, sourceId: message.id });
+				}
+			}
+			await enqueueEmails(entries);
+		} catch (err) {
+			console.error("POST /api/messages: email enqueue failed (message still sent):", err);
+		}
 
 		return NextResponse.json(
 			{
