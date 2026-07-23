@@ -11,6 +11,12 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Thu 07/23/2026 14:14 PDT
+QA'd the two email tickets to a clean PASS and moved both to Done. First settled email observability on dev: the console fallback plus DB assertions carry the behavior, and rendering the React Email templates to HTML covers the look, so the send seam stays untouched and the e2e suite stays unaffected. Drove verification, reset, and the whole flush pipeline live through the UI (coalescing, read-suppression, per-context preferences, page fan-out, the netwerk-7 message deep-link). The two resilience criteria were proven by injecting real faults, not skipped. Real dev e2e email delivery is the deferred follow-up Laurel wants to scope next.
+
+#### Entry: Thu 07/23/2026 12:56 PDT
+QA day on `develop`, driven live through the app. Moved five tickets to Done: Leave-group, Comments, the event-banner replace bug, Activity Notifications, and the three-tier Visibility model. Filed six findings along the way. The most consequential was a call to feature-flag Join/membership for beta, since following already grants the same access that membership does. Also reworked the `/prolib-qa` skill after a real lesson, that a fetch-level pass can hide broken UI wiring, so UI-first testing is now the rule. Email QA is the remaining batch, blocked on how to make email observable on dev.
+
 #### Entry: Wed 07/22/2026 13:09 PDT
 `/prolib-review` of the `netwerk-7` Email Notifications branch, then the agreed fixes. The one real bug was the page-context message email deep link. It sent a page manager to a conversation their personal session can't open, because the messages view scopes by active identity. The link now carries the page as a one-shot URL param that switches identity on landing and then clears itself. Also added an age-based dead-letter so a permanently-failing send stops retrying forever, and a P2002 retry on the preference write. Backed it with the missing message fan-out unit test and two new E2E specs. All green.
 
