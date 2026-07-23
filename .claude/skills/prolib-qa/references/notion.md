@@ -105,6 +105,11 @@ curl -s -X POST "https://api.notion.com/v1/comments" \
 
 - A malformed filter returns `0 results` **silently** (not an error) — see the filter-shape
   notes in `docs/PULL_TICKETS.md`.
+- **If you write back with the Notion MCP tools** instead of curl (`notion-update-page`
+  rather than the PATCH recipes above), a bulk checkbox flip uses `update_content` with
+  **`replace_all_matches: true`** on `"- [ ]" → "- [x]"` — the field is `replace_all_matches`,
+  **not** `replace_all` (that name silently no-ops / errors on multiple matches). Both the
+  curl path above and the MCP path get the same result; just don't guess the field name.
 - The integration must be shared with the ticket's page for writes to succeed; if a PATCH/POST
   returns a permission error, that's why — surface it to the user rather than retrying blindly.
 - **Comments specifically may be blocked even when Status/criteria writes succeed.** Observed:

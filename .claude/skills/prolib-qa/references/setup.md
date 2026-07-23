@@ -21,18 +21,22 @@ Prefer `preview_start` to bring up / attach to the server for the browser sessio
 If the app errors on missing data, the DB probably isn't seeded — run `npm run db:seed:dev`.
 The dev DB must point at `localhost`; the seed/test scripts guard against pointing at prod.
 
-## QA actors — use alice and sam only
+## QA actors — alice, sam, and private-pat
 
-The seed loads users from `prisma/seed-data/users/*.json` (one file per user). Only **two**
-of them are QA actors. Don't try to log in as george/dolores/fiona/iris — they don't exist.
+The seed loads users from `prisma/seed-data/users/*.json` (one file per user). **Three** are
+QA actors (below); a fourth, `laurel`, is off-limits (see the callout). Don't try to log in
+as george/dolores/fiona/iris — they don't exist.
 
 | Handle | Email | Password | Use for |
 |---|---|---|---|
 | `alice.example` | `alice@example.com` | `alice` | default actor for almost everything |
 | `sam.example` | `sam@example.com` | `sam` | the *second* user (follows, messaging, cross-account visibility) |
+| `private-pat.example` | `pat@example.com` | `pat` | the **PRIVATE user** — essential for request-to-follow, locked-stub, and PRIVATE-profile checks. Profile **and** content are PRIVATE. |
 
 The credential rule is **`username:username`** (email `<user>@example.com`, password = the
-username) for both. For two-actor flows use **alice + sam**.
+username) for all three. For two-actor flows use **alice + sam**; reach for **private-pat**
+whenever a criterion needs a private *user* (as opposed to the private *page*,
+`secret-workshop`).
 
 > ⛔ **Do not log in as `laurel`.** A third seed user, `laurel`, exists in the data, but it
 > is the project owner's **personal/admin account** (real email, env-var password). It is
@@ -74,9 +78,40 @@ Practical consequence: when a criterion is about **page ownership/editing**, log
 The laurel-owned pages are viewable but you can't edit them — and you must not log in as
 laurel to do so. If page-edit coverage on a laurel page is genuinely needed, ask the user.
 
-`relationships.json` also seeds: alice↔sam mutual follow, alice & sam both follow
-portland-makers-guild, two example conversations (incl. one sent *as* the page), and an
-RSVP. So follow/message/RSVP flows already have data to read.
+### Seeded members & relationships (they decide who can view/act)
+
+The seed grants more edges than the admin/editor columns above — these determine who can
+already see private content or approve things, so know them before picking actors:
+
+- **Page members (Permission rows):**
+  - `portland-makers-guild` — alice **ADMIN**, sam **EDITOR**, *and* laurel + private-pat as **MEMBER**.
+  - `secret-workshop` — sam **ADMIN**, *and* **alice is a seeded MEMBER** (so alice can view its
+    private profile + content without any setup; use a *different* actor when you need a
+    non-member).
+- **Follows** (`relationships.json`): alice↔sam mutual; alice→PMG and sam→PMG; and
+  **alice→private-pat** (so alice already sees pat's private profile; anon/sam do not).
+- **Pending access request:** **sam→private-pat (FOLLOW)** — a ready-made pending request for
+  the approve/deny flow (log in as pat to act on it).
+- **Conversations:** an alice↔sam DM, and a sam↔PMG thread (one message sent *as* the page).
+- **RSVP:** alice → one of sam's events.
+
+> When a criterion hinges on a *precise* edge (who's a member of what, does X follow Y),
+> **verify against a DB dump** rather than trusting this list — the seed drifts. The
+> permissions query in [preview-tools.md](preview-tools.md) §4 prints the whole map.
+
+### Images & attachments (seed drift to know)
+
+- The `ImageAttachment` field is **`type`** (an `AttachmentTarget` enum: `POST` / `EVENT` /
+  `PAGE` / …), **not `targetType`** (the name in the PROJECT_GUIDELINES diagram is stale).
+  Query it as `where: { type: "EVENT" }`, not `targetType`.
+- **Editable events ship with no banner** anymore — only the (off-limits) laurel-owned
+  `spatsimprov` event has a seeded banner image. An event banner/cover is the sortOrder-0
+  `ImageAttachment` (the Event model has no `coverImageId`). If a criterion needs an editable
+  event *with* a banner, add one as a precondition (create an `Image` + an
+  `ImageAttachment{ type:"EVENT", sortOrder:0 }`, mirroring `prisma/seed.ts`).
+- **Post *image upload* was regressed** as of 2026-07-23 (a separate open bug) — some seeded
+  posts still carry images, but you can't add new ones via the UI. Caption/upload criteria
+  are blocked until that's fixed; don't mark them pass or fail — note the blocker.
 
 ## Routes you'll actually use
 
