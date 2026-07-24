@@ -31,6 +31,11 @@ export function PostImagesModal({ isOpen, onClose, postId, images, setImages, in
 	const [caption, setCaption] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
+	// Last caption we've persisted per image id. Set synchronously before the PATCH so a
+	// second saveCaption for the same photo (e.g. onBlur firing right before a Done/nav
+	// click that also flushes) short-circuits instead of firing a duplicate request —
+	// the `current.caption` closure is stale between those two calls, so it can't dedupe.
+	const savedCaptionRef = useRef<Record<string, string | null>>({});
 
 	const safeIndex = Math.min(index, Math.max(0, images.length - 1));
 	const current = images[safeIndex];
@@ -46,19 +51,23 @@ export function PostImagesModal({ isOpen, onClose, postId, images, setImages, in
 
 	async function saveCaption() {
 		if (!current) return;
+		const imageId = current.id;
 		const next = caption.trim() || null;
-		if (next === (current.caption ?? null)) return;
+		const lastSaved = savedCaptionRef.current[imageId] ?? (current.caption ?? null);
+		if (next === lastSaved) return;
+		savedCaptionRef.current[imageId] = next; // mark before the await so a concurrent call no-ops
 		setBusy(true);
 		try {
-			const res = await fetch(API_IMAGE(current.id), {
+			const res = await fetch(API_IMAGE(imageId), {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ caption: next }),
 			});
 			if (!res.ok) throw new Error("Failed to save caption");
 			const updated: ImageItem = await res.json();
-			setImages((prev) => prev.map((img) => (img.id === current.id ? { ...img, caption: updated.caption } : img)));
+			setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, caption: updated.caption } : img)));
 		} catch (err) {
+			savedCaptionRef.current[imageId] = lastSaved; // revert so a retry can re-attempt
 			setError(err instanceof Error ? err.message : "Failed to save caption");
 		} finally {
 			setBusy(false);

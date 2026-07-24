@@ -4,8 +4,7 @@
 import { prisma } from "./prisma";
 import { EventItem } from "../../types/event";
 import { eventWithUserFields, eventCollectionFields, EventFromQuery, toCollectionMeta } from "./fields";
-import { deleteImage } from "./storage";
-import { getImagesForTarget, getImagesForTargetsBatch, detachAllImagesForTarget } from "./image-attachment";
+import { getImagesForTarget, getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 import type { ViewerContext } from "./visibility";
@@ -98,22 +97,9 @@ export async function deleteEvent(id: string): Promise<EventItem> {
 		throw new Error("Event not found");
 	}
 
-	// Get all images attached to this event
-	const images = await getImagesForTarget("EVENT", id);
-
-	// Delete all associated images from storage bucket
-	for (const image of images) {
-		if (image.url) {
-			const result = await deleteImage(image.url);
-			if (!result.success) {
-				console.error(`Failed to delete image ${image.id} from storage:`, result.error);
-				// Continue deleting other images even if one fails
-			}
-		}
-	}
-
-	// Delete all image attachments (cascade will handle image deletion if needed)
-	await detachAllImagesForTarget("EVENT", id);
+	// Remove every attached image (attachment row + Image row + storage blob). The event
+	// is going away, so no uploader scoping — all images attached to it are cleaned up.
+	await deleteAllAttachmentsForTarget("EVENT", id);
 
 	// Delete the event (cascade will delete posts)
 	const deletedEvent = await prisma.event.delete({

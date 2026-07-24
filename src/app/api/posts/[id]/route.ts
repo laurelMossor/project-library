@@ -5,6 +5,7 @@ import { postHasContent } from "@/lib/utils/content";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { deletePost } from "@/lib/utils/server/post";
 import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
 
 const MAX_PINNED_POSTS = 3;
@@ -297,7 +298,8 @@ export async function DELETE(request: Request, { params }: Params) {
 			);
 		}
 
-		await prisma.post.delete({ where: { id } });
+		// Delegates to the util so attachment/image cleanup lives in one place.
+		await deletePost(id);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

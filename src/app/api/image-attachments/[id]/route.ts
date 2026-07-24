@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
-import { canManageAttachmentTarget } from "@/lib/utils/server/image-attachment";
+import { canManageAttachmentTarget, deleteAttachment } from "@/lib/utils/server/image-attachment";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -47,7 +47,9 @@ export async function DELETE(request: Request, { params }: Params) {
 			);
 		}
 
-		await prisma.imageAttachment.delete({ where: { id } });
+		// Removes the attachment AND its Image row + storage blob when nothing else
+		// references the image (another attachment or a User/Page avatar) — see helper.
+		await deleteAttachment(id);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {
