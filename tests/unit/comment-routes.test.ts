@@ -4,7 +4,7 @@
  *
  * Design: mock ONLY the two real seams — `prisma` and `getSessionContext` — and let the
  * genuine gate run: getViewerContext → requireViewablePost/Event → canViewPost/Event →
- * isContentOwner → canManageEntity → canPostAsPage → createComment → canModerateComment/
+ * isContentOwner → canActAsEntity → canPostAsPage → createComment → canModerateComment/
  * canEditComment. So a broken gate actually fails a test, rather than the test echoing a
  * mocked verdict. `errors` stays real (assert genuine status codes); rate-limit and
  * activity are stubbed as orthogonal concerns. Mirrors require-viewable/message-scoping,

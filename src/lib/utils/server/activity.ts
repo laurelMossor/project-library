@@ -11,6 +11,7 @@ import type { Prisma } from "@prisma/client";
 import { NotificationType, NotificationObject, PermissionRole, ResourceType, EmailSourceType } from "@prisma/client";
 import { logAction } from "./log";
 import { getResourcePermissions } from "./permission";
+import { ACTING_ROLES, ADMIN_ONLY } from "@/lib/const/roles";
 import { createNotifications } from "./notification";
 import { enqueueEmails } from "./email-outbox";
 import { NOTIFICATION_TYPE_TO_CATEGORY } from "./notification-category";
@@ -40,10 +41,8 @@ const REQUEST_TYPES: ReadonlySet<NotificationType> = new Set([
 ]);
 
 /** Which page roles receive a given type: request types → ADMIN only; informational → ADMIN + EDITOR. */
-function rolesForType(type: NotificationType): PermissionRole[] {
-	return REQUEST_TYPES.has(type)
-		? [PermissionRole.ADMIN]
-		: [PermissionRole.ADMIN, PermissionRole.EDITOR];
+function rolesForType(type: NotificationType): readonly PermissionRole[] {
+	return REQUEST_TYPES.has(type) ? ADMIN_ONLY : ACTING_ROLES;
 }
 
 /** The actor columns for a notification row, from an ActorRef. */

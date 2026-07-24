@@ -57,7 +57,8 @@ export async function canEditUserProfile(userId: string): Promise<ProfileEditChe
 export async function canEditPageProfile(pageId: string): Promise<ProfileEditCheck> {
   const ctx = await getSessionContext();
   if (!ctx) return { canEdit: false, reason: "not_authenticated" };
-  const canManage = await canPostAsPage(ctx.userId, pageId);
-  if (!canManage) return { canEdit: false, reason: "not_owner" };
+  // "Edit the page" is the act-as-page tier (ADMIN/EDITOR), not ADMIN-only management.
+  const canEdit = await canPostAsPage(ctx.userId, pageId);
+  if (!canEdit) return { canEdit: false, reason: "not_owner" };
   return { canEdit: true };
 }

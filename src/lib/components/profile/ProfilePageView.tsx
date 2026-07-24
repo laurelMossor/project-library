@@ -5,6 +5,7 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { UserSettingsContent } from "./profile-settings/UserSettingsContent";
 import { PageSettingsContent } from "./profile-settings/PageSettingsContent";
 import { PUBLIC_PROFILE, API_ME_USER, API_ME_PAGE, API_ME_PAGES } from "@/lib/const/routes";
+import { isActingRole } from "@/lib/const/roles";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
@@ -32,9 +33,7 @@ export function ProfilePageView() {
 
 		const pagesFetch = fetch(API_ME_PAGES)
 			.then((r) => (r.ok ? r.json() : []))
-			.then((data: PageItem[]) =>
-				data.filter((p) => p.role === "ADMIN" || p.role === "EDITOR"),
-			);
+			.then((data: PageItem[]) => data.filter((p) => isActingRole(p.role)));
 
 		Promise.all([entityFetch, pagesFetch])
 			.then(([entityData, pagesData]) => {

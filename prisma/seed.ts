@@ -117,7 +117,10 @@ export type SeedPagePacket = {
   profileElements?: SeedProfileElement[];
   creatorHandle: string;
   editors?: string[];
-  members?: "*" | string[];
+  // Users to seed as FOLLOWERS of the page. ("*" = all non-creator/non-editor users.)
+  // Self-service membership is flagged off (FEATURES.SELF_SERVICE_MEMBERSHIP); following a
+  // page grants the same access members had, so seed page connections as follows.
+  followers?: "*" | string[];
   posts?: SeedPost[];
   events?: SeedEvent[];
 };
@@ -477,39 +480,26 @@ async function main() {
       });
     }
 
-    // MEMBER permissions
+    // Followers (formerly seeded as MEMBER permissions). Membership is flagged off, and
+    // following a page grants the same access, so seed these connections as follow edges.
+    // Creator/editors are skipped — they manage the page rather than follow it.
     const editorSet = new Set(
       (packet.editors ?? []).map((h) => h.toLowerCase())
     );
-    if (packet.members === "*") {
-      for (const [userHandle, user] of usersByHandle) {
-        if (
-          userHandle === packet.creatorHandle.toLowerCase() ||
-          editorSet.has(userHandle)
-        )
-          continue;
-        await prisma.permission.create({
-          data: {
-            userId: user.id,
-            resourceId: page.id,
-            resourceType: ResourceType.PAGE,
-            role: PermissionRole.MEMBER,
-          },
-        });
-      }
-    } else if (Array.isArray(packet.members)) {
-      for (const memberHandle of packet.members) {
-        const member = usersByHandle.get(memberHandle.toLowerCase());
-        if (!member) continue;
-        await prisma.permission.create({
-          data: {
-            userId: member.id,
-            resourceId: page.id,
-            resourceType: ResourceType.PAGE,
-            role: PermissionRole.MEMBER,
-          },
-        });
-      }
+    const creatorHandleLc = packet.creatorHandle.toLowerCase();
+    const followerHandles =
+      packet.followers === "*"
+        ? [...usersByHandle.keys()]
+        : Array.isArray(packet.followers)
+          ? packet.followers.map((h) => h.toLowerCase())
+          : [];
+    for (const followerHandle of followerHandles) {
+      if (followerHandle === creatorHandleLc || editorSet.has(followerHandle)) continue;
+      const follower = usersByHandle.get(followerHandle);
+      if (!follower) continue;
+      await prisma.follow.create({
+        data: { followerId: follower.id, followingPageId: page.id },
+      });
     }
   }
 

@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { PermissionRole, ResourceType } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
+import { grantPermission } from "./permission";
 
 export const publicPageFields = {
   id: true,
@@ -131,15 +132,8 @@ export async function createPage(
       select: publicPageFields,
     });
 
-    // Auto-create ADMIN permission for creator
-    await tx.permission.create({
-      data: {
-        userId,
-        resourceId: page.id,
-        resourceType: ResourceType.PAGE,
-        role: PermissionRole.ADMIN,
-      },
-    });
+    // Auto-grant the creator ADMIN, through the shared write helper (tx-aware).
+    await grantPermission(userId, page.id, ResourceType.PAGE, PermissionRole.ADMIN, tx);
 
     return page;
   });

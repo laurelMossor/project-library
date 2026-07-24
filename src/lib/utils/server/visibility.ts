@@ -18,10 +18,10 @@
 //
 // Do NOT scatter visibility checks into individual route handlers — add them here.
 
-import { ContentVisibility, ProfileVisibility, ResourceType } from "@prisma/client";
+import { ContentVisibility, ProfileVisibility } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getSessionContext } from "./session";
-import { canManageEntity } from "./permission";
+import { canActAsEntity, getMemberPageIds } from "./permission";
 
 type ProfileKind = "USER" | "PAGE";
 
@@ -48,14 +48,9 @@ export async function getViewerContext(): Promise<ViewerContext> {
   const session = await getSessionContext();
   if (!session) return { userId: null, memberPageIds: [] };
 
-  const permissions = await prisma.permission.findMany({
-    where: { userId: session.userId, resourceType: ResourceType.PAGE },
-    select: { resourceId: true },
-  });
-
   return {
     userId: session.userId,
-    memberPageIds: permissions.map((p) => p.resourceId),
+    memberPageIds: await getMemberPageIds(session.userId),
   };
 }
 
@@ -229,7 +224,7 @@ export async function isContentOwner(
   content: { userId: string; pageId: string | null },
 ): Promise<boolean> {
   if (!viewer.userId) return false;
-  if (content.pageId) return canManageEntity(viewer.userId, { page: { id: content.pageId } });
+  if (content.pageId) return canActAsEntity(viewer.userId, { page: { id: content.pageId } });
   return viewer.userId === content.userId;
 }
 

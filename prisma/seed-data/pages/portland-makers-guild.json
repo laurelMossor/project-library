@@ -30,7 +30,7 @@
   ],
   "creatorHandle": "alice.example",
   "editors": ["sam.example"],
-  "members": "*",
+  "followers": "*",
   "posts": [
     {
       "title": "New woodworking tools in the library (Example Post)",

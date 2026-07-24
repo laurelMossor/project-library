@@ -62,10 +62,12 @@ Client (RSC / "use client")
         │  THIN: parse → authorize → delegate. Should NOT inline Prisma queries.
         ▼
   Permission / visibility gate — src/lib/utils/server/{permission.ts, visibility.ts}
-        permission.ts: canPostAsPage, canManagePage, canManageEntity, hasPermission,
+        permission.ts: canPostAsPage, canManagePage, canActAsEntity, hasPermission,
                        getManagedPageIds (ADMIN/EDITOR — the authorization one),
+                       getMemberPageIds (any role — the isMember/visibility edge set),
                        getPagesForUser (MEMBER-inclusive — display only, never authz),
                        grant/revokePermission
+                       role vocabulary (sets/predicates): src/lib/const/roles.ts
         visibility.ts: getViewerContext, resolveProfileAccess/requireViewableProfile,
                        canViewPost/canViewEvent, requireViewablePost/requireViewableEvent,
                        postListWhere/eventListWhere/profileListWhere/

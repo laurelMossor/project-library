@@ -94,6 +94,13 @@ client content visibility.
 10. **Mutations authorize the specific target**, derived from the session — "logged in" is never
     enough. Guard the id, not just the verb (IDOR is the default failure mode).
 
+11. **Changing a profile's visibility is a manage action, not an edit action.** For a Page, only
+    ADMIN (`canManagePage`) may change `profileVisibility` / `contentVisibility`; an EDITOR
+    (`canPostAsPage`) may edit the rest of the profile but never its privacy. Enforced in
+    `saveMyProfile` via the caller's `allowVisibilityChange` flag (the `/api/me/page` route derives
+    it from `canManagePage`), so a visibility field from a non-admin is rejected (403) before the
+    write. A user always controls their own profile's visibility (self is authoritative).
+
 ---
 
 ## 2. The helpers, and when to reach for each

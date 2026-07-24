@@ -7,7 +7,8 @@ import {
 	grantPermission,
 } from "@/lib/utils/server/permission";
 import { getViewerContext, requireViewableProfile } from "@/lib/utils/server/visibility";
-import { ResourceType, PermissionRole } from "@prisma/client";
+import { assignableRoles } from "@/lib/const/roles";
+import { ResourceType } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -57,7 +58,8 @@ export async function POST(request: Request, { params }: RouteParams) {
 			return badRequest("userId and role are required");
 		}
 
-		if (!Object.values(PermissionRole).includes(role)) {
+		// Only currently-assignable roles (MEMBER drops out while membership is flagged off).
+		if (!assignableRoles().includes(role)) {
 			return badRequest("Invalid role");
 		}
 

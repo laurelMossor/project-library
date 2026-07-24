@@ -1,5 +1,6 @@
 // ⚠️ SERVER-ONLY: Messaging utility functions
 import { prisma } from "./prisma";
+import { getManagedPageIds } from "./permission";
 
 /**
  * Conversation IDs for ONE identity. With `asPageId` set, only that page's conversations;
@@ -44,12 +45,8 @@ export async function getConversationsForUser(userId: string): Promise<Conversat
     select: { conversationId: true },
   });
 
-  // Get conversations where user has permission on a participating page
-  const userPermissions = await prisma.permission.findMany({
-    where: { userId, resourceType: "PAGE", role: { in: ["ADMIN", "EDITOR"] } },
-    select: { resourceId: true },
-  });
-  const pageIds = userPermissions.map(p => p.resourceId);
+  // Get conversations where user manages a participating page (ADMIN/EDITOR).
+  const pageIds = await getManagedPageIds(userId);
 
   const pageConvos = pageIds.length > 0
     ? await prisma.conversationParticipant.findMany({

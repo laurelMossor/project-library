@@ -68,7 +68,7 @@ where posts/events surface).
 |---|---|---|---|---|---|
 | Portland Makers Guild | `portland-makers-guild` | PUBLIC / LISTED | alice (editor: sam) | ✅ as alice/sam | avatar image, 1 published post, 1 published event — **the go-to page for page-edit / page-authorship / page-avatar tests** |
 | Unlisted Zine | `unlisted-zine` | PUBLIC / UNLISTED | alice | ✅ as alice | use for "unlisted content" checks (on the profile, never in Explore/feeds) |
-| Secret Workshop | `secret-workshop` | PRIVATE / PRIVATE | sam | ✅ as sam | use for PRIVATE checks: non-member viewers (anon *and* logged-in) get the **identity-only locked stub** with a request-to-follow/join affordance — not a 404; the page's JSON collection routes (`/api/pages/[id]/posts`, `/events`) do 404 |
+| Secret Workshop | `secret-workshop` | PRIVATE / PRIVATE | sam | ✅ as sam | use for PRIVATE checks: non-follower viewers (anon *and* logged-in) get the **identity-only locked stub** with a request-to-follow affordance — not a 404; the page's JSON collection routes (`/api/pages/[id]/posts`, `/events`) do 404 |
 | Spats Improv | `spatsimprov` | PUBLIC / LISTED | laurel | ❌ owner is off-limits | view-only for QA |
 | Baywatch Events | `baywatch` | PUBLIC / LISTED | laurel | ❌ owner is off-limits | view-only for QA |
 | The Project Library | `theprojectlibrary` | PUBLIC / LISTED | laurel | ❌ owner is off-limits | view-only for QA |
@@ -83,19 +83,21 @@ laurel to do so. If page-edit coverage on a laurel page is genuinely needed, ask
 The seed grants more edges than the admin/editor columns above — these determine who can
 already see private content or approve things, so know them before picking actors:
 
-- **Page members (Permission rows):**
-  - `portland-makers-guild` — alice **ADMIN**, sam **EDITOR**, *and* laurel + private-pat as **MEMBER**.
-  - `secret-workshop` — sam **ADMIN**, *and* **alice is a seeded MEMBER** (so alice can view its
-    private profile + content without any setup; use a *different* actor when you need a
-    non-member).
-- **Follows** (`relationships.json`): alice↔sam mutual; alice→PMG and sam→PMG; and
-  **alice→private-pat** (so alice already sees pat's private profile; anon/sam do not).
+- **Page roles (Permission rows) — ADMIN/EDITOR only:** self-service membership is flagged off
+  (`FEATURES.SELF_SERVICE_MEMBERSHIP`), so the seed no longer creates plain MEMBER rows — the former
+  members are seeded as **followers** instead (following grants the same private-page access).
+  - `portland-makers-guild` — alice **ADMIN**, sam **EDITOR**.
+  - `secret-workshop` — sam **ADMIN**.
+- **Follows** (`relationships.json` + converted page-followers): alice↔sam mutual; alice→PMG,
+  sam→PMG, laurel→PMG, private-pat→PMG; **alice→secret-workshop** (so alice can view that PRIVATE
+  page's profile + content without setup — use a *different* actor when you need a non-follower);
+  and **alice→private-pat** (so alice already sees pat's private profile; anon/sam do not).
 - **Pending access request:** **sam→private-pat (FOLLOW)** — a ready-made pending request for
   the approve/deny flow (log in as pat to act on it).
 - **Conversations:** an alice↔sam DM, and a sam↔PMG thread (one message sent *as* the page).
 - **RSVP:** alice → one of sam's events.
 
-> When a criterion hinges on a *precise* edge (who's a member of what, does X follow Y),
+> When a criterion hinges on a *precise* edge (who admins/follows what, does X follow Y),
 > **verify against a DB dump** rather than trusting this list — the seed drifts. The
 > permissions query in [preview-tools.md](preview-tools.md) §4 prints the whole map.
 

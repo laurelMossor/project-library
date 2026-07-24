@@ -117,20 +117,35 @@ export function validateProfileFields(kind: ProfileKind, fields: FieldMap): stri
 
 export type SaveMyProfileResult =
   | { ok: true; profile: unknown }
-  | { ok: false; error: string };
+  | { ok: false; error: string; forbidden?: boolean };
+
+/** The profile-wide visibility defaults — changing either is ADMIN-only on a page. */
+const VISIBILITY_FIELDS = ["profileVisibility", "contentVisibility"] as const;
 
 /**
  * Validate + persist a `SavePayload` for the current user's own profile or
  * active page. Callers (the two `/api/me/*` routes) own auth + id resolution;
  * this owns the whitelist, validation, and the cascading write.
+ *
+ * `opts.allowVisibilityChange` gates the visibility fields independently of the
+ * rest of the profile edit: a page EDITOR may edit content/bio (canPostAsPage) but
+ * only an ADMIN (canManagePage) may change the page's privacy. A user editing their
+ * own profile is always allowed (self), so callers default this to true.
  */
 export async function saveMyProfile(
   kind: ProfileKind,
   id: string,
   body: SavePayload,
+  opts: { allowVisibilityChange?: boolean } = {},
 ): Promise<SaveMyProfileResult> {
+  const { allowVisibilityChange = true } = opts;
   const { fields = {}, elements } = body;
   const picked = pickProfileFields(kind, fields);
+
+  if (!allowVisibilityChange && VISIBILITY_FIELDS.some((k) => picked[k] !== undefined)) {
+    // `forbidden` lets the route map this to 403 without matching on the message prose.
+    return { ok: false, error: "Only an admin can change this page's visibility.", forbidden: true };
+  }
 
   const error = validateProfileFields(kind, picked);
   if (error) return { ok: false, error };

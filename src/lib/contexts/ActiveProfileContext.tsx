@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useSession } from "next-auth/react";
 import { CardEntity, CardUser, CardPage, CardPageWithRole } from "@/lib/types/card";
 import { API_ME_USER, API_ME_PAGE, API_ME_PAGES, API_SESSION_ACTIVE_PAGE } from "@/lib/const/routes";
+import { isActingRole } from "@/lib/const/roles";
 
 interface ActiveProfileContextValue {
 	/** The resolved entity the user is currently acting as (user or page) */
@@ -71,7 +72,7 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 			// Only ADMIN/EDITOR can act as a page
 			setPages(
 				data
-					.filter((p) => p.role === "ADMIN" || p.role === "EDITOR")
+					.filter((p) => isActingRole(p.role))
 			.map((p) => ({
 				id: p.id,
 				name: p.name,

@@ -13,6 +13,8 @@ import {
 	API_REQUEST_APPROVE,
 	API_REQUEST_DENY,
 } from "@/lib/const/routes";
+import { assignableRoles, isAdminRole } from "@/lib/const/roles";
+import type { PermissionRole } from "@prisma/client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -175,9 +177,8 @@ function ExpandableActions({
 	);
 }
 
-// Per-member role selector (ADMIN/EDITOR/MEMBER) using the shared DropdownMenu.
-const ROLE_OPTIONS = ["ADMIN", "EDITOR", "MEMBER"] as const;
-
+// Per-member role selector using the shared DropdownMenu. Options come from
+// assignableRoles() so MEMBER drops out while self-service membership is flagged off.
 function RoleSelector({
 	current,
 	onChange,
@@ -195,7 +196,7 @@ function RoleSelector({
 			trigger={<span>{current.toLowerCase()} ▾</span>}
 			containerClassName="min-w-[140px]"
 		>
-			{ROLE_OPTIONS.map((role) => (
+			{assignableRoles().map((role) => (
 				<button
 					key={role}
 					role="menuitem"
@@ -289,6 +290,12 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [showAddMember, setShowAddMember] = useState(false);
 	const [addMemberError, setAddMemberError] = useState<string | null>(null);
+	// Explicit-pick add flow: hold the selected user + chosen role until confirmed,
+	// rather than granting MEMBER immediately on select.
+	const [pendingUser, setPendingUser] = useState<SearchResultUser | null>(null);
+	const [pendingRole, setPendingRole] = useState<PermissionRole>(
+		assignableRoles()[assignableRoles().length - 1],
+	);
 
 	useEffect(() => {
 		async function load() {
@@ -358,15 +365,29 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		);
 	}
 
-	// ProfileSearchDropdown's onSelect is fire-and-forget (not awaited/caught), so
-	// surface failures via local state rather than throwing.
-	async function handleAddMember(user: SearchResultUser) {
+	// ProfileSearchDropdown's onSelect is fire-and-forget: just capture the picked user
+	// and default the role; the admin confirms an explicit role before we POST. (Adding
+	// a person is now a real ADMIN/EDITOR grant, so it must be a deliberate choice.)
+	function selectPendingUser(user: SearchResultUser) {
+		setAddMemberError(null);
+		setPendingRole(assignableRoles()[assignableRoles().length - 1]);
+		setPendingUser(user);
+	}
+
+	function cancelAddMember() {
+		setShowAddMember(false);
+		setPendingUser(null);
+		setAddMemberError(null);
+	}
+
+	async function confirmAddMember() {
+		if (!pendingUser) return;
 		setAddMemberError(null);
 		try {
 			const res = await fetch(`/api/pages/${entity.id}/members`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: user.id, role: "MEMBER" }),
+				body: JSON.stringify({ userId: pendingUser.id, role: pendingRole }),
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
@@ -378,6 +399,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 				setData((prev) => (prev ? { ...prev, membership: members } : prev));
 			}
 			setShowAddMember(false);
+			setPendingUser(null);
 		} catch (e) {
 			setAddMemberError(e instanceof Error ? e.message : "Failed to add member");
 		}
@@ -415,7 +437,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	// Page requests are ADMIN-only (matching member management), so this mirrors
 	// the server gate — an EDITOR sees no Requests tab.
 	const myRole = isPage && data ? data.membership.find((m) => m.user.id === currentUserId)?.role : undefined;
-	const isAdmin = myRole === "ADMIN";
+	const isAdmin = isAdminRole(myRole);
 	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
 
 	const topTabs: TabDef<TopTab>[] = [
@@ -588,17 +610,45 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					<div className="pt-3">
 						{showAddMember ? (
 							<div className="space-y-2">
-								<ProfileSearchDropdown
-									excludeUserIds={data.membership.map((m) => m.user.id)}
-									onSelect={handleAddMember}
-									placeholder="Search by name or handle..."
-								/>
+								{pendingUser ? (
+									// Step 2: an explicit role pick before granting (no silent MEMBER default).
+									<ProfileTag
+										entity={pendingUser}
+										actions={
+											<div className="flex items-center gap-1.5">
+												<RoleSelector
+													current={pendingRole}
+													onChange={async (role) => setPendingRole(role as PermissionRole)}
+												/>
+												<button
+													onClick={confirmAddMember}
+													className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer whitespace-nowrap"
+												>
+													Add
+												</button>
+												<button
+													onClick={() => setPendingUser(null)}
+													className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors cursor-pointer"
+												>
+													Cancel
+												</button>
+											</div>
+										}
+									/>
+								) : (
+									// Step 1: pick a person.
+									<ProfileSearchDropdown
+										excludeUserIds={data.membership.map((m) => m.user.id)}
+										onSelect={selectPendingUser}
+										placeholder="Search by name or handle..."
+									/>
+								)}
 								{addMemberError && (
 									<p className="text-xs text-red-500 text-center">{addMemberError}</p>
 								)}
 								<div className="flex justify-center">
 									<button
-										onClick={() => { setShowAddMember(false); setAddMemberError(null); }}
+										onClick={cancelAddMember}
 										className="text-xs text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
 									>
 										Cancel
@@ -611,7 +661,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 									onClick={() => setShowAddMember(true)}
 									className="text-xs px-4 py-1.5 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer"
 								>
-									+ Add members
+									+ Add
 								</button>
 							</div>
 						)}

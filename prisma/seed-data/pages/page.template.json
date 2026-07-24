@@ -25,7 +25,7 @@
   ],
   "creatorHandle": "handle-of-user-who-owns-this-page",
   "editors": ["handle-of-editor"],
-  "members": "*",
+  "followers": "*",
   "posts": [
     {
       "title": "Post title (optional)",

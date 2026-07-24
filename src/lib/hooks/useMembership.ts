@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { API_PAGE_MEMBERSHIP } from "@/lib/const/routes";
+import type { PermissionRole } from "@prisma/client";
 
-export type Role = "ADMIN" | "EDITOR" | "MEMBER" | null;
+export type Role = PermissionRole | null;
 export type MembershipState = "none" | "requested" | "member" | "privileged";
 
 /**

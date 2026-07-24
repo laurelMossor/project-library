@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getPageById } from "@/lib/utils/server/page";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { canPostAsPage, canManagePage } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { saveMyProfile } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
@@ -68,12 +68,21 @@ export async function PUT(request: Request) {
 
 		const body = (await request.json()) as SavePayload;
 
+		// Changing the page's privacy (profile/content visibility) is ADMIN-only, even
+		// though an EDITOR may edit the rest of the profile (canPostAsPage above).
+		const isAdmin = await canManagePage(ctx.userId, ctx.activePageId);
+
 		// Shared executor: whitelist + validate (incl. visibility) + cascade.
 		// The old hand-rolled transaction here dropped `visibility` and skipped
 		// the descendant-visibility cascade — using saveMyProfile fixes both.
-		const result = await saveMyProfile("PAGE", ctx.activePageId, body);
+		const result = await saveMyProfile("PAGE", ctx.activePageId, body, {
+			allowVisibilityChange: isAdmin,
+		});
 		if (!result.ok) {
-			return badRequest(result.error);
+			// A non-admin attempting a visibility change is a permission failure (403),
+			// not a validation error (400). The util flags that case via `forbidden`.
+			const status = result.forbidden ? 403 : 400;
+			return NextResponse.json({ error: result.error }, { status });
 		}
 		return NextResponse.json(result.profile);
 	} catch (error) {
