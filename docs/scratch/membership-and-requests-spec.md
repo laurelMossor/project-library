@@ -1,5 +1,12 @@
 # Spec — Pages-have-Members + Request-to-Follow / Request-to-Join
 
+> ⚠️ **Superseded in part (2026-07-24, `netwerk-8`).** Both tickets were built, but self-service
+> **Join / membership is now hidden behind `FEATURES.SELF_SERVICE_MEMBERSHIP`** — Follow (with
+> request-to-follow on private entities) is the single relationship for beta, since following a page
+> already grants the same access. The **request-to-FOLLOW** half of this spec is live; the
+> **request-to-JOIN** / MEMBER-role half is deferred behind the flag. Also note the RSVP gate helper
+> named below (`canManageEntity`) was since renamed **`canActAsEntity`**.
+
 **Status:** Draft for review (Laurel)
 **Milestone:** Open Beta → Netwerk
 **Covers two tickets, designed together because they share one graph + permission surface:**

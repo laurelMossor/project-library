@@ -97,7 +97,7 @@ describe("saveMyProfile visibility gate", () => {
 			{ fields: { profileVisibility: "PRIVATE" } },
 			{ allowVisibilityChange: false },
 		);
-		expect(res).toEqual({ ok: false, error: expect.stringMatching(/only an admin/i) });
+		expect(res).toEqual({ ok: false, error: expect.stringMatching(/only an admin/i), forbidden: true });
 		// Returned before any DB work — the gate is an early-out.
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});

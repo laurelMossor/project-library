@@ -117,7 +117,7 @@ export function validateProfileFields(kind: ProfileKind, fields: FieldMap): stri
 
 export type SaveMyProfileResult =
   | { ok: true; profile: unknown }
-  | { ok: false; error: string };
+  | { ok: false; error: string; forbidden?: boolean };
 
 /** The profile-wide visibility defaults — changing either is ADMIN-only on a page. */
 const VISIBILITY_FIELDS = ["profileVisibility", "contentVisibility"] as const;
@@ -143,7 +143,8 @@ export async function saveMyProfile(
   const picked = pickProfileFields(kind, fields);
 
   if (!allowVisibilityChange && VISIBILITY_FIELDS.some((k) => picked[k] !== undefined)) {
-    return { ok: false, error: "Only an admin can change this page's visibility." };
+    // `forbidden` lets the route map this to 403 without matching on the message prose.
+    return { ok: false, error: "Only an admin can change this page's visibility.", forbidden: true };
   }
 
   const error = validateProfileFields(kind, picked);

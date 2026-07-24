@@ -24,7 +24,8 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 - **Routes**: All route constants in `src/lib/const/routes.ts` — never hardcode paths
 - **Server utils**: DB queries live in `src/lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`, `permission.ts`)
 - **Field selectors**: Reusable Prisma `select` objects in `src/lib/utils/server/fields.ts`
-- **Permissions**: `canPostAsPage()`, `canManagePage()`, `getPagesForUser()` in `src/lib/utils/server/permission.ts`
+- **Permissions**: `permission.ts` owns all role logic. Two tiers: `canManagePage()` = ADMIN (members, roles, privacy, destructive); `canPostAsPage()`/`canActAsEntity()` = ADMIN/EDITOR (author, message). Role values/predicates/sets live in `src/lib/const/roles.ts` (client-safe); never compare `PermissionRole` inline.
+- **Feature flags**: compile-time constants in `src/lib/const/features.ts` (`FEATURES.*`), importable server + client. Currently gates self-service Join/membership off for beta.
 - **Identity context**: `ActiveProfileContext` (`src/lib/contexts/`) — provides `activeEntity`, `activePageId`, `currentUser`, `switchProfile()`. All identity-aware UI reads from this context.
 - **Shared text utils**: Initials, truncation, display names → `src/lib/utils/text.ts`
 - **Validations**: All input validation in `src/lib/validations.ts` (events, posts, pages, messages)

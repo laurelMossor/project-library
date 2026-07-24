@@ -80,8 +80,8 @@ export async function PUT(request: Request) {
 		});
 		if (!result.ok) {
 			// A non-admin attempting a visibility change is a permission failure (403),
-			// not a validation error (400).
-			const status = result.error.startsWith("Only an admin") ? 403 : 400;
+			// not a validation error (400). The util flags that case via `forbidden`.
+			const status = result.forbidden ? 403 : 400;
 			return NextResponse.json({ error: result.error }, { status });
 		}
 		return NextResponse.json(result.profile);
