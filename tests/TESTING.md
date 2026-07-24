@@ -21,7 +21,7 @@ No prerequisites — jsdom, `@/` path aliases, Prisma mocked where needed.
 
 Current coverage lives in `tests/unit/`: validators (`validations`), rate
 limiting (`rate-limit`), filtering (`useFilter`), permissions (`permission` —
-`canPostAsPage`/`canManagePage`/`canManageEntity`), visibility helpers
+`canPostAsPage`/`canManagePage`/`canActAsEntity`), visibility helpers
 (`visibility`), handles (`handle-server`, `reserved-handles`), auth tokens and
 the auth route handlers (`auth-tokens`, `verify-email-route`,
 `password-reset-route`, `email-send`), profile update (`profile-update`), and

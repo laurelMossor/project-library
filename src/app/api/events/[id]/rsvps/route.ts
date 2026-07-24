@@ -3,7 +3,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { canManageEntity } from "@/lib/utils/server/permission";
+import { canActAsEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { emitActivity, type EntityRef, type ActorRef } from "@/lib/utils/server/activity";
@@ -90,8 +90,8 @@ export async function GET(request: Request, { params }: Params) {
 		}
 
 		const canManage = event.pageId
-			? await canManageEntity(ctx.userId, { page: { id: event.pageId } })
-			: await canManageEntity(ctx.userId, { user: { id: event.userId } });
+			? await canActAsEntity(ctx.userId, { page: { id: event.pageId } })
+			: await canActAsEntity(ctx.userId, { user: { id: event.userId } });
 		if (!canManage) {
 			return NextResponse.json(
 				{ error: "Only the event organizer can view the attendee list" },

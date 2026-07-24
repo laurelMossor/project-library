@@ -31,6 +31,11 @@ enum PermissionRole {
   MEMBER // basic membership (future use)
 }
 
+// Permission is polymorphic (resourceId + resourceType) so a role set can attach to
+// more than one kind of resource. Today only PAGE is wired: events derive authority
+// from their parent Page / owner (see canActAsEntity), so EVENT carries no rows yet.
+// EVENT is a deliberate, reserved seam for event-level permissions (co-hosts / event
+// teams) — not dead code. Keep it until that feature ships or is abandoned.
 enum ResourceType {
   PAGE
   EVENT

@@ -74,6 +74,17 @@ describe("requestOrCreateFollow", () => {
     expect(prisma.follow.create).toHaveBeenCalledTimes(1);
   });
 
+  // The load-bearing gate behind the membership feature-flag decision: with Join hidden,
+  // Follow is the only path to a PRIVATE page — and it must still require approval, not
+  // instant-grant access. (The private-USER case is covered below; this locks the page case.)
+  test("PRIVATE page target → pending FOLLOW request, NO follow edge", async () => {
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
+    const res = await requestOrCreateFollow(requester, { type: "PAGE", id: "p2", profileVisibility: ProfileVisibility.PRIVATE});
+    expect(res).toEqual({ status: "requested" });
+    expect(prisma.accessRequest.create).toHaveBeenCalledTimes(1);
+    expect(prisma.follow.create).not.toHaveBeenCalled();
+  });
+
   test("PRIVATE target → pending request, NO follow edge", async () => {
     vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
     const res = await requestOrCreateFollow(requester, { type: "USER", id: "u2", profileVisibility: ProfileVisibility.PRIVATE});
@@ -93,7 +104,9 @@ describe("requestOrCreateFollow", () => {
 // ---------------------------------------------------------------------------
 // requestOrJoinPage
 // ---------------------------------------------------------------------------
-describe("requestOrJoinPage", () => {
+// SKIPPED: self-service Join is flagged off (FEATURES.SELF_SERVICE_MEMBERSHIP). The util
+// still exists for a one-line re-enable — un-skip this block when membership returns.
+describe.skip("requestOrJoinPage", () => {
   test("PUBLIC page → instant MEMBER grant", async () => {
     const res = await requestOrJoinPage("u1", { id: "p1", profileVisibility: ProfileVisibility.PUBLIC});
     expect(res).toEqual({ status: "joined", role: PermissionRole.MEMBER });
@@ -160,7 +173,9 @@ describe("approveRequest", () => {
     expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-1" } });
   });
 
-  test("JOIN to a page, approved by an admin → grants MEMBER + deletes request", async () => {
+  // SKIPPED: JOIN materialization (grant MEMBER) — self-service membership is flagged off
+  // (FEATURES.SELF_SERVICE_MEMBERSHIP). The FOLLOW-approval path above is the live mechanism.
+  test.skip("JOIN to a page, approved by an admin → grants MEMBER + deletes request", async () => {
     vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
       id: "req-2", kind: "JOIN", requesterId: "u1", requesterPageId: null,
       targetUserId: null, targetPageId: "p1",

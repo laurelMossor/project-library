@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Fri 07/24/2026 10:47 PDT
+Feature-flagged self-service Join/membership for beta on `netwerk-8`. Following a page already grants the same access, so Follow is now the single relationship and a `FEATURES` constant hides Join, request-to-JOIN, and the assignable MEMBER role. Used the change to tighten the permission layer onto one shared role module, converging the raw-permission leaks and reconciling the manage-versus-act naming. Also caught and closed a seam where a page EDITOR could flip a page's privacy, now ADMIN-only. Converted seeded members to followers, skipped the join-only tests, and verified the flag live with 384 unit green.
+
 #### Entry: Thu 07/23/2026 14:14 PDT
 QA'd the two email tickets to a clean PASS and moved both to Done. First settled email observability on dev: the console fallback plus DB assertions carry the behavior, and rendering the React Email templates to HTML covers the look, so the send seam stays untouched and the e2e suite stays unaffected. Drove verification, reset, and the whole flush pipeline live through the UI (coalescing, read-suppression, per-context preferences, page fan-out, the netwerk-7 message deep-link). The two resilience criteria were proven by injecting real faults, not skipped. Real dev e2e email delivery is the deferred follow-up Laurel wants to scope next.
 

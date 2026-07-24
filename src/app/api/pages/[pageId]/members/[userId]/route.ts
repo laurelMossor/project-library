@@ -7,6 +7,7 @@ import {
 	revokePermission,
 	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
+import { assignableRoles } from "@/lib/const/roles";
 import { ResourceType, PermissionRole } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string; userId: string }> };
@@ -36,7 +37,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
 			return badRequest("role is required");
 		}
 
-		if (!Object.values(PermissionRole).includes(role)) {
+		// Only currently-assignable roles — blocks demoting *to* MEMBER while flagged off.
+		if (!assignableRoles().includes(role)) {
 			return badRequest("Invalid role");
 		}
 

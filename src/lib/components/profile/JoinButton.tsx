@@ -4,6 +4,7 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { UserPlusSignIcon, UserMinusSignIcon } from "@/lib/components/icons/icons";
 import { useMembership } from "@/lib/hooks/useMembership";
+import { FEATURES } from "@/lib/const/features";
 
 type JoinButtonProps = {
 	pageId: string;
@@ -12,6 +13,9 @@ type JoinButtonProps = {
 /**
  * Self-service Join/Request/Leave button for page profiles.
  * Only visible when the viewer is logged in and acting as their personal identity (not as a page).
+ *
+ * Hidden entirely while self-service membership is flagged off (beta) — Follow is the
+ * single relationship for pages, so this covers both render sites with one guard.
  */
 export function JoinButton({ pageId }: JoinButtonProps) {
 	const { currentUser, activePageId } = useActiveProfile();
@@ -20,9 +24,11 @@ export function JoinButton({ pageId }: JoinButtonProps) {
 	// Hide entirely when acting as a page
 	const actingAsPage = !!activePageId;
 
-	const { state, loading, toggling, error, toggle } = useMembership(pageId, loggedIn && !actingAsPage);
+	// Gate before the membership fetch so a flagged-off build issues no needless GET.
+	const enabled = FEATURES.SELF_SERVICE_MEMBERSHIP && loggedIn && !actingAsPage;
+	const { state, loading, toggling, error, toggle } = useMembership(pageId, enabled);
 
-	if (!loggedIn || actingAsPage || loading) return null;
+	if (!enabled || loading) return null;
 
 	const isLeavable = state === "member" || state === "privileged";
 	const label = toggling

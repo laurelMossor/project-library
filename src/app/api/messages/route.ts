@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { NotificationCategory, EmailSourceType, PermissionRole, ResourceType } from "@prisma/client";
+import { NotificationCategory, EmailSourceType, ResourceType } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateMessageContent } from "@/lib/validations";
 import { canPostAsPage, getResourcePermissions } from "@/lib/utils/server/permission";
+import { isActingRole } from "@/lib/const/roles";
 import { enqueueEmails, type EmailOutboxEntry } from "@/lib/utils/server/email-outbox";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -162,7 +163,7 @@ export async function POST(request: Request) {
 			} else if (recipientPageId) {
 				const managers = await getResourcePermissions(recipientPageId, ResourceType.PAGE);
 				for (const m of managers) {
-					if (m.role !== PermissionRole.ADMIN && m.role !== PermissionRole.EDITOR) continue;
+					if (!isActingRole(m.role)) continue;
 					if (m.userId === ctx.userId) continue; // never email the sender about their own message
 					entries.push({ recipientUserId: m.userId, contextPageId: recipientPageId, category: NotificationCategory.MESSAGES, sourceType: EmailSourceType.MESSAGE, sourceId: message.id });
 				}

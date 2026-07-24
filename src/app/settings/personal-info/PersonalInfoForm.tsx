@@ -12,6 +12,7 @@ import { VisibilityField } from "@/lib/components/visibility/VisibilityField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
 import { API_ME_USER, API_ME_PAGE, SETTINGS } from "@/lib/const/routes";
+import { isAdminRole } from "@/lib/const/roles";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
@@ -291,6 +292,11 @@ function UserFields({ data }: { data: PersonalUser }) {
 
 function PageFields({ data }: { data: PublicPage }) {
 	const session = useInlineEditSession();
+	const { pages, activePageId } = useActiveProfile();
+	// Changing page privacy is ADMIN-only (the server also enforces this). An editor
+	// edits content but never sees the visibility control.
+	const activePageRole = pages.find((p) => p.id === activePageId)?.role;
+	const isPageAdmin = isAdminRole(activePageRole);
 	const [editingField, setEditingField] = useState<string | null>(null);
 
 	const [editName, setEditName] = useState(data.name || "");
@@ -572,12 +578,14 @@ function PageFields({ data }: { data: PublicPage }) {
 				</div>
 			</div>
 
-			{/* Visibility */}
-			<VisibilityField
-				label="Page Visibility"
-				initialProfileVisibility={data.profileVisibility ?? "PUBLIC"}
-				initialContentVisibility={data.contentVisibility ?? "LISTED"}
-			/>
+			{/* Visibility — ADMIN only */}
+			{isPageAdmin && (
+				<VisibilityField
+					label="Page Visibility"
+					initialProfileVisibility={data.profileVisibility ?? "PUBLIC"}
+					initialContentVisibility={data.contentVisibility ?? "LISTED"}
+				/>
+			)}
 		</div>
 	);
 }

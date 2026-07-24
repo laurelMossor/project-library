@@ -16,12 +16,12 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   },
 }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
-vi.mock("@/lib/utils/server/permission", () => ({ canManageEntity: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({ canActAsEntity: vi.fn() }));
 vi.mock("@/lib/utils/server/image-attachment", () => ({ getImagesForTargetsBatch: vi.fn().mockResolvedValue(new Map()) }));
 
 import { getEventUpdates } from "@/lib/utils/server/post";
 import { prisma } from "@/lib/utils/server/prisma";
-import { canManageEntity } from "@/lib/utils/server/permission";
+import { canActAsEntity } from "@/lib/utils/server/permission";
 
 const OWNER: ViewerContext = { userId: "owner-1", memberPageIds: [] };
 const STRANGER: ViewerContext = { userId: "viewer-9", memberPageIds: [] };
@@ -38,7 +38,7 @@ const whereOf = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never);
-  vi.mocked(canManageEntity).mockResolvedValue(false);
+  vi.mocked(canActAsEntity).mockResolvedValue(false);
   vi.mocked(prisma.post.findMany).mockResolvedValue([] as never);
   seedEvent();
 });

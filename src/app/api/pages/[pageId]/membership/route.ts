@@ -9,6 +9,7 @@ import {
 	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
 import { requestOrJoinPage, hasPendingJoinRequest, cancelJoinRequest } from "@/lib/utils/server/requests";
+import { FEATURES } from "@/lib/const/features";
 import { ResourceType, PermissionRole } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
@@ -39,11 +40,20 @@ export async function GET(_request: Request, { params }: RouteParams) {
  * Self-service join: grants MEMBER on a public/unlisted page, or opens a pending
  * JOIN request on a PRIVATE one. Returns 400 if the user already holds ADMIN or
  * EDITOR (no self-downgrade).
+ *
+ * Gated by the membership flag: while self-service membership is off (beta), this
+ * closes both the instant-join and request-to-JOIN paths (both flow through
+ * `requestOrJoinPage`). GET and DELETE stay open so existing members can read their
+ * state and leave, and pending requesters can still cancel.
  */
 export async function POST(_request: Request, { params }: RouteParams) {
 	try {
 		const ctx = await getSessionContext();
 		if (!ctx) return unauthorized();
+
+		if (!FEATURES.SELF_SERVICE_MEMBERSHIP) {
+			return notFound("Page not found");
+		}
 
 		const { pageId } = await params;
 		const page = await prisma.page.findUnique({

@@ -1,18 +1,17 @@
 // ⚠️ SERVER-ONLY: Permission utility functions
 //
-// This file is the single owner of permission semantics. No route or component
-// should query `prisma.permission` directly or compare `PermissionRole` inline —
-// route every authorization decision through a helper here so the meaning of
-// "admin", "can manage", and "last admin" lives in exactly one place.
+// The single owner of permission semantics. No route or component should query
+// `prisma.permission` directly or compare `PermissionRole` inline — route every
+// authorization decision through a helper here. The role *vocabulary* (value sets,
+// predicates) lives in `@/lib/const/roles`; the *decisions* live in this file.
 //
-// The two manage gates are NOT interchangeable — mind the role sets:
-//   canManagePage   → ADMIN only          (page config, destructive actions, members, requests)
-//   canManageEntity → ADMIN or EDITOR     (view a page's connections, e.g. an event's RSVPs; self for a user)
+// Two capability tiers on a Page — NOT interchangeable:
+//   ADMIN         → management: members, roles, privacy, destructive/config  → canManagePage
+//   ADMIN/EDITOR  → act as the page: author content, message, comment         → canPostAsPage
+//                   (canActAsEntity = that same tier, plus "be the user" for a User entity)
 import { prisma } from "./prisma";
 import { PermissionRole, ResourceType, type Page, type User } from "@prisma/client";
-
-/** Roles that can act on a page's content/relationships (post, manage members, approve requests). */
-const MANAGE_ROLES = [PermissionRole.ADMIN, PermissionRole.EDITOR] as const;
+import { ACTING_ROLES } from "@/lib/const/roles";
 
 /** Check if a user has a specific permission on a resource */
 export async function hasPermission(
@@ -29,7 +28,7 @@ export async function hasPermission(
 
 /** Check if user can post as a page (ADMIN or EDITOR) */
 export async function canPostAsPage(userId: string, pageId: string): Promise<boolean> {
-  return hasPermission(userId, pageId, ResourceType.PAGE, [...MANAGE_ROLES]);
+  return hasPermission(userId, pageId, ResourceType.PAGE, [...ACTING_ROLES]);
 }
 
 /** Check if user can manage a page (ADMIN only — page config / destructive actions). */
@@ -64,10 +63,43 @@ export async function wouldRemoveLastAdmin(pageId: string, targetUserId: string)
 /** Page IDs the user can manage (ADMIN or EDITOR). */
 export async function getManagedPageIds(userId: string): Promise<string[]> {
   const perms = await prisma.permission.findMany({
-    where: { userId, resourceType: ResourceType.PAGE, role: { in: [...MANAGE_ROLES] } },
+    where: { userId, resourceType: ResourceType.PAGE, role: { in: [...ACTING_ROLES] } },
     select: { resourceId: true },
   });
   return perms.map((p) => p.resourceId);
+}
+
+/**
+ * Page IDs a user holds ANY role on (ADMIN/EDITOR/MEMBER — no role filter). This is
+ * the "membership edge" set used by the visibility layer (`isMember`), distinct from
+ * `getManagedPageIds` (ADMIN/EDITOR only). MEMBER must be included here.
+ */
+export async function getMemberPageIds(userId: string): Promise<string[]> {
+  const perms = await prisma.permission.findMany({
+    where: { userId, resourceType: ResourceType.PAGE },
+    select: { resourceId: true },
+  });
+  return perms.map((p) => p.resourceId);
+}
+
+/**
+ * Batched `getMemberPageIds`: for many users at once, a `userId → pageIds[]` map (any
+ * role, no filter). Users with no page roles are absent from the map. Used by the email
+ * flush, which resolves membership for a whole batch of recipients in one query.
+ */
+export async function getMemberPageIdsForUsers(userIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (userIds.length === 0) return map;
+  const perms = await prisma.permission.findMany({
+    where: { userId: { in: userIds }, resourceType: ResourceType.PAGE },
+    select: { userId: true, resourceId: true },
+  });
+  for (const p of perms) {
+    const list = map.get(p.userId) ?? [];
+    list.push(p.resourceId);
+    map.set(p.userId, list);
+  }
+  return map;
 }
 
 /** Get user's role on a resource */
@@ -209,18 +241,13 @@ export async function getResourcePermissions(
  * Accepts the partial-include shape from `findEntityByHandle`, which
  * populates exactly one of `user` / `page`.
  */
-export async function canManageEntity(
+export async function canActAsEntity(
   userId: string,
   entity: { user?: Pick<User, "id"> | null; page?: Pick<Page, "id"> | null },
 ): Promise<boolean> {
   if (entity.user) return entity.user.id === userId;
   if (entity.page) {
-    return hasPermission(
-      userId,
-      entity.page.id,
-      ResourceType.PAGE,
-      [PermissionRole.ADMIN, PermissionRole.EDITOR],
-    );
+    return hasPermission(userId, entity.page.id, ResourceType.PAGE, [...ACTING_ROLES]);
   }
   return false;
 }

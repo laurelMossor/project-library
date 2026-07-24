@@ -19,6 +19,7 @@ import { publicUserEmbedFields } from "./user";
 import { resolveCardIdentity } from "@/lib/types/card";
 import { truncateText } from "@/lib/utils/text";
 import { logAction } from "./log";
+import { getMemberPageIdsForUsers } from "./permission";
 import type { ViewerContext } from "./visibility";
 
 // Reclaim a row whose flush crashed mid-run after this long, so nothing is orphaned. This is also what
@@ -110,7 +111,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 		kept.map((r) => (r.sourceType === "MESSAGE" ? msgMap.get(r.sourceId)?.asPageId : null)).filter((id): id is string => !!id),
 	)];
 
-	const [recipients, pages, perms, senderUsers] = await Promise.all([
+	const [recipients, pages, memberPageIds, senderUsers] = await Promise.all([
 		prisma.user.findMany({
 			where: { id: { in: recipientUserIds } },
 			select: { id: true, email: true, handle: true, firstName: true, lastName: true, displayName: true, avatarImageId: true, avatarImage: { select: { url: true } } },
@@ -118,10 +119,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 		[...new Set([...sectionPageIds, ...senderPageIds])].length
 			? prisma.page.findMany({ where: { id: { in: [...new Set([...sectionPageIds, ...senderPageIds])] } }, select: publicPageEmbedFields })
 			: Promise.resolve([]),
-		prisma.permission.findMany({
-			where: { userId: { in: recipientUserIds }, resourceType: "PAGE" },
-			select: { userId: true, resourceId: true },
-		}),
+		getMemberPageIdsForUsers(recipientUserIds),
 		senderUserIds.length
 			? prisma.user.findMany({ where: { id: { in: senderUserIds } }, select: publicUserEmbedFields })
 			: Promise.resolve([]),
@@ -130,12 +128,6 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 	const recipientMap = new Map(recipients.map((u) => [u.id, u]));
 	const pageMap = new Map(pages.map((p) => [p.id, p]));
 	const senderUserMap = new Map(senderUsers.map((u) => [u.id, u]));
-	const memberPageIds = new Map<string, string[]>();
-	for (const p of perms) {
-		const list = memberPageIds.get(p.userId) ?? [];
-		list.push(p.resourceId);
-		memberPageIds.set(p.userId, list);
-	}
 
 	const managePrefsUrl = absoluteUrl(NOTIFICATIONS_SETTINGS);
 	let sent = 0;

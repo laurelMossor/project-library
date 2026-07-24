@@ -6,7 +6,7 @@
  * {LISTED, UNLISTED, PRIVATE} governs where a profile's posts surface.
  *
  * Seed fixtures:
- *   - secret-workshop      (profileVisibility PRIVATE, contentVisibility PRIVATE; creator sam, member alice)
+ *   - secret-workshop      (profileVisibility PRIVATE, contentVisibility PRIVATE; creator sam, follower alice)
  *   - unlisted-zine        (profileVisibility PUBLIC,  contentVisibility UNLISTED; creator alice)
  *   - private-pat.example  (profileVisibility PRIVATE, contentVisibility PRIVATE; follower alice)
  *   - portland-makers-guild (PUBLIC + LISTED)
@@ -48,7 +48,7 @@ test.describe("PRIVATE page", () => {
     await expect(page.getByText("Private post")).not.toBeVisible();
   });
 
-  test.describe("member (alice)", () => {
+  test.describe("follower (alice)", () => {
     test.use({ storageState: STORAGE_STATE.alice });
     test("can view the private page fully", async ({ page }) => {
       await page.goto("/secret-workshop");
