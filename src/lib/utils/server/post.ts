@@ -4,7 +4,7 @@
 import { prisma } from "./prisma";
 import type { PostItem, PostCollectionItem, PostCreateInput } from "@/lib/types/post";
 import { postCollectionFields, postWithUserFields, toCollectionMeta } from "./fields";
-import { getImagesForTargetsBatch } from "./image-attachment";
+import { getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
 import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
@@ -231,9 +231,14 @@ export async function createPost(
 // non-empty content). Rebuild here with guards baked in if a server-side caller is ever needed.
 
 /**
- * Delete a post
+ * Delete a post and clean up its attached images.
+ *
+ * ImageAttachment is polymorphic (no real FK to Post), so nothing cascades — without this
+ * the post's attachments, Image rows, and storage blobs would all be orphaned. Callers
+ * must authorize the delete first (the DELETE /api/posts/:id route does).
  */
 export async function deletePost(postId: string): Promise<void> {
+	await deleteAllAttachmentsForTarget("POST", postId);
 	await prisma.post.delete({
 		where: { id: postId },
 	});

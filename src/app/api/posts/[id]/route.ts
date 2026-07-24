@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { ContentVisibility } from "@prisma/client";
+import { ContentVisibility, AttachmentTarget } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
+import { postHasContent } from "@/lib/utils/content";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
 import { canPostAsPage } from "@/lib/utils/server/permission";
+import { deletePost } from "@/lib/utils/server/post";
 import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
 
 const MAX_PINNED_POSTS = 3;
@@ -228,12 +230,19 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
 		if (status === "PUBLISHED" || status === "DRAFT") {
 			if (status === "PUBLISHED") {
-				// Use incoming content if being set now, otherwise check the stored content.
-				const publishContent = content !== undefined
-					? content.trim()
-					: (await prisma.post.findUnique({ where: { id }, select: { content: true } }))?.content ?? "";
-				if (!publishContent || publishContent.trim().length === 0) {
-					return badRequest("Cannot publish a post with empty content");
+				// A post is publishable with a title, body, OR at least one photo.
+				// Resolve final title/content (incoming if set now, else stored); only count
+				// image attachments when there's no text, so the common case stays a single read.
+				const stored = (title === undefined || content === undefined)
+					? await prisma.post.findUnique({ where: { id }, select: { title: true, content: true } })
+					: null;
+				const finalTitle = title !== undefined ? title : stored?.title ?? null;
+				const finalContent = content !== undefined ? content : stored?.content ?? "";
+				if (!postHasContent({ title: finalTitle, content: finalContent })) {
+					const imageCount = await prisma.imageAttachment.count({ where: { type: AttachmentTarget.POST, targetId: id } });
+					if (imageCount === 0) {
+						return badRequest("Cannot publish an empty post");
+					}
 				}
 			}
 			updateData.status = status;
@@ -289,7 +298,8 @@ export async function DELETE(request: Request, { params }: Params) {
 			);
 		}
 
-		await prisma.post.delete({ where: { id } });
+		// Delegates to the util so attachment/image cleanup lives in one place.
+		await deletePost(id);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

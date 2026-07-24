@@ -6,6 +6,7 @@ import { ImageItem } from "../../types/image";
 import { AttachmentTarget } from "@prisma/client";
 import { imageFields } from "./fields";
 import { canActAsEntity } from "./permission";
+import { deleteImage } from "./storage";
 
 /**
  * Can `userId` manage the entity an attachment points at? Resolves the (type, targetId) pair to
@@ -132,30 +133,70 @@ export async function getImagesForTargetsBatch(
 }
 
 /**
- * Remove an image attachment
+ * Hard-delete an Image row + its storage blob, but ONLY if nothing else references it.
+ *
+ * One Image can back multiple ImageAttachments and/or a User/Page avatar FK. Because
+ * ImageAttachment.imageId is `onDelete: Cascade` and avatar FKs are `onDelete: SetNull`,
+ * deleting a still-referenced Image would silently drop another attachment or null an
+ * avatar. So we count remaining references first and skip the delete when shared. Call
+ * this AFTER removing the attachment(s) so the count reflects the post-detach state.
+ *
+ * Storage deletion is best-effort (Supabase-only; dev `/uploads/` paths fail the URL
+ * check and are logged, not thrown) — matches the rest of the delete paths.
  */
-export async function detachImage(imageId: string, targetId: string): Promise<void> {
-	await prisma.imageAttachment.deleteMany({
-		where: {
-			imageId,
-			targetId,
-		},
-	});
+async function deleteImageIfOrphaned(imageId: string, url: string): Promise<void> {
+	const [attachments, userAvatars, pageAvatars] = await Promise.all([
+		prisma.imageAttachment.count({ where: { imageId } }),
+		prisma.user.count({ where: { avatarImageId: imageId } }),
+		prisma.page.count({ where: { avatarImageId: imageId } }),
+	]);
+	if (attachments || userAvatars || pageAvatars) return; // still referenced → keep
+	await prisma.image.delete({ where: { id: imageId } });
+	const result = await deleteImage(url);
+	if (!result.success) {
+		console.error(`Failed to delete image ${imageId} from storage:`, result.error);
+	}
 }
 
 /**
- * Remove all image attachments for a target
+ * Remove a single attachment (by id) and clean up its now-orphaned Image + blob.
+ * The one true "detach a photo" path — use this instead of a bare imageAttachment.delete
+ * so images/blobs don't leak.
  */
-export async function detachAllImagesForTarget(
+export async function deleteAttachment(attachmentId: string): Promise<void> {
+	const attachment = await prisma.imageAttachment.findUnique({
+		where: { id: attachmentId },
+		include: { image: { select: { id: true, url: true } } },
+	});
+	if (!attachment) return;
+	await prisma.imageAttachment.delete({ where: { id: attachmentId } });
+	await deleteImageIfOrphaned(attachment.image.id, attachment.image.url);
+}
+
+/**
+ * Remove all attachments for a target and clean up their orphaned Images + blobs.
+ * `onlyUploadedBy` scopes to the caller's own uploads (used by the replace-cover flow so
+ * swapping a cover never hard-deletes a co-host's image). Omit it when the whole target
+ * is going away (event/post deletion) so every attached image is cleaned up.
+ */
+export async function deleteAllAttachmentsForTarget(
 	type: AttachmentTarget,
-	targetId: string
+	targetId: string,
+	opts?: { onlyUploadedBy?: string }
 ): Promise<void> {
-	await prisma.imageAttachment.deleteMany({
+	const attachments = await prisma.imageAttachment.findMany({
 		where: {
 			type,
 			targetId,
+			...(opts?.onlyUploadedBy ? { image: { uploadedByUserId: opts.onlyUploadedBy } } : {}),
 		},
+		include: { image: { select: { id: true, url: true } } },
 	});
+	if (attachments.length === 0) return;
+	await prisma.imageAttachment.deleteMany({ where: { id: { in: attachments.map((a) => a.id) } } });
+	for (const att of attachments) {
+		await deleteImageIfOrphaned(att.image.id, att.image.url);
+	}
 }
 
 /**

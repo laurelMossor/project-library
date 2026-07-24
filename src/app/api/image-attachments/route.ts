@@ -4,7 +4,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { AttachmentTarget } from "@prisma/client";
 import { canPostAsPage } from "@/lib/utils/server/permission";
-import { deleteImage } from "@/lib/utils/server/storage";
+import { deleteAllAttachmentsForTarget } from "@/lib/utils/server/image-attachment";
 
 /**
  * POST /api/image-attachments
@@ -86,24 +86,12 @@ export async function POST(request: Request) {
 			);
 		}
 
-		// When replace=true, remove existing attachments for this target and delete their
+		// When replace=true, remove existing attachments for this target and clean up their
 		// images — but ONLY ones the caller owns, so swapping in a new cover can never
-		// hard-delete another user's image (e.g. a co-host's upload on a page event).
+		// hard-delete another user's image (e.g. a co-host's upload on a page event). The
+		// shared helper also skips any image still referenced elsewhere (e.g. an avatar).
 		if (replace) {
-			const existing = await prisma.imageAttachment.findMany({
-				where: { type, targetId, image: { uploadedByUserId: ctx.userId } },
-				include: { image: { select: { id: true, url: true } } },
-			});
-			const attachmentIds = existing.map((a) => a.id);
-			const imageIds = existing.map((a) => a.image.id);
-			await prisma.imageAttachment.deleteMany({ where: { id: { in: attachmentIds } } });
-			await prisma.image.deleteMany({ where: { id: { in: imageIds } } });
-			for (const att of existing) {
-				const result = await deleteImage(att.image.url);
-				if (result.error) {
-					console.error(`Failed to delete replaced image ${att.image.id} from storage:`, result.error);
-				}
-			}
+			await deleteAllAttachmentsForTarget(type, targetId, { onlyUploadedBy: ctx.userId });
 		}
 
 		const attachment = await prisma.imageAttachment.create({

@@ -8,6 +8,7 @@ import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSe
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { CoverImageEditor } from "@/lib/components/event/CoverImageEditor";
+import { ImageEditModal } from "@/lib/components/images/ImageEditModal";
 import { InlineDateTimePicker } from "@/lib/components/inline-editable/InlineDateTimePicker";
 import { RsvpForm } from "@/lib/components/event/RsvpForm";
 import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
@@ -21,6 +22,8 @@ import { PostsList } from "@/lib/components/post/PostsList";
 import { InteractiveMap } from "@/lib/components/map/InteractiveMap";
 import { LocationSearchInput, type LocationResult } from "@/lib/components/map/LocationSearchInput";
 import { updateEvent, deleteEvent } from "@/lib/utils/event-client";
+import { uploadAndAttachImage } from "@/lib/utils/image-client";
+import { eventHasContent } from "@/lib/utils/content";
 import { AuthError, authFetch } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
@@ -72,8 +75,17 @@ function EventPageContent({
 	const isDraft = event.status === "DRAFT";
 	const isPublished = event.status === "PUBLISHED";
 	const [isEditing, setIsEditing] = useState(isDraft);
+	const [coverModalOpen, setCoverModalOpen] = useState(false);
 	const page = event.page;
 	const coverImageUrl = event.images?.[0]?.url || null;
+
+	// Cover upload is immediate (like avatars): attach on modal Save, then refresh the banner.
+	// replace:true swaps out any existing cover in one call.
+	async function handleCoverSave({ file }: { file: File | null }) {
+		if (!file) return;
+		const item = await uploadAndAttachImage({ file, folder: "event-covers", type: "EVENT", targetId: event.id, replace: true, fetchImpl: authFetch });
+		setEvent((prev) => ({ ...prev, images: [item] }));
+	}
 
 	// Session-backed fields — dirtyFields is the single source of truth.
 	// displayContent renders these values so edited text is visible on blur.
@@ -108,14 +120,16 @@ function EventPageContent({
 	}, [event.status, isOwner]);
 
 	// True once any content has been added — prevents silent deletion of non-empty drafts.
-	const hasContentRef = useRef(Boolean(event.title || event.content || event.location || event.tags.length));
+	// eventHasContent counts a cover image (attached immediately now that the cover no
+	// longer lives in the session as a pending file), so a cover-only draft survives.
+	const coverCount = event.images?.length ?? 0;
+	const hasContentRef = useRef(eventHasContent({ title: event.title, content: event.content, location: event.location, imageCount: coverCount }));
 	useEffect(() => {
-		if (event.title || event.content || event.location || event.tags.length) {
+		if (eventHasContent({ title: event.title, content: event.content, location: event.location, imageCount: coverCount })) {
 			hasContentRef.current = true;
 		}
-	}, [event.title, event.content, event.location, event.tags.length]);
-	// changeCount (not just dirtyFields) so a pending cover file also counts as content —
-	// otherwise a draft with only a cover gets silently deleted on navigate-away.
+	}, [event.title, event.content, event.location, coverCount]);
+	// Also count in-progress dirty scalar edits (title/content/etc.) not yet committed.
 	const changeCount = editSession?.changeCount ?? 0;
 	useEffect(() => {
 		if (changeCount > 0) hasContentRef.current = true;
@@ -170,7 +184,18 @@ function EventPageContent({
 			<CoverImageEditor
 				imageUrl={coverImageUrl}
 				canEdit={isOwner && isEditing}
+				onEdit={() => setCoverModalOpen(true)}
 			/>
+			{isOwner && coverModalOpen && (
+				<ImageEditModal
+					isOpen
+					onClose={() => setCoverModalOpen(false)}
+					title={coverImageUrl ? "Change cover" : "Add cover image"}
+					previewShape="rect"
+					existingImageUrl={coverImageUrl}
+					onSave={handleCoverSave}
+				/>
+			)}
 
 			<PostContentArea>
 				{/* Title */}
@@ -409,45 +434,6 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
 	const isDraft = event.status === "DRAFT";
-
-	// Upload a pending cover file and attach it as the event banner (replace=true).
-	const handleCommitFiles = useCallback(async (files: Record<string, File>): Promise<Partial<EventItem> | void> => {
-		const coverFile = files["cover"];
-		if (!coverFile) return;
-
-		const formData = new FormData();
-		formData.append("file", coverFile);
-		const uploadRes = await authFetch("/api/upload?folder=event-covers", {
-			method: "POST",
-			body: formData,
-		});
-		if (!uploadRes.ok) {
-			const data = await uploadRes.json().catch(() => ({}));
-			throw new Error(data.error || "Failed to upload cover image");
-		}
-		const uploadData = await uploadRes.json();
-
-		const attachRes = await authFetch("/api/image-attachments", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				imageId: uploadData.id,
-				type: "EVENT",
-				targetId: event.id,
-				replace: true,
-			}),
-		});
-		if (!attachRes.ok) {
-			const data = await attachRes.json().catch(() => ({}));
-			throw new Error(data.error || "Failed to attach cover image");
-		}
-
-		// Return a partial update so the event's images array reflects the new banner
-		return {
-			images: [{ id: uploadData.id, url: uploadData.url, path: "", altText: null, caption: null, uploadedByUserId: "", createdAt: new Date() }],
-		};
-	}, [event.id]);
-
 	const isPublished = event.status === "PUBLISHED";
 
 	return (
@@ -467,7 +453,6 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 					onSaved={(updated) => {
 						setEvent((prev) => ({ ...prev, ...(updated as Partial<EventItem>) }));
 					}}
-					onCommitFiles={handleCommitFiles as (files: Record<string, File>) => Promise<Partial<Record<string, unknown>> | void>}
 					canEdit={isOwner}
 					publishable={isOwner && isDraft}
 					canPublish={(current) => Boolean((current.title as string)?.trim())}
