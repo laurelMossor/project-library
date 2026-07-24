@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/layout/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
 import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
@@ -287,6 +287,9 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	const [data, setData] = useState<ConnectionsData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	// Active top tab. Left `undefined` so TabbedPanel stays uncontrolled (defaults to Followers)
+	// until either the user clicks a tab or the deep-link latch below resolves it.
+	const [activeTop, setActiveTop] = useState<TopTab | undefined>(undefined);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [showAddMember, setShowAddMember] = useState(false);
 	const [addMemberError, setAddMemberError] = useState<string | null>(null);
@@ -297,10 +300,18 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		assignableRoles()[assignableRoles().length - 1],
 	);
 
-	useEffect(() => {
-		async function load() {
-			setLoading(true);
-			setError(null);
+	// Load every connections slice in one pass. `silent` skips the loading/error toggles so a
+	// post-mutation refresh doesn't flash the panel's "Loading…" state or wipe it on a transient
+	// failure — it just swaps in fresh data. Used both for the initial mount and to reconcile
+	// cross-slice effects (e.g. approving a request materializes a follower/member the narrow
+	// optimistic update can't see).
+	const loadConnections = useCallback(
+		async (opts?: { silent?: boolean }) => {
+			const silent = opts?.silent ?? false;
+			if (!silent) {
+				setLoading(true);
+				setError(null);
+			}
 			try {
 				const base = entityType === "user" ? "users" : "pages";
 				const [followersRes, followingRes, membershipRes] = await Promise.all([
@@ -333,14 +344,20 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 
 				setData({ followers, following, membership, memberOf, requests });
 			} catch {
-				setError("Failed to load connections");
+				// Keep the already-loaded panel intact on a silent refresh failure; only the
+				// initial load surfaces the error.
+				if (!silent) setError("Failed to load connections");
 			} finally {
-				setLoading(false);
+				if (!silent) setLoading(false);
 			}
-		}
-		load();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entity.id]);
+		},
+		[entity.id, entityType],
+	);
+
+	// Initial load (shows the loading state); re-runs if the viewed entity changes.
+	useEffect(() => {
+		loadConnections();
+	}, [loadConnections]);
 
 	// TODO: These should be shared utilities, add if they don't already exist and use the existing one if it does. All instances of add/remove follower should share utilities. 
 	async function removeFollower(item: ConnectionItem) {
@@ -430,7 +447,15 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 			const body = await res.json().catch(() => ({}));
 			throw new Error(body.error ?? `Failed to ${action} request`);
 		}
-		setData((prev) => (prev ? { ...prev, requests: prev.requests.filter((r) => r.id !== reqId) } : prev));
+		if (action === "approve") {
+			// Approving materializes a Follow (→ followers) or Permission (→ membership) in a
+			// slice this handler doesn't own, so a narrow filter would leave those counts/lists
+			// stale until reload. Refresh every slice silently instead.
+			await loadConnections({ silent: true });
+		} else {
+			// Denying only drops the pending row — no cross-slice effect, so stay optimistic.
+			setData((prev) => (prev ? { ...prev, requests: prev.requests.filter((r) => r.id !== reqId) } : prev));
+		}
 	}
 
 	// Who may act on requests: a page ADMIN, or a user on their own profile.
@@ -440,15 +465,35 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	const isAdmin = isAdminRole(myRole);
 	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
 
-	const topTabs: TabDef<TopTab>[] = [
-		{ id: "Followers", label: "Followers" },
-		{ id: "Following", label: "Following" },
-		{ id: "Membership", label: "Membership" },
-		...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
-	];
+	// Memoized so its identity only changes when the Requests tab appears/disappears — the
+	// deep-link latch effect below depends on it and shouldn't re-run every render.
+	const topTabs: TabDef<TopTab>[] = useMemo(
+		() => [
+			{ id: "Followers", label: "Followers" },
+			{ id: "Following", label: "Following" },
+			{ id: "Membership", label: "Membership" },
+			...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
+		],
+		[canManageRequests],
+	);
 
-	// Honor a deep-link tab (?tab=Requests) only if it's an actually-visible tab for this viewer.
-	const defaultTop = topTabs.some((t) => t.id === initialTab) ? (initialTab as TopTab) : undefined;
+	// Honor a deep-link tab (?tab=Requests) once it's an actually-visible tab for this viewer.
+	// For a page, the Requests tab only appears after membership loads and admin status is known,
+	// so applying the deep-link at mount would lose it (the tab defaults to Followers before
+	// Requests exists). Apply it in an effect, latched once so it never fights a later manual
+	// tab click.
+	const appliedInitialTabRef = useRef(false);
+	useEffect(() => {
+		if (appliedInitialTabRef.current) return;
+		if (!initialTab) {
+			appliedInitialTabRef.current = true;
+			return;
+		}
+		if (topTabs.some((t) => t.id === initialTab)) {
+			setActiveTop(initialTab as TopTab);
+			appliedInitialTabRef.current = true;
+		}
+	}, [initialTab, topTabs]);
 
 	function getCount(_leftId: string, top: TopTab): number {
 		if (!data) return 0;
@@ -674,7 +719,8 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	return (
 		<TabbedPanel<TopTab, string>
 			topTabs={topTabs}
-			defaultTop={defaultTop}
+			activeTop={activeTop}
+			onActiveTopChange={setActiveTop}
 			leftTabs={leftTabs}
 			getCount={getCount}
 			renderLeftTab={() => (

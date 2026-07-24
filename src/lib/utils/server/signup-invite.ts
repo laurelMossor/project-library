@@ -40,7 +40,9 @@ export async function createSignupInvite(
 
 export type ConsumeInviteResult =
 	| { ok: true; userId: string }
-	| { ok: false; error: string };
+	// `handleConflict` marks the P2002 handle race specifically, so an auto-generated-handle
+	// caller can retry with a fresh handle instead of surfacing a dead-end error.
+	| { ok: false; error: string; handleConflict?: boolean };
 
 /**
  * Validates invite token, marks it used, and creates the user (with
@@ -130,7 +132,7 @@ export async function consumeInviteAndCreateUser(args: {
 			"code" in error &&
 			(error as { code?: string }).code === "P2002"
 		) {
-			return { ok: false, error: "That handle is already taken" };
+			return { ok: false, error: "That handle is already taken", handleConflict: true };
 		}
 		console.error("consumeInviteAndCreateUser:", message, error);
 		return { ok: false, error: "Failed to create account" };

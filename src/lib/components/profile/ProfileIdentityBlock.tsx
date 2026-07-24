@@ -16,8 +16,8 @@ export function ProfileIdentityBlock({ profile, identityOnly = false }: { profil
 		<div className="flex items-start justify-between gap-4">
 			<ProfileHeader profile={profile} isOwnProfile={false} identityOnly={identityOnly} />
 			<div className="flex flex-col gap-2 w-36 shrink-0">
-				<ProfileButtons entityId={id} entityType={isPage ? "page" : "user"} />
-				{isPage && <JoinButton pageId={id} />}
+				<ProfileButtons entityId={id} entityType={isPage ? "page" : "user"} profileVisibility={profile.data.profileVisibility} />
+				{isPage && <JoinButton pageId={id} profileVisibility={profile.data.profileVisibility} />}
 			</div>
 		</div>
 	);

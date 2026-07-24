@@ -176,8 +176,8 @@ function ProfileOwnerContent({
 
 				{/* Right side */}
 				<div className="flex flex-col gap-2 w-36 shrink-0">
-					<ProfileButtons entityId={entityId} entityType={entityType} />
-					{entity.type === "page" && <JoinButton pageId={entity.data.id} />}
+					<ProfileButtons entityId={entityId} entityType={entityType} profileVisibility={entity.data.profileVisibility} />
+					{entity.type === "page" && <JoinButton pageId={entity.data.id} profileVisibility={entity.data.profileVisibility} />}
 					<TransparentCTAButton
 						label={previewMode ? "Edit" : "Preview"}
 						icon={previewMode ? <PencilIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}

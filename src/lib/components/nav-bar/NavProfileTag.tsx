@@ -102,12 +102,14 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 				closeMenu={() => setIsOpen(false)}
 			/>
 
-			{/* "Switch Profile" expands inline to show available identities */}
+			{/* "Switch Profile" expands inline to show available identities. Greyed out and
+			    disabled when there's nothing to switch to (no manageable pages / not acting as a page). */}
 			<MenuItem
 				icon={<AtSignIcon className="w-6 h-6 shrink-0" />}
 				label="Switch Profile"
 				onClick={handleSwitcherClick}
 				closeMenu={() => {/* keep menu open */}}
+				disabled={!hasSwitchOptions}
 			/>
 
 			{switcherExpanded && (
@@ -142,10 +144,6 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							{identityHasActivity(page.id) && <NotificationDot />}
 						</div>
 					))}
-
-					{!hasSwitchOptions && (
-						<p className="px-4 py-2 text-xs text-dusty-grey">No other profiles</p>
-					)}
 				</div>
 			)}
 		</DropdownMenu>

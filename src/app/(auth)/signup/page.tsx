@@ -24,7 +24,6 @@ function SignupForm() {
 	const inviteToken = searchParams.get(SIGNUP_INVITE_QUERY)?.trim() ?? "";
 
 	const [email, setEmail] = useState("");
-	const [handle, setHandle] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 
@@ -32,12 +31,13 @@ function SignupForm() {
 		e.preventDefault();
 		setError("");
 
+		// No handle field — one is auto-generated server-side from the email; users can
+		// personalize it later in Settings.
 		const res = await fetch(API_AUTH_SIGNUP, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				email,
-				handle,
 				password,
 				invite: inviteToken,
 			}),
@@ -84,13 +84,6 @@ function SignupForm() {
 					placeholder="Email"
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
-					required
-				/>
-				<FormInput
-					type="text"
-					placeholder="Handle"
-					value={handle}
-					onChange={(e) => setHandle(e.target.value)}
 					required
 				/>
 				<FormInput
