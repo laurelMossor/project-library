@@ -118,6 +118,12 @@ export const API_POST_COMMENTS = (id: string) => `/api/posts/${id}/comments`;
 // Comment API Routes
 export const API_COMMENT = (id: string) => `/api/comments/${id}`;
 
+// Image API Routes
+export const API_UPLOAD = (folder: string) => `/api/upload?folder=${folder}`;
+export const API_IMAGE_ATTACHMENTS = "/api/image-attachments";
+export const API_IMAGE_ATTACHMENT = (id: string) => `/api/image-attachments/${id}`;
+export const API_IMAGE = (id: string) => `/api/images/${id}`;
+
 // Page API Routes
 export const API_PAGES = "/api/pages";
 export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;

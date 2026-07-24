@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Fri 07/24/2026 15:10 PDT
+Built photo add/edit for posts on `netwerk-9`, closing the two SPATS and BUGS tickets. Photos are now managed in a carousel-preview modal, opened from an on-photo Edit pill or the empty-state placeholder. Captions save on blur and render as a translucent black banner. I consolidated the three divergent image branches — avatar, event cover, and post — onto one shared upload helper and modal. That let me retire the deferred `InlineEditSession` file machinery entirely. Posts and events are now valid with any single element, so an image-only draft survives and publishes. 402 unit green, and both tickets QA'd live to Done.
+
 #### Entry: Fri 07/24/2026 11:04 PDT
 `/prolib-review` of `netwerk-8`, then landed the agreed hardening. The privacy fix was ADMIN-only but tested only at the util boundary, so I added a route-level test that runs the real permission gate and fails if an EDITOR ever slips a visibility change through. Also replaced a brittle error-string match with a typed `forbidden` flag for the 403. The "Add member" flow now grants real acting roles without consent, which stays for now. Filed a SAFETY TOOLS ticket to make role grants invitation-based instead.
 

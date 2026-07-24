@@ -6,86 +6,39 @@ import { ImageItem } from '@/lib/types/image';
 
 type Props = {
 	images: ImageItem[];
+	/** Controlled index; falls back to internal state (e.g. read-only cards). */
+	currentIndex?: number;
+	onIndexChange?: (index: number) => void;
 	showCaptions?: boolean;
-	isOwner?: boolean;
+	/** When provided, an overlay "Edit" pill fires this with the current index (owner-in-edit). */
+	onEditImage?: (index: number) => void;
 };
 
-const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = false }: Props) => {
-	const [images, setImages] = useState(initialImages);
-	const [currentIndex, setCurrentIndex] = useState(0);
-	const [editingCaption, setEditingCaption] = useState(false);
-	const [captionDraft, setCaptionDraft] = useState('');
-	const [saving, setSaving] = useState(false);
-	const [confirmDelete, setConfirmDelete] = useState(false);
+/**
+ * Purely presentational image carousel: image + caption banner + nav + dots,
+ * plus an optional overlay "Edit" pill. All mutation (upload/caption/remove)
+ * lives in the owning page's ImageEditModal, not here.
+ */
+const ImageCarousel = ({ images, currentIndex: controlledIndex, onIndexChange, showCaptions = false, onEditImage }: Props) => {
+	const [internalIndex, setInternalIndex] = useState(0);
+	const currentIndex = controlledIndex ?? internalIndex;
 
 	if (!images || images.length === 0) {
 		return null;
 	}
 
-	const goToPrevious = () => {
-		setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-		setEditingCaption(false);
-		setConfirmDelete(false);
+	// Clamp in case the parent's image list shrank (e.g. after a remove).
+	const safeIndex = Math.min(currentIndex, images.length - 1);
+
+	const setIndex = (next: number) => {
+		if (onIndexChange) onIndexChange(next);
+		else setInternalIndex(next);
 	};
 
-	const goToNext = () => {
-		setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-		setEditingCaption(false);
-		setConfirmDelete(false);
-	};
+	const goToPrevious = () => setIndex(safeIndex === 0 ? images.length - 1 : safeIndex - 1);
+	const goToNext = () => setIndex(safeIndex === images.length - 1 ? 0 : safeIndex + 1);
 
-	const goToSlide = (index: number) => {
-		setCurrentIndex(index);
-		setEditingCaption(false);
-		setConfirmDelete(false);
-	};
-
-	const deleteCurrentImage = async () => {
-		const image = images[currentIndex];
-		if (!image.attachmentId) return;
-		setSaving(true);
-		try {
-			const res = await fetch(`/api/image-attachments/${image.attachmentId}`, { method: 'DELETE' });
-			if (res.ok) {
-				const next = images.filter((_, i) => i !== currentIndex);
-				setImages(next);
-				setCurrentIndex(Math.min(currentIndex, next.length - 1));
-				setConfirmDelete(false);
-			}
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const startEdit = () => {
-		setCaptionDraft(currentImage.caption ?? '');
-		setEditingCaption(true);
-	};
-
-	const cancelEdit = () => {
-		setEditingCaption(false);
-		setCaptionDraft('');
-	};
-
-	const saveCaption = async () => {
-		setSaving(true);
-		try {
-			const res = await fetch(`/api/images/${currentImage.id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ caption: captionDraft || null }),
-			});
-			if (res.ok) {
-				const updated: ImageItem = await res.json();
-				setImages((prev) => prev.map((img) => (img.id === updated.id ? { ...img, caption: updated.caption } : img)));
-			}
-		} finally {
-			setSaving(false);
-			setEditingCaption(false);
-		}
-	};
-
-	const currentImage = images[currentIndex];
+	const currentImage = images[safeIndex];
 	const showCaption = showCaptions && Boolean(currentImage.caption);
 
 	return (
@@ -95,7 +48,7 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 				<div className="relative w-full bg-gray-100">
 					<Image
 						src={currentImage.url}
-						alt={currentImage.altText || `Image ${currentIndex + 1}`}
+						alt={currentImage.altText || `Image ${safeIndex + 1}`}
 						width={800}
 						height={600}
 						style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
@@ -108,6 +61,16 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 					<div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-sm px-3 py-2">
 						{currentImage.caption}
 					</div>
+				)}
+
+				{/* Edit pill — same translucent-black language as the caption banner */}
+				{onEditImage && (
+					<button
+						onClick={() => onEditImage(safeIndex)}
+						className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
+					>
+						Edit
+					</button>
 				)}
 
 				{/* Navigation buttons */}
@@ -152,9 +115,9 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 							{images.map((_, index) => (
 								<button
 									key={index}
-									onClick={() => goToSlide(index)}
+									onClick={() => setIndex(index)}
 									className={`h-2 rounded-full transition-all ${
-										index === currentIndex ? 'w-8 bg-white' : 'w-2 bg-white/50 hover:bg-white/75'
+										index === safeIndex ? 'w-8 bg-white' : 'w-2 bg-white/50 hover:bg-white/75'
 									}`}
 									aria-label={`Go to image ${index + 1}`}
 								/>
@@ -163,74 +126,6 @@ const ImageCarousel = ({ images: initialImages, showCaptions = false, isOwner = 
 					</>
 				)}
 			</div>
-
-			{/* Caption + delete controls — below the image, owners only */}
-			{showCaptions && isOwner && (
-				<div className="mt-2">
-					{editingCaption ? (
-						<div className="flex flex-col gap-2">
-							<input
-								type="text"
-								value={captionDraft}
-								onChange={(e) => setCaptionDraft(e.target.value)}
-								placeholder="Add a caption…"
-								maxLength={500}
-								autoFocus
-								className="w-full text-sm border border-ash-green rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
-							/>
-							<div className="flex gap-2">
-								<button
-									onClick={saveCaption}
-									disabled={saving}
-									className="text-xs px-3 py-1 rounded bg-rich-brown text-white hover:bg-rich-brown/90 disabled:opacity-50 transition-colors"
-								>
-									{saving ? 'Saving…' : 'Save'}
-								</button>
-								<button
-									onClick={cancelEdit}
-									className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:text-rich-brown transition-colors"
-								>
-									Cancel
-								</button>
-							</div>
-						</div>
-					) : confirmDelete ? (
-						<div className="flex items-center gap-2">
-							<span className="text-xs text-warm-grey">Remove this image?</span>
-							<button
-								onClick={deleteCurrentImage}
-								disabled={saving}
-								className="text-xs px-3 py-1 rounded bg-alert-red text-white hover:bg-alert-red/90 disabled:opacity-50 transition-colors"
-							>
-								{saving ? 'Removing…' : 'Remove'}
-							</button>
-							<button
-								onClick={() => setConfirmDelete(false)}
-								className="text-xs text-dusty-grey hover:text-warm-grey transition-colors"
-							>
-								Cancel
-							</button>
-						</div>
-					) : (
-						<div className="flex items-center gap-3">
-							<button
-								onClick={startEdit}
-								className="text-xs text-dusty-grey hover:text-moss-green transition-colors"
-							>
-								{currentImage.caption ? 'Edit caption' : '+ Add caption'}
-							</button>
-							{currentImage.attachmentId && (
-								<button
-									onClick={() => setConfirmDelete(true)}
-									className="text-xs text-dusty-grey hover:text-alert-red transition-colors"
-								>
-									Remove image
-								</button>
-							)}
-						</div>
-					)}
-				</div>
-			)}
 		</div>
 	);
 };

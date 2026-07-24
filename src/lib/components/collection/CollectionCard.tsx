@@ -120,9 +120,11 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				</div>
 			</div>
 
-			<p className="text-warm-grey text-sm mb-2">
-				{truncate ? truncateText(ri.content, 250) : ri.content}
-			</p>
+			{ri.content && (
+				<p className="text-warm-grey text-sm mb-2">
+					{truncate ? truncateText(ri.content, 250) : ri.content}
+				</p>
+			)}
 
 			{ev && (
 				<div className="mb-2 text-sm text-warm-grey">

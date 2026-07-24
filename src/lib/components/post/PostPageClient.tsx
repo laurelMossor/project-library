@@ -20,7 +20,9 @@ import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
+import { PostImagesModal } from "@/lib/components/images/PostImagesModal";
 import { updatePost, deletePost } from "@/lib/utils/post-client";
+import { postHasContent } from "@/lib/utils/content";
 import { AuthError } from "@/lib/utils/auth-client";
 import { PencilIcon } from "@/lib/components/icons/icons";
 import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
@@ -41,12 +43,14 @@ function PostPageContent({
 	post,
 	setPost,
 	images,
+	setImages,
 	isOwner,
 	isLoggedIn,
 }: {
 	post: PostItem;
 	setPost: React.Dispatch<React.SetStateAction<PostItem>>;
 	images: ImageItem[];
+	setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
 	isOwner: boolean;
 	isLoggedIn: boolean;
 }) {
@@ -58,6 +62,10 @@ function PostPageContent({
 	const isPublished = post.status === "PUBLISHED";
 	const [isEditing, setIsEditing] = useState(isDraft);
 	const entity = post.page ?? post.user!;
+
+	// Page carousel position + the photo-manager modal (opens at a given photo, or empty to add).
+	const [carouselIndex, setCarouselIndex] = useState(0);
+	const [photosModal, setPhotosModal] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
 
 	// Session-backed fields — dirtyFields is the single source of truth.
 	// displayContent renders these values so edited text is visible on blur.
@@ -102,10 +110,13 @@ function PostPageContent({
 	}, [post.status, isOwner]);
 
 	// True once any content has been added — prevents silent deletion of non-empty drafts.
-	const hasContentRef = useRef(Boolean(post.title || post.content));
+	// A title, body, OR photo all count (postHasContent), so an image-only draft survives.
+	const hasContentRef = useRef(postHasContent({ title: post.title, content: post.content, imageCount: images.length }));
 	useEffect(() => {
-		if (post.title || post.content) hasContentRef.current = true;
-	}, [post.title, post.content]);
+		if (postHasContent({ title: post.title, content: post.content, imageCount: images.length })) {
+			hasContentRef.current = true;
+		}
+	}, [post.title, post.content, images.length]);
 	const dirtyCount = session ? Object.keys(session.dirtyFields).length : 0;
 	useEffect(() => {
 		if (dirtyCount > 0) hasContentRef.current = true;
@@ -242,7 +253,39 @@ function PostPageContent({
 				/>
 
 				{/* Images */}
-				{images.length > 0 && <ImageCarousel images={images} showCaptions isOwner={isOwner && isEditing} />}
+				{images.length > 0 ? (
+					<ImageCarousel
+						images={images}
+						currentIndex={carouselIndex}
+						onIndexChange={setCarouselIndex}
+						showCaptions
+						onEditImage={isOwner && isEditing ? (i) => setPhotosModal({ open: true, index: i }) : undefined}
+					/>
+				) : (
+					isOwner && isEditing && (
+						<DashedPlaceholder className="p-6 flex justify-center">
+							<button
+								type="button"
+								onClick={() => setPhotosModal({ open: true, index: 0 })}
+								className="text-sm font-medium text-misty-forest hover:text-rich-brown transition-colors"
+							>
+								+ Add photos
+							</button>
+						</DashedPlaceholder>
+					)
+				)}
+
+				{/* Photo manager modal — owner only. Manages the whole set (preview + caption + add + remove). */}
+				{isOwner && photosModal.open && (
+					<PostImagesModal
+						isOpen
+						onClose={() => setPhotosModal({ open: false, index: 0 })}
+						postId={post.id}
+						images={images}
+						setImages={setImages}
+						initialIndex={photosModal.index}
+					/>
+				)}
 
 				{/* Tags */}
 				<InlineEditable
@@ -317,8 +360,10 @@ function PostPageContent({
 	);
 }
 
-export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn }: PostPageClientProps) {
+export function PostPageClient({ post: initialPost, images: initialImages, isOwner, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
+	// Images live here (not in the carousel) so the publish gate below can see them live.
+	const [images, setImages] = useState(initialImages);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
@@ -344,13 +389,14 @@ export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn 
 					}}
 					canEdit={isOwner}
 					publishable={isOwner && isDraft}
-					canPublish={(current) => Boolean((current.content as string)?.trim())}
-					publishHint="Add some content to publish"
+					canPublish={(current) => postHasContent({ title: current.title as string | null, content: current.content as string | null, imageCount: images.length })}
+					publishHint="Add a title, some content, or a photo to publish"
 				>
 					<PostPageContent
 						post={post}
 						setPost={setPost}
 						images={images}
+						setImages={setImages}
 						isOwner={isOwner}
 						isLoggedIn={isLoggedIn}
 					/>

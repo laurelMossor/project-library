@@ -17,8 +17,7 @@ import type { ElementDraft, ElementCreate, ElementUpdate, SavePayload } from "@/
 export type InlineEditSessionContextType = {
 	canEdit: boolean;
 	dirtyFields: Record<string, unknown>;
-	dirtyFiles: Record<string, File>;
-	/** Total unsaved changes: scalar fields + element ops + pending file uploads. */
+	/** Total unsaved changes: scalar fields + element ops. */
 	changeCount: number;
 	pendingCreates: ElementDraft[];
 	pendingDeletes: string[];
@@ -29,9 +28,11 @@ export type InlineEditSessionContextType = {
 	 * Parent components watch this to close any open editingField / reset local input state.
 	 */
 	cancelRevision: number;
+	/** True while a full-screen editor is open; the save bar hides so it doesn't show through. */
+	overlayOpen: boolean;
+	setOverlayOpen: (open: boolean) => void;
 	setDirty: (fieldName: string, value: unknown, originalValue: unknown) => void;
 	clearDirty: (fieldName: string) => void;
-	setDirtyFile: (key: string, file: File | null) => void;
 	addCreate: (draft: ElementDraft) => void;
 	removeCreate: (tempId: string) => void;
 	updateCreate: (tempId: string, field: string, value: unknown) => void;
@@ -55,8 +56,6 @@ type InlineEditSessionProps<T extends Record<string, unknown>> = {
 	resource: T;
 	onSave: (payload: SavePayload) => Promise<T | void>;
 	onSaved?: (updated: T) => void;
-	/** Called after field save completes, for any pending file uploads. */
-	onCommitFiles?: (files: Record<string, File>) => Promise<Partial<T> | void>;
 	canEdit: boolean;
 	/** Show the Publish affordance in the save bar (owner editing a draft). */
 	publishable?: boolean;
@@ -75,7 +74,6 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	resource,
 	onSave,
 	onSaved,
-	onCommitFiles,
 	canEdit,
 	publishable = false,
 	canPublish,
@@ -83,7 +81,6 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	children,
 }: InlineEditSessionProps<T>) {
 	const [dirtyFields, setDirtyFields] = useState<Record<string, unknown>>({});
-	const [dirtyFiles, setDirtyFilesState] = useState<Record<string, File>>({});
 	const originalValuesRef = useRef<Record<string, unknown>>({});
 	const [pendingCreates, setPendingCreates] = useState<ElementDraft[]>([]);
 	const [pendingDeletes, setPendingDeletes] = useState<string[]>([]);
@@ -93,8 +90,11 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	const savingRef = useRef(false);
 	const [error, setError] = useState<string | null>(null);
 	const [cancelRevision, setCancelRevision] = useState(0);
+	// A full-screen editor (e.g. the photo modal) sets this to hide the save bar,
+	// which otherwise pokes through the modal's translucent backdrop.
+	const [overlayOpen, setOverlayOpen] = useState(false);
 
-	// Unified change count: scalar fields + element ops + pending file uploads
+	// Unified change count: scalar fields + element ops
 	const scalarDirtyCount = Object.keys(dirtyFields).filter(
 		(k) => !k.startsWith("element:")
 	).length;
@@ -111,8 +111,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 		scalarDirtyCount +
 		elementUpdateCount +
 		pendingCreates.length +
-		pendingDeletes.length +
-		Object.keys(dirtyFiles).length;
+		pendingDeletes.length;
 
 	// Merged view of resource + current dirty scalar values, used for canPublish
 	const scalarDirtyFields: Record<string, unknown> = {};
@@ -145,17 +144,6 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 			return next;
 		});
 		delete originalValuesRef.current[fieldName];
-	}, []);
-
-	const setDirtyFile = useCallback((key: string, file: File | null) => {
-		setDirtyFilesState((prev) => {
-			if (file === null) {
-				const next = { ...prev };
-				delete next[key];
-				return next;
-			}
-			return { ...prev, [key]: file };
-		});
 	}, []);
 
 	const addCreate = useCallback((draft: ElementDraft) => {
@@ -245,9 +233,6 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 
 			const saved = await onSave(payload);
 
-			// Reflect the field/publish result and clear committed scalar + element state
-			// BEFORE the file commit. Otherwise a file-upload failure after a successful
-			// publish would strand the client in "draft" while the server is PUBLISHED.
 			if (saved && onSaved) {
 				onSaved(saved as T);
 			}
@@ -255,23 +240,13 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 			originalValuesRef.current = {};
 			setPendingCreates([]);
 			setPendingDeletes([]);
-
-			// Then commit any pending file uploads. A failure here keeps only dirtyFiles
-			// (for retry) — the field/publish state above is already persisted.
-			if (onCommitFiles && Object.keys(dirtyFiles).length > 0) {
-				const fileResult = await onCommitFiles(dirtyFiles);
-				if (fileResult && onSaved) {
-					onSaved((saved ? { ...saved, ...fileResult } : fileResult) as T);
-				}
-				setDirtyFilesState({});
-			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save");
 		} finally {
 			savingRef.current = false;
 			setSaving(false);
 		}
-	}, [changeCount, dirtyFields, dirtyFiles, pendingCreates, pendingDeletes, onSave, onSaved, onCommitFiles]);
+	}, [changeCount, dirtyFields, pendingCreates, pendingDeletes, onSave, onSaved]);
 
 	const saveAll = useCallback(() => commit({ publish: false }), [commit]);
 	const publish = useCallback(() => commit({ publish: true }), [commit]);
@@ -281,7 +256,6 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 		originalValuesRef.current = {};
 		setPendingCreates([]);
 		setPendingDeletes([]);
-		setDirtyFilesState({});
 		setError(null);
 		setCancelRevision((n) => n + 1);
 	}, []);
@@ -300,16 +274,16 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	const ctx: InlineEditSessionContextType = {
 		canEdit,
 		dirtyFields,
-		dirtyFiles,
 		changeCount,
 		pendingCreates,
 		pendingDeletes,
 		saving,
 		error,
 		cancelRevision,
+		overlayOpen,
+		setOverlayOpen,
 		setDirty,
 		clearDirty,
-		setDirtyFile,
 		addCreate,
 		removeCreate,
 		updateCreate,
@@ -323,19 +297,21 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	return (
 		<InlineEditSessionContext.Provider value={ctx}>
 			{children}
-			<InlineEditSessionBar
-				changeCount={changeCount}
-				pendingDeleteCount={pendingDeletes.length}
-				saving={saving}
-				error={error}
-				onSave={saveAll}
-				onCancel={cancelAll}
-				onUndo={undoLastDelete}
-				publishable={publishable}
-				publishAllowed={publishAllowed}
-				publishHint={publishHint}
-				onPublish={publish}
-			/>
+			{!overlayOpen && (
+				<InlineEditSessionBar
+					changeCount={changeCount}
+					pendingDeleteCount={pendingDeletes.length}
+					saving={saving}
+					error={error}
+					onSave={saveAll}
+					onCancel={cancelAll}
+					onUndo={undoLastDelete}
+					publishable={publishable}
+					publishAllowed={publishAllowed}
+					publishHint={publishHint}
+					onPublish={publish}
+				/>
+			)}
 		</InlineEditSessionContext.Provider>
 	);
 }
