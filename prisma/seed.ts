@@ -35,6 +35,8 @@ import {
   PermissionRole,
   ResourceType,
   AttachmentTarget,
+  ProfileVisibility,
+  ContentVisibility,
 } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -51,11 +53,17 @@ export type SeedProfileElement = {
   sortOrder: number;
 };
 
+// Derived from the Prisma schema (the source of truth) rather than hand-written unions,
+// so a future enum change can't silently drift the seed layer.
+export type SeedProfileVisibility = ProfileVisibility;
+export type SeedContentVisibility = ContentVisibility;
+
 export type SeedPost = {
   title?: string;
   content: string;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
+  contentVisibility?: SeedContentVisibility;
   imageFilenames?: string[];
   updates?: { title?: string; content: string }[];
 };
@@ -68,6 +76,7 @@ export type SeedEvent = {
   longitude?: number;
   tags?: string[];
   status?: "DRAFT" | "PUBLISHED";
+  contentVisibility?: SeedContentVisibility;
   imageFilenames?: string[];
 } & (
   | { eventDate: string; eventStartTime: string; eventTimezone: string; eventDateTime?: never }
@@ -85,6 +94,8 @@ export type SeedUserPacket = {
   bio?: string;
   interests?: string[];
   location?: string;
+  profileVisibility?: SeedProfileVisibility;
+  contentVisibility?: SeedContentVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
@@ -99,12 +110,17 @@ export type SeedPagePacket = {
   bio?: string;
   interests?: string[];
   location?: string;
+  profileVisibility?: SeedProfileVisibility;
+  contentVisibility?: SeedContentVisibility;
   aboutContent?: string;
   avatarImage?: string;
   profileElements?: SeedProfileElement[];
   creatorHandle: string;
   editors?: string[];
-  members?: "*" | string[];
+  // Users to seed as FOLLOWERS of the page. ("*" = all non-creator/non-editor users.)
+  // Self-service membership is flagged off (FEATURES.SELF_SERVICE_MEMBERSHIP); following a
+  // page grants the same access members had, so seed page connections as follows.
+  followers?: "*" | string[];
   posts?: SeedPost[];
   events?: SeedEvent[];
 };
@@ -125,6 +141,11 @@ export type SeedRelationships = {
     name: string;
     email: string;
     status: "GOING" | "MAYBE" | "CANT_MAKE_IT";
+  }[];
+  accessRequests?: {
+    requester: string; // handle (user or page)
+    target: string; // handle (user or page)
+    kind: "FOLLOW" | "JOIN";
   }[];
 };
 
@@ -165,15 +186,15 @@ function loadPackets<T>(dir: string): T[] {
     .map((f) => loadJson<T>(join(dir, f)));
 }
 
-function resolvePassword(password: string): string {
+function resolvePassword(password: string): string | null {
   if (password.startsWith("$env:")) {
     const envVar = password.slice(5);
     const value = process.env[envVar];
     if (!value) {
-      throw new Error(
-        `Password references env var "${envVar}" but it is not set. ` +
-          `Add ${envVar} to your .env.development or .env.local file.`
-      );
+      // Real-profile packets are env-gated: with no secret set (CI, or a
+      // contributor without it) the profile is intentionally skipped rather
+      // than seeded. null signals the caller to skip this packet.
+      return null;
     }
     return value;
   }
@@ -348,10 +369,19 @@ async function main() {
   // ── Create Users ──
   console.log("👤 Creating users...");
   const usersByHandle = new Map<string, { id: string }>();
+  // Real-profile packets are gated behind a `$env:` password; when that secret
+  // isn't set (CI, contributors without it) we skip the profile entirely and
+  // record its handle so its pages get skipped too.
+  const skippedHandles = new Set<string>();
 
   for (const packet of userPackets) {
     const handle = packet.handle.toLowerCase();
     const password = resolvePassword(packet.password);
+    if (password === null) {
+      console.log(`  ⏭️  Skipping "${handle}" — password env var not set`);
+      skippedHandles.add(handle);
+      continue;
+    }
     const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
@@ -359,6 +389,8 @@ async function main() {
         email: packet.email.toLowerCase(),
         passwordHash,
         handle,
+        // Seeded accounts are pre-verified so logins (incl. E2E) aren't gated.
+        emailVerified: new Date(),
         firstName: packet.firstName,
         lastName: packet.lastName,
         displayName:
@@ -367,6 +399,8 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
+        ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
+        contentVisibility: packet.contentVisibility ?? "LISTED",
         handleRecord: { create: { handle } },
       },
       select: { id: true },
@@ -384,8 +418,17 @@ async function main() {
 
   for (const packet of pagePackets) {
     const handle = packet.handle.toLowerCase();
-    const creator = usersByHandle.get(packet.creatorHandle.toLowerCase());
+    const creatorHandle = packet.creatorHandle.toLowerCase();
+    const creator = usersByHandle.get(creatorHandle);
     if (!creator) {
+      // Creator was an intentionally-skipped profile (e.g. admin in CI) →
+      // skip its pages too. A genuinely unknown creator still errors.
+      if (skippedHandles.has(creatorHandle)) {
+        console.log(
+          `  ⏭️  Skipping page "${handle}" — creator "${packet.creatorHandle}" was skipped`
+        );
+        continue;
+      }
       throw new Error(
         `Page "${handle}" references unknown creator "${packet.creatorHandle}"`
       );
@@ -399,6 +442,8 @@ async function main() {
         bio: packet.bio ?? null,
         interests: packet.interests ?? [],
         location: packet.location ?? null,
+        ...(packet.profileVisibility ? { profileVisibility: packet.profileVisibility } : {}),
+        contentVisibility: packet.contentVisibility ?? "LISTED",
         createdByUserId: creator.id,
         handleRecord: { create: { handle } },
       },
@@ -435,39 +480,26 @@ async function main() {
       });
     }
 
-    // MEMBER permissions
+    // Followers (formerly seeded as MEMBER permissions). Membership is flagged off, and
+    // following a page grants the same access, so seed these connections as follow edges.
+    // Creator/editors are skipped — they manage the page rather than follow it.
     const editorSet = new Set(
       (packet.editors ?? []).map((h) => h.toLowerCase())
     );
-    if (packet.members === "*") {
-      for (const [userHandle, user] of usersByHandle) {
-        if (
-          userHandle === packet.creatorHandle.toLowerCase() ||
-          editorSet.has(userHandle)
-        )
-          continue;
-        await prisma.permission.create({
-          data: {
-            userId: user.id,
-            resourceId: page.id,
-            resourceType: ResourceType.PAGE,
-            role: PermissionRole.MEMBER,
-          },
-        });
-      }
-    } else if (Array.isArray(packet.members)) {
-      for (const memberHandle of packet.members) {
-        const member = usersByHandle.get(memberHandle.toLowerCase());
-        if (!member) continue;
-        await prisma.permission.create({
-          data: {
-            userId: member.id,
-            resourceId: page.id,
-            resourceType: ResourceType.PAGE,
-            role: PermissionRole.MEMBER,
-          },
-        });
-      }
+    const creatorHandleLc = packet.creatorHandle.toLowerCase();
+    const followerHandles =
+      packet.followers === "*"
+        ? [...usersByHandle.keys()]
+        : Array.isArray(packet.followers)
+          ? packet.followers.map((h) => h.toLowerCase())
+          : [];
+    for (const followerHandle of followerHandles) {
+      if (followerHandle === creatorHandleLc || editorSet.has(followerHandle)) continue;
+      const follower = usersByHandle.get(followerHandle);
+      if (!follower) continue;
+      await prisma.follow.create({
+        data: { followerId: follower.id, followingPageId: page.id },
+      });
     }
   }
 
@@ -490,7 +522,16 @@ async function main() {
     });
   }
 
-  for (const packet of userPackets) {
+  // Downstream content loops only touch entities that were actually seeded —
+  // env-gated profiles (and the pages they own) may have been skipped above.
+  const seededUserPackets = userPackets.filter((p) =>
+    usersByHandle.has(p.handle.toLowerCase())
+  );
+  const seededPagePackets = pagePackets.filter((p) =>
+    pagesByHandle.has(p.handle.toLowerCase())
+  );
+
+  for (const packet of seededUserPackets) {
     if (!packet.avatarImage) continue;
     const user = usersByHandle.get(packet.handle.toLowerCase())!;
     const image = await createImage(packet.avatarImage, user.id);
@@ -500,7 +541,7 @@ async function main() {
     });
   }
 
-  for (const packet of pagePackets) {
+  for (const packet of seededPagePackets) {
     if (!packet.avatarImage) continue;
     const page = pagesByHandle.get(packet.handle.toLowerCase())!;
     const image = await createImage(packet.avatarImage, page.creatorUserId);
@@ -514,7 +555,7 @@ async function main() {
   console.log("📝 Creating user content...");
   const createdEventsByOwner = new Map<string, { id: string }[]>();
 
-  for (const packet of userPackets) {
+  for (const packet of seededUserPackets) {
     const handle = packet.handle.toLowerCase();
     const user = usersByHandle.get(handle)!;
 
@@ -540,6 +581,9 @@ async function main() {
     }
 
     for (const postData of packet.posts ?? []) {
+      // Standalone user post inherits the user's content visibility unless overridden
+      // (mirrors resolveParentVisibility); replies below inherit this post's value.
+      const postVisibility = postData.contentVisibility ?? packet.contentVisibility ?? "LISTED";
       const post = await prisma.post.create({
         data: {
           userId: user.id,
@@ -547,6 +591,7 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
+          contentVisibility: postVisibility,
         },
         select: { id: true },
       });
@@ -570,6 +615,8 @@ async function main() {
             parentPostId: post.id,
             title: update.title ?? null,
             content: update.content,
+            // Reply inherits its parent's page (null here) and visibility (INV-3).
+            contentVisibility: postVisibility,
           },
         });
       }
@@ -591,6 +638,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
+          contentVisibility: eventData.contentVisibility ?? packet.contentVisibility ?? "LISTED",
         },
         select: { id: true },
       });
@@ -614,7 +662,7 @@ async function main() {
   // ── Page Content ──
   console.log("📄 Creating page content...");
 
-  for (const packet of pagePackets) {
+  for (const packet of seededPagePackets) {
     const handle = packet.handle.toLowerCase();
     const page = pagesByHandle.get(handle)!;
 
@@ -648,6 +696,8 @@ async function main() {
           content: postData.content,
           tags: postData.tags ?? [],
           status: postData.status ?? "PUBLISHED",
+          // Page post inherits the page's content visibility unless overridden.
+          contentVisibility: postData.contentVisibility ?? packet.contentVisibility ?? "LISTED",
         },
         select: { id: true },
       });
@@ -685,6 +735,7 @@ async function main() {
           longitude: coords.longitude,
           tags: eventData.tags ?? [],
           status: eventData.status ?? "PUBLISHED",
+          contentVisibility: eventData.contentVisibility ?? packet.contentVisibility ?? "LISTED",
         },
         select: { id: true },
       });
@@ -736,6 +787,21 @@ async function main() {
         followerId: follower.userId,
         followingUserId: following.userId ?? null,
         followingPageId: following.pageId ?? null,
+      },
+    });
+  }
+
+  // Pending access requests (Request-to-Follow / Request-to-Join)
+  for (const req of relationships.accessRequests ?? []) {
+    const requester = resolveHandle(req.requester);
+    const target = resolveHandle(req.target);
+    await prisma.accessRequest.create({
+      data: {
+        kind: req.kind,
+        requesterId: requester.userId ?? null,
+        requesterPageId: requester.pageId ?? null,
+        targetUserId: target.userId ?? null,
+        targetPageId: target.pageId ?? null,
       },
     });
   }

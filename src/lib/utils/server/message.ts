@@ -1,5 +1,24 @@
 // ⚠️ SERVER-ONLY: Messaging utility functions
 import { prisma } from "./prisma";
+import { getManagedPageIds } from "./permission";
+
+/**
+ * Conversation IDs for ONE identity. With `asPageId` set, only that page's conversations;
+ * otherwise only the user's own (personal) conversations. This is the server-side identity
+ * scope for the inbox/conversation routes so a page admin's personal inbox never leaks page
+ * conversations (and vice-versa) — the split is enforced here, not in the client (findings #16/#25).
+ */
+export async function getConversationIdsForIdentity(
+  userId: string,
+  asPageId: string | null,
+): Promise<string[]> {
+  const where = asPageId ? { pageId: asPageId } : { userId };
+  const records = await prisma.conversationParticipant.findMany({
+    where,
+    select: { conversationId: true },
+  });
+  return records.map((p) => p.conversationId);
+}
 
 export interface ConversationSummary {
   id: string;
@@ -26,12 +45,8 @@ export async function getConversationsForUser(userId: string): Promise<Conversat
     select: { conversationId: true },
   });
 
-  // Get conversations where user has permission on a participating page
-  const userPermissions = await prisma.permission.findMany({
-    where: { userId, resourceType: "PAGE", role: { in: ["ADMIN", "EDITOR"] } },
-    select: { resourceId: true },
-  });
-  const pageIds = userPermissions.map(p => p.resourceId);
+  // Get conversations where user manages a participating page (ADMIN/EDITOR).
+  const pageIds = await getManagedPageIds(userId);
 
   const pageConvos = pageIds.length > 0
     ? await prisma.conversationParticipant.findMany({
@@ -97,27 +112,11 @@ export async function sendMessage(
   return message;
 }
 
-/** Create a new DM conversation between a user and another user or page */
-export async function createConversation(
-  initiatorUserId: string,
-  targetUserId?: string,
-  targetPageId?: string
-) {
-  return prisma.conversation.create({
-    data: {
-      participants: {
-        create: [
-          { userId: initiatorUserId },
-          ...(targetUserId ? [{ userId: targetUserId }] : []),
-          ...(targetPageId ? [{ pageId: targetPageId }] : []),
-        ],
-      },
-    },
-    include: {
-      participants: true,
-    },
-  });
-}
+// NOTE: the former `createConversation` util was removed — it was unused (zero callers) and
+// its participant-array shape couldn't express a page-as-sender. Conversations are created
+// inline in `POST /api/messages`, which builds single-key participant rows with asPageId
+// scoping. Rebuild here with the exactly-one-owner invariant baked in if a server caller is
+// ever needed.
 
 /** Mark messages as read */
 export async function markMessagesRead(conversationId: string, userId: string) {

@@ -1,6 +1,8 @@
 // ⚠️ SERVER-ONLY: Simple in-memory rate limiting for MVP
 // For production, consider using Redis or a dedicated rate limiting service
 
+import { NextResponse } from "next/server";
+
 type RateLimitKey = string;
 type RateLimitEntry = {
 	count: number;
@@ -66,4 +68,27 @@ export function getClientIdentifier(request: Request): string {
 	const realIp = request.headers.get("x-real-ip");
 	const ip = forwarded?.split(",")[0]?.trim() || realIp || "unknown";
 	return ip;
+}
+
+/**
+ * Guard a route handler: derive the client id, check the limit, and return a
+ * 429 NextResponse if exceeded (else null to continue). Collapses the
+ * getClientIdentifier + checkRateLimit + 429 boilerplate that every rate-limited
+ * route repeats. `key` is the limit's logical prefix (the client id is appended).
+ *
+ * Async by design so a future shared-store backend (Redis/Upstash) can swap in
+ * without touching call sites — see rate-limit follow-up ticket.
+ */
+export async function enforceRateLimit(
+	request: Request,
+	key: RateLimitKey,
+	options: RateLimitOptions,
+	message = "Too many requests. Please try again later.",
+): Promise<NextResponse | null> {
+	const clientId = getClientIdentifier(request);
+	const { allowed } = checkRateLimit(`${key}:${clientId}`, options);
+	if (!allowed) {
+		return NextResponse.json({ error: message }, { status: 429 });
+	}
+	return null;
 }

@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { getPageById, updatePageProfile, publicPageFields } from "@/lib/utils/server/page";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { getPageById } from "@/lib/utils/server/page";
+import { canPostAsPage, canManagePage } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { validatePageUpdateData } from "@/lib/validations";
-import { processElementsPayload } from "@/lib/utils/server/profile-element";
-import { prisma } from "@/lib/utils/server/prisma";
+import { saveMyProfile } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 /**
@@ -22,6 +20,13 @@ export async function GET() {
 
 		if (!ctx.activePageId) {
 			return notFound("No active page set. Currently acting as personal identity.");
+		}
+
+		// Re-verify the caller may act as this page — activePageId comes from the JWT, which
+		// can be set client-side via updateSession without going through the validated route.
+		const allowed = await canPostAsPage(ctx.userId, ctx.activePageId);
+		if (!allowed) {
+			return notFound("Active page not found");
 		}
 
 		const page = await getPageById(ctx.activePageId);
@@ -62,65 +67,24 @@ export async function PUT(request: Request) {
 		}
 
 		const body = (await request.json()) as SavePayload;
-		const { fields = {}, elements } = body;
 
-		const {
-			name, headline, bio, interests, location,
-			addressLine1, addressLine2, city, state, zip,
-			category, avatarImageId,
-		} = fields as {
-			name?: string;
-			headline?: string;
-			bio?: string;
-			interests?: string[];
-			location?: string;
-			addressLine1?: string | null;
-			addressLine2?: string | null;
-			city?: string | null;
-			state?: string | null;
-			zip?: string | null;
-			category?: string | null;
-			avatarImageId?: string | null;
-		};
+		// Changing the page's privacy (profile/content visibility) is ADMIN-only, even
+		// though an EDITOR may edit the rest of the profile (canPostAsPage above).
+		const isAdmin = await canManagePage(ctx.userId, ctx.activePageId);
 
-		if (name !== undefined) {
-			if (typeof name !== "string" || name.trim().length === 0) {
-				return badRequest("Page name is required");
-			}
-			if (name.length > 100) {
-				return badRequest("Page name must be 100 characters or fewer");
-			}
-		}
-
-		const validation = validatePageUpdateData({
-			headline, bio, interests, location,
-			addressLine1, addressLine2, city, state, zip,
-			category, avatarImageId,
+		// Shared executor: whitelist + validate (incl. visibility) + cascade.
+		// The old hand-rolled transaction here dropped `visibility` and skipped
+		// the descendant-visibility cascade — using saveMyProfile fixes both.
+		const result = await saveMyProfile("PAGE", ctx.activePageId, body, {
+			allowVisibilityChange: isAdmin,
 		});
-
-		if (!validation.valid) {
-			return badRequest(validation.error || "Invalid page data");
+		if (!result.ok) {
+			// A non-admin attempting a visibility change is a permission failure (403),
+			// not a validation error (400). The util flags that case via `forbidden`.
+			const status = result.forbidden ? 403 : 400;
+			return NextResponse.json({ error: result.error }, { status });
 		}
-
-		const pageId = ctx.activePageId;
-		const updatedPage = await prisma.$transaction(async () => {
-			await updatePageProfile(pageId, {
-				name, headline, bio, interests, location,
-				addressLine1, addressLine2, city, state, zip,
-				category, avatarImageId,
-			});
-
-			if (elements) {
-				await processElementsPayload({ pageId }, elements);
-			}
-
-			return prisma.page.findUnique({
-				where: { id: pageId },
-				select: publicPageFields,
-			});
-		});
-
-		return NextResponse.json(updatedPage);
+		return NextResponse.json(result.profile);
 	} catch (error) {
 		console.error("PUT /api/me/page error:", error);
 		return serverError();

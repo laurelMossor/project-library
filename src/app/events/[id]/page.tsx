@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { EventPageClient } from "@/lib/components/event/EventPageClient";
 import { getUserDisplayName } from "@/lib/types/user";
 import type { RsvpStatus } from "@/lib/types/rsvp";
+import { getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -13,7 +14,7 @@ type Props = {
 
 export default async function EventDetailPage({ params }: Props) {
 	const { id } = await params;
-	const [event, session] = await Promise.all([getEventById(id), auth()]);
+	const [event, session, viewer] = await Promise.all([getEventById(id), auth(), getViewerContext()]);
 
 	if (!event) {
 		notFound();
@@ -23,6 +24,11 @@ export default async function EventDetailPage({ params }: Props) {
 
 	// Draft events are only visible to the owner
 	if (event.status === "DRAFT" && !isOwner) {
+		notFound();
+	}
+
+	// Visibility gate: PRIVATE events are 404 for unauthorized viewers
+	if (!(await canViewEvent(event, viewer))) {
 		notFound();
 	}
 

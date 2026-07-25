@@ -1,15 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/layout/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
 import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
+import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
+import {
+	API_PAGE_REQUESTS,
+	API_ME_REQUESTS,
+	API_REQUEST_APPROVE,
+	API_REQUEST_DENY,
+} from "@/lib/const/routes";
+import { assignableRoles, isAdminRole } from "@/lib/const/roles";
+import type { PermissionRole } from "@prisma/client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type TopTab = "Followers" | "Following" | "Membership";
+type TopTab = "Followers" | "Following" | "Membership" | "Requests";
+
+type RequesterUser = {
+	id: string;
+	handle: string;
+	displayName: string | null;
+	avatarImageId: string | null;
+};
+
+type RequesterPage = {
+	id: string;
+	handle: string;
+	name: string;
+	avatarImageId: string | null;
+};
+
+type RequestItem = {
+	id: string;
+	kind: "FOLLOW" | "JOIN";
+	requester: RequesterUser | null;
+	requesterPage: RequesterPage | null;
+};
 
 type ConnectionItem = {
 	id: string;
@@ -56,6 +86,7 @@ type ConnectionsData = {
 	following: ConnectionItem[];
 	membership: MemberItem[];
 	memberOf: PageMembershipItem[];
+	requests: RequestItem[];
 };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -63,43 +94,44 @@ type ConnectionsData = {
 type ConnectionsPageViewProps = {
 	entity: CardEntity;
 	currentUserId: string;
+	/** Tab to open on load (e.g. from a `?tab=Requests` notification deep-link). Ignored if not a visible tab. */
+	initialTab?: string;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const TOP_TABS: TabDef<TopTab>[] = [
-	{ id: "Followers", label: "Followers" },
-	{ id: "Following", label: "Following" },
-	{ id: "Membership", label: "Membership" },
-];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 type ActionDef = {
 	label: string;
 	onAction: () => Promise<void>;
+	/** Visual emphasis — "danger" (default) hints red on hover; "default" stays neutral. */
+	tone?: "danger" | "default";
 };
 
 function ExpandableActions({
 	expanded,
 	onToggle,
-	action,
+	actions,
+	extra,
 }: {
 	expanded: boolean;
 	onToggle: () => void;
-	action: ActionDef;
+	actions: ActionDef[];
+	/** Optional leading control revealed alongside the actions (e.g. a role selector). */
+	extra?: ReactNode;
 }) {
-	const [loading, setLoading] = useState(false);
+	const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	async function handleAction() {
-		setLoading(true);
+	async function run(action: ActionDef) {
+		setLoadingLabel(action.label);
 		setError(null);
 		try {
 			await action.onAction();
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Something went wrong");
-			setLoading(false);
+			setLoadingLabel(null);
 		}
 	}
 
@@ -118,13 +150,22 @@ function ExpandableActions({
 	return (
 		<div className="flex items-center gap-1.5">
 			{error && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{error}</p>}
-			<button
-				onClick={handleAction}
-				disabled={loading}
-				className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap"
-			>
-				{loading ? "..." : action.label}
-			</button>
+			{extra}
+			{actions.map((action) => {
+				const danger = (action.tone ?? "danger") === "danger";
+				return (
+					<button
+						key={action.label}
+						onClick={() => run(action)}
+						disabled={loadingLabel !== null}
+						className={`text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap ${
+							danger ? "hover:border-red-300 hover:text-red-500" : "hover:border-misty-forest hover:text-misty-forest"
+						}`}
+					>
+						{loadingLabel === action.label ? "..." : action.label}
+					</button>
+				);
+			})}
 			<button
 				onClick={onToggle}
 				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
@@ -133,6 +174,44 @@ function ExpandableActions({
 				<XCircleIcon className="w-4 h-4" />
 			</button>
 		</div>
+	);
+}
+
+// Per-member role selector using the shared DropdownMenu. Options come from
+// assignableRoles() so MEMBER drops out while self-service membership is flagged off.
+function RoleSelector({
+	current,
+	onChange,
+}: {
+	current: string;
+	onChange: (role: string) => Promise<void>;
+}) {
+	const [open, setOpen] = useState(false);
+	return (
+		<DropdownMenu
+			isOpen={open}
+			onClose={() => setOpen(!open)}
+			triggerAriaLabel="Change role"
+			triggerClassName="text-xs px-2 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer whitespace-nowrap"
+			trigger={<span>{current.toLowerCase()} ▾</span>}
+			containerClassName="min-w-[140px]"
+		>
+			{assignableRoles().map((role) => (
+				<button
+					key={role}
+					role="menuitem"
+					onClick={async () => {
+						setOpen(false);
+						if (role !== current) await onChange(role);
+					}}
+					className={`w-full text-left px-4 py-1.5 text-sm hover:bg-soft-grey/20 transition-colors cursor-pointer ${
+						role === current ? "font-semibold text-rich-brown" : "text-dusty-grey"
+					}`}
+				>
+					{role.toLowerCase()}
+				</button>
+			))}
+		</DropdownMenu>
 	);
 }
 
@@ -168,7 +247,7 @@ function ConnectionList({
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => onToggle(expandedId === item.id ? null : item.id)}
-									action={{ label: actionLabel, onAction: () => onAction(item) }}
+									actions={[{ label: actionLabel, onAction: () => onAction(item) }]}
 								/>
 							}
 						/>
@@ -183,7 +262,7 @@ function ConnectionList({
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => onToggle(expandedId === item.id ? null : item.id)}
-									action={{ label: actionLabel, onAction: () => onAction(item) }}
+									actions={[{ label: actionLabel, onAction: () => onAction(item) }]}
 								/>
 							}
 						/>
@@ -197,7 +276,7 @@ function ConnectionList({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageViewProps) {
+export function ConnectionsPageView({ entity, currentUserId, initialTab }: ConnectionsPageViewProps) {
 	const isPage = isCardPage(entity);
 	const entityType = isPage ? "page" : "user";
 	const role = isPage ? (entity as CardPageWithRole).role : undefined;
@@ -208,13 +287,31 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 	const [data, setData] = useState<ConnectionsData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	// Active top tab. Left `undefined` so TabbedPanel stays uncontrolled (defaults to Followers)
+	// until either the user clicks a tab or the deep-link latch below resolves it.
+	const [activeTop, setActiveTop] = useState<TopTab | undefined>(undefined);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [showAddMember, setShowAddMember] = useState(false);
+	const [addMemberError, setAddMemberError] = useState<string | null>(null);
+	// Explicit-pick add flow: hold the selected user + chosen role until confirmed,
+	// rather than granting MEMBER immediately on select.
+	const [pendingUser, setPendingUser] = useState<SearchResultUser | null>(null);
+	const [pendingRole, setPendingRole] = useState<PermissionRole>(
+		assignableRoles()[assignableRoles().length - 1],
+	);
 
-	useEffect(() => {
-		async function load() {
-			setLoading(true);
-			setError(null);
+	// Load every connections slice in one pass. `silent` skips the loading/error toggles so a
+	// post-mutation refresh doesn't flash the panel's "Loading…" state or wipe it on a transient
+	// failure — it just swaps in fresh data. Used both for the initial mount and to reconcile
+	// cross-slice effects (e.g. approving a request materializes a follower/member the narrow
+	// optimistic update can't see).
+	const loadConnections = useCallback(
+		async (opts?: { silent?: boolean }) => {
+			const silent = opts?.silent ?? false;
+			if (!silent) {
+				setLoading(true);
+				setError(null);
+			}
 			try {
 				const base = entityType === "user" ? "users" : "pages";
 				const [followersRes, followingRes, membershipRes] = await Promise.all([
@@ -236,16 +333,31 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 					memberOf = (await membershipRes.json()).memberships ?? [];
 				}
 
-				setData({ followers, following, membership, memberOf });
+				// Pending requests: page admins/editors see the page's; a user sees their
+				// own incoming follow requests. Both endpoints gate, so a 401 → [].
+				const requestsRes = await fetch(
+					entityType === "page" ? API_PAGE_REQUESTS(entity.id) : API_ME_REQUESTS,
+				);
+				const requests: RequestItem[] = requestsRes.ok
+					? (await requestsRes.json()).requests ?? []
+					: [];
+
+				setData({ followers, following, membership, memberOf, requests });
 			} catch {
-				setError("Failed to load connections");
+				// Keep the already-loaded panel intact on a silent refresh failure; only the
+				// initial load surfaces the error.
+				if (!silent) setError("Failed to load connections");
 			} finally {
-				setLoading(false);
+				if (!silent) setLoading(false);
 			}
-		}
-		load();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entity.id]);
+		},
+		[entity.id, entityType],
+	);
+
+	// Initial load (shows the loading state); re-runs if the viewed entity changes.
+	useEffect(() => {
+		loadConnections();
+	}, [loadConnections]);
 
 	// TODO: These should be shared utilities, add if they don't already exist and use the existing one if it does. All instances of add/remove follower should share utilities. 
 	async function removeFollower(item: ConnectionItem) {
@@ -270,25 +382,124 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 		);
 	}
 
-	async function handleAddMember(user: SearchResultUser) {
-		const res = await fetch(`/api/pages/${entity.id}/members`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: user.id, role: "MEMBER" }),
-		});
-		if (!res.ok) return;
-		const updated = await fetch(`/api/pages/${entity.id}/members`);
-		if (updated.ok) {
-			const members = await updated.json();
-			setData((prev) => (prev ? { ...prev, membership: members } : prev));
-		}
-		setShowAddMember(false);
+	// ProfileSearchDropdown's onSelect is fire-and-forget: just capture the picked user
+	// and default the role; the admin confirms an explicit role before we POST. (Adding
+	// a person is now a real ADMIN/EDITOR grant, so it must be a deliberate choice.)
+	function selectPendingUser(user: SearchResultUser) {
+		setAddMemberError(null);
+		setPendingRole(assignableRoles()[assignableRoles().length - 1]);
+		setPendingUser(user);
 	}
+
+	function cancelAddMember() {
+		setShowAddMember(false);
+		setPendingUser(null);
+		setAddMemberError(null);
+	}
+
+	async function confirmAddMember() {
+		if (!pendingUser) return;
+		setAddMemberError(null);
+		try {
+			const res = await fetch(`/api/pages/${entity.id}/members`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: pendingUser.id, role: pendingRole }),
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error ?? "Failed to add member");
+			}
+			const updated = await fetch(`/api/pages/${entity.id}/members`);
+			if (updated.ok) {
+				const members = await updated.json();
+				setData((prev) => (prev ? { ...prev, membership: members } : prev));
+			}
+			setShowAddMember(false);
+			setPendingUser(null);
+		} catch (e) {
+			setAddMemberError(e instanceof Error ? e.message : "Failed to add member");
+		}
+	}
+
+	async function changeMemberRole(item: MemberItem, role: string) {
+		const res = await fetch(`/api/pages/${entity.id}/members/${item.user.id}`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ role }),
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			throw new Error(body.error ?? "Failed to change role");
+		}
+		setData((prev) =>
+			prev
+				? { ...prev, membership: prev.membership.map((m) => (m.id === item.id ? { ...m, role } : m)) }
+				: prev,
+		);
+	}
+
+	async function actOnRequest(reqId: string, action: "approve" | "deny") {
+		const res = await fetch(action === "approve" ? API_REQUEST_APPROVE(reqId) : API_REQUEST_DENY(reqId), {
+			method: "POST",
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			throw new Error(body.error ?? `Failed to ${action} request`);
+		}
+		if (action === "approve") {
+			// Approving materializes a Follow (→ followers) or Permission (→ membership) in a
+			// slice this handler doesn't own, so a narrow filter would leave those counts/lists
+			// stale until reload. Refresh every slice silently instead.
+			await loadConnections({ silent: true });
+		} else {
+			// Denying only drops the pending row — no cross-slice effect, so stay optimistic.
+			setData((prev) => (prev ? { ...prev, requests: prev.requests.filter((r) => r.id !== reqId) } : prev));
+		}
+	}
+
+	// Who may act on requests: a page ADMIN, or a user on their own profile.
+	// Page requests are ADMIN-only (matching member management), so this mirrors
+	// the server gate — an EDITOR sees no Requests tab.
+	const myRole = isPage && data ? data.membership.find((m) => m.user.id === currentUserId)?.role : undefined;
+	const isAdmin = isAdminRole(myRole);
+	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
+
+	// Memoized so its identity only changes when the Requests tab appears/disappears — the
+	// deep-link latch effect below depends on it and shouldn't re-run every render.
+	const topTabs: TabDef<TopTab>[] = useMemo(
+		() => [
+			{ id: "Followers", label: "Followers" },
+			{ id: "Following", label: "Following" },
+			{ id: "Membership", label: "Membership" },
+			...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
+		],
+		[canManageRequests],
+	);
+
+	// Honor a deep-link tab (?tab=Requests) once it's an actually-visible tab for this viewer.
+	// For a page, the Requests tab only appears after membership loads and admin status is known,
+	// so applying the deep-link at mount would lose it (the tab defaults to Followers before
+	// Requests exists). Apply it in an effect, latched once so it never fights a later manual
+	// tab click.
+	const appliedInitialTabRef = useRef(false);
+	useEffect(() => {
+		if (appliedInitialTabRef.current) return;
+		if (!initialTab) {
+			appliedInitialTabRef.current = true;
+			return;
+		}
+		if (topTabs.some((t) => t.id === initialTab)) {
+			setActiveTop(initialTab as TopTab);
+			appliedInitialTabRef.current = true;
+		}
+	}, [initialTab, topTabs]);
 
 	function getCount(_leftId: string, top: TopTab): number {
 		if (!data) return 0;
 		if (top === "Followers") return data.followers.length;
 		if (top === "Following") return data.following.length;
+		if (top === "Requests") return data.requests.length;
 		return entityType === "user" ? data.memberOf.length : data.membership.length;
 	}
 
@@ -323,6 +534,35 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 			);
 		}
 
+		if (top === "Requests") {
+			const items = data.requests;
+			if (!items.length) return <EmptyMessage label="Requests" />;
+			return (
+				<div className="p-5 space-y-2">
+					{items.map((req) => {
+						const requesterEntity = req.requesterPage ?? req.requester;
+						if (!requesterEntity) return null;
+						const badge = req.kind === "JOIN" ? "wants to join" : "wants to follow";
+						const requestActions = (
+							<ExpandableActions
+								expanded={expandedId === req.id}
+								onToggle={() => setExpandedId(expandedId === req.id ? null : req.id)}
+								actions={[
+									{ label: "Approve", tone: "default", onAction: () => actOnRequest(req.id, "approve") },
+									{ label: "Deny", onAction: () => actOnRequest(req.id, "deny") },
+								]}
+							/>
+						);
+						return req.requesterPage ? (
+							<ProfileTag key={req.id} entity={req.requesterPage} badge={badge} actions={requestActions} />
+						) : (
+							<ProfileTag key={req.id} entity={req.requester!} badge={badge} actions={requestActions} />
+						);
+					})}
+				</div>
+			);
+		}
+
 		// Membership tab — user profile: pages the user is a member of
 		if (entityType === "user") {
 			const items = data.memberOf;
@@ -338,20 +578,23 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-									action={{
+									actions={[{
 										label: "Leave Group",
 										onAction: async () => {
 											const res = await fetch(`/api/pages/${item.page.id}/membership`, {
 												method: "DELETE",
 											});
-											if (!res.ok) throw new Error("Failed to leave group");
+											if (!res.ok) {
+												const body = await res.json().catch(() => ({}));
+												throw new Error(body.error ?? "Failed to leave group");
+											}
 											setData((prev) =>
 												prev
 													? { ...prev, memberOf: prev.memberOf.filter((m) => m.id !== item.id) }
 													: prev
 											);
 										},
-									}}
+									}]}
 								/>
 							}
 						/>
@@ -360,11 +603,8 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 			);
 		}
 
-		// Membership tab — page profile
-		// Derive admin status from the membership list rather than entity.role,
-		// since GET /api/me/page doesn't include the user's role in its response.
+		// Membership tab — page profile. `isAdmin` is hoisted to component scope.
 		const items = data.membership;
-		const isAdmin = data.membership.find((m) => m.user.id === currentUserId)?.role === "ADMIN";
 
 		return (
 			<div className="p-5 space-y-2">
@@ -379,7 +619,13 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-									action={{
+									extra={
+										<RoleSelector
+											current={item.role}
+											onChange={(role) => changeMemberRole(item, role)}
+										/>
+									}
+									actions={[{
 										label: "Remove from group",
 										onAction: async () => {
 											const res = await fetch(
@@ -399,7 +645,7 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 													: prev
 											);
 										},
-									}}
+									}]}
 								/>
 							) : undefined
 						}
@@ -409,14 +655,45 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 					<div className="pt-3">
 						{showAddMember ? (
 							<div className="space-y-2">
-								<ProfileSearchDropdown
-									excludeUserIds={data.membership.map((m) => m.user.id)}
-									onSelect={handleAddMember}
-									placeholder="Search by name or handle..."
-								/>
+								{pendingUser ? (
+									// Step 2: an explicit role pick before granting (no silent MEMBER default).
+									<ProfileTag
+										entity={pendingUser}
+										actions={
+											<div className="flex items-center gap-1.5">
+												<RoleSelector
+													current={pendingRole}
+													onChange={async (role) => setPendingRole(role as PermissionRole)}
+												/>
+												<button
+													onClick={confirmAddMember}
+													className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer whitespace-nowrap"
+												>
+													Add
+												</button>
+												<button
+													onClick={() => setPendingUser(null)}
+													className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors cursor-pointer"
+												>
+													Cancel
+												</button>
+											</div>
+										}
+									/>
+								) : (
+									// Step 1: pick a person.
+									<ProfileSearchDropdown
+										excludeUserIds={data.membership.map((m) => m.user.id)}
+										onSelect={selectPendingUser}
+										placeholder="Search by name or handle..."
+									/>
+								)}
+								{addMemberError && (
+									<p className="text-xs text-red-500 text-center">{addMemberError}</p>
+								)}
 								<div className="flex justify-center">
 									<button
-										onClick={() => setShowAddMember(false)}
+										onClick={cancelAddMember}
 										className="text-xs text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
 									>
 										Cancel
@@ -429,7 +706,7 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 									onClick={() => setShowAddMember(true)}
 									className="text-xs px-4 py-1.5 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer"
 								>
-									+ Add members
+									+ Add
 								</button>
 							</div>
 						)}
@@ -441,7 +718,9 @@ export function ConnectionsPageView({ entity, currentUserId }: ConnectionsPageVi
 
 	return (
 		<TabbedPanel<TopTab, string>
-			topTabs={TOP_TABS}
+			topTabs={topTabs}
+			activeTop={activeTop}
+			onActiveTopChange={setActiveTop}
 			leftTabs={leftTabs}
 			getCount={getCount}
 			renderLeftTab={() => (

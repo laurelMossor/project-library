@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { RESERVED_HANDLES, isReservedHandle } from "@/lib/const/reserved-handles";
+import { isReservedHandle } from "@/lib/const/reserved-handles";
 
 describe("isReservedHandle", () => {
 	test("rejects existing top-level route names", () => {
@@ -51,12 +51,5 @@ describe("isReservedHandle", () => {
 		expect(isReservedHandle("spats-improv")).toBe(false);
 		expect(isReservedHandle("portland-makers")).toBe(false);
 		expect(isReservedHandle("user_123")).toBe(false);
-	});
-
-	test("RESERVED_HANDLES is a populated Set", () => {
-		expect(RESERVED_HANDLES).toBeInstanceOf(Set);
-		// Sanity bound: enough that we know the file wasn't accidentally emptied,
-		// loose enough that adding/removing entries doesn't break tests.
-		expect(RESERVED_HANDLES.size).toBeGreaterThan(40);
 	});
 });

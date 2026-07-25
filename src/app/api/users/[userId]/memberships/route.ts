@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserMemberships } from "@/lib/utils/server/permission";
-import { serverError } from "@/lib/utils/errors";
+import { notFound, serverError } from "@/lib/utils/errors";
+import { getViewerContext, requireViewableProfile } from "@/lib/utils/server/visibility";
 
 export async function GET(
 	_request: Request,
@@ -8,6 +9,10 @@ export async function GET(
 ) {
 	try {
 		const { userId } = await params;
+		const viewer = await getViewerContext();
+		if (!(await requireViewableProfile("USER", userId, viewer))) {
+			return notFound("User not found");
+		}
 		const memberships = await getUserMemberships(userId);
 		return NextResponse.json({ memberships });
 	} catch (error) {

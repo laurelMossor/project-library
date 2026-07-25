@@ -3,7 +3,10 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
-import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import { FormInput } from "@/lib/components/forms/FormInput";
+import { FormError } from "@/lib/components/forms/FormError";
+import { AuthCard } from "@/lib/components/auth/AuthCard";
+import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
 import Link from "next/link";
 
 export const InviteCTA = () => {
@@ -21,7 +24,6 @@ function SignupForm() {
 	const inviteToken = searchParams.get(SIGNUP_INVITE_QUERY)?.trim() ?? "";
 
 	const [email, setEmail] = useState("");
-	const [handle, setHandle] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState("");
 
@@ -29,12 +31,13 @@ function SignupForm() {
 		e.preventDefault();
 		setError("");
 
+		// No handle field — one is auto-generated server-side from the email; users can
+		// personalize it later in Settings.
 		const res = await fetch(API_AUTH_SIGNUP, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				email,
-				handle,
 				password,
 				invite: inviteToken,
 			}),
@@ -46,59 +49,48 @@ function SignupForm() {
 			return;
 		}
 
-		router.push(LOGIN);
+		// Account created but unverified — send them to verify their email.
+		router.push(`${CHECK_INBOX}?email=${encodeURIComponent(email)}`);
 	};
 
 	if (!inviteToken) {
 		return (
-			<main className="flex min-h-screen items-center justify-center p-4">
-				<div className="w-full max-w-sm space-y-4 text-center">
-					<h1 className="text-2xl font-bold">Sign up</h1>
-					<p className="">
-						Sign up is by <span className="font-bold">invitation only</span>. Open the link from your invitation email to
-						continue.
-					</p>
-					<p className="text">
-						Already have an account?{" "}
-						<a href={LOGIN} className="underline">
-							Log in
-						</a>
-					</p>
-					<InviteCTA />
-				</div>
-			</main>
+			<AuthCard>
+				<h1 className="text-2xl font-bold">Sign up</h1>
+				<p>
+					Sign up is by <span className="font-bold">invitation only</span>. Open
+					the link from your invitation email to continue.
+				</p>
+				<p>
+					Already have an account?{" "}
+					<a href={LOGIN} className="underline">
+						Log in
+					</a>
+				</p>
+				<InviteCTA />
+			</AuthCard>
 		);
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-4">
-			<form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+		<AuthCard>
+			<form onSubmit={handleSubmit} className="space-y-4">
 				<h1 className="text-2xl font-bold">Sign Up</h1>
 
-				{error && <p className="text-red-500">{error}</p>}
+				<FormError error={error} />
 
-				<input
+				<FormInput
 					type="email"
 					placeholder="Email"
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
-					className="w-full border p-2 rounded"
 					required
 				/>
-			<input
-				type="text"
-				placeholder="Handle"
-				value={handle}
-				onChange={(e) => setHandle(e.target.value)}
-				className="w-full border p-2 rounded"
-				required
-			/>
-				<input
+				<FormInput
 					type="password"
 					placeholder="Password"
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
-					className="w-full border p-2 rounded"
 					required
 				/>
 				<Button type="submit" fullWidth>
@@ -112,7 +104,7 @@ function SignupForm() {
 					</a>
 				</p>
 			</form>
-		</main>
+		</AuthCard>
 	);
 }
 
@@ -120,9 +112,9 @@ export default function SignupPage() {
 	return (
 		<Suspense
 			fallback={
-				<main className="flex min-h-screen items-center justify-center p-4">
+				<AuthCard>
 					<p className="text-gray-600">Loading…</p>
-				</main>
+				</AuthCard>
 			}
 		>
 			<SignupForm />

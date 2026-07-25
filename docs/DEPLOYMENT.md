@@ -1,192 +1,302 @@
 # Deployment Guide
 
-This guide covers deploying your application and running database migrations on production.
+How to ship code + database migrations to production safely.
 
-## Important: Migrations Don't Run Automatically
+> **The one rule that bit us before:** migrations do **not** run automatically on
+> `git push`. If new code goes live expecting a column that hasn't been migrated
+> yet, the app throws 500s — and without alerting, that can sit broken unnoticed.
+> The runbook below exists to make that failure impossible to reach by accident.
 
-**Database migrations do NOT happen automatically when you push code.** You must run them manually on your production database.
+---
 
-## Migration Commands
+## Release runbook (the safe path)
 
-### Development (Local Database)
-```bash
-# Create a new migration (creates migration files)
-npm run db:migrate
+Follow this order every time. The golden rule: **the schema a build depends on
+must exist before that build serves traffic.**
 
-# This uses .env.development (local database)
-```
-
-### Production (Remote Database)
-```bash
-# Apply existing migrations to production database
-npm run db:migrate:deploy
-
-# This uses .env.production (remote Supabase database)
-```
-
-## Deployment Workflow
-
-### Step 1: Test Locally
-1. Test your migrations on your local database first:
+1. **Write & test the migration locally.**
    ```bash
-   npm run db:migrate        # Create/apply migrations locally
-   npm run dev              # Test the app locally
+   npm run db:migrate      # creates + applies the migration on the local DB
+   npm run validate        # lint, typecheck, unit, e2e, build — must be green
    ```
-
-### Step 2: Push Code
-2. Commit and push your code (including migration files in `prisma/migrations/`):
+2. **Keep migrations backward-compatible (expand, then contract).** A deploy is
+   safe when the *old* running code tolerates the *new* schema. So:
+   - **Additive** (new nullable column, new table, new index — e.g. `emailVerified`,
+     `tokenVersion`): safe. Old code ignores it; new code needs it.
+   - **Destructive** (drop/rename a column, NOT NULL without a default, data
+     backfill): do it in **two** deploys — first add the new shape and migrate
+     reads/writes to it, then remove the old shape in a later release once nothing
+     uses it. Never drop-and-deploy in one step.
+3. **Commit the migration files** (`prisma/migrations/**`) together with the code
+   that depends on them, and merge to `main` (CI must be green — see below).
+4. **Deploy.** The Vercel build runs `prisma migrate deploy` **before** it
+   builds/serves (see "Automated" section below), so the schema is always in place
+   first. If you ever deploy outside that pipeline, run the migration **before**
+   promoting the new code:
    ```bash
-   git add .
-   git commit -m "Add v2 schema migration"
-   git push
+   npm run db:migrate:deploy   # applies pending migrations to prod (.env.production)
    ```
+5. **Verify** (next section). Don't assume green = working.
 
-### Step 3: Deploy Application
-3. Deploy your application (Vercel)
-   - Your app code will be deployed
-   - **But the database schema won't be updated yet**
+---
 
-### Step 4: Run Production Migrations
-4. **Manually run migrations on production:**
+## Maintenance mode (for destructive cutovers)
+
+`src/proxy.ts` (Next 16's `proxy.ts` replaces the old `middleware.ts`) carries a
+maintenance gate. When `MAINTENANCE_MODE=1`, every **page** request is answered with a
+self-contained 503 page straight from the edge — the Next render pipeline never runs, so
+the pause holds even while a migration is mid-flight and the app itself would 500. `/api`
+is intentionally **not** gated (the proxy matcher excludes it), so `/api/health` stays
+reachable for uptime monitoring during the window.
+
+**Env vars** (Vercel → Settings → Environment Variables → **Production**):
+- `MAINTENANCE_MODE` — `1` = pause on; anything else = off.
+- `MAINTENANCE_BYPASS_TOKEN` — a secret. Load any URL once with `?maint_bypass=<token>` to
+  set an httpOnly cookie; you then browse the **real** (new) site to verify the deploy while
+  the public still sees the pause.
+
+**Flipping it — Vercel env-var changes only take effect on the next deploy, so always
+redeploy after changing the value:**
+1. Set `MAINTENANCE_MODE=1` → **Redeploy** (Deployments → ⋯ → Redeploy). Public now sees the pause.
+2. …do the work…
+3. Set `MAINTENANCE_MODE=0` → **Redeploy**. Site live again.
+
+> For an *instant* toggle with no redeploy, move the flag to Vercel **Edge Config** and read
+> it from the proxy. Not set up today; env-var + redeploy is fine for a planned cutover.
+
+**Practice locally:** put `MAINTENANCE_MODE` + `MAINTENANCE_BYPASS_TOKEN` in `.env.local`
+(gitignored). Set `MAINTENANCE_MODE=1`, restart `npm run dev`, load any page → pause; append
+`?maint_bypass=<token>` → slip past it.
+
+### Destructive-migration cutover playbook
+
+Use this when a release includes **destructive** migrations (drops / renames / backfills) —
+where the auto-migrate-in-build would otherwise flip the schema while the old deploy is still
+serving (the window that produces 500s). The maintenance page converts that window into a
+controlled pause.
+
+**Prereq:** the maintenance gate in `src/proxy.ts` must already be live on `main` **and**
+present on `develop`, so the cutover merge doesn't remove it.
+
+1. **Back up prod** — the free Supabase tier has **no** automated backups or PITR, so this is
+   the only restore point:
    ```bash
-   npm run db:migrate:deploy
+   pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc \
+     -f ~/prolib-backups/prod-$(date +%Y%m%d-%H%M).dump
    ```
-   
-   This will:
-   - Connect to your production database (from `.env.production`)
-   - Apply all pending migrations
-   - Update the database schema to match your Prisma schema
-
-### Step 5: Verify
-5. Verify the migration succeeded:
+   (Use `DIRECT_URL`, not the pooled `DATABASE_URL` — `pg_dump` can't run through pgbouncer,
+   and `pg_dump` must be ≥ the server's major version.)
+2. **Clear any drift** — for a migration whose objects already exist in prod (e.g. a column
+   applied by hand and never recorded), mark it applied so `migrate deploy` skips its SQL:
    ```bash
-   npm run db:studio  # Open Prisma Studio (make sure NODE_ENV=production if needed)
+   NODE_ENV=production npx prisma migrate resolve --applied <migration_name>
    ```
+3. **Pause the site:** set `MAINTENANCE_MODE=1` in Vercel → Redeploy. Public sees the pause;
+   the old code stops serving real queries.
+4. **Apply migrations manually:** `npm run db:migrate:deploy`. Watch every migration apply.
+   (State now: new schema, old code — but the pause is up, so nothing hits it.)
+5. **Deploy the new code:** merge `develop` → `main`. Vercel builds the new code; its
+   build-time `migrate deploy` is now a **no-op** (all applied in step 4). Keep
+   `MAINTENANCE_MODE=1` through this deploy.
+6. **Verify behind the pause:** load the site with `?maint_bypass=<token>` — new code on the
+   new schema. Click one logged-in flow.
+7. **Lift the pause:** set `MAINTENANCE_MODE=0` → Redeploy.
+8. **Post-deploy checks:** `/api/health` = 200, `NODE_ENV=production npx prisma migrate status`
+   clean, skim Vercel logs. Keep the backup dump until you're confident.
 
-## Important Notes
+---
 
-### `prisma migrate dev` vs `prisma migrate deploy`
+## After deploying: verify (don't trust silence)
 
-- **`prisma migrate dev`** (development):
-  - Creates new migration files
-  - Applies migrations to your local database
-  - Use this during development
-  - **Never use this on production!**
+The week-long outage happened because nothing *told us* it was down. After every
+deploy:
 
-- **`prisma migrate deploy`** (production):
-  - Only applies existing migration files
-  - Does NOT create new migrations
-  - Safe for production
-  - Use this to update production database
+- [ ] Load the production site and click through one logged-in flow (e.g. log in,
+      open a profile). A blank/500 page here = the deploy is broken; roll back or
+      fix-forward now, not later.
+- [ ] Check `prisma migrate status` against prod shows **no pending** migrations:
+   ```bash
+   NODE_ENV=production npx prisma migrate status
+   ```
+- [ ] Skim the Vercel runtime logs for a burst of 500s right after the deploy.
 
-### Environment Variables
+> Uptime alerting is now automated (see **Monitoring** below), so a broken deploy
+> pages you instead of waiting to be discovered — but the manual post-deploy glance
+> above is still worth 30 seconds.
 
-Make sure your `.env.production` file has:
-```bash
-DIRECT_URL="postgresql://postgres:password@host:5432/dbname"  # Direct connection for migrations
-DATABASE_URL="postgresql://postgres:password@host:5432/dbname" # Pooled connection for app
-```
+---
 
-**Important**: `prisma.config.ts` uses `DIRECT_URL` for migrations, so make sure it's set in `.env.production`.
+## Monitoring (uptime + health)
 
-## Automated Migrations (Optional)
+The silent-outage class (site up, but content/DB broken — as on 04/19) is now
+covered without any third-party account:
 
-Some platforms can run migrations automatically during deployment:
+- **Health endpoint — `GET /api/health`** ([src/app/api/health/route.ts](../src/app/api/health/route.ts)).
+  Public, uncached. Runs the **real** read paths, not just connectivity: a
+  `SELECT 1` gate, then the actual Post/Event collection queries (same selects as
+  `/explore`) and a User/auth-data query, plus a required-env presence check.
+  Returns `200 {"status":"ok", checks:{…}}` when all pass, `503` otherwise. Because
+  it exercises the live schema, a missing/renamed column (the 04/19 failure mode)
+  surfaces as a 503 — a bare `SELECT 1` would not have caught it.
+  - Deliberately *excluded* (side-effectful/peripheral): real login, sending a test
+    email, image storage / map tiles. Add a separate "deep" check later if wanted.
 
-### Vercel
-Add to `package.json`:
+- **Uptime pinger — `.github/workflows/uptime.yml`.** A scheduled GitHub Actions
+  job curls `https://theprojectlibrary.com/api/health` every ~15 min (plus manual
+  `workflow_dispatch`). If it doesn't get `200` + `"status":"ok"`, the run fails and
+  GitHub emails the workflow author.
+  - **You must enable the email:** GitHub → Settings → Notifications → Actions →
+    email. Without it, a failed run is silent.
+  - Caveats: scheduled runs can lag under GitHub load (treat as ~15–30 min
+    detection); GitHub auto-disables the schedule after 60 days of repo inactivity.
+
+- **Error tracking (individual 4xx/5xx anomalies)** is *not* wired up yet — see the
+  deferred "Anomaly / error reporting for 400s/500s" ticket. Until then, Vercel
+  runtime logs capture 500s if you need to dig in.
+
+---
+
+## Automated: `migrate deploy` runs in the build ✅ (implemented)
+
+This removes the "I forgot to run migrations" failure mode entirely — the Vercel
+**production** build applies pending migrations before it serves. The `package.json`
+build script is now:
+
 ```json
 {
   "scripts": {
-    "postinstall": "prisma generate",
-    "build": "prisma generate && prisma migrate deploy && next build"
+    "build": "prisma generate && npm run build:migrate && next build",
+    "build:migrate": "sh -c 'if [ \"$VERCEL_ENV\" = production ]; then npx prisma migrate deploy; else echo \"Skipping migrate deploy (VERCEL_ENV=${VERCEL_ENV:-unset})\"; fi'"
   }
 }
 ```
 
-## Resolving Failed Migrations
+**Production-only by design.** The guard keys on `VERCEL_ENV` (`production` |
+`preview` | `development`) — *not* `NODE_ENV`, which Vercel sets to `production` for
+preview builds too. So only production builds run `migrate deploy`; preview/branch and
+local builds print a skip line and continue straight to `next build`. This makes it
+impossible for a preview build to mutate a database schema — fail-safe by construction,
+independent of how each environment's `DATABASE_URL`/`DIRECT_URL` is scoped.
 
-If a migration fails in production (P3009 error), you need to resolve it before applying new migrations.
+Requires `DIRECT_URL` to be set in the Vercel project env vars (it is). If the
+migration fails on a production build, `sh` exits non-zero, the `&&` chain breaks, the
+build fails, and the **old** deploy keeps serving — a safe, fail-closed outcome.
 
-### Step 1: Check Migration Status
+Trade-offs:
+- Every **production** deploy runs `migrate deploy`. That's exactly what you want for
+  additive migrations. For a **destructive** migration, follow the two-deploy
+  expand/contract pattern above so an automated apply is still safe.
+- **Preview builds do *not* auto-apply migrations.** A schema change reaches a live DB
+  only via a deliberate production deploy (or a manual `npm run db:migrate:deploy`). If
+  you ever need a preview to exercise a brand-new migration, apply it to that preview's
+  DB by hand.
+
+### Keep the auto-migrate, or remove it? (decision, 2026-07-25)
+
+**Keep it.** Running `migrate deploy` before serving is exactly right for **additive**
+migrations (new nullable column / table / index) — the common case, and the very gap it was
+built to close (a migration once sat unapplied for a week → silent outage). Removing it would
+reintroduce "forgot to migrate → new code serves against old schema → 500s" on *every*
+routine deploy.
+
+It is a hazard only for **destructive** migrations, where it would flip the schema mid-build
+while the old deploy still serves. That case is handled by the **maintenance-mode cutover
+playbook** above: you apply the migration manually *before* merging, so the build's
+`migrate deploy` is a harmless no-op. The two coexist — auto-migrate protects routine additive
+deploys; the maintenance flow owns the rare destructive cutover.
+
+> Future hardening (not built): a build-step guard that scans pending migrations for
+> destructive SQL (`DROP` / `RENAME` / `NOT NULL`) and fails the build unless an explicit flag
+> is set — forcing destructive changes through the maintenance path instead of auto-applying.
+
+---
+
+## Migration commands
+
+### Development (local database)
+```bash
+npm run db:migrate          # create + apply a migration locally (.env.development)
+```
+
+### Production (remote database)
+```bash
+npm run db:migrate:deploy   # apply existing migrations only (.env.production)
+```
+
+### `prisma migrate dev` vs `prisma migrate deploy`
+- **`migrate dev`** — creates new migration files AND applies them to the local
+  DB. Development only; **never run against production.**
+- **`migrate deploy`** — applies existing migration files, never creates them.
+  This is the production-safe command.
+
+---
+
+## Resolving a failed migration (P3009)
+
+If a migration fails in production, you must resolve it before applying new ones.
+
+### 1. Check status
 ```bash
 NODE_ENV=production npx prisma migrate status
 ```
+Shows which migrations are applied, failed, or pending.
 
-This will show:
-- Which migrations have been applied
-- Which migrations failed
-- Which migrations are pending
-
-### Step 2: Check What Actually Happened
-
-Connect to your database and check:
-1. **Did the migration partially apply?** (some tables created, some not)
-2. **What error occurred?** (check Supabase logs or Prisma migration table)
-
-You can query the migration history:
+### 2. See what actually happened
+Inspect whether the migration applied partially, and the error:
 ```sql
-SELECT migration_name, finished_at, applied_steps_count, logs 
-FROM _prisma_migrations 
-ORDER BY started_at DESC 
+SELECT migration_name, finished_at, applied_steps_count, logs
+FROM _prisma_migrations
+ORDER BY started_at DESC
 LIMIT 5;
 ```
 
-### Step 3: Resolve the Failed Migration
+### 3. Resolve it
+- **Failed completely (no tables created)** → mark rolled back, fix the SQL, re-deploy:
+  ```bash
+  NODE_ENV=production npx prisma migrate resolve --rolled-back <migration_name>
+  ```
+- **Partially applied** → mark applied, then write a *new* migration for the missing pieces:
+  ```bash
+  NODE_ENV=production npx prisma migrate resolve --applied <migration_name>
+  ```
+  ⚠️ Only use `--applied` if you're sure those changes are really in the DB, or you'll get schema drift.
 
-You have two options:
-
-#### Option A: Mark as Rolled Back (if migration failed completely)
-If the migration failed early and didn't create any tables:
+### 4. Verify
 ```bash
-NODE_ENV=production npx prisma migrate resolve --rolled-back 20260110034536_init_v2
+NODE_ENV=production npx prisma migrate status
+NODE_ENV=production npx prisma db pull   # what's actually in the DB
 ```
 
-#### Option B: Mark as Applied (if migration partially succeeded)
-If the migration created some tables but failed partway through:
+---
+
+## Rollback plan
+
+1. **Don't panic** — the previous deploy's code is still what's running until the new one is promoted.
+2. Read the migration error logs.
+3. Fix-forward (new migration) or roll back the failed migration per the section above.
+4. Re-run the migration once fixed.
+
+For destructive changes, the expand/contract pattern is the rollback safety net: because the old column/shape still exists, you can revert the code deploy without losing data.
+
+---
+
+## Environment variables
+
+`.env.production` must define both connection strings:
 ```bash
-NODE_ENV=production npx prisma migrate resolve --applied 20260110034536_init_v2
+DIRECT_URL="postgresql://postgres:password@host:5432/dbname"   # direct — used for migrations
+DATABASE_URL="postgresql://postgres:password@host:5432/dbname" # pooled — used by the app at runtime
 ```
+`prisma.config.ts` uses **`DIRECT_URL`** for migrations, so it must be set wherever you run `migrate deploy`.
 
-**⚠️ Warning**: Only use `--applied` if you're sure the migration's changes are actually in the database. Otherwise, you'll have schema drift.
+---
 
-### Step 4: Fix and Re-apply
+## Pre-deploy checklist
 
-After resolving the failed migration:
-
-1. **If you marked it as rolled back:**
-   - Fix any issues in the migration SQL
-   - Re-run: `npm run db:migrate:deploy`
-
-2. **If you marked it as applied:**
-   - Check what's missing from the migration
-   - Create a new migration to add the missing pieces:
-     ```bash
-     npm run db:migrate --name fix_v2_schema
-     ```
-
-### Step 5: Verify Database State
-
-After resolving, verify your database matches your schema:
-```bash
-NODE_ENV=production npx prisma db pull  # See what's actually in DB
-NODE_ENV=production npx prisma migrate status  # Check migration status
-```
-
-## Rollback Plan
-
-If a migration fails or causes issues:
-
-1. **Don't panic** - your old code is still running
-2. Check the migration error logs
-3. Fix the migration or rollback if needed
-4. Re-run the migration once fixed
-
-## Checklist Before Deploying Migrations
-
-- [ ] Tested migrations locally
-- [ ] Verified `.env.production` has correct `DIRECT_URL` and `DATABASE_URL`
-- [ ] Backed up production database (if you have important data)
-- [ ] Reviewed migration SQL files in `prisma/migrations/`
-- [ ] Ready to run `npm run db:migrate:deploy` after code deployment
-
+- [ ] Migration tested locally (`npm run db:migrate`)
+- [ ] `npm run validate` green locally **and** CI green on the PR
+- [ ] Migration is additive — or, if destructive, split into expand/contract deploys
+- [ ] Migration files (`prisma/migrations/`) committed with the dependent code
+- [ ] `.env.production` has correct `DIRECT_URL` + `DATABASE_URL`
+- [ ] Production database backed up (if it holds real data)
+- [ ] Plan to verify after deploy (load the site, check `migrate status`, skim logs)

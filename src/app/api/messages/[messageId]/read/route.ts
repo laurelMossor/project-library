@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
-import { getPagesForUser } from "@/lib/utils/server/permission";
+import { getManagedPageIds } from "@/lib/utils/server/permission";
 
 type Params = { params: Promise<{ messageId: string }> };
 
@@ -60,17 +60,14 @@ export async function PATCH(request: Request, { params }: Params) {
 				.map((p) => p.pageId as string);
 
 			if (pageParticipantIds.length > 0) {
-				const userPages = await getPagesForUser(ctx.userId);
-				const userPageIds = new Set(userPages.map((p) => p.id));
+				const userPageIds = new Set(await getManagedPageIds(ctx.userId));
 				isPageParticipant = pageParticipantIds.some((pid) => userPageIds.has(pid));
 			}
 		}
 
 		if (!isDirectParticipant && !isPageParticipant) {
-			return NextResponse.json(
-				{ error: "You are not a participant in this conversation" },
-				{ status: 403 }
-			);
+			// 404 (not 403) so a non-participant can't distinguish "exists" from "missing".
+			return notFound("Message not found");
 		}
 
 		// Update readAt if not already set

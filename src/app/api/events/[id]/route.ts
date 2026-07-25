@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { ContentVisibility } from "@prisma/client";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
-import { validateEventUpdateData } from "@/lib/validations";
+import { validateEventUpdateData, validateEventPublishable } from "@/lib/validations";
 import { eventWithUserFields } from "@/lib/utils/server/fields";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
+import { getViewerContext, canViewEvent, isContentOwner, requireViewableEvent, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,12 +40,14 @@ export async function GET(request: Request, { params }: Params) {
 			return notFound("Event not found");
 		}
 
-		// Draft events are only visible to the owner
-		if (event.status === "DRAFT") {
-			const ctx = await getSessionContext();
-			if (!ctx || ctx.userId !== event.userId) {
-				return notFound("Event not found");
-			}
+		const viewer = await getViewerContext();
+		// DRAFT events are visible only to their owner (author or a manager of the hosting page);
+		// everyone else — and any viewer who can't pass the content gate — gets 404, never an oracle.
+		if (event.status === "DRAFT" && !(await isContentOwner(viewer, event))) {
+			return notFound("Event not found");
+		}
+		if (!(await canViewEvent(event, viewer))) {
+			return notFound("Event not found");
 		}
 
 		// Load images
@@ -68,24 +72,20 @@ export async function GET(request: Request, { params }: Params) {
  */
 export async function PATCH(request: Request, { params }: Params) {
 	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
+		const { id } = await params;
+		const viewer = await getViewerContext();
+		if (!viewer.userId) {
 			return unauthorized();
 		}
 
-		const { id } = await params;
-
-		// Verify event exists and belongs to active owner
-		const existing = await prisma.event.findUnique({
-			where: { id },
-			select: { userId: true, pageId: true },
-		});
-
+		// Gate viewability first: a viewer who can't see the event (missing / PRIVATE / another
+		// owner's draft) gets 404 — never a 403 that would confirm the event exists (finding #20).
+		const existing = await requireViewableEvent(id, viewer);
 		if (!existing) {
 			return notFound("Event not found");
 		}
-
-		if (existing.userId !== ctx.userId) {
+		// Viewable but not the author → 403. Editing stays author-only.
+		if (existing.userId !== viewer.userId) {
 			return NextResponse.json(
 				{ error: "You can only edit your own events" },
 				{ status: 403 }
@@ -93,7 +93,17 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, pinnedAt } = data;
+		// `visibility` is intentionally NOT accepted here — content visibility is
+		// derived from the owning profile's contentVisibility, never client-set.
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, status, pinnedAt, pageId } = data;
+
+		// If switching host page (to a page, not clearing it), verify permission
+		if (pageId != null) {
+			const allowed = await canPostAsPage(viewer.userId, pageId);
+			if (!allowed) {
+				return NextResponse.json({ error: "You don't have permission to host this event as that page" }, { status: 403 });
+			}
+		}
 
 		const parsedDateTime = eventDateTime !== undefined ? new Date(eventDateTime) : undefined;
 		const parsedLatitude = latitude !== undefined ? parseNumber(latitude) : undefined;
@@ -129,7 +139,44 @@ export async function PATCH(request: Request, { params }: Params) {
 			return badRequest(validation.error || "Invalid event data");
 		}
 
+		// INV-10: publishing a draft requires a complete event. validateEventUpdateData only
+		// checks fields *present* in the patch, so a draft created empty could otherwise be
+		// flipped to PUBLISHED blank. Merge the stored row with the incoming patch and gate.
+		if (status === "PUBLISHED" && existing.status === "DRAFT") {
+			const stored = await prisma.event.findUnique({
+				where: { id },
+				select: {
+					title: true, content: true, eventDateTime: true, eventTimezone: true,
+					location: true, latitude: true, longitude: true, tags: true,
+				},
+			});
+			const publishCheck = validateEventPublishable({
+				title: (title !== undefined ? title : stored?.title) ?? "",
+				content: (content !== undefined ? content : stored?.content) ?? "",
+				eventDateTime: parsedDateTime !== undefined ? parsedDateTime : stored?.eventDateTime ?? new Date(0),
+				eventTimezone: (eventTimezone !== undefined ? eventTimezone : stored?.eventTimezone) ?? undefined,
+				location: (location !== undefined ? location : stored?.location) ?? "",
+				latitude: parsedLatitude !== undefined ? parsedLatitude : stored?.latitude,
+				longitude: parsedLongitude !== undefined ? parsedLongitude : stored?.longitude,
+				tags: processedTags !== undefined ? processedTags : stored?.tags,
+			});
+			if (!publishCheck.valid) {
+				return badRequest(publishCheck.error || "Cannot publish an incomplete event");
+			}
+		}
+
 		const updateData: Record<string, unknown> = {};
+		// Re-parenting (host page change) re-derives the event's content visibility from the new
+		// owner and cascades to its child posts, so a private-page event can't retain a broader
+		// visibility than its new parent allows (findings 2/3). Never client-set.
+		let reparentedVisibility: ContentVisibility | undefined;
+		if (pageId !== undefined) {
+			updateData.pageId = pageId;
+			if ((pageId || null) !== existing.pageId) {
+				reparentedVisibility = await resolveParentVisibility(existing.userId, pageId || null, null);
+				updateData.contentVisibility = reparentedVisibility;
+			}
+		}
 		if (title !== undefined) updateData.title = title.trim();
 		if (content !== undefined) updateData.content = content.trim();
 		if (parsedDateTime !== undefined) updateData.eventDateTime = parsedDateTime;
@@ -162,10 +209,16 @@ export async function PATCH(request: Request, { params }: Params) {
 			}
 		}
 
-		const event = await prisma.event.update({
-			where: { id },
-			data: updateData,
-			select: eventWithUserFields,
+		const event = await prisma.$transaction(async (tx) => {
+			const updated = await tx.event.update({
+				where: { id },
+				data: updateData,
+				select: eventWithUserFields,
+			});
+			if (reparentedVisibility !== undefined) {
+				await syncDescendantVisibility("EVENT", id, reparentedVisibility, tx);
+			}
+			return updated;
 		});
 
 		// Load images
@@ -190,24 +243,19 @@ export async function PATCH(request: Request, { params }: Params) {
  */
 export async function DELETE(request: Request, { params }: Params) {
 	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
+		const { id } = await params;
+		const viewer = await getViewerContext();
+		if (!viewer.userId) {
 			return unauthorized();
 		}
 
-		const { id } = await params;
-
-		// Verify event exists and belongs to user
-		const existing = await prisma.event.findUnique({
-			where: { id },
-			select: { userId: true },
-		});
-
+		// Gate viewability first (404 for missing / not-viewable), then author-only delete (403).
+		const existing = await requireViewableEvent(id, viewer);
 		if (!existing) {
 			return notFound("Event not found");
 		}
 
-		if (existing.userId !== ctx.userId) {
+		if (existing.userId !== viewer.userId) {
 			return NextResponse.json(
 				{ error: "You can only delete your own events" },
 				{ status: 403 }

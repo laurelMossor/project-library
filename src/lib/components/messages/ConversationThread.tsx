@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { API_MESSAGE, API_MESSAGES, LOGIN_WITH_CALLBACK, MESSAGES } from "@/lib/const/routes";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { formatRelativeTime } from "@/lib/utils/datetime";
 
 interface Message {
 	id: string;
@@ -27,21 +28,6 @@ interface ConversationThreadProps {
 	asPageId?: string;
 }
 
-function formatMessageTime(date: Date | string): string {
-	const messageDate = typeof date === "string" ? new Date(date) : date;
-	const now = new Date();
-	const diffMs = now.getTime() - messageDate.getTime();
-	const diffMins = Math.floor(diffMs / 60000);
-	const diffHours = Math.floor(diffMs / 3600000);
-	const diffDays = Math.floor(diffMs / 86400000);
-
-	if (diffMins < 1) return "Just now";
-	if (diffMins < 60) return `${diffMins}m ago`;
-	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays < 7) return `${diffDays}d ago`;
-	return messageDate.toLocaleDateString();
-}
-
 export function ConversationThread({ targetId, targetType, asPageId }: ConversationThreadProps) {
 	const router = useRouter();
 	const { currentUser } = useActiveProfile();
@@ -55,8 +41,10 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 
 	useEffect(() => {
 		fetchConversation();
+		// asPageId is a dep so a deep-link identity switch (personal → page) refetches under the new
+		// identity rather than relying on remount timing.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [targetId, targetType]);
+	}, [targetId, targetType, asPageId]);
 
 	// Poll for new messages every 60 seconds when visible
 	useEffect(() => {
@@ -68,7 +56,7 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 		}, 60000);
 		return () => clearInterval(intervalId);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [targetId, targetType, sending]);
+	}, [targetId, targetType, sending, asPageId]);
 
 	useEffect(() => {
 		const el = messagesContainerRef.current;
@@ -161,7 +149,7 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 								<div className={`max-w-[70%] rounded p-3 ${isSent ? "bg-black text-white" : "bg-gray-200 text-black"}`}>
 									<p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
 									<p className={`text-xs mt-1 ${isSent ? "text-gray-300" : "text-gray-500"}`}>
-										{formatMessageTime(message.createdAt)}
+										{formatRelativeTime(message.createdAt)}
 									</p>
 								</div>
 							</div>

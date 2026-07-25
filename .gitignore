@@ -39,3 +39,4 @@ archive/
 test-results/
 playwright-report/
 .playwright-mcp
+tests/.auth/

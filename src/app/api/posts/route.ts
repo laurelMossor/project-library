@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
+import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
+import { createPost, PostInputError } from "@/lib/utils/server/post";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
-import { postCollectionFields, postWithUserFields } from "@/lib/utils/server/fields";
+import { postCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { logAction } from "@/lib/utils/server/log";
 
@@ -54,18 +55,11 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
 export async function GET(request: Request) {
 	// Rate limiting: 200 requests per minute per IP
 	// Higher limit because each collection card may fetch child posts individually
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`search-posts:${clientId}`, {
+	const limited = await enforceRateLimit(request, "search-posts", {
 		maxRequests: 200,
 		windowMs: 60 * 1000,
 	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	if (limited) return limited;
 
 	const { searchParams } = new URL(request.url);
 	const userId = searchParams.get("userId") || undefined;
@@ -82,22 +76,24 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
-	const sessionCtx = await getSessionContext();
+	const viewer = await getViewerContext();
 
 	// Determine draft visibility:
 	// - user querying their own posts: no status filter (see all own posts)
 	// - logged-in user querying anything else: see published + own drafts
 	// - anonymous: published only
-	const isOwnUserQuery = !!(sessionCtx && userId && userId === sessionCtx.userId);
+	const isOwnUserQuery = !!(viewer.userId && userId && userId === viewer.userId);
 
-	// Both status and search may need an OR clause — collect them in AND to avoid
-	// the two OR keys clobbering each other when spread into the same object.
+	// Collect all AND conditions to avoid multiple OR keys clobbering each other.
 	const andConditions: object[] = [];
 
 	// Non-own queries always see published only — drafts are only visible on your own profile page
 	if (!isOwnUserQuery) {
 		andConditions.push({ status: "PUBLISHED" as const });
 	}
+
+	// Visibility: list mode only shows PUBLIC content (plus the viewer's own)
+	andConditions.push(postListWhere(viewer));
 
 	if (search) {
 		andConditions.push({ OR: [
@@ -132,8 +128,7 @@ export async function GET(request: Request) {
 			...p,
 			type: COLLECTION_TYPES.POST,
 			images: imagesMap.get(p.id) || [],
-			_count: { updates: _count.updates },
-			recentUpdate: updates[0] || null,
+			...toCollectionMeta({ _count, updates }),
 		}));
 
 		return NextResponse.json(postsWithImages);
@@ -160,57 +155,20 @@ export async function POST(request: Request) {
 		const data = await request.json();
 		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
 
-		// Draft creation (from /posts/new) skips content validation — content starts empty
+		// HTTP-shape validation (length limits) stays at the edge; createPost owns the
+		// data invariants (XOR, nesting, page permission, child pageId — INV-1/2/3/8).
 		if (!isDraft) {
 			const contentValidation = validatePostContent(content);
 			if (!contentValidation.valid) {
 				return badRequest(contentValidation.error || "Invalid post content");
 			}
 		}
-
-		// Validate title if provided
 		const titleValidation = validatePostTitle(title);
 		if (!titleValidation.valid) {
 			return badRequest(titleValidation.error || "Invalid post title");
 		}
 
-		// If pageId provided, verify user has permission to post as this page
-		if (pageId) {
-			const allowed = await canPostAsPage(ctx.userId, pageId);
-			if (!allowed) {
-				return badRequest("You don't have permission to post as this page");
-			}
-		}
-
-		// Verify event exists if provided
-		if (eventId) {
-			const event = await prisma.event.findUnique({
-				where: { id: eventId },
-				select: { userId: true },
-			});
-			if (!event) {
-				return badRequest("Event not found");
-			}
-			if (event.userId !== ctx.userId) {
-				return badRequest("Cannot create post for an event you don't own");
-			}
-		}
-
-		// If parentPostId provided, verify parent exists and has no parent itself (one-level deep)
-		if (parentPostId) {
-			const parentPost = await prisma.post.findUnique({
-				where: { id: parentPostId },
-				select: { id: true, parentPostId: true },
-			});
-			if (!parentPost) {
-				return badRequest("Parent post not found");
-			}
-			if (parentPost.parentPostId) {
-				return badRequest("Cannot nest posts more than one level deep");
-			}
-		}
-
-		// Process tags
+		// Normalize tags (accept comma-string or array) before handing to the util.
 		let processedTags: string[] = [];
 		if (tags) {
 			if (typeof tags === "string") {
@@ -225,20 +183,24 @@ export async function POST(request: Request) {
 			}
 		}
 
-		const post = await prisma.post.create({
-			data: {
-				userId: ctx.userId,
-				content: content?.trim() || "",
-				title: title?.trim() || null,
+		let post;
+		try {
+			post = await createPost(ctx.userId, {
+				content,
+				title,
 				pageId: pageId || null,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,
 				topics: Array.isArray(topics) ? topics : [],
-				...(isDraft ? { status: "DRAFT" } : {}),
-			},
-			select: postWithUserFields,
-		});
+				isDraft: !!isDraft,
+			});
+		} catch (err) {
+			if (err instanceof PostInputError) {
+				return badRequest(err.message);
+			}
+			throw err;
+		}
 
 		logAction("post.created", ctx.userId, {
 			postId: post.id,

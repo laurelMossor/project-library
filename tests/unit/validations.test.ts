@@ -6,6 +6,7 @@ import {
   validateMessageContent,
   validatePostData,
   validateEventData,
+  validateEventPublishable,
   validatePageData,
 } from "@/lib/validations";
 import { generateHandle } from "@/lib/utils/handle";
@@ -69,6 +70,10 @@ describe("validateHandle", () => {
 
   test("accepts lowercase alphanumeric, underscores, hyphens", () => {
     expect(validateHandle("user_name-123")).toBe(true);
+  });
+
+  test("accepts periods (matches the seeded `alice.example` handle format)", () => {
+    expect(validateHandle("alice.example")).toBe(true);
   });
 
   test("rejects uppercase letters (must be normalized first)", () => {
@@ -258,13 +263,13 @@ describe("validateEventData", () => {
     })).toMatchObject({ valid: false });
   });
 
-  test("rejects missing location", () => {
+  test("accepts a missing location (optional — Partiful-style)", () => {
     expect(validateEventData({
       title: "Event",
       content: "Details",
       eventDateTime: futureDate,
       location: "",
-    })).toMatchObject({ valid: false });
+    })).toEqual({ valid: true });
   });
 
   test("rejects title over 150 characters", () => {
@@ -284,6 +289,38 @@ describe("validateEventData", () => {
       eventDateTime: futureDate,
       location: "Portland, OR",
       tags,
+    })).toMatchObject({ valid: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateEventPublishable (INV-10 — DRAFT→PUBLISHED gate)
+// ---------------------------------------------------------------------------
+
+describe("validateEventPublishable", () => {
+  const futureDate = new Date(Date.now() + 86_400_000);
+
+  test("accepts a complete event (same bar as create)", () => {
+    expect(validateEventPublishable({
+      title: "Ready", content: "Details", eventDateTime: futureDate, location: "Portland, OR",
+    })).toEqual({ valid: true });
+  });
+
+  test("accepts a location-less event (title + content + future date is enough)", () => {
+    expect(validateEventPublishable({
+      title: "Ready", content: "Details", eventDateTime: futureDate, location: "",
+    })).toEqual({ valid: true });
+  });
+
+  test("rejects an empty draft being published (blank title + content)", () => {
+    expect(validateEventPublishable({
+      title: "", content: "", eventDateTime: new Date(0), location: "",
+    })).toMatchObject({ valid: false });
+  });
+
+  test("rejects publishing an event whose date has lapsed", () => {
+    expect(validateEventPublishable({
+      title: "Stale", content: "Details", eventDateTime: new Date(2000, 1, 1), location: "Portland, OR",
     })).toMatchObject({ valid: false });
   });
 });
@@ -337,9 +374,10 @@ describe("validatePageData", () => {
     expect(validatePageData({ name: "P", handle: "p" })).toMatchObject({ valid: false });
   });
 
-  test("rejects reserved handle case-insensitively (after format check)", () => {
-    // "API" fails format (uppercase), so this just exercises the format gate;
-    // included to document that validateHandle runs before isReservedHandle.
+  test("uppercase reserved word is rejected by the format gate, before the reserved check", () => {
+    // "API" fails the handle format (uppercase) before isReservedHandle is reached,
+    // so this documents validator ordering — NOT case-insensitive reserved matching,
+    // which is covered directly in reserved-handles.test.ts (isReservedHandle("API")).
     expect(validatePageData({ name: "Api", handle: "API" })).toMatchObject({ valid: false });
   });
 });

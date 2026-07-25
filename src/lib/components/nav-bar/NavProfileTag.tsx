@@ -12,6 +12,7 @@ import { hasSession } from "@/lib/utils/auth-client";
 import { UserHomeIcon, AtSignIcon } from "@/lib/components/icons/icons";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
+import { useNotificationCount } from "@/lib/components/notifications/NotificationContext";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { Session } from "next-auth";
 import { NavProfileShell } from "./NavProfileShell";
@@ -21,12 +22,22 @@ interface NavProfileTagProps {
 }
 
 export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
-	const { data: session } = useSession();
-	const activeSession = session || sessionProp;
+	const { data: session, status } = useSession();
+	// Use the SSR prop only while the client session is still loading (avoids a logged-out
+	// flash on hydration). Once loaded, trust the live value — including a logged-out result —
+	// so an invalidated session isn't masked by the now-stale SSR prop.
+	const activeSession = status === "loading" ? sessionProp : session;
 	const isLoggedIn = hasSession(activeSession);
 
 	const { activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
 	const { unreadData } = useUnreadCount();
+	const { data: notifData } = useNotificationCount();
+
+	// One "has something new" dot per identity, combining unread messages + activity notifications.
+	const identityHasActivity = (key: "personal" | string) =>
+		key === "personal"
+			? unreadData.personal > 0 || notifData.personal > 0
+			: (unreadData.pages[key] ?? 0) > 0 || (notifData.pages[key] ?? 0) > 0;
 
 	const [isOpen, setIsOpen] = useState(false);
 	const [switcherExpanded, setSwitcherExpanded] = useState(false);
@@ -94,12 +105,14 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 				closeMenu={() => setIsOpen(false)}
 			/>
 
-			{/* "Switch Profile" expands inline to show available identities */}
+			{/* "Switch Profile" expands inline to show available identities. Greyed out and
+			    disabled when there's nothing to switch to (no manageable pages / not acting as a page). */}
 			<MenuItem
 				icon={<AtSignIcon className="w-6 h-6 shrink-0" />}
 				label="Switch Profile"
 				onClick={handleSwitcherClick}
 				closeMenu={() => {/* keep menu open */}}
+				disabled={!hasSwitchOptions}
 			/>
 
 			{switcherExpanded && (
@@ -115,7 +128,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							<div className="w-[260px]">
 								<ProfileTag entity={currentUser as CardEntity} size="md" asLink={false} variant="compact" />
 							</div>
-							{unreadData.personal > 0 && <NotificationDot />}
+							{identityHasActivity("personal") && <NotificationDot />}
 						</div>
 					)}
 
@@ -131,13 +144,9 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							<div className="w-[260px]">
 								<ProfileTag entity={page} size="md" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
 							</div>
-							{(unreadData.pages[page.id] ?? 0) > 0 && <NotificationDot />}
+							{identityHasActivity(page.id) && <NotificationDot />}
 						</div>
 					))}
-
-					{!hasSwitchOptions && (
-						<p className="px-4 py-2 text-xs text-dusty-grey">No other profiles</p>
-					)}
 				</div>
 			)}
 		</DropdownMenu>

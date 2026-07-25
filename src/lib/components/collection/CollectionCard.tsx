@@ -9,8 +9,8 @@ import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import ImageCarousel from "../images/ImageCarousel";
-import { EVENT_DETAIL, POST_DETAIL, PUBLIC_PROFILE, PROFILE_ABOUT } from "@/lib/const/routes";
-import { getCardUserDisplayName } from "@/lib/types/card";
+import { EVENT_DETAIL, POST_DETAIL, PROFILE_ABOUT } from "@/lib/const/routes";
+import { resolveCardIdentity } from "@/lib/types/card";
 import { AtSignIcon, PinIcon } from "../icons/icons";
 
 const MAX_PINNED = 3;
@@ -59,9 +59,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	const ev = isEventItem ? (ri as EventItem) : null;
 	const detailUrl = isEventItem ? EVENT_DETAIL(ri.id) : POST_DETAIL(ri.id);
 
-	const displayName = ri.page ? ri.page.name : getCardUserDisplayName(ri.user);
-	const handle = ri.page ? ri.page.handle : ri.user.handle;
-	const profileHref = PUBLIC_PROFILE(handle);
+	const { name: displayName, handle, href: profileHref } = resolveCardIdentity(ri.page ?? ri.user);
 
 	const isPinned = Boolean(ri.pinnedAt);
 	const isDraft = ri.status === "DRAFT";
@@ -112,8 +110,8 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 								isPinned
 									? "opacity-100 text-rich-brown hover:text-warm-grey"
 									: atPinLimit
-									? "opacity-0 group-hover:opacity-100 text-gray-300 cursor-not-allowed"
-									: "opacity-0 group-hover:opacity-100 text-gray-400 hover:text-rich-brown"
+									? "opacity-0 group-hover:opacity-100 text-soft-grey cursor-not-allowed"
+									: "opacity-0 group-hover:opacity-100 text-misty-forest hover:text-rich-brown"
 							}`}
 						>
 							<PinIcon className="w-4 h-4" pinned={isPinned} />
@@ -122,12 +120,14 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 				</div>
 			</div>
 
-			<p className="text-warm-grey text-sm mb-2">
-				{truncate ? truncateText(ri.content, 250) : ri.content}
-			</p>
+			{ri.content && (
+				<p className="text-warm-grey text-sm mb-2">
+					{truncate ? truncateText(ri.content, 250) : ri.content}
+				</p>
+			)}
 
 			{ev && (
-				<div className="mb-2 text-sm text-gray-600">
+				<div className="mb-2 text-sm text-warm-grey">
 					<p className="font-medium flex items-center gap-2">
 						📅 {formatDateTime(ev.eventDateTime, ev.eventTimezone)}
 						{isPast && <span className="text-xs font-medium uppercase tracking-wide text-dusty-grey border border-dusty-grey rounded px-1.5 py-0.5">Past</span>}
@@ -139,7 +139,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 			{handle && (
 				<div className="flex flex-row items-center gap-2 mb-2">
 					<div className="flex items-center gap-1">
-						<AtSignIcon className="w-3 h-3 text-gray-500" />
+						<AtSignIcon className="w-3 h-3 text-misty-forest" />
 						<Link
 							href={profileHref}
 							onClick={(e) => e.stopPropagation()}
@@ -152,13 +152,24 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 			)}
 
 			{(() => {
-				const count = ri._count?.updates ?? 0;
-				if (!count) return null;
+				const updateCount = ri._count?.updates ?? 0;
+				const commentCount = ri._count?.comments ?? 0;
+				if (!updateCount && !commentCount) return null;
 				return (
 					<div className="mt-2 mb-2" onClick={(e) => e.stopPropagation()}>
-						<Link href={detailUrl} className="text-xs font-medium text-gray-500 hover:text-rich-brown hover:underline">
-							{count} {count === 1 ? "update" : "updates"}
-						</Link>
+						<div className="flex items-center gap-2 text-xs font-medium text-misty-forest">
+							{updateCount > 0 && (
+								<Link href={detailUrl} className="hover:text-rich-brown hover:underline">
+									{updateCount} {updateCount === 1 ? "update" : "updates"}
+								</Link>
+							)}
+							{updateCount > 0 && commentCount > 0 && <span aria-hidden="true">·</span>}
+							{commentCount > 0 && (
+								<Link href={`${detailUrl}#comments`} className="hover:text-rich-brown hover:underline">
+									{commentCount} {commentCount === 1 ? "comment" : "comments"}
+								</Link>
+							)}
+						</div>
 						{ri.recentUpdate && (
 							<div className="mt-1 border-l-2 border-soft-grey pl-3">
 								<p className="text-sm text-warm-grey whitespace-pre-wrap">

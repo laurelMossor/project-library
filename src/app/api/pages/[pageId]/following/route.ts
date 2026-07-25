@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPageFollowing } from "@/lib/utils/server/follow";
-import { serverError } from "@/lib/utils/errors";
+import { notFound, serverError } from "@/lib/utils/errors";
+import { getViewerContext, requireViewableProfile } from "@/lib/utils/server/visibility";
 
 export async function GET(
 	_request: Request,
@@ -8,6 +9,10 @@ export async function GET(
 ) {
 	try {
 		const { pageId } = await params;
+		const viewer = await getViewerContext();
+		if (!(await requireViewableProfile("PAGE", pageId, viewer))) {
+			return notFound("Page not found");
+		}
 		const following = await getPageFollowing(pageId);
 		return NextResponse.json({ following });
 	} catch (error) {

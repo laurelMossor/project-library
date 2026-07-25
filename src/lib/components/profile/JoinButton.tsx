@@ -1,79 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { UserPlusSignIcon, UserMinusSignIcon } from "@/lib/components/icons/icons";
-import { API_PAGE_MEMBERSHIP } from "@/lib/const/routes";
-
-type Role = "ADMIN" | "EDITOR" | "MEMBER" | null;
+import { useMembership } from "@/lib/hooks/useMembership";
+import { FEATURES } from "@/lib/const/features";
+import type { ProfileVisibility } from "@prisma/client";
 
 type JoinButtonProps = {
 	pageId: string;
+	/** The page's profile visibility. PRIVATE means Join opens a pending request,
+	 *  so the button should read "Request to join" rather than "Join". */
+	profileVisibility?: ProfileVisibility;
 };
 
 /**
- * Self-service Join/Leave button for page profiles.
+ * Self-service Join/Request/Leave button for page profiles.
  * Only visible when the viewer is logged in and acting as their personal identity (not as a page).
+ *
+ * Hidden entirely while self-service membership is flagged off (beta) — Follow is the
+ * single relationship for pages, so this covers both render sites with one guard.
  */
-export function JoinButton({ pageId }: JoinButtonProps) {
+export function JoinButton({ pageId, profileVisibility }: JoinButtonProps) {
 	const { currentUser, activePageId } = useActiveProfile();
-
-	const [role, setRole] = useState<Role>(null);
-	const [loading, setLoading] = useState(true);
-	const [toggling, setToggling] = useState(false);
 
 	const loggedIn = !!currentUser;
 	// Hide entirely when acting as a page
 	const actingAsPage = !!activePageId;
 
-	useEffect(() => {
-		if (!loggedIn || actingAsPage) {
-			setLoading(false);
-			return;
-		}
-		fetch(API_PAGE_MEMBERSHIP(pageId))
-			.then((r) => r.json())
-			.then((d) => setRole(d.role ?? null))
-			.catch(() => {})
-			.finally(() => setLoading(false));
-	}, [pageId, loggedIn, actingAsPage]);
+	// Gate before the membership fetch so a flagged-off build issues no needless GET.
+	const enabled = FEATURES.SELF_SERVICE_MEMBERSHIP && loggedIn && !actingAsPage;
+	const { state, loading, toggling, error, toggle } = useMembership(pageId, enabled);
 
-	if (!loggedIn || actingAsPage || loading) return null;
+	if (!enabled || loading) return null;
 
-	const isMember = role === "MEMBER";
-	const isPrivileged = role === "ADMIN" || role === "EDITOR";
-
-	const handleToggle = async () => {
-		if (toggling || isPrivileged) return;
-		setToggling(true);
-		try {
-			if (isMember) {
-				const res = await fetch(API_PAGE_MEMBERSHIP(pageId), { method: "DELETE" });
-				if (res.ok) setRole(null);
-			} else {
-				const res = await fetch(API_PAGE_MEMBERSHIP(pageId), { method: "POST" });
-				if (res.ok) setRole("MEMBER");
-			}
-		} catch {
-			// Leave state unchanged on error
-		} finally {
-			setToggling(false);
-		}
-	};
-
-	const label = toggling ? "..." : isMember || isPrivileged ? "Leave group" : "Join";
-	const icon = isMember || isPrivileged
+	const isLeavable = state === "member" || state === "privileged";
+	// PRIVATE pages gate Join behind owner approval (see requests.ts joinOrRequest).
+	const isPrivate = profileVisibility === "PRIVATE";
+	const label = toggling
+		? "..."
+		: state === "requested"
+			? "Requested"
+			: isLeavable
+				? "Leave group"
+				: isPrivate
+					? "Request to join"
+					: "Join";
+	const icon = isLeavable || state === "requested"
 		? <UserMinusSignIcon className="w-4 h-4" />
 		: <UserPlusSignIcon className="w-4 h-4" />;
 
 	return (
-		<TransparentCTAButton
-			label={label}
-			icon={icon}
-			onClick={handleToggle}
-			disabled={toggling || isPrivileged}
-			className="w-full"
-		/>
+		<div className="w-full">
+			<TransparentCTAButton
+				label={label}
+				icon={icon}
+				onClick={toggle}
+				disabled={toggling}
+				className="w-full"
+			/>
+			{error && <p className="mt-1 text-xs text-red-500 text-center">{error}</p>}
+		</div>
 	);
 }

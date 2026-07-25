@@ -40,14 +40,16 @@ export async function createSignupInvite(
 
 export type ConsumeInviteResult =
 	| { ok: true; userId: string }
-	| { ok: false; error: string };
+	// `handleConflict` marks the P2002 handle race specifically, so an auto-generated-handle
+	// caller can retry with a fresh handle instead of surfacing a dead-end error.
+	| { ok: false; error: string; handleConflict?: boolean };
 
 /**
  * Validates invite token, marks it used, and creates the user (with
  * companion Handle row) in one transaction.
  *
- * Caller is responsible for:
- *   - Lowercasing `handle` (per PR 2 normalization rule).
+ * The handle is lowercased here (canonical storage form — INV-7). Caller is still
+ * responsible for:
  *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first
  *     (the `isHandleTaken` check is a UX pre-check; the DB unique constraint
  *     on `handles.handle` is the actual guarantee).
@@ -65,6 +67,8 @@ export async function consumeInviteAndCreateUser(args: {
 	rawInviteToken: string;
 }): Promise<ConsumeInviteResult> {
 	const tokenHash = hashInviteToken(args.rawInviteToken);
+	// Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
+	const handle = args.handle.toLowerCase();
 
 	try {
 		return await prisma.$transaction(async (tx) => {
@@ -102,12 +106,15 @@ export async function consumeInviteAndCreateUser(args: {
 			const user = await tx.user.create({
 				data: {
 					email: args.normalizedEmail,
-					handle: args.handle,
+					handle,
 					passwordHash: args.passwordHash,
 					firstName: null,
 					middleName: null,
 					lastName: null,
-					handleRecord: { create: { handle: args.handle } },
+					// New accounts default to open distribution; explicit since the column no longer
+					// carries a DB default.
+					contentVisibility: "LISTED",
+					handleRecord: { create: { handle } },
 				},
 				select: { id: true },
 			});
@@ -125,7 +132,7 @@ export async function consumeInviteAndCreateUser(args: {
 			"code" in error &&
 			(error as { code?: string }).code === "P2002"
 		) {
-			return { ok: false, error: "That handle is already taken" };
+			return { ok: false, error: "That handle is already taken", handleConflict: true };
 		}
 		console.error("consumeInviteAndCreateUser:", message, error);
 		return { ok: false, error: "Failed to create account" };

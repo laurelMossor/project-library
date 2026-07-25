@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getEventById } from "@/lib/utils/server/event";
 import { getEventUpdates, createPost } from "@/lib/utils/server/post";
+import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 
 // GET /api/events/[id]/posts - Get all posts for an event
@@ -13,13 +14,16 @@ export async function GET(
 	const { id } = await params;
 
 	try {
-		// Verify event exists
-		const event = await getEventById(id);
+		// One gate for existence + DRAFT-owner + content visibility (co-managers of a page-hosted
+		// draft pass; strangers 404). getEventUpdates itself also filters DRAFT child posts for
+		// non-owners.
+		const viewer = await getViewerContext();
+		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");
 		}
 
-		const posts = await getEventUpdates(id);
+		const posts = await getEventUpdates(id, viewer);
 		return NextResponse.json(posts);
 	} catch (error) {
 		console.error("Error fetching posts:", error);

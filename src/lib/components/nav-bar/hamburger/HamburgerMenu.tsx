@@ -36,9 +36,11 @@ interface HamburgerMenuProps {
 const iconClass = "w-6 h-6 shrink-0";
 
 export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
-	const { data: session } = useSession();
+	const { data: session, status } = useSession();
 	const router = useRouter();
-	const activeSession = session || sessionProp;
+	// SSR prop only while loading; once loaded, trust the live session (see NavProfileTag) so a
+	// signed-out/invalidated session isn't masked by the stale prop.
+	const activeSession = status === "loading" ? sessionProp : session;
 	const isLoggedIn = hasSession(activeSession);
 
 	const { activeCount: unreadCount } = useUnreadCount();
@@ -106,7 +108,7 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					<HamburgerIcon className="w-8 h-8 shrink-0" />
 					{unreadCount > 0 && (
 						<span className="absolute -top-0.5 -right-0.5">
-							<NotificationDot />
+							<NotificationDot label="Unread messages" />
 						</span>
 					)}
 				</div>

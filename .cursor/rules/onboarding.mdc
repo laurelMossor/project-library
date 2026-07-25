@@ -1,0 +1,14 @@
+---
+description: Session bootstrap for The Project Library
+alwaysApply: true
+---
+
+# The Project Library — agent onboarding
+
+**Read and follow [.claude/CLAUDE.md](mdc:.claude/CLAUDE.md) — it is the canonical bootstrap and source of truth for how to work in this repo** (conventions, skills, ticket workflow, memory/journal rules, and conditional reads such as visibility/authorization).
+
+At session start, before the first substantive task, also read these in parallel:
+
+1. [docs/guidance/PROJECT_GUIDELINES.md](mdc:docs/guidance/PROJECT_GUIDELINES.md) — tech stack, conventions, schema tree
+2. [docs/guidance/STATUS.md](mdc:docs/guidance/STATUS.md) — current milestone, in-flight work, blockers
+3. [docs/guidance/JOURNAL.md](mdc:docs/guidance/JOURNAL.md) — most recent ~5 entries for continuity

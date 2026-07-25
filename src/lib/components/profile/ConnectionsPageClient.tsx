@@ -6,7 +6,7 @@ import { ConnectionsPageView } from "./ConnectionsPageView";
 import { isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
-export function ConnectionsPageClient() {
+export function ConnectionsPageClient({ initialTab }: { initialTab?: string }) {
 	const { activeEntity, currentUser, loading } = useActiveProfile();
 
 	if (loading || !currentUser || !activeEntity) {
@@ -29,7 +29,7 @@ export function ConnectionsPageClient() {
 					{displayName}&apos;s Connections
 				</h1>
 			</div>
-			<ConnectionsPageView entity={activeEntity} currentUserId={currentUser.id} />
+			<ConnectionsPageView entity={activeEntity} currentUserId={currentUser.id} initialTab={initialTab} />
 		</>
 	);
 }

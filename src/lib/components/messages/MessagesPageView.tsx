@@ -8,7 +8,8 @@ import { ConversationThread } from "./ConversationThread";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { CardUser, CardPageWithRole, getCardUserDisplayName } from "@/lib/types/card";
 import { truncateText } from "@/lib/utils/text";
-import { API_MESSAGE } from "@/lib/const/routes";
+import { formatRelativeTime } from "@/lib/utils/datetime";
+import { API_MESSAGE, API_MESSAGES_INBOX } from "@/lib/const/routes";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,21 +62,6 @@ type ConversationItem = {
 
 const DM_TAB: TabDef<TopTabId> = { id: "dm", label: "Direct Messages" };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatMessageTime(date: string): string {
-	const messageDate = new Date(date);
-	const now = new Date();
-	const diffMs = now.getTime() - messageDate.getTime();
-	const diffMins = Math.floor(diffMs / 60000);
-	const diffHours = Math.floor(diffMs / 3600000);
-	const diffDays = Math.floor(diffMs / 86400000);
-	if (diffMins < 1) return "Just now";
-	if (diffMins < 60) return `${diffMins}m ago`;
-	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays < 7) return `${diffDays}d ago`;
-	return messageDate.toLocaleDateString();
-}
 
 /** Returns the participant that is NOT the given entity (the "other party"). */
 function getOtherParticipant(participants: Participant[], selfId: string, selfType: "user" | "page"): Participant | null {
@@ -126,7 +112,9 @@ export function MessagesPageView() {
 		setInboxLoading(true);
 		setInboxError(null);
 		try {
-			const res = await fetch("/api/messages/inbox");
+			// Scope the request to the active identity; the server returns only that identity's
+			// conversations, so no client-side filtering is needed.
+			const res = await fetch(API_MESSAGES_INBOX(activePageId));
 			if (!res.ok) throw new Error("Failed to load");
 			setConversations(await res.json());
 		} catch {
@@ -204,11 +192,9 @@ export function MessagesPageView() {
 		if (inboxError) return <p className="text-sm text-red-500 text-center py-12">{inboxError}</p>;
 
 		const entityId = activeEntityMeta.entityId;
-		const filtered = conversations.filter((conv) =>
-			conv.participants.some((p) =>
-				activeEntityType === "user" ? p.user?.id === entityId : p.page?.id === entityId
-			)
-		);
+		// The inbox request is already scoped to the active identity server-side (findings #16/#25),
+		// so render the conversations as returned — no client-side identity filter.
+		const filtered = conversations;
 
 		if (filtered.length === 0) {
 			return <p className="text-sm text-dusty-grey text-center py-12">No messages yet.</p>;
@@ -257,7 +243,7 @@ export function MessagesPageView() {
 								</div>
 								{conv.lastMessage && (
 									<p className={`text-xs shrink-0 ${isUnread ? "font-semibold text-rich-brown" : "text-dusty-grey"}`}>
-										{formatMessageTime(conv.lastMessage.createdAt)}
+										{formatRelativeTime(conv.lastMessage.createdAt)}
 									</p>
 								)}
 							</div>

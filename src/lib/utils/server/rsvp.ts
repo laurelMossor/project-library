@@ -5,30 +5,29 @@ import { prisma } from "./prisma";
 import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "@/lib/types/rsvp";
 
 /**
- * Create or update an RSVP for an event.
- * Uses upsert on [eventId, email] — one RSVP per email per event.
+ * Create or update an RSVP for an event (one RSVP per email per event).
+ *
+ * Branches explicitly on existence — rather than an upsert + timestamp compare — so `created` is
+ * reliable. The activity dispatcher notifies the host only on `created`, so editing an RSVP must
+ * not re-notify.
  */
-export async function createOrUpdateRsvp(eventId: string, data: RsvpCreateInput): Promise<RsvpItem> {
-	const rsvp = await prisma.rsvp.upsert({
-		where: {
-			eventId_email: {
-				eventId,
-				email: data.email.trim().toLowerCase(),
-			},
-		},
-		update: {
-			name: data.name.trim(),
-			status: data.status,
-		},
-		create: {
-			eventId,
-			name: data.name.trim(),
-			email: data.email.trim().toLowerCase(),
-			status: data.status,
-		},
-	});
+export async function createOrUpdateRsvp(
+	eventId: string,
+	data: RsvpCreateInput,
+): Promise<{ rsvp: RsvpItem; created: boolean }> {
+	const email = data.email.trim().toLowerCase();
+	const existing = await prisma.rsvp.findUnique({ where: { eventId_email: { eventId, email } } });
 
-	return rsvp;
+	const rsvp = existing
+		? await prisma.rsvp.update({
+			where: { eventId_email: { eventId, email } },
+			data: { name: data.name.trim(), status: data.status },
+		})
+		: await prisma.rsvp.create({
+			data: { eventId, name: data.name.trim(), email, status: data.status },
+		});
+
+	return { rsvp, created: !existing };
 }
 
 /**

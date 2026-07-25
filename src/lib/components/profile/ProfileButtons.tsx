@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { isCardPage } from "@/lib/types/card";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { MessageIcon, PlusSignIcon, MinusSignIcon } from "@/lib/components/icons/icons";
-import { MESSAGE_CONVERSATION, API_FOLLOWS, API_FOLLOW } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { useFollowState } from "@/lib/hooks/useFollowState";
+import type { ProfileVisibility } from "@prisma/client";
 
 type ProfileButtonsProps = {
 	entityId: string;
 	entityType: "user" | "page";
+	/** The viewed entity's profile visibility. PRIVATE means Follow opens a pending request,
+	 *  so the button should say so up front ("Request to follow") rather than "Follow". */
+	profileVisibility?: ProfileVisibility;
 };
 
 /**
- * Follow + Message action buttons for public User and Page profiles.
+ * Follow/Request + Message action buttons for public User and Page profiles.
  * Both buttons are disabled when the viewer's active profile matches the viewed entity.
  */
-export function ProfileButtons({ entityId, entityType }: ProfileButtonsProps) {
+export function ProfileButtons({ entityId, entityType, profileVisibility }: ProfileButtonsProps) {
 	const { activeEntity, currentUser } = useActiveProfile();
-
-	const [isFollowing, setIsFollowing] = useState(false);
-	const [loadingFollow, setLoadingFollow] = useState(true);
-	const [toggling, setToggling] = useState(false);
 
 	// Determine if the viewer's active profile IS the entity being viewed
 	const isOwnProfile = (() => {
@@ -36,49 +36,28 @@ export function ProfileButtons({ entityId, entityType }: ProfileButtonsProps) {
 	})();
 
 	const loggedIn = !!currentUser;
-
-	useEffect(() => {
-		if (!loggedIn || isOwnProfile) {
-			setLoadingFollow(false);
-			return;
-		}
-		fetch(`${API_FOLLOW(entityId)}?type=${entityType}`)
-			.then((r) => r.json())
-			.then((d) => setIsFollowing(d.isFollowing ?? false))
-			.catch(() => {})
-			.finally(() => setLoadingFollow(false));
-	}, [entityId, entityType, loggedIn, isOwnProfile]);
-
-	const handleFollow = async () => {
-		if (toggling) return;
-		setToggling(true);
-		try {
-			if (isFollowing) {
-				await fetch(`${API_FOLLOW(entityId)}?type=${entityType}`, { method: "DELETE" });
-				setIsFollowing(false);
-			} else {
-				const body = entityType === "user"
-					? { followingUserId: entityId }
-					: { followingPageId: entityId };
-				await fetch(API_FOLLOWS, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(body),
-				});
-				setIsFollowing(true);
-			}
-		} catch {
-			// Leave state unchanged on error
-		} finally {
-			setToggling(false);
-		}
-	};
+	const { state, loading: loadingFollow, toggling, toggle } = useFollowState(
+		entityId,
+		entityType,
+		loggedIn && !isOwnProfile,
+	);
 
 	const messageHref = MESSAGE_CONVERSATION({ id: entityId, type: entityType });
 
 	const disabled = isOwnProfile || !loggedIn;
-	const followLabel = loadingFollow || toggling ? "..." : isFollowing ? "Unfollow" : "Follow";
-	const followIcon = isFollowing
+	// PRIVATE targets gate Follow behind owner approval (see requests.ts followOrRequest),
+	// so signal that up front instead of implying an instant follow.
+	const isPrivate = profileVisibility === "PRIVATE";
+	const followLabel = loadingFollow || toggling
+		? "..."
+		: state === "following"
+			? "Unfollow"
+			: state === "requested"
+				? "Requested"
+				: isPrivate
+					? "Request to follow"
+					: "Follow";
+	const followIcon = state === "following" || state === "requested"
 		? <MinusSignIcon className="w-4 h-4" />
 		: <PlusSignIcon className="w-4 h-4" />;
 
@@ -87,7 +66,7 @@ export function ProfileButtons({ entityId, entityType }: ProfileButtonsProps) {
 			<TransparentCTAButton
 				label={followLabel}
 				icon={followIcon}
-				onClick={handleFollow}
+				onClick={toggle}
 				disabled={disabled || loadingFollow || toggling}
 				className="w-full"
 			/>

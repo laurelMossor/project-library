@@ -1,0 +1,21 @@
+{
+  "email": "pat@example.com",
+  "handle": "private-pat.example",
+  "password": "pat",
+  "firstName": "Pat",
+  "lastName": "Private",
+  "headline": "A private maker · Example Account",
+  "bio": "This is an example PRIVATE profile. Only Pat's followers can see this page and its posts.",
+  "interests": ["printmaking"],
+  "location": "Portland, OR",
+  "profileVisibility": "PRIVATE",
+  "contentVisibility": "PRIVATE",
+  "posts": [
+    {
+      "title": "Private update",
+      "content": "This post is on a PRIVATE profile — only Pat's followers (and Pat) can see it.",
+      "status": "PUBLISHED",
+      "contentVisibility": "PRIVATE"
+    }
+  ]
+}

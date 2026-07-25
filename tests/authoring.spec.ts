@@ -1,143 +1,64 @@
 import { test, expect } from "@playwright/test";
-import { loginAs } from "./helpers/auth";
+import { STORAGE_STATE } from "./helpers/auth";
+import { createPublishDelete, startDraft, type ContentKind } from "./helpers/content";
+
+// All authoring happens as alice. Reuse her cached session instead of logging
+// in through the UI in every test.
+test.use({ storageState: STORAGE_STATE.alice });
 
 test.describe("Authoring — create content", () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAs(page, "alice");
-  });
-
-  // ─── Events ───────────────────────────────────────────────────────────────
-
-  test("create, publish, and delete an event (batched save)", async ({ page }) => {
-    // /events/new creates a draft and immediately redirects to the event detail page
-    await page.goto("/events/new");
-    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
-
-    // Draft banner should be visible
-    await expect(page.getByText("Draft — only you can see this")).toBeVisible();
-
-    // Inline-edit title — click the field, type, then close (session bar handles save)
-    await page.getByRole("button", { name: /Event name/i }).first().click();
-    await page.getByPlaceholder("Event name").fill("Playwright Test Event");
-    // Escape closes the field edit UI, value stays in dirty state
-    await page.keyboard.press("Escape");
-    await expect(page.getByText("1 unsaved change")).toBeVisible();
-
-    // Inline-edit description
-    await page.getByRole("button", { name: /What should people know/i }).first().click();
-    await page.getByPlaceholder("What should people know?").fill("This event was created by an automated test.");
-    await page.keyboard.press("Escape");
-    await expect(page.getByText(/unsaved change/)).toBeVisible();
-
-    // Save via session bar
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Playwright Test Event")).toBeVisible();
-    await expect(page.getByText(/unsaved change/)).not.toBeVisible();
-
-    // Publish — only enabled after save (no dirty fields)
-    await page.getByRole("button", { name: "Publish" }).click();
-    await expect(page.getByText("Live")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("Draft — only you can see this")).not.toBeVisible();
-
-    // Delete — two-step confirm
-    await page.getByRole("button", { name: "Delete Event" }).click();
-    await expect(page.getByText(/Are you sure you want to delete/)).toBeVisible();
-    await page.getByRole("button", { name: "Delete" }).click();
-
-    // Redirects to /explore after deletion
-    await page.waitForURL(/\/explore/, { timeout: 10_000 });
-  });
+  // ─── Events & Posts share one create → publish → delete shape ──────────────
+  // Parametrized so a regression in the inline-edit/save/publish/delete flow
+  // fails on whichever surface broke, with no duplicated test body.
+  for (const kind of ["event", "post"] as const satisfies readonly ContentKind[]) {
+    const article = kind === "event" ? "an" : "a";
+    test(`create, publish, and delete ${article} ${kind} (batched inline edit)`, async ({ page }) => {
+      await createPublishDelete(page, kind);
+    });
+  }
 
   test("navigating away from a draft event deletes it", async ({ page }) => {
-    await page.goto("/events/new");
-    await page.waitForURL(/\/events\/[^/]+$/, { timeout: 15_000 });
-
-    const eventId = page.url().split("/events/")[1];
+    const url = await startDraft(page, "event");
+    const eventId = url.split("/events/")[1];
 
     const cleanupFired = page.waitForEvent("console", {
       predicate: (msg) => msg.text().includes("deleting draft event on navigation away"),
       timeout: 10_000,
     });
 
-    // SPA navigation via the Explore link unmounts EventPageClient, triggering cleanup
+    // SPA navigation unmounts EventPageClient, triggering the empty-draft cleanup.
     await page.getByRole("link", { name: "Explore" }).click();
     await page.waitForURL(/\/explore/, { timeout: 10_000 });
-
     await cleanupFired;
 
     await page.waitForFunction(
-      async (id) => {
-        const resp = await fetch(`/api/events/${id}`);
-        return resp.status === 404;
-      },
+      async (id) => (await fetch(`/api/events/${id}`)).status === 404,
       eventId,
-      { timeout: 10_000, polling: 500 }
+      { timeout: 10_000, polling: 500 },
     );
   });
 
-  // ─── Posts ────────────────────────────────────────────────────────────────
+  test("draft post is not visible to the public", async ({ page, browser }) => {
+    const postUrl = await startDraft(page, "post");
 
-  test("create, publish, and delete a post (draft-then-inline-edit)", async ({ page }) => {
-    // /posts/new creates a DRAFT and immediately redirects to the post detail page
-    await page.goto("/posts/new");
-    await page.waitForURL(/\/posts\/(?!new$)[^/]+$/, { timeout: 15_000 });
+    // A fresh anonymous context must get the not-found page for the draft.
+    const anonContext = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const anonPage = await anonContext.newPage();
+      await anonPage.goto(postUrl);
+      await expect(anonPage.getByRole("heading", { name: "Page not found" })).toBeVisible({
+        timeout: 10_000,
+      });
+    } finally {
+      await anonContext.close();
+    }
 
-    // Draft banner should be visible
-    await expect(page.getByText("Draft — only you can see this")).toBeVisible();
-
-    // Inline-edit title
-    await page.getByRole("button", { name: /Title \(optional\)/i }).first().click();
-    await page.getByPlaceholder("Title (optional)").fill("Playwright Test Post");
-    await page.keyboard.press("Escape");
-
-    // Inline-edit content
-    await page.getByRole("button", { name: /What are you working on/i }).first().click();
-    await page.getByPlaceholder("What are you working on or thinking about?").fill("This post was created by an automated test.");
-    await page.keyboard.press("Escape");
-
-    await expect(page.getByText(/unsaved change/)).toBeVisible();
-
-    // Save via session bar
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Playwright Test Post")).toBeVisible();
-    await expect(page.getByText(/unsaved change/)).not.toBeVisible({ timeout: 10_000 });
-
-    // Publish — only enabled after save
-    await page.getByRole("button", { name: "Publish" }).click();
-    await expect(page.getByText("Live")).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText("Draft — only you can see this")).not.toBeVisible();
-
-    // Delete — two-step confirm
-    await page.getByRole("button", { name: "Delete Post" }).click();
-    await expect(page.getByText(/Are you sure you want to delete/)).toBeVisible();
-    await page.getByRole("button", { name: "Delete" }).click();
-
-    // Redirects to /explore after deletion
-    await page.waitForURL(/\/explore/, { timeout: 10_000 });
+    // Clean up the draft (no publish/delete UI exercised here).
+    await page.request.delete(`/api/posts/${postUrl.split("/posts/")[1]}`);
   });
 
-  test("draft post is not visible to public", async ({ page, browser }) => {
-    // Create a draft post as alice
-    await page.goto("/posts/new");
-    await page.waitForURL(/\/posts\/(?!new$)[^/]+$/, { timeout: 15_000 });
-    const postUrl = page.url();
-
-    // A fresh (unauthenticated) browser context should see 404 for the draft
-    const anonContext = await browser.newContext();
-    const anonPage = await anonContext.newPage();
-    await anonPage.goto(postUrl);
-    // Draft post redirects to notFound — Next.js renders a 404 page
-    await expect(anonPage.getByText(/404|not found/i)).toBeVisible({ timeout: 10_000 });
-    await anonContext.close();
-
-    // Clean up: delete the draft
-    const postId = postUrl.split("/posts/")[1];
-    await page.request.delete(`/api/posts/${postId}`);
-  });
-
-  // ─── Pages ────────────────────────────────────────────────────────────────
-
-  test("create a page (redirects to public profile for inline editing)", async ({ page }) => {
+  // ─── Pages ─────────────────────────────────────────────────────────────────
+  test("create a page redirects to its public profile", async ({ page }) => {
     const handle = `playwright-test-${Date.now()}`;
     await page.goto("/pages/new");
     await expect(page).toHaveURL(/\/pages\/new/);
@@ -146,30 +67,35 @@ test.describe("Authoring — create content", () => {
     await page.locator("#handle").fill(handle);
     await page.getByRole("button", { name: "Create Page" }).click();
 
-    // After creation, redirects to the public page profile for inline editing
     await page.waitForURL(new RegExp(`/${handle}`), { timeout: 10_000 });
-    await expect(page.locator("body")).toContainText("Playwright Test Page");
-    await expect(page.locator("body")).not.toContainText("error");
+    await expect(
+      page.getByRole("heading", { name: "Playwright Test Page", level: 1, exact: true }),
+    ).toBeVisible();
   });
 
-  // ─── Profile inline editing ───────────────────────────────────────────────
+  // ─── Profile inline editing ──────────────────────────────────────────────
+  // Deep-link straight into edit mode (?edit=true) so the editable affordance
+  // is guaranteed present — the previous version guarded the whole body in an
+  // `if (isVisible())` that never ran (alice has a seeded headline, so the
+  // "Add a headline" placeholder this looked for was never rendered).
+  test("owner can inline-edit their profile and cancel without saving", async ({ page }) => {
+    await page.goto("/alice.example?edit=true");
 
-  test("user can inline-edit their profile on public page", async ({ page }) => {
-    // Navigate to own public profile
-    await page.goto("/alice.example");
+    // alice's seeded headline renders as the clickable edit affordance.
+    const headlineField = page.getByRole("button", { name: /Quilter & Textile Artist/i });
+    await expect(headlineField).toBeVisible({ timeout: 10_000 });
+    await headlineField.click();
 
-    // Should see the inline-edit affordance (own profile)
-    // Click on the headline field to open edit
-    const headlineField = page.getByRole("button", { name: /Add a headline/i }).first();
-    if (await headlineField.isVisible()) {
-      await headlineField.click();
-      await page.getByPlaceholder("Add a headline").fill("Test headline from Playwright");
-      await page.keyboard.press("Escape");
-      await expect(page.getByText(/unsaved change/)).toBeVisible();
+    const headlineInput = page.getByPlaceholder("Add a headline");
+    await expect(headlineInput).toBeVisible();
+    await headlineInput.fill("Test headline from Playwright");
+    await page.keyboard.press("Escape");
 
-      // Cancel the edit
-      await page.getByRole("button", { name: "Cancel" }).click();
-      await expect(page.getByText(/unsaved change/)).not.toBeVisible();
-    }
+    // The edit dirties the batched session.
+    await expect(page.getByText(/unsaved change/)).toBeVisible();
+
+    // Cancel discards the change — no save, no DB mutation.
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByText(/unsaved change/)).not.toBeVisible();
   });
 });

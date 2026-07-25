@@ -1,0 +1,50 @@
+# Email notification flush for The Project Library.
+#
+# Pings the protected flush endpoint on a schedule. The endpoint drains the EmailOutbox: it groups each
+# recipient's pending, still-unread, preference-on notifications into one profile-grouped email and sends
+# it. The ~15-minute interval IS the coalescing window (notifications read within it are never emailed).
+#
+# Mirrors uptime.yml. Auth is a shared secret (Bearer FLUSH_SECRET) so only this workflow can trigger a
+# flush; set it under GitHub → Settings → Secrets and variables → Actions → FLUSH_SECRET (matching the
+# app's FLUSH_SECRET env var).
+#
+# Caveats:
+#  - Scheduled runs can be delayed under GitHub load; the window is "up to ~15 min", not real-time.
+#    A missed run is self-healing — the next flush picks up whatever is still pending.
+#  - GitHub auto-disables scheduled workflows after 60 days of no repo activity.
+name: Email flush
+
+on:
+  schedule:
+    # Every 15 minutes — the coalescing window. Well within free Actions minutes, above the 5-min cliff.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {} # allow manual runs for testing
+
+jobs:
+  flush:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FLUSH_URL: "https://theprojectlibrary.com/api/notifications/flush"
+      FLUSH_SECRET: ${{ secrets.FLUSH_SECRET }}
+    steps:
+      - name: Trigger email flush
+        run: |
+          if [ -z "$FLUSH_SECRET" ]; then
+            echo "::error::FLUSH_SECRET is not set — add it under repo Actions secrets."
+            exit 1
+          fi
+          echo "POST $FLUSH_URL"
+          # --fail: a non-2xx (e.g. 401 auth failure, 500) exits non-zero and emails the workflow author.
+          body=$(curl --fail --show-error --silent \
+                      --retry 2 --retry-delay 5 --max-time 55 \
+                      -X POST \
+                      -H "Authorization: Bearer $FLUSH_SECRET" \
+                      "$FLUSH_URL")
+          status=$?
+          echo "Response body: $body"
+          if [ $status -ne 0 ]; then
+            echo "::error::Flush request failed (curl exit $status) for $FLUSH_URL"
+            exit 1
+          fi
+          echo "Flush completed."

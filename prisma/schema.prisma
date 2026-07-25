@@ -10,8 +10,17 @@ datasource db {
 // Enums
 // ========================
 
-enum PageVisibility {
+// Profile access: who can find/enter a profile. Both are discoverable in search;
+// PRIVATE renders an identity-only stub + request-to-connect.
+enum ProfileVisibility {
   PUBLIC
+  PRIVATE
+}
+
+// Content distribution: where a post/event surfaces. LISTED = public collections + profile;
+// UNLISTED = profile only; PRIVATE = connections only. (Renamed from `Visibility`; PUBLIC→LISTED.)
+enum ContentVisibility {
+  LISTED
   UNLISTED
   PRIVATE
 }
@@ -22,9 +31,20 @@ enum PermissionRole {
   MEMBER // basic membership (future use)
 }
 
+// Permission is polymorphic (resourceId + resourceType) so a role set can attach to
+// more than one kind of resource. Today only PAGE is wired: events derive authority
+// from their parent Page / owner (see canActAsEntity), so EVENT carries no rows yet.
+// EVENT is a deliberate, reserved seam for event-level permissions (co-hosts / event
+// teams) — not dead code. Keep it until that feature ships or is abandoned.
 enum ResourceType {
   PAGE
   EVENT
+}
+
+// Kind of pending access request (see AccessRequest model).
+enum AccessRequestKind {
+  FOLLOW // requester wants to follow a private User or Page → materializes a Follow
+  JOIN // requester (a User) wants MEMBER on a private Page → materializes a Permission(MEMBER)
 }
 
 enum EventStatus {
@@ -57,6 +77,44 @@ enum ProfileElementKind {
   TEXT
 }
 
+// Activity-notification verb (what happened). Grows by one value per new activity — a bounded,
+// type-safe set. See the Notification model + docs/scratch/ACTIVITY_NOTIFICATIONS_PRD.md.
+enum NotificationType {
+  COMMENT
+  FOLLOW_REQUEST
+  JOIN_REQUEST
+  NEW_FOLLOWER
+  NEW_MEMBER
+  RSVP
+  REQUEST_APPROVED
+}
+
+// What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
+// Notification.objectId (FK-less, mirrors ImageAttachment.targetType + targetId). A user is never
+// the object — a follow's users are already the actor + recipient.
+enum NotificationObject {
+  POST
+  EVENT
+  PAGE
+}
+
+// User-facing grouping for email notification preferences. Each in-app NotificationType maps to
+// exactly one of these (see notification-category.ts); MESSAGES has no NotificationType — direct
+// messages are a separate model and enqueue for email directly.
+enum NotificationCategory {
+  COMMENTS
+  REQUESTS
+  FOLLOWS
+  MESSAGES
+  RSVPS
+}
+
+// What an EmailOutbox row points at, so the flush can read the source's readAt for read-suppression.
+enum EmailSourceType {
+  NOTIFICATION
+  MESSAGE
+}
+
 // ========================
 // Users (identity + auth)
 // ========================
@@ -66,9 +124,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email        String @unique
-  passwordHash String
-  handle       String @unique
+  email         String    @unique
+  passwordHash  String
+  handle        String    @unique
+  // null = not yet verified. Login is gated on this being set.
+  // Existing users were backfilled to verified in the adding migration.
+  emailVerified DateTime?
+  // Session epoch. Bumped on password reset to invalidate all existing JWTs
+  // for this user (the session callback rejects tokens with a stale version).
+  tokenVersion  Int       @default(0)
 
   firstName   String?
   middleName  String?
@@ -76,21 +140,23 @@ model User {
   displayName String?
 
   // Profile
-  headline      String?
-  bio           String?
-  interests     String[] @default([])
-  location      String?
-  isPublic      Boolean  @default(true)
-  avatarImageId String?
-  avatarImage   Image?   @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  headline          String?
+  bio               String?
+  interests         String[]          @default([])
+  location          String?
+  profileVisibility ProfileVisibility @default(PUBLIC)
+  contentVisibility ContentVisibility
+  avatarImageId     String?
+  avatarImage       Image?            @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
 
   // Microsite
   aboutContent String?
 
   // Backrefs (Prisma sugar — actual FKs live on the content tables)
-  posts  Post[]
-  events Event[]
-  images Image[]
+  posts    Post[]
+  events   Event[]
+  images   Image[]
+  comments Comment[] // comments authored by this user
 
   // Pages
   createdPages Page[]
@@ -102,6 +168,10 @@ model User {
   following Follow[] @relation("UserFollowing")
   followers Follow[] @relation("UserFollowers")
 
+  // Pending access requests (Request-to-Follow / Request-to-Join)
+  accessRequestsMade     AccessRequest[] @relation("RequestsMade")
+  accessRequestsReceived AccessRequest[] @relation("RequestsForUser")
+
   // Messaging
   sentMessages            Message[]                 @relation("SentMessages")
   conversationMemberships ConversationParticipant[]
@@ -111,6 +181,17 @@ model User {
 
   // Microsite elements
   elements ProfileElement[]
+
+  // Auth email tokens
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+
+  // Activity notifications (received in this user's bell; caused by this user as an actor)
+  notificationsReceived Notification[] @relation("NotificationsReceived")
+  notificationsActed    Notification[] @relation("NotificationsActed")
+
+  // This user's email preferences (personal + one set per page they manage)
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
@@ -126,6 +207,39 @@ model SignupInvite {
 
   @@index([email])
   @@map("signup_invites")
+}
+
+// Email verification + password reset tokens.
+// Same shape as SignupInvite: the raw token is delivered by email and only its
+// SHA-256 hash is stored. Single-use (usedAt), time-boxed (expiresAt). Creating
+// a new token for a user deletes that user's prior unused tokens (see auth-tokens.ts).
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // ========================
@@ -148,11 +262,12 @@ model Page {
   name   String
   handle String @unique
 
-  headline   String?
-  bio        String?
-  interests  String[]       @default([])
-  location   String?
-  visibility PageVisibility @default(PUBLIC)
+  headline          String?
+  bio               String?
+  interests         String[]          @default([])
+  location          String?
+  profileVisibility ProfileVisibility @default(PUBLIC)
+  contentVisibility ContentVisibility
 
   // Address (useful for small biz, community spaces)
   addressLine1 String?
@@ -177,12 +292,17 @@ model Page {
   createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
 
   // Content posted "as" this page
-  posts  Post[]
-  events Event[]
+  posts    Post[]
+  events   Event[]
+  comments Comment[] // comments made "as" this page
 
   // Social
   followers Follow[] @relation("PageFollowed")
   following Follow[] @relation("PageFollowing")
+
+  // Pending access requests (Request-to-Follow / Request-to-Join)
+  accessRequestsMade     AccessRequest[] @relation("RequestsMadeAs")
+  accessRequestsReceived AccessRequest[] @relation("RequestsForPage")
 
   // Messaging (Page as conversation participant)
   conversations ConversationParticipant[]
@@ -192,6 +312,13 @@ model Page {
 
   // Microsite elements
   elements ProfileElement[]
+
+  // Activity notifications (page-context deliveries to this page's managers; caused by this page as actor)
+  notifications      Notification[] @relation("PageNotifications")
+  notificationsActed Notification[] @relation("NotificationsActedAs")
+
+  // Managers' email preferences scoped to this page (one set per manager)
+  notificationPreferences NotificationPreference[]
 
   @@index([createdByUserId])
   @@index([createdAt])
@@ -203,12 +330,14 @@ model Page {
 // ========================
 //
 // Single source of truth for "who owns the URL /<handle>".
-// Each row links to exactly one User OR one Page (mutually exclusive via the
-// two unique partial FKs). Lookups by handle never need a UNION across users
-// and pages — one indexed lookup, one row.
+// Each row links to exactly one User OR one Page. The two userId/pageId unique indexes
+// guarantee at-most-one owner of each kind, but NOT mutual exclusion — the DB CHECK
+// `handles_one_owner` enforces exactly-one (added in migration
+// 20260706000100_add_invariant_check_constraints). Lookups by handle never need a UNION
+// across users and pages — one indexed lookup, one row.
 //
-// Handles are always stored lowercase (enforced at the application layer
-// on every write — signup, page creation, future handle changes).
+// Handles are always stored lowercase — lowercased in the shared create utils on every
+// write (signup, page creation) and backstopped by the DB CHECK `handles_lowercase`.
 //
 // Used by:
 // - /[handle] route: dispatches to UserProfile or PageProfile
@@ -271,9 +400,11 @@ model Permission {
 // - attached to an Event (eventId set)
 // - an update to another Post (parentPostId set, one level deep)
 //
-// Child posts (updates) store pageId redundantly for query convenience.
+// Child posts (updates) store pageId redundantly for query convenience; a reply's pageId
+// always equals its parent's, derived server-side on create/edit (not client-set) — INV-3.
 // App enforces: updates cannot themselves have children (no nesting).
-// DB CHECK: parentPostId IS NULL OR eventId IS NULL
+// DB CHECK `posts_parent_xor_event` (parentPostId IS NULL OR eventId IS NULL) — added in
+// migration 20260706000100_add_invariant_check_constraints.
 
 model Post {
   id           String  @id @default(cuid())
@@ -282,10 +413,11 @@ model Post {
   eventId      String?
   parentPostId String?
 
-  title    String?
-  content  String
-  status   PostStatus @default(DRAFT)
-  pinnedAt DateTime?
+  title             String?
+  content           String
+  status            PostStatus        @default(DRAFT)
+  contentVisibility ContentVisibility
+  pinnedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -295,6 +427,8 @@ model Post {
   event      Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
   parentPost Post?  @relation("PostUpdates", fields: [parentPostId], references: [id], onDelete: Cascade)
   updates    Post[] @relation("PostUpdates")
+
+  comments Comment[]
 
   tags   String[] @default([])
   topics String[] @default([])
@@ -319,15 +453,16 @@ model Event {
   userId String
   pageId String?
 
-  title         String?
-  content       String
-  eventDateTime DateTime
-  eventTimezone String?
-  location      String
-  latitude      Float?
-  longitude     Float?
-  status        EventStatus @default(DRAFT)
-  pinnedAt      DateTime?
+  title             String?
+  content           String
+  eventDateTime     DateTime
+  eventTimezone     String?
+  location          String
+  latitude          Float?
+  longitude         Float?
+  status            EventStatus       @default(DRAFT)
+  contentVisibility ContentVisibility
+  pinnedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -336,6 +471,8 @@ model Event {
   page    Page?  @relation(fields: [pageId], references: [id], onDelete: Cascade)
   updates Post[]
   rsvps   Rsvp[]
+
+  comments Comment[]
 
   tags   String[] @default([])
   topics String[] @default([])
@@ -370,12 +507,56 @@ model Rsvp {
 }
 
 // ========================
+// Comments (community responses on Posts & Events)
+// ========================
+//
+// A dedicated, single-responsibility model — NOT a Post. Comments are not feed
+// content and carry no title/status/tags/visibility.
+//
+// - Author is always the logged-in user (accountability); asPageId optionally
+//   records "commented as this Page", verified server-side via canPostAsPage —
+//   never trusted from the client. Deleting that Page nulls asPageId (SetNull), so
+//   the comment falls back to author attribution rather than losing the human's words.
+// - Polymorphic target: exactly one of postId/eventId. DB CHECK
+//   `comments_post_xor_event` ((post_id IS NULL) <> (event_id IS NULL)) enforces this.
+// - No visibility column: read access is INHERITED from the parent post/event
+//   (routes gate via requireViewablePost/requireViewableEvent).
+// - parentCommentId is RESERVED for a future one-level reply feature; unused in v1.
+
+model Comment {
+  id              String  @id @default(cuid())
+  authorId        String
+  asPageId        String?
+  postId          String?
+  eventId         String?
+  parentCommentId String? // RESERVED for future replies — unused in v1
+
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  asPage        Page?     @relation(fields: [asPageId], references: [id], onDelete: SetNull)
+  post          Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  event         Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies       Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([authorId])
+  @@map("comments")
+}
+
+// ========================
 // Social graph (User or Page follows User or Page)
 // ========================
 //
 // Exactly one of followerId / followerPageId is the follower.
 // Exactly one of followingUserId / followingPageId is the followee.
-// Enforce via DB CHECK constraint in migration.
+// DB CHECKs `follows_one_follower` / `follows_one_followee` enforce this — added in
+// migration 20260706000100_add_invariant_check_constraints.
 
 model Follow {
   id        String   @id @default(cuid())
@@ -403,6 +584,51 @@ model Follow {
   @@index([followingUserId])
   @@index([followingPageId])
   @@map("follows")
+}
+
+// ========================
+// Access requests (Request-to-Follow / Request-to-Join)
+// ========================
+//
+// A pending request to gain access to a PRIVATE entity. The row's existence IS
+// the "pending" state — there is no status column. On approval the matching edge
+// is materialized (Follow for FOLLOW, Permission(MEMBER) for JOIN) and the request
+// row is deleted in the same transaction; on denial the row is simply deleted.
+// This keeps the grant tables (Follow / Permission) meaning "granted, full stop" —
+// the visibility layer reads their existence directly, so a pending request must
+// never live there.
+//
+// Exactly one of requesterId / requesterPageId is the requester (mirrors Follow).
+// Exactly one of targetUserId / targetPageId is the target.
+// JOIN is user→page only (pages don't hold MEMBER); enforced at the app layer.
+// Enforce the exactly-one invariants via DB CHECK constraints in the migration.
+
+model AccessRequest {
+  id        String            @id @default(cuid())
+  kind      AccessRequestKind
+  createdAt DateTime          @default(now())
+
+  // Requester — exactly one
+  requesterId     String?
+  requesterPageId String?
+
+  // Target — exactly one
+  targetUserId String?
+  targetPageId String?
+
+  requester     User? @relation("RequestsMade", fields: [requesterId], references: [id], onDelete: Cascade)
+  requesterPage Page? @relation("RequestsMadeAs", fields: [requesterPageId], references: [id], onDelete: Cascade)
+  targetUser    User? @relation("RequestsForUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetPage    Page? @relation("RequestsForPage", fields: [targetPageId], references: [id], onDelete: Cascade)
+
+  // Idempotency: re-requesting while pending hits one of these → no duplicate row.
+  @@unique([requesterId, targetUserId, kind])
+  @@unique([requesterId, targetPageId, kind])
+  @@unique([requesterPageId, targetUserId, kind])
+  @@unique([requesterPageId, targetPageId, kind])
+  @@index([targetPageId])
+  @@index([targetUserId])
+  @@map("access_requests")
 }
 
 // ========================
@@ -475,7 +701,9 @@ model ConversationParticipant {
   conversationId String
   createdAt      DateTime @default(now())
 
-  // Exactly one set: User participant or Page participant
+  // Exactly one set: User participant or Page participant. DB CHECK
+  // `conversation_participants_one_owner` enforces this (added in migration
+  // 20260706000100_add_invariant_check_constraints).
   userId String?
   pageId String?
 
@@ -508,6 +736,107 @@ model Message {
 }
 
 // ========================
+// Activity notifications
+// ========================
+//
+// The Activity Streams "actor · verb · object" model, one delivery per row, scoped to an identity.
+// Read a row as: "recipient, in their context capacity, is told actor did [type] on object."
+// Each pole mirrors an existing precedent — recipient ~ Comment.author, actor ~ Follow.follower,
+// object ~ ImageAttachment.target*. Full rationale: docs/scratch/ACTIVITY_NOTIFICATIONS_PRD.md.
+//
+// Delivery is fan-out: page-directed activity writes one row per managing user who may act on it
+// (ADMIN+EDITOR for informational types; ADMIN-only for request types), each tagged with
+// contextPageId so the bell can scope to the active identity. This differs from messaging (one
+// page-owned row) on purpose — a shared row can't express "admins only". See PRD §1a.
+
+model Notification {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  // Recipient — always a user (whose bell), scoped to an identity: contextPageId null = personal,
+  // else a page they manage. Fan-out sets contextPageId per recipient.
+  recipientUserId String
+  contextPageId   String?
+  recipient   User  @relation("NotificationsReceived", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  contextPage Page? @relation("PageNotifications", fields: [contextPageId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+
+  // Actor — who caused it. A user or a page (exactly-zero-or-one, DB CHECK
+  // `notifications_actor_at_most_one_account`); an account-less guest RSVP carries actorName instead.
+  actorUserId String?
+  actorPageId String?
+  actorName   String?
+  actorUser   User? @relation("NotificationsActed", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorPage   Page? @relation("NotificationsActedAs", fields: [actorPageId], references: [id], onDelete: Cascade)
+
+  // Object — what it's about, for the deep link. Enum-typed polymorphic pointer + loose id (no FK).
+  // Nullable: NEW_FOLLOWER / NEW_MEMBER / REQUEST_APPROVED link to the actor, request types to the
+  // static Requests tab.
+  objectType NotificationObject?
+  objectId   String?
+
+  @@index([recipientUserId, contextPageId, readAt])
+  @@index([recipientUserId, contextPageId, createdAt])
+  @@map("notifications")
+}
+
+// One user's email preference for one context. `userId` is always the human (whose inbox);
+// `contextPageId` is null for their personal profile, else a page they manage — so every manager of a
+// page has their OWN rows for that page, independent of other managers. `category` set = that category's
+// on/off; `category` NULL = the per-context email MASTER (the unsubscribe / kill-switch target), so an
+// admin unsubscribing a page only silences their own page emails. Sparse: a missing row means "use the
+// code default" (notification-category.ts); a missing master defaults on. Uniqueness is enforced by
+// partial unique indexes in the migration (NOT a Prisma @@unique — Postgres treats the nullable
+// contextPageId/category as distinct, same reason Follow uses split @@unique pairs), so writes use
+// find-then-write-in-$transaction, not upsert.
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId        String
+  contextPageId String?
+  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextPage   Page? @relation(fields: [contextPageId], references: [id], onDelete: Cascade)
+
+  category NotificationCategory? // null = the per-context email master
+  enabled  Boolean
+
+  @@index([userId])
+  @@index([contextPageId])
+  @@map("notification_preferences")
+}
+
+// The pending-email queue. Producers (the activity dispatcher + the message-send route) enqueue one
+// row per recipient identity; the scheduled flush (/api/notifications/flush) consumes it, groups by
+// recipient into one profile-grouped email, and stamps sentAt. `sentAt IS NULL` = pending, backed by
+// a partial index (email_outbox_pending) so the flush scans only the hot set, not history.
+model EmailOutbox {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Recipient identity — the row is delivered to recipientUser's address; contextPageId (null =
+  // personal, else a managed page) selects which identity's preferences + master govern.
+  recipientUserId String
+  contextPageId   String?
+
+  category   NotificationCategory
+  sourceType EmailSourceType
+  sourceId   String // Notification.id or Message.id — read at flush time for read-suppression
+
+  // Concurrency claim: a flush run stamps this before sending so overlapping runs don't double-send.
+  claimedAt DateTime?
+  // null = pending; set when emailed or suppressed. `outcome` records which (SENT / SUPPRESSED_*).
+  sentAt  DateTime?
+  outcome String?
+
+  @@index([recipientUserId, contextPageId])
+  @@map("email_outbox")
+}
+
+// ========================
 // Topics (lightweight taxonomy)
 // ========================
 //
@@ -531,28 +860,30 @@ model Topic {
 // ========================
 //
 // Polymorphic ownership — exactly one of userId or pageId is set.
-// Follows the same pattern as Follow and ConversationParticipant.
+// Follows the same pattern as Follow and ConversationParticipant. DB CHECK
+// `profile_elements_one_owner` enforces this (added in migration
+// 20260706000100_add_invariant_check_constraints).
 
 model ProfileElement {
-  id        String             @id @default(cuid())
-  kind      ProfileElementKind
+  id   String             @id @default(cuid())
+  kind ProfileElementKind
 
   // Polymorphic ownership — exactly one must be set
-  userId    String?
-  pageId    String?
+  userId String?
+  pageId String?
 
   label     String?
   value     String
   caption   String?
   url       String?
   sortOrder Int
-  visible   Boolean            @default(true)
+  visible   Boolean @default(true)
 
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user      User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  page      Page?              @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([userId, sortOrder])
   @@index([pageId, sortOrder])

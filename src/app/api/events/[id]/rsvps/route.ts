@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
+import { canActAsEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
+import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
+import { emitActivity, type EntityRef, type ActorRef } from "@/lib/utils/server/activity";
+import { NotificationObject } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -13,28 +16,20 @@ type Params = { params: Promise<{ id: string }> };
  * Create or update an RSVP (public, no auth required)
  */
 export async function POST(request: Request, { params }: Params) {
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`rsvp-create:${clientId}`, {
+	const limited = await enforceRateLimit(request, "rsvp-create", {
 		maxRequests: 10,
 		windowMs: 60 * 1000,
 	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	if (limited) return limited;
 
 	try {
 		const { id } = await params;
 
-		// Verify event exists and is published
-		const event = await prisma.event.findUnique({
-			where: { id },
-			select: { id: true, status: true },
-		});
-
+		// A viewer who can't see the event (missing / PRIVATE / another owner's draft) 404s BEFORE
+		// the published-state check, so a non-owner can't distinguish an unpublished draft (would be
+		// 400) from a missing event (404) — closing the draft existence oracle (finding 10).
+		const viewer = await getViewerContext();
+		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");
 		}
@@ -49,7 +44,22 @@ export async function POST(request: Request, { params }: Params) {
 			return badRequest(validation.error || "Invalid RSVP data");
 		}
 
-		const rsvp = await createOrUpdateRsvp(id, data);
+		const { rsvp, created } = await createOrUpdateRsvp(id, data);
+
+		// Notify the host — only on a NEW rsvp (editing must not re-notify). Prefer the authenticated
+		// user; fall back to the guest name. The cast keeps this working before AND after the
+		// Rsvp.userId fast-follow lands (today the column is absent, so it's always a guest).
+		if (created) {
+			const target: EntityRef = event.pageId
+				? { type: "PAGE", id: event.pageId }
+				: { type: "USER", id: event.userId };
+			const rsvpUserId = (rsvp as { userId?: string | null }).userId ?? null;
+			const actor: ActorRef = rsvpUserId
+				? { type: "USER", id: rsvpUserId }
+				: { type: "ANON", label: data.name.trim() };
+			await emitActivity("rsvp.created", actor, target, { type: NotificationObject.EVENT, id });
+		}
+
 		return NextResponse.json(rsvp, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/events/:id/rsvps error:", error);
@@ -69,18 +79,20 @@ export async function GET(request: Request, { params }: Params) {
 		}
 
 		const { id } = await params;
+		const viewer = await getViewerContext();
 
-		// Verify event exists and user is the organizer
-		const event = await prisma.event.findUnique({
-			where: { id },
-			select: { userId: true },
-		});
-
+		// Gate viewability first: a viewer who can't see the event 404s (no existence oracle) before
+		// the manage check. The attendee list (names + emails) is then restricted to whoever can
+		// manage the event — the creator, or any ADMIN/EDITOR of the hosting page.
+		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");
 		}
 
-		if (event.userId !== ctx.userId) {
+		const canManage = event.pageId
+			? await canActAsEntity(ctx.userId, { page: { id: event.pageId } })
+			: await canActAsEntity(ctx.userId, { user: { id: event.userId } });
+		if (!canManage) {
 			return NextResponse.json(
 				{ error: "Only the event organizer can view the attendee list" },
 				{ status: 403 }

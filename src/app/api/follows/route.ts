@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
-import { logAction } from "@/lib/utils/server/log";
+import { requestOrCreateFollow } from "@/lib/utils/server/requests";
 
 /**
  * POST /api/follows
@@ -27,6 +27,10 @@ export async function POST(request: Request) {
 			return badRequest("Exactly one of followingUserId or followingPageId must be provided");
 		}
 
+		// Requester is the personal identity. (Pages-as-followers is supported in
+		// requests.ts but not yet initiated from the UI — see spec open decision.)
+		const requester = { type: "USER" as const, id: ctx.userId };
+
 		if (followingUserId) {
 			if (typeof followingUserId !== "string") {
 				return badRequest("followingUserId must be a string");
@@ -37,44 +41,29 @@ export async function POST(request: Request) {
 				return badRequest("Cannot follow yourself");
 			}
 
-			// Verify target user exists
-			const targetUser = await prisma.user.findUnique({ where: { id: followingUserId } });
+			// Verify target user exists (and read its visibility for the gate)
+			const targetUser = await prisma.user.findUnique({
+				where: { id: followingUserId },
+				select: { id: true, profileVisibility: true },
+			});
 			if (!targetUser) {
 				return notFound("User to follow not found");
 			}
 
-			// Check if already following
+			// Already following?
 			const existing = await prisma.follow.findUnique({
-				where: {
-					followerId_followingUserId: {
-						followerId: ctx.userId,
-						followingUserId,
-					},
-				},
+				where: { followerId_followingUserId: { followerId: ctx.userId, followingUserId } },
 			});
-
 			if (existing) {
 				return badRequest("Already following this user");
 			}
 
-			const follow = await prisma.follow.create({
-				data: {
-					followerId: ctx.userId,
-					followingUserId,
-				},
+			const result = await requestOrCreateFollow(requester, {
+				type: "USER",
+				id: targetUser.id,
+				profileVisibility: targetUser.profileVisibility,
 			});
-
-			logAction("follow.created", ctx.userId, { followingUserId });
-
-			return NextResponse.json(
-				{
-					id: follow.id,
-					followerId: follow.followerId,
-					followingUserId: follow.followingUserId,
-					createdAt: follow.createdAt,
-				},
-				{ status: 201 }
-			);
+			return NextResponse.json(result, { status: 201 });
 		}
 
 		// followingPageId case
@@ -82,44 +71,29 @@ export async function POST(request: Request) {
 			return badRequest("followingPageId must be a string");
 		}
 
-		// Verify target page exists
-		const targetPage = await prisma.page.findUnique({ where: { id: followingPageId } });
+		// Verify target page exists (and read its visibility for the gate)
+		const targetPage = await prisma.page.findUnique({
+			where: { id: followingPageId },
+			select: { id: true, profileVisibility: true },
+		});
 		if (!targetPage) {
 			return notFound("Page to follow not found");
 		}
 
-		// Check if already following
+		// Already following?
 		const existing = await prisma.follow.findUnique({
-			where: {
-				followerId_followingPageId: {
-					followerId: ctx.userId,
-					followingPageId,
-				},
-			},
+			where: { followerId_followingPageId: { followerId: ctx.userId, followingPageId } },
 		});
-
 		if (existing) {
 			return badRequest("Already following this page");
 		}
 
-		const follow = await prisma.follow.create({
-			data: {
-				followerId: ctx.userId,
-				followingPageId,
-			},
+		const result = await requestOrCreateFollow(requester, {
+			type: "PAGE",
+			id: targetPage.id,
+			profileVisibility: targetPage.profileVisibility,
 		});
-
-		logAction("follow.created", ctx.userId, { followingPageId });
-
-		return NextResponse.json(
-			{
-				id: follow.id,
-				followerId: follow.followerId,
-				followingPageId: follow.followingPageId,
-				createdAt: follow.createdAt,
-			},
-			{ status: 201 }
-		);
+		return NextResponse.json(result, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/follows error:", error);
 		return serverError();

@@ -1,81 +1,36 @@
-"use client";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { EXPLORE_PAGE } from "@/lib/const/routes";
+import { AuthCard } from "@/lib/components/auth/AuthCard";
+import { LoginForm } from "./LoginForm";
 
-import { signIn, useSession } from "next-auth/react";
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Button } from "@/lib/components/ui/Button";
-import { SIGNUP, HOME } from "@/lib/const/routes";
-import { InviteCTA } from "../signup/page";
-
-export default function LoginPage() {
-	const { data: session } = useSession();
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [error, setError] = useState("");
-	const searchParams = useSearchParams();
-	const callbackUrl = searchParams.get("callbackUrl") || HOME;
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setError("");
-
-		const result = await signIn("credentials", {
-			email,
-			password,
-			redirect: false,
-		});
-
-		if (result?.error) {
-			setError("Invalid email or password");
-		} else {
-			// Force a full page reload to refresh all server components (layout, etc.)
-			// This ensures the layout updates to show authenticated state
-			window.location.href = callbackUrl;
-		}
-	};
+/**
+ * Server gate: an already-authenticated visitor is redirected off /login (to their
+ * requested callbackUrl, else Explore) — mirroring the reverse gate on protected routes
+ * like /connections. Gated on `session.user?.id`, not truthiness, so a stale/invalidated
+ * session (which carries no id) still sees the form rather than being wrongly bounced.
+ */
+export default async function LoginPage({
+	searchParams,
+}: {
+	searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+	const session = await auth();
+	if (session?.user?.id) {
+		const { callbackUrl } = await searchParams;
+		redirect(callbackUrl || EXPLORE_PAGE);
+	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center p-4">
-			<div className="w-full max-w-sm space-y-4 text-center">
-				{session && (
-					<div className="bg-gray-100 p-3 rounded text-sm">
-			Logged in as {session.user?.email}.{" "}
-					<a href={HOME} className="underline">Go home</a>
-					</div>
-				)}
-
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<h1 className="text-2xl font-bold">Log In</h1>
-
-					{error && <p className="text-red-500">{error}</p>}
-
-					<input
-						type="email"
-						placeholder="Email"
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
-						className="w-full border p-2 rounded"
-						required
-					/>
-					<input
-						type="password"
-						placeholder="Password"
-						value={password}
-						onChange={(e) => setPassword(e.target.value)}
-						className="w-full border p-2 rounded"
-						required
-					/>
-					<Button type="submit" fullWidth>
-						Log In
-					</Button>
-
-					<p className="text-sm text-center">
-						Don't have an account?{" "}
-						<a href={SIGNUP} className="underline">Sign up</a>
-					</p>
-				</form>
-				<InviteCTA />
-			</div>
-		</main>
+		<Suspense
+			fallback={
+				<AuthCard>
+					<p className="text-gray-600">Loading…</p>
+				</AuthCard>
+			}
+		>
+			<LoginForm />
+		</Suspense>
 	);
 }

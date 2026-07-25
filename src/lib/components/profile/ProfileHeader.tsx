@@ -5,6 +5,9 @@ import { ClickableProfilePicture } from "./ClickableProfilePicture";
 type ProfileHeaderProps = {
 	profile: ProfileEntity;
 	isOwnProfile?: boolean;
+	/** When true, render identity only (name/handle/avatar) — no headline/location.
+	 *  Used by the PRIVATE-profile locked stub so those fields don't leak. */
+	identityOnly?: boolean;
 };
 
 /**
@@ -12,7 +15,7 @@ type ProfileHeaderProps = {
  * Displays avatar (lg), display name, @handle, headline (italic), and location.
  * When isOwnProfile=true, the avatar is clickable to edit the photo.
  */
-export function ProfileHeader({ profile, isOwnProfile = false }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, isOwnProfile = false, identityOnly = false }: ProfileHeaderProps) {
 	const displayName = getProfileDisplayName(profile);
 	const handle = getProfileIdentifier(profile);
 	const headline = getProfileHeadline(profile);
@@ -34,8 +37,8 @@ export function ProfileHeader({ profile, isOwnProfile = false }: ProfileHeaderPr
 			<div>
 				<h1 className="text-3xl font-bold">{displayName}</h1>
 				<p className="text-sm text-dusty-grey mt-0.5">@{handle}</p>
-				{headline && <p className="text-lg italic text-gray-600 mt-1">{headline}</p>}
-				{location && <p className="text-sm text-gray-500 mt-0.5">{location}</p>}
+				{!identityOnly && headline && <p className="text-lg italic text-gray-600 mt-1">{headline}</p>}
+				{!identityOnly && location && <p className="text-sm text-gray-500 mt-0.5">{location}</p>}
 			</div>
 		</div>
 	);

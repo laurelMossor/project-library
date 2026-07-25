@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
@@ -17,6 +18,7 @@ import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineField } from "@/lib/hooks/useInlineField";
 import { getUserDisplayName } from "@/lib/types/user";
 import { authFetch } from "@/lib/utils/auth-client";
 import type { SavePayload } from "@/lib/types/inline-edit";
@@ -28,7 +30,6 @@ export type ProfileEditEntity =
 type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
 	saveUrl: string;
-	defaultReadonly?: boolean;
 };
 
 // ─── Inner content (needs session context) ────────────────────────────────────
@@ -48,35 +49,31 @@ function ProfileOwnerContent({
 	const originalName =
 		entity.type === "user" ? getUserDisplayName(entity.data) : entity.data.name;
 
-	const [editName, setEditName] = useState(originalName);
-	const [editHeadline, setEditHeadline] = useState(entity.data.headline || "");
-	const [editBio, setEditBio] = useState(entity.data.bio || "");
-	const [editLocation, setEditLocation] = useState(entity.data.location || "");
-	const [editInterests, setEditInterests] = useState<string[]>(entity.data.interests);
+	// Session-backed fields — dirtyFields is the single source of truth.
+	const { value: name, setValue: setName } = useInlineField("name", originalName);
+	const { value: headline, setValue: setHeadline } = useInlineField<string | null>("headline", entity.data.headline);
+	const { value: bio, setValue: setBio } = useInlineField<string | null>("bio", entity.data.bio);
+	const { value: location, setValue: setLocation } = useInlineField<string | null>("location", entity.data.location);
+	const { value: interests, setValue: setInterests } = useInlineField<string[]>("interests", entity.data.interests);
 
+	const canEdit = session?.canEdit ?? false;
+
+	// Close any open field whenever editing is disabled (cancel OR save both flip canEdit to false).
+	useEffect(() => {
+		if (!canEdit) setEditingField(null);
+	}, [canEdit]);
+
+	// When session cancels, also close open fields (values revert automatically via session).
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
 		if (cancelRevision === 0) return;
-		setEditName(originalName);
-		setEditHeadline(entity.data.headline || "");
-		setEditBio(entity.data.bio || "");
-		setEditLocation(entity.data.location || "");
-		setEditInterests(entity.data.interests);
 		setEditingField(null);
 	// cancelRevision is the only intended trigger
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
-
-	const canEdit = session?.canEdit ?? false;
 	const entityId = entity.data.id;
 	const entityType = entity.type === "user" ? "user" : "page";
 	const connectionsHref = PUBLIC_PROFILE(entity.data.handle);
-
-	const currentName = (session?.dirtyFields.name as string) ?? originalName;
-	const currentHeadline = (session?.dirtyFields.headline as string | null) ?? entity.data.headline;
-	const currentLocation = (session?.dirtyFields.location as string | null) ?? entity.data.location;
-	const currentBio = (session?.dirtyFields.bio as string | null) ?? entity.data.bio;
-	const currentInterests = (session?.dirtyFields.interests as string[]) ?? entity.data.interests;
 
 	const avatarEntity =
 		entity.type === "page"
@@ -108,19 +105,16 @@ function ProfileOwnerContent({
 						<InlineEditable
 							canEdit={canEdit}
 							isEditing={editingField === "name"}
-							onEditStart={() => { setEditName(currentName); setEditingField("name"); }}
+							onEditStart={() => setEditingField("name")}
 							onCancel={() => setEditingField(null)}
 							displayContent={
-								<h1 className="text-3xl font-bold">{currentName || entity.data.handle}</h1>
+								<h1 className="text-3xl font-bold">{(name as string) || entity.data.handle}</h1>
 							}
 							editContent={
 								<input
 									type="text"
-									value={editName}
-									onChange={(e) => {
-										setEditName(e.target.value);
-										session?.setDirty("name", e.target.value, originalName);
-									}}
+									value={name as string}
+									onChange={(e) => setName(e.target.value)}
 									placeholder="Name"
 									maxLength={100}
 									className="text-3xl font-bold border-b-2 border-rich-brown/20 pb-0.5 focus:outline-none focus:border-rich-brown bg-transparent"
@@ -134,18 +128,18 @@ function ProfileOwnerContent({
 						<InlineEditable
 							canEdit={canEdit}
 							isEditing={editingField === "headline"}
-							onEditStart={() => { setEditHeadline(entity.data.headline || ""); setEditingField("headline"); }}
+							onEditStart={() => setEditingField("headline")}
 							onCancel={() => setEditingField(null)}
 							displayContent={
-								<InlinePlaceholder value={currentHeadline} placeholder="Add a headline">
-									<p className="text-lg italic text-gray-600 mt-1">{currentHeadline}</p>
+								<InlinePlaceholder value={headline as string | null} placeholder="Add a headline">
+									<p className="text-lg italic text-gray-600 mt-1">{headline as string}</p>
 								</InlinePlaceholder>
 							}
 							editContent={
 								<input
 									type="text"
-									value={editHeadline}
-									onChange={(e) => { setEditHeadline(e.target.value); session?.setDirty("headline", e.target.value || null, entity.data.headline); }}
+									value={(headline as string) || ""}
+									onChange={(e) => setHeadline(e.target.value || null)}
 									placeholder="Add a headline"
 									maxLength={200}
 									className="w-full text-lg border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent mt-1"
@@ -158,18 +152,18 @@ function ProfileOwnerContent({
 						<InlineEditable
 							canEdit={canEdit}
 							isEditing={editingField === "location"}
-							onEditStart={() => { setEditLocation(entity.data.location || ""); setEditingField("location"); }}
+							onEditStart={() => setEditingField("location")}
 							onCancel={() => setEditingField(null)}
 							displayContent={
-								<InlinePlaceholder value={currentLocation} placeholder="Add a location">
-									<p className="text-sm text-gray-500 mt-0.5">{currentLocation}</p>
+								<InlinePlaceholder value={location as string | null} placeholder="Add a location">
+									<p className="text-sm text-gray-500 mt-0.5">{location as string}</p>
 								</InlinePlaceholder>
 							}
 							editContent={
 								<input
 									type="text"
-									value={editLocation}
-									onChange={(e) => { setEditLocation(e.target.value); session?.setDirty("location", e.target.value || null, entity.data.location); }}
+									value={(location as string) || ""}
+									onChange={(e) => setLocation(e.target.value || null)}
 									placeholder="Add a location"
 									maxLength={200}
 									className="w-full text-sm border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent mt-0.5"
@@ -182,8 +176,8 @@ function ProfileOwnerContent({
 
 				{/* Right side */}
 				<div className="flex flex-col gap-2 w-36 shrink-0">
-					<ProfileButtons entityId={entityId} entityType={entityType} />
-					{entity.type === "page" && <JoinButton pageId={entity.data.id} />}
+					<ProfileButtons entityId={entityId} entityType={entityType} profileVisibility={entity.data.profileVisibility} />
+					{entity.type === "page" && <JoinButton pageId={entity.data.id} profileVisibility={entity.data.profileVisibility} />}
 					<TransparentCTAButton
 						label={previewMode ? "Edit" : "Preview"}
 						icon={previewMode ? <PencilIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
@@ -199,17 +193,17 @@ function ProfileOwnerContent({
 				<InlineEditable
 					canEdit={canEdit}
 					isEditing={editingField === "bio"}
-					onEditStart={() => { setEditBio(entity.data.bio || ""); setEditingField("bio"); }}
+					onEditStart={() => setEditingField("bio")}
 					onCancel={() => setEditingField(null)}
 					displayContent={
-						<InlinePlaceholder value={currentBio} placeholder="Tell people about yourself">
-							<p className="text-gray-600">{currentBio}</p>
+						<InlinePlaceholder value={bio as string | null} placeholder="Tell people about yourself">
+							<p className="text-gray-600">{bio as string}</p>
 						</InlinePlaceholder>
 					}
 					editContent={
 						<textarea
-							value={editBio}
-							onChange={(e) => { setEditBio(e.target.value); session?.setDirty("bio", e.target.value || null, entity.data.bio); }}
+							value={(bio as string) || ""}
+							onChange={(e) => setBio(e.target.value || null)}
 							placeholder="Tell people about yourself"
 							rows={4}
 							maxLength={2000}
@@ -223,14 +217,14 @@ function ProfileOwnerContent({
 				<InlineEditable
 					canEdit={canEdit}
 					isEditing={editingField === "interests"}
-					onEditStart={() => { setEditInterests(entity.data.interests); setEditingField("interests"); }}
+					onEditStart={() => setEditingField("interests")}
 					onCancel={() => setEditingField(null)}
 					displayContent={
 						<div>
 							<h2 className="text-sm font-medium text-gray-500">Interests</h2>
-							{currentInterests.length > 0 ? (
+							{(interests as string[]).length > 0 ? (
 								<div className="mt-2 flex flex-wrap gap-2">
-									{currentInterests.map((i) => <Tag key={i} tag={i} />)}
+									{(interests as string[]).map((i) => <Tag key={i} tag={i} />)}
 								</div>
 							) : (
 								<InlinePlaceholder value={null} placeholder="Add interests" />
@@ -239,8 +233,8 @@ function ProfileOwnerContent({
 					}
 					editContent={
 						<TagInputField
-							tags={editInterests}
-							onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, entity.data.interests); }}
+							tags={interests as string[]}
+							onTagsChange={(tags) => setInterests(tags)}
 							placeholder="Add interests"
 						/>
 					}
@@ -262,9 +256,25 @@ function ProfileOwnerContent({
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
 
-export function ProfileEditClient({ entity: initialEntity, saveUrl, defaultReadonly = false }: ProfileEditClientProps) {
+export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEditClientProps) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const [entity, setEntity] = useState(initialEntity);
-	const [previewMode, setPreviewMode] = useState(defaultReadonly);
+
+	// URL is the source of truth for edit/preview state
+	const previewMode = searchParams.get("edit") !== "true";
+
+	const setPreviewMode = useCallback((preview: boolean) => {
+		const params = new URLSearchParams(searchParams.toString());
+		if (preview) {
+			params.delete("edit");
+		} else {
+			params.set("edit", "true");
+		}
+		const query = params.toString();
+		router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+	}, [router, pathname, searchParams]);
 
 	const handleSave = async (payload: SavePayload) => {
 		const fields = { ...payload.fields };
@@ -293,13 +303,15 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl, defaultReado
 		<InlineEditSession
 			resource={entity.data as unknown as Record<string, unknown>}
 			onSave={handleSave as (payload: SavePayload) => Promise<Record<string, unknown> | void>}
-			onSaved={(updated) =>
+			onSaved={(updated) => {
 				setEntity((prev) =>
 					prev.type === "user"
 						? { type: "user", data: { ...prev.data, ...(updated as Partial<PublicUser>) } }
 						: { type: "page", data: { ...prev.data, ...(updated as Partial<PublicPage>) } }
-				)
-			}
+				);
+				// Bug #1 fix: return to preview/view mode after a successful save
+				setPreviewMode(true);
+			}}
 			canEdit={!previewMode}
 		>
 			<ProfileOwnerContent

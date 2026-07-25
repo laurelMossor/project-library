@@ -42,4 +42,5 @@ export interface EventUpdateInput {
 	longitude?: number | null;
 	tags?: string[];
 	status?: EventStatus;
+	// visibility is derived from the owning profile — never client-set.
 }

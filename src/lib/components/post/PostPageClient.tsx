@@ -15,14 +15,20 @@ import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfil
 import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { Tag } from "@/lib/components/tag/Tag";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
+import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { CommentSection } from "@/lib/components/comment/CommentSection";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
-import { updatePost, publishPost, deletePost } from "@/lib/utils/post-client";
+import { PostImagesModal } from "@/lib/components/images/PostImagesModal";
+import { updatePost, deletePost } from "@/lib/utils/post-client";
+import { postHasContent } from "@/lib/utils/content";
 import { AuthError } from "@/lib/utils/auth-client";
 import { PencilIcon } from "@/lib/components/icons/icons";
 import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { ImageItem } from "@/lib/types/image";
 
 type PostPageClientProps = {
@@ -37,29 +43,35 @@ function PostPageContent({
 	post,
 	setPost,
 	images,
+	setImages,
 	isOwner,
 	isLoggedIn,
 }: {
 	post: PostItem;
 	setPost: React.Dispatch<React.SetStateAction<PostItem>>;
 	images: ImageItem[];
+	setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
 	isOwner: boolean;
 	isLoggedIn: boolean;
 }) {
 	const router = useRouter();
 	const session = useInlineEditSession();
 	const [editingField, setEditingField] = useState<string | null>(null);
-	const [publishing, setPublishing] = useState(false);
-
-	const [editTitle, setEditTitle] = useState(post.title);
-	const [editContent, setEditContent] = useState(post.content);
-	const [editTagsArr, setEditTagsArr] = useState<string[]>(post.tags);
-	const [isEditing, setIsEditing] = useState(post.status === "DRAFT");
 
 	const isDraft = post.status === "DRAFT";
 	const isPublished = post.status === "PUBLISHED";
+	const [isEditing, setIsEditing] = useState(isDraft);
 	const entity = post.page ?? post.user!;
-	const isDirty = session ? Object.keys(session.dirtyFields).length > 0 : false;
+
+	// Page carousel position + the photo-manager modal (opens at a given photo, or empty to add).
+	const [carouselIndex, setCarouselIndex] = useState(0);
+	const [photosModal, setPhotosModal] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
+
+	// Session-backed fields — dirtyFields is the single source of truth.
+	// displayContent renders these values so edited text is visible on blur.
+	const { value: title, setValue: setTitle } = useInlineField("title", post.title);
+	const { value: content, setValue: setContent } = useInlineField("content", post.content);
+	const { value: tags, setValue: setTags } = useInlineField<string[]>("tags", post.tags);
 
 	const handleAuthError = () => {
 		router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
@@ -74,34 +86,37 @@ function PostPageContent({
 		}
 	};
 
-	// When session cancels, revert all field states
+	// When session cancels, close any open edit field (values revert automatically
+	// because dirtyFields clears and useInlineField reads from it).
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
 		if (cancelRevision === 0) return;
-		setEditTitle(post.title);
-		setEditContent(post.content);
-		setEditTagsArr(post.tags);
 		setEditingField(null);
-	// cancelRevision changing is the only trigger
+	// cancelRevision is the only intended trigger
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
 
+	// Drop out of edit mode when the post transitions to PUBLISHED
+	// (happens after Save-and-publish commits via onSaved)
+	useEffect(() => {
+		if (post.status === "PUBLISHED") setIsEditing(false);
+	}, [post.status]);
 
 	// Tracks whether this post is still a draft so the unmount cleanup always
 	// has the latest value (avoids stale closure over `isDraft`).
-	// TODO how does this relate to hasContentRef?
 	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
 	useEffect(() => {
 		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && isOwner;
 	}, [post.status, isOwner]);
 
 	// True once any content has been added — prevents silent deletion of non-empty drafts.
-	// TODO: This should be a shared utility between used by event and post 
-	const hasContentRef = useRef(Boolean(post.title || post.content));
+	// A title, body, OR photo all count (postHasContent), so an image-only draft survives.
+	const hasContentRef = useRef(postHasContent({ title: post.title, content: post.content, imageCount: images.length }));
 	useEffect(() => {
-		if (post.title || post.content) hasContentRef.current = true;
-	}, [post.title, post.content]);
-	// Also mark dirty when any inline field is edited (before save)
+		if (postHasContent({ title: post.title, content: post.content, imageCount: images.length })) {
+			hasContentRef.current = true;
+		}
+	}, [post.title, post.content, images.length]);
 	const dirtyCount = session ? Object.keys(session.dirtyFields).length : 0;
 	useEffect(() => {
 		if (dirtyCount > 0) hasContentRef.current = true;
@@ -121,20 +136,6 @@ function PostPageContent({
 	// post.id is stable for the lifetime of this component
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-
-	const handlePublish = async () => {
-		setPublishing(true);
-		try {
-			if (isDirty) await session?.saveAll();
-			const updated = await publishPost(post.id);
-			setPost((prev) => ({ ...prev, ...updated }));
-			setIsEditing(false);
-		} catch (err) {
-			if (err instanceof AuthError) handleAuthError();
-		} finally {
-			setPublishing(false);
-		}
-	};
 
 	return (
 		<>
@@ -160,42 +161,36 @@ function PostPageContent({
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "title"}
-					onEditStart={() => {
-						setEditTitle(post.title);
-						setEditingField("title");
-					}}
-					onCancel={() => {
-						setEditingField(null);
-						
-					}}
-				displayContent={
-					editTitle ? (
-						<h1 className="text-4xl font-bold text-rich-brown leading-tight">{editTitle}</h1>
-					) : isDraft && isOwner ? (
-						<h1 className="text-4xl leading-tight font-normal italic text-misty-forest/50">
-							Title (optional)
-						</h1>
-					) : null
-				}
-				editContent={
-					<input
-						type="text"
-						value={editTitle || ""}
-						onChange={(e) => { setEditTitle(e.target.value); session?.setDirty("title", e.target.value, post.title); }}
-						onBlur={() => setEditingField(null)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								setEditingField(null);
-								session?.saveAll();
-							}
-						}}
-						placeholder="Title (optional)"
-						maxLength={150}
-						className="w-full text-4xl leading-tight border-none outline-none bg-transparent font-bold text-rich-brown"
-						autoFocus
-					/>
-				}
+					onEditStart={() => setEditingField("title")}
+					onCancel={() => setEditingField(null)}
+					displayContent={
+						title ? (
+							<h1 className="text-4xl font-bold text-rich-brown leading-tight">{title as string}</h1>
+						) : isDraft && isOwner ? (
+							<h1 className="text-4xl leading-tight font-normal italic text-misty-forest/50">
+								Title (optional)
+							</h1>
+						) : null
+					}
+					editContent={
+						<input
+							type="text"
+							value={(title as string) || ""}
+							onChange={(e) => setTitle(e.target.value)}
+							onBlur={() => setEditingField(null)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.preventDefault();
+									setEditingField(null);
+									session?.saveAll();
+								}
+							}}
+							placeholder="Title (optional)"
+							maxLength={150}
+							className="w-full text-4xl leading-tight border-none outline-none bg-transparent font-bold text-rich-brown"
+							autoFocus
+						/>
+					}
 				/>
 
 				{/* Author + actions row */}
@@ -215,25 +210,10 @@ function PostPageContent({
 						{isLoggedIn && !isOwner && (
 							<Link
 								href={MESSAGE_CONVERSATION({ id: post.userId, type: "user" })}
-								className="px-3 py-1 text-sm font-medium border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+								className="px-3 py-1 text-sm font-medium border border-soft-grey rounded-full hover:bg-grey-white transition-colors"
 							>
 								Message
 							</Link>
-						)}
-						{isOwner && isDraft && (
-							<div className="flex flex-col items-start gap-1">
-								<button
-									type="button"
-									onClick={handlePublish}
-									disabled={publishing || !editContent.trim()}
-									className="px-5 py-2 text-sm font-semibold text-white bg-moss-green rounded-full hover:bg-rich-brown transition-colors disabled:opacity-50"
-								>
-									{publishing ? "Publishing..." : "Publish"}
-								</button>
-								{!editContent.trim() && !publishing && (
-									<p className="text-xs text-dusty-grey">Add some content to publish</p>
-								)}
-							</div>
 						)}
 						{isOwner && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
@@ -247,60 +227,86 @@ function PostPageContent({
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "content"}
-					onEditStart={() => {
-						setEditContent(post.content);
-						setEditingField("content");
-					}}
-					onCancel={() => {
-						setEditingField(null);
-						
-					}}
-					displayContent={
-						<div className={`p-3 rounded-lg min-h-[10rem] ${!post.content ? "bg-melon-green/10 border border-dashed border-ash-green/60" : ""}`}>
-							<InlinePlaceholder value={post.content} placeholder="What are you working on or thinking about?">
-								<p className="text-base leading-relaxed text-gray-700 whitespace-pre-wrap">{post.content}</p>
+					onEditStart={() => setEditingField("content")}
+					onCancel={() => setEditingField(null)}
+					displayContent={(() => {
+						const body = (
+							<InlinePlaceholder value={content as string} placeholder="What are you working on or thinking about?">
+								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap">{content as string}</p>
 							</InlinePlaceholder>
-						</div>
-					}
+						);
+						return (content as string)
+							? <div className="p-3 rounded-lg min-h-[10rem]">{body}</div>
+							: <DashedPlaceholder className="p-3 min-h-[10rem]">{body}</DashedPlaceholder>;
+					})()}
 					editContent={
 						<textarea
-							value={editContent}
-							onChange={(e) => { setEditContent(e.target.value); session?.setDirty("content", e.target.value, post.content); }}
+							value={(content as string) || ""}
+							onChange={(e) => setContent(e.target.value)}
 							placeholder="What are you working on or thinking about?"
 							rows={8}
 							maxLength={10000}
-							className="w-full text-base leading-relaxed text-gray-700 border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
+							className="w-full text-base leading-relaxed text-warm-grey border border-ash-green rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rich-brown/20 focus:border-rich-brown"
 							autoFocus
 						/>
 					}
 				/>
 
 				{/* Images */}
-				{images.length > 0 && <ImageCarousel images={images} showCaptions isOwner={isOwner && isEditing} />}
+				{images.length > 0 ? (
+					<ImageCarousel
+						images={images}
+						currentIndex={carouselIndex}
+						onIndexChange={setCarouselIndex}
+						showCaptions
+						onEditImage={isOwner && isEditing ? (i) => setPhotosModal({ open: true, index: i }) : undefined}
+					/>
+				) : (
+					isOwner && isEditing && (
+						<DashedPlaceholder className="p-6 flex justify-center">
+							<button
+								type="button"
+								onClick={() => setPhotosModal({ open: true, index: 0 })}
+								className="text-sm font-medium text-misty-forest hover:text-rich-brown transition-colors"
+							>
+								+ Add photos
+							</button>
+						</DashedPlaceholder>
+					)
+				)}
+
+				{/* Photo manager modal — owner only. Manages the whole set (preview + caption + add + remove). */}
+				{isOwner && photosModal.open && (
+					<PostImagesModal
+						isOpen
+						onClose={() => setPhotosModal({ open: false, index: 0 })}
+						postId={post.id}
+						images={images}
+						setImages={setImages}
+						initialIndex={photosModal.index}
+					/>
+				)}
 
 				{/* Tags */}
 				<InlineEditable
 					canEdit={isOwner && isEditing}
 					isEditing={editingField === "tags"}
-					onEditStart={() => {
-						setEditTagsArr(post.tags);
-						setEditingField("tags");
-					}}
-					onCancel={() => {
-						setEditingField(null);
-						
-					}}
+					onEditStart={() => setEditingField("tags")}
+					onCancel={() => setEditingField(null)}
 					displayContent={
-						post.tags.length > 0 ? (
+						(tags as string[]).length > 0 ? (
 							<div className="flex flex-wrap gap-2">
-								{post.tags.map((tag) => <Tag key={tag} tag={tag} />)}
+								{(tags as string[]).map((tag) => <Tag key={tag} tag={tag} />)}
 							</div>
 						) : (
 							<InlinePlaceholder value={null} placeholder="Add topics" />
 						)
 					}
 					editContent={
-						<TagInputField tags={editTagsArr} onTagsChange={(tags) => { setEditTagsArr(tags); session?.setDirty("tags", tags, post.tags); }} />
+						<TagInputField
+							tags={tags as string[]}
+							onTagsChange={(newTags) => setTags(newTags)}
+						/>
 					}
 				/>
 
@@ -311,7 +317,7 @@ function PostPageContent({
 
 				{/* Footer actions */}
 				{isOwner && (
-					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-gray-100">
+					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-soft-grey">
 						<DeleteConfirmButton
 							label="Delete Post"
 							itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
@@ -329,7 +335,7 @@ function PostPageContent({
 							<button
 								type="button"
 								onClick={() => setIsEditing(true)}
-								className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-rich-brown transition-colors cursor-pointer"
+								className="flex items-center gap-1.5 text-sm font-medium text-misty-forest hover:text-rich-brown transition-colors cursor-pointer"
 							>
 								<PencilIcon className="w-3.5 h-3.5" />
 								Edit
@@ -338,7 +344,10 @@ function PostPageContent({
 						{isPublished && isEditing && (
 							<button
 								type="button"
-								onClick={async () => { if (isDirty) await session?.saveAll(); setIsEditing(false); }}
+								onClick={async () => {
+									if (session && Object.keys(session.dirtyFields).length > 0) await session.saveAll();
+									setIsEditing(false);
+								}}
 								className="text-sm font-medium text-moss-green hover:text-rich-brown transition-colors cursor-pointer"
 							>
 								Done
@@ -351,37 +360,60 @@ function PostPageContent({
 	);
 }
 
-export function PostPageClient({ post: initialPost, images, isOwner, isLoggedIn }: PostPageClientProps) {
+export function PostPageClient({ post: initialPost, images: initialImages, isOwner, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
+	// Images live here (not in the carousel) so the publish gate below can see them live.
+	const [images, setImages] = useState(initialImages);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
+	const isDraft = post.status === "DRAFT";
+	const isPublished = post.status === "PUBLISHED";
+
 	return (
 		<PostPageShell breadcrumb={
-			<Link href={exploreHref} className="text-sm text-gray-500 hover:text-gray-700 hover:underline">
+			<Link href={exploreHref} className="text-sm text-misty-forest hover:text-rich-brown hover:underline">
 				&larr; Back to Explore
 			</Link>
 		}>
-			<InlineEditSession
-				resource={post as unknown as Record<string, unknown>}
-				onSave={async ({ fields }) => {
-					const updated = await updatePost(post.id, fields as Parameters<typeof updatePost>[1]);
-					setPost((prev) => ({ ...prev, ...updated }));
-					return updated as unknown as Record<string, unknown>;
-				}}
-				onSaved={(updated) => {
-					setPost((prev) => ({ ...prev, ...(updated as Partial<PostItem>) }));
-				}}
-				canEdit={isOwner}
-			>
-				<PostPageContent
-					post={post}
-					setPost={setPost}
-					images={images}
-					isOwner={isOwner}
+			<ContentCard>
+				<InlineEditSession
+					resource={post as unknown as Record<string, unknown>}
+					onSave={async ({ fields }) => {
+						const updated = await updatePost(post.id, fields as Parameters<typeof updatePost>[1]);
+						setPost((prev) => ({ ...prev, ...updated }));
+						return updated as unknown as Record<string, unknown>;
+					}}
+					onSaved={(updated) => {
+						setPost((prev) => ({ ...prev, ...(updated as Partial<PostItem>) }));
+					}}
+					canEdit={isOwner}
+					publishable={isOwner && isDraft}
+					canPublish={(current) => postHasContent({ title: current.title as string | null, content: current.content as string | null, imageCount: images.length })}
+					publishHint="Add a title, some content, or a photo to publish"
+				>
+					<PostPageContent
+						post={post}
+						setPost={setPost}
+						images={images}
+						setImages={setImages}
+						isOwner={isOwner}
+						isLoggedIn={isLoggedIn}
+					/>
+				</InlineEditSession>
+			</ContentCard>
+
+			{/* Comments live below the post, in their own card. Published posts only —
+			    a draft is visible only to its owner and can't yet be commented on. */}
+			{isPublished && (
+				<CommentSection
+					target={{ kind: "post", id: post.id }}
+					ownerUserId={post.userId}
+					ownerPageId={post.pageId}
+					isContentOwner={isOwner}
 					isLoggedIn={isLoggedIn}
 				/>
-			</InlineEditSession>
+			)}
 		</PostPageShell>
 	);
 }

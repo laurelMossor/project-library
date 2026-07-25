@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { findEntityByHandle } from "@/lib/utils/server/handle";
 import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPageByHandle } from "@/lib/utils/server/page";
@@ -21,8 +21,8 @@ export default async function HandleAboutPage({ params }: Props) {
 	const entity = await findEntityByHandle(handle);
 	if (!entity) notFound();
 
-	const session = await auth();
-	const viewerId = session?.user?.id;
+	const viewer = await getViewerContext();
+	const viewerId = viewer.userId ?? undefined;
 
 	let canEdit: boolean;
 	let aboutContent: string | null;
@@ -34,6 +34,8 @@ export default async function HandleAboutPage({ params }: Props) {
 	if (entity.user) {
 		const user = await getUserByHandle(handle);
 		if (!user) notFound();
+		// About content is body content, not an identity stub — only FULL access may see it.
+		if ((await resolveProfileAccess("USER", user, viewer)) !== "FULL") notFound();
 		canEdit = viewerId === user.id;
 		aboutContent = user.aboutContent;
 		displayName = getUserDisplayName(user);
@@ -49,6 +51,7 @@ export default async function HandleAboutPage({ params }: Props) {
 	} else if (entity.page) {
 		const page = await getPageByHandle(handle);
 		if (!page) notFound();
+		if ((await resolveProfileAccess("PAGE", page, viewer)) !== "FULL") notFound();
 		canEdit = viewerId ? await canManagePage(viewerId, page.id) : false;
 		aboutContent = page.aboutContent;
 		displayName = getPageDisplayName(page);

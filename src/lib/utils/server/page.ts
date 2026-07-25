@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { PermissionRole, ResourceType } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
+import { grantPermission } from "./permission";
 
 export const publicPageFields = {
   id: true,
@@ -13,7 +14,8 @@ export const publicPageFields = {
   bio: true,
   interests: true,
   location: true,
-  visibility: true,
+  profileVisibility: true,
+  contentVisibility: true,
   addressLine1: true,
   addressLine2: true,
   city: true,
@@ -67,14 +69,17 @@ export async function updatePageProfile(
     category?: string | null;
     avatarImageId?: string | null;
     aboutContent?: string | null;
-  }
+    profileVisibility?: import("@prisma/client").ProfileVisibility;
+    contentVisibility?: import("@prisma/client").ContentVisibility;
+  },
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ) {
   const updateData: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     if (value !== undefined) updateData[key] = value;
   }
 
-  return prisma.page.update({
+  return ((tx ?? prisma) as typeof prisma).page.update({
     where: { id: pageId },
     data: updateData,
     select: publicPageFields,
@@ -88,8 +93,8 @@ export async function updatePageProfile(
  *   1. Page (with nested `handleRecord: { create }` — atomic at driver layer)
  *   2. Permission (creator gets ADMIN role for the new page)
  *
- * Caller is responsible for:
- *   - Lowercasing `handle` (per PR 2 normalization rule).
+ * The handle is lowercased here (canonical storage form — INV-7). Caller is still
+ * responsible for:
  *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first.
  *
  * Race condition handling: if a concurrent caller wins the handle between
@@ -107,30 +112,28 @@ export async function createPage(
     location?: string;
   }
 ) {
+  // Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
+  const handle = data.handle.toLowerCase();
   return prisma.$transaction(async (tx) => {
     const page = await tx.page.create({
       data: {
         createdByUserId: userId,
         name: data.name.trim(),
-        handle: data.handle,
+        handle,
         headline: data.headline?.trim() || null,
         bio: data.bio?.trim() || null,
         interests: data.interests || [],
         location: data.location?.trim() || null,
-        handleRecord: { create: { handle: data.handle } },
+        // New pages default to open distribution; explicit since the column no longer
+        // carries a DB default.
+        contentVisibility: "LISTED",
+        handleRecord: { create: { handle } },
       },
       select: publicPageFields,
     });
 
-    // Auto-create ADMIN permission for creator
-    await tx.permission.create({
-      data: {
-        userId,
-        resourceId: page.id,
-        resourceType: ResourceType.PAGE,
-        role: PermissionRole.ADMIN,
-      },
-    });
+    // Auto-grant the creator ADMIN, through the shared write helper (tx-aware).
+    await grantPermission(userId, page.id, ResourceType.PAGE, PermissionRole.ADMIN, tx);
 
     return page;
   });

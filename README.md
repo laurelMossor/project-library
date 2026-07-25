@@ -1,15 +1,16 @@
 # Project Library
 
-A platform for sharing and discovering projects, matching with collaborators based on interests.
+A website for creativity, mutuality, and lifelong learning — where people share what they're making, run events, lend tools, and find mentors and collaborators.
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router, TypeScript)
-- **Database:** PostgreSQL + Prisma ORM
+- **Framework:** Next.js 16 (App Router, TypeScript, React 19)
+- **Data:** PostgreSQL + Prisma ORM, hosted on Supabase (Postgres + Storage)
 - **Auth:** NextAuth v5 (credentials)
-- **Styling:** Tailwind CSS
+- **Email:** Resend
+- **Styling:** Tailwind CSS v4
+- **Testing:** Vitest (unit) + Playwright (E2E)
 - **Hosting:** Vercel
-- **Database:** Supabase
 
 ## Getting Started
 
@@ -26,7 +27,9 @@ npm install
 
 ### 2. Set up environment
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root.
+
+**Required** to run the app locally:
 
 ```
 DATABASE_URL="postgresql://YOUR_USERNAME@localhost:5432/projectlibrary"
@@ -36,6 +39,20 @@ AUTH_SECRET="your-secret-key"
 Generate an auth secret:
 ```bash
 openssl rand -base64 32
+```
+
+**Optional** — these enable specific features; the app runs without them in dev:
+
+```
+# Real email delivery (signup verification, etc.). Without RESEND_API_KEY, emails are
+# logged to the console instead of sent. EMAIL_FROM must be on a Resend-verified domain.
+RESEND_API_KEY="..."
+EMAIL_FROM="The Project Library <you@your-domain.com>"
+APP_BASE_URL="http://localhost:3000"   # base URL used for links in emails
+
+# Supabase Storage for image uploads. Without these, uploads go to the local filesystem.
+NEXT_PUBLIC_SUPABASE_URL="https://xxxxx.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="..."
 ```
 
 ### 3. Set up database
@@ -48,17 +65,16 @@ brew services start postgresql@15
 # Create database
 createdb projectlibrary
 
-# Run migrations
-npm run db:migrate --name [NEW_COMMIT]
+# Run migrations (creates a new migration when the schema changed)
+npx prisma migrate dev --name <migration_name>
+# ...or just apply existing migrations with no schema change:
+npm run db:migrate
 
 # Generate the Prisma Client
 npm run db:generate
 
 # Seed the database with sample data (optional)
-npm run db:seed
-
-
-
+npm run db:seed:dev
 ```
 
 **Linux/WSL (Ubuntu/Debian):**
@@ -107,48 +123,10 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## Testing
 
-E2E tests use [Playwright](https://playwright.dev/) and run against the local dev server. Seed the database first (`npm run db:seed:dev`), start the dev server (`npm run dev`), then run `npm run test:e2e`. Tests cover public page renders, auth flows, content creation (events, posts, pages), messaging, and profile interactions.
+- **Unit** ([Vitest](https://vitest.dev/)): `npm run test:unit` (or `npm run test:unit:watch`). No server or database needed — Prisma and the session are mocked. Covers permission/visibility gates, identity scoping, the notification dispatcher, and other server-util logic.
+- **E2E** ([Playwright](https://playwright.dev/)): seed the database (`npm run db:seed:dev`), start the dev server (`npm run dev`), then run `npm run test:e2e`. Covers public page renders, auth flows, content creation (events, posts, pages), messaging, requests, visibility, and profile interactions. See `tests/TESTING.md` for conventions.
 
 ## Deployment
 
-### Vercel Deployment
-
-**Push your code to main branch**
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── (auth)/              # Login & signup
-│   ├── welcome/             # Landing page
-│   ├── explore/             # Browse events & posts
-│   ├── events/              # Event listing, detail, create
-│   ├── posts/               # Post detail, create
-│   ├── pages/               # Page creation
-│   ├── p/[slug]/            # Public page profiles
-│   ├── u/[username]/        # Public user profiles
-│   ├── u/profile/           # Private profile & settings
-│   ├── messages/            # Inbox & conversations
-│   └── api/                 # REST API routes
-│       ├── auth/            # NextAuth + signup
-│       ├── events/          # Events + RSVPs
-│       ├── posts/           # Posts
-│       ├── pages/           # Pages + members/followers
-│       ├── users/           # Users + follows
-│       ├── messages/        # Conversations + inbox
-│       ├── me/              # Current user/page context
-│       └── follows/         # Follow relationships
-├── lib/
-│   ├── components/          # UI components (event, post, page, profile, nav, forms…)
-│   ├── utils/server/        # Server-only: Prisma queries, auth, permissions
-│   ├── utils/               # Client utilities
-│   ├── hooks/               # React hooks
-│   ├── types/               # TypeScript interfaces
-│   └── const/               # Route constants
-prisma/
-├── schema.prisma            # DB models (source of truth)
-└── seed-data/               # Seed JSON
-tests/                       # Playwright E2E tests
-```
+Hosted on Vercel; merging to `main` triggers a deploy. The build runs `prisma migrate deploy` in production. Apply breaking schema changes deliberately — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 

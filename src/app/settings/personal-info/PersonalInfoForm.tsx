@@ -8,9 +8,11 @@ import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceh
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EyeIcon } from "@/lib/components/icons/icons";
+import { VisibilityField } from "@/lib/components/visibility/VisibilityField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
-import { API_ME_USER, API_ME_PAGE, SETTINGS } from "@/lib/const/routes";
+import { API_ME_USER, API_ME_PAGE, API_ME_HANDLE, SETTINGS } from "@/lib/const/routes";
+import { isAdminRole } from "@/lib/const/roles";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
@@ -32,6 +34,95 @@ function FieldLabel({ label, isPublic = false }: { label: string; isPublic?: boo
 			{label}
 			{isPublic && <PublicBadge />}
 		</span>
+	);
+}
+
+// ─── Handle editor ─────────────────────────────────────────────────────
+// Handle changes save through their own endpoint (PUT /api/me/handle), not the inline-edit
+// batch, because they must also update the cross-entity `Handle` namespace row. Kept as a
+// visibly distinct Change → Save/Cancel action so it reads as separate from the batch save.
+
+function HandleEditor({ initialHandle }: { initialHandle: string }) {
+	const [handle, setHandle] = useState(initialHandle);
+	const [editing, setEditing] = useState(false);
+	const [draft, setDraft] = useState(initialHandle);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const start = () => { setDraft(handle); setError(null); setEditing(true); };
+	const cancel = () => { setEditing(false); setError(null); };
+
+	const save = async () => {
+		const next = draft.trim().toLowerCase();
+		if (next === handle) { setEditing(false); return; }
+		setSaving(true);
+		setError(null);
+		try {
+			const res = await authFetch(API_ME_HANDLE, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ handle: next }),
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(body.error || "Failed to update handle");
+			setHandle(body.handle ?? next);
+			setEditing(false);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Failed to update handle");
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const previewHandle = draft.trim().toLowerCase() || handle;
+
+	return (
+		<div>
+			<FieldLabel label="Handle" isPublic />
+			{editing ? (
+				<div className="mt-1 space-y-2">
+					<div className="flex items-center gap-1">
+						<span className="text-base text-dusty-grey">@</span>
+						<input
+							type="text"
+							value={draft}
+							onChange={(e) => setDraft(e.target.value)}
+							maxLength={30}
+							autoFocus
+							className="flex-1 text-base border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent"
+						/>
+					</div>
+					<p className="text-xs text-dusty-grey">Your profile lives at /{previewHandle}. Changing it breaks existing links.</p>
+					{error && <p className="text-xs text-red-500">{error}</p>}
+					<div className="flex gap-2">
+						<button
+							onClick={save}
+							disabled={saving}
+							className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors disabled:opacity-40 cursor-pointer"
+						>
+							{saving ? "Saving..." : "Save"}
+						</button>
+						<button
+							onClick={cancel}
+							disabled={saving}
+							className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-40 cursor-pointer"
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			) : (
+				<div className="mt-1 flex items-center justify-between gap-3">
+					<p className="text-base">@{handle}</p>
+					<button
+						onClick={start}
+						className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer shrink-0"
+					>
+						Change
+					</button>
+				</div>
+			)}
+		</div>
 	);
 }
 
@@ -85,6 +176,9 @@ function UserFields({ data }: { data: PersonalUser }) {
 				<FieldLabel label="Email" />
 				<p className="text-base text-warm-grey mt-1">{data.email}</p>
 			</div>
+
+			{/* Handle — its own save action (see HandleEditor) */}
+			<HandleEditor initialHandle={data.handle} />
 
 			{/* Private fields */}
 			<div className="border-t border-gray-100 pt-4">
@@ -275,6 +369,13 @@ function UserFields({ data }: { data: PersonalUser }) {
 					/>
 				</div>
 			</div>
+
+			{/* Visibility */}
+			<VisibilityField
+				label="Profile Visibility"
+				initialProfileVisibility={data.profileVisibility ?? "PUBLIC"}
+				initialContentVisibility={data.contentVisibility ?? "LISTED"}
+			/>
 		</div>
 	);
 }
@@ -283,6 +384,11 @@ function UserFields({ data }: { data: PersonalUser }) {
 
 function PageFields({ data }: { data: PublicPage }) {
 	const session = useInlineEditSession();
+	const { pages, activePageId } = useActiveProfile();
+	// Changing page privacy is ADMIN-only (the server also enforces this). An editor
+	// edits content but never sees the visibility control.
+	const activePageRole = pages.find((p) => p.id === activePageId)?.role;
+	const isPageAdmin = isAdminRole(activePageRole);
 	const [editingField, setEditingField] = useState<string | null>(null);
 
 	const [editName, setEditName] = useState(data.name || "");
@@ -563,6 +669,15 @@ function PageFields({ data }: { data: PublicPage }) {
 					</div>
 				</div>
 			</div>
+
+			{/* Visibility — ADMIN only */}
+			{isPageAdmin && (
+				<VisibilityField
+					label="Page Visibility"
+					initialProfileVisibility={data.profileVisibility ?? "PUBLIC"}
+					initialContentVisibility={data.contentVisibility ?? "LISTED"}
+				/>
+			)}
 		</div>
 	);
 }

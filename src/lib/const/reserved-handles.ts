@@ -25,6 +25,7 @@ export const RESERVED_HANDLES = new Set([
 	"login",
 	"signup",
 	"settings",
+	"unsubscribe",
 	"profile",
 	"connections",
 	"logout",
@@ -45,8 +46,11 @@ export const RESERVED_HANDLES = new Set([
 	"oauth",
 	"callback",
 	"verify",
+	"verify-email",
 	"confirm",
 	"reset",
+	"reset-password",
+	"forgot-password",
 
 	// Infrastructure / static paths
 	"www",

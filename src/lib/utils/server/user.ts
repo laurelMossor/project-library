@@ -17,7 +17,8 @@ export const personalProfileFields = {
 	bio: true,
 	interests: true,
 	location: true,
-	isPublic: true,
+	profileVisibility: true,
+	contentVisibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
@@ -36,10 +37,27 @@ export const publicUserFields = {
 	bio: true,
 	interests: true,
 	location: true,
+	profileVisibility: true,
+	contentVisibility: true,
 	aboutContent: true,
 	avatarImageId: true,
 	avatarImage: { select: { url: true } },
 	elements: { select: profileElementFields, where: { visible: true }, orderBy: { sortOrder: "asc" as const } },
+} as const;
+
+// Attribution-only fields for embedding a user on OTHER content (post/event author,
+// message participant). Deliberately excludes sensitive profile fields
+// (bio/location/interests/aboutContent/email) so a PRIVATE user's details never ride
+// along on their public content. The full profile is fetched only by the gated profile
+// page via publicUserFields. Enforced by the embed-selector test guard.
+export const publicUserEmbedFields = {
+	id: true,
+	handle: true,
+	firstName: true,
+	lastName: true,
+	displayName: true,
+	avatarImageId: true,
+	avatarImage: { select: { url: true } },
 } as const;
 
 // Fetch a user by ID (for authenticated user's own profile)
@@ -73,10 +91,12 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		profileVisibility?: import("@prisma/client").ProfileVisibility;
+		contentVisibility?: import("@prisma/client").ContentVisibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
-	}
+	},
+	tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ) {
 	// Build update data object with only explicitly provided fields
 	// This prevents accidentally overwriting fields with undefined
@@ -89,7 +109,8 @@ export async function updateUserProfile(
 		bio?: string;
 		interests?: string[];
 		location?: string;
-		isPublic?: boolean;
+		profileVisibility?: import("@prisma/client").ProfileVisibility;
+		contentVisibility?: import("@prisma/client").ContentVisibility;
 		avatarImageId?: string | null;
 		aboutContent?: string | null;
 	} = {};
@@ -102,11 +123,12 @@ export async function updateUserProfile(
 	if (data.bio !== undefined) updateData.bio = data.bio;
 	if (data.interests !== undefined) updateData.interests = data.interests;
 	if (data.location !== undefined) updateData.location = data.location;
-	if (data.isPublic !== undefined) updateData.isPublic = data.isPublic;
+	if (data.profileVisibility !== undefined) updateData.profileVisibility = data.profileVisibility;
+	if (data.contentVisibility !== undefined) updateData.contentVisibility = data.contentVisibility;
 	if (data.avatarImageId !== undefined) updateData.avatarImageId = data.avatarImageId;
 	if (data.aboutContent !== undefined) updateData.aboutContent = data.aboutContent;
 
-	return prisma.user.update({
+	return ((tx ?? prisma) as typeof prisma).user.update({
 		where: { id: userId },
 		data: updateData,
 		select: personalProfileFields,
@@ -121,8 +143,8 @@ export async function updateUserProfile(
  * single SQL transaction at the driver layer, satisfying PR 2's invariant
  * that User and Handle either both exist or neither does.
  *
- * Caller is responsible for:
- *   - Lowercasing `handle` (per PR 2 normalization rule).
+ * The handle is lowercased here (the canonical storage form — INV-7), so callers
+ * cannot accidentally persist mixed case. Caller is still responsible for:
  *   - Running `validateHandle` + `isReservedHandle` + `isHandleTaken` first.
  *
  * If a concurrent registration claims the handle between the pre-check and
@@ -137,51 +159,31 @@ export async function createUser(data: {
 	middleName?: string;
 	lastName?: string;
 	displayName?: string;
+	/** Pre-verify the account (used by the dev-signup-bypass path + seed). */
+	emailVerified?: Date;
 }): Promise<{ userId: string }> {
 	const names = [data.firstName, data.lastName].filter(Boolean).join(" ");
 	const displayName = data.displayName ?? (names || null);
+	// Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
+	const handle = data.handle.toLowerCase();
 
 	const user = await prisma.user.create({
 		data: {
 			email: data.email,
-			handle: data.handle,
+			handle,
 			passwordHash: data.passwordHash,
 			firstName: data.firstName ?? null,
 			middleName: data.middleName ?? null,
 			lastName: data.lastName ?? null,
 			displayName,
-			handleRecord: { create: { handle: data.handle } },
+			emailVerified: data.emailVerified ?? null,
+			// New accounts default to open distribution; explicit since the column no longer
+			// carries a DB default (a forgotten derivation must fail at compile time, not fall to LISTED).
+			contentVisibility: "LISTED",
+			handleRecord: { create: { handle } },
 		},
 		select: { id: true },
 	});
 	return { userId: user.id };
 }
 
-const searchUserFields = {
-	id: true,
-	handle: true,
-	displayName: true,
-	avatarImageId: true,
-	avatarImage: { select: { url: true } },
-} as const;
-
-// TODO: I feel like this should be under search by handle and then filter by page or user if necessary
-export async function searchUsers(query: string, limit = 8) {
-	if (query.length < 2) return [];
-
-	const filter = { startsWith: query, mode: "insensitive" as const };
-
-	return prisma.user.findMany({
-		where: {
-			OR: [
-				{ handle: filter },
-				{ displayName: filter },
-				{ firstName: filter },
-				{ lastName: filter },
-			],
-		},
-		select: searchUserFields,
-		take: limit,
-		orderBy: { displayName: "asc" },
-	});
-}

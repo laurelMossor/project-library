@@ -22,10 +22,25 @@ At the start of a new session, before responding to the first substantive reques
 2. `docs/guidance/STATUS.md` — current milestone, what's done, what's in flight, blockers. Infer the state of active work from here rather than loading specific tickets upfront.
 3. `docs/guidance/JOURNAL.md` — most recent ~5 entries for session-over-session continuity
 
+When the request touches **visibility, privacy, authorization, or any route that reads/lists/mutates user, page, event, post, message, or image data**, also read **`docs/VISIBILITY_RULES.md`** first — the durable contract for the two-field model: `profileVisibility` (PUBLIC/PRIVATE, the profile page) and `contentVisibility` (LISTED/UNLISTED/PRIVATE, where posts/events surface). All enforcement lives in `src/lib/utils/server/visibility.ts`; you *apply* its helpers, never re-implement a gate in a route.
+
 When the request touches the closed beta plan specifically, also fetch:
 
 - **Google Doc — Beta Launch Plan**: `1Zjz7i0VSmv1Twy9otR_oq6KHtPexHettzY183VB9zLw` (via `google_drive_fetch`)
-- **Notion — ProLib Tickets database**: `2d6453d0-29b0-80e9-9ebf-fce9169b18c6` (via `notion-fetch`, or search with `data_source_url: collection://2d6453d0-29b0-803e-a998-000b1568e9c8`)
+- **Notion — ProLib Tickets database**: for any complete filtered list of tickets (by Epic / Priority / Status), follow **`docs/PULL_TICKETS.md`** — query the REST API, not `notion-search` (which silently returns incomplete results).
+
+When tickets sit in the **`QA`** status and the user wants to verify, retest, or accept finished work, use the **`/prolib-qa`** skill. It drafts acceptance criteria from the ticket (most have none), gets the user's approval, drives the local dev app to reproduce/confirm, reports pass/fail with evidence, then writes Status + criteria + a QA note back to Notion immediately after each ticket — no separate confirmation needed.
+
+When the user wants to **plan, triage, sequence, or hand off work** rather than do it inline — "what's next?", "pull the NETWERK tickets and let's plan", "bundle these", "draft a brief for a fresh session", "spec this feature out" — use the **`/prolib-pm`** skill. It loads the project-manager/orchestrator role, runs the session bootstrap, grounds itself in the live codebase, and produces self-contained agent briefs another session can act on cold. It triages and delegates; it does not write feature code.
+
+## Updating ProLib Tickets
+
+Keeping the **Notion — ProLib Tickets** database (`2d6453d0-29b0-80e9-9ebf-fce9169b18c6`, data source `collection://2d6453d0-29b0-803e-a998-000b1568e9c8`) in step with the work is an **expected, authorized part of the workflow** — not a one-off external action. When you implement, QA, or change the scope of a ticket, reflect it on the ticket:
+
+- **Fetch first** (`notion-fetch`) to get the exact property names/schema and current content, then update with `notion-update-page` (`update_properties` for Status/Priority, `insert_content`/`update_content` for body and acceptance criteria).
+- Write **grounded** acceptance criteria — tie each to the real route/helper/test and note what was verified (e.g. "`GET /api/pages/{id}` → 404 anon / 200 member"), not aspirational prose.
+- Move Status as work lands (e.g. → `QA` when implemented, with AC the user can check against the running app).
+- Notion writes are surfaced to the user for awareness; if a write is blocked by the permission classifier mid-task, say what you're updating and why rather than silently dropping it.
 
 ## Verifying memory before citing
 

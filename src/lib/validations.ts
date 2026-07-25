@@ -1,4 +1,5 @@
 import { ProfileData } from "./types/user";
+import type { ProfileVisibility, ContentVisibility } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
@@ -10,6 +11,15 @@ import { isReservedHandle } from "./const/reserved-handles";
 export function validateEmail(email: string): boolean {
 	if (!email || typeof email !== "string") return false;
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/**
+ * Canonicalize an email for storage/lookup: lowercase + trim. Non-strings
+ * collapse to "" (which then fails validateEmail). Single source of truth so
+ * signup, login, and the password/verification flows normalize identically.
+ */
+export function normalizeEmail(input: unknown): string {
+	return typeof input === "string" ? input.toLowerCase().trim() : "";
 }
 
 /**
@@ -25,7 +35,7 @@ export function validateEmail(email: string): boolean {
  */
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
-	return /^[a-z0-9_-]{3,30}$/.test(handle);
+	return /^[a-z0-9._-]{3,30}$/.test(handle);
 }
 
 export function validatePassword(password: string): boolean {
@@ -40,6 +50,12 @@ export function validateInviteToken(token: unknown): token is string {
 	const t = token.trim();
 	return t.length >= 20 && t.length <= 256;
 }
+
+/**
+ * Raw email-verification / password-reset token from a URL. Same base64url
+ * format and bounds as invite tokens (see auth-tokens.ts generateRawToken).
+ */
+export const validateAuthToken = validateInviteToken;
 
 export function validateProfileData(data: ProfileData): { valid: boolean; error?: string } {
 	// All fields are optional, but if provided, validate their format
@@ -122,10 +138,15 @@ export function validateProfileData(data: ProfileData): { valid: boolean; error?
 		}
 	}
 
-	// Validate isPublic: optional boolean
-	if (data.isPublic !== undefined && data.isPublic !== null) {
-		if (typeof data.isPublic !== "boolean") {
-			return { valid: false, error: "isPublic must be a boolean" };
+	// Validate profileVisibility + contentVisibility: optional enums
+	if (data.profileVisibility !== undefined && data.profileVisibility !== null) {
+		if (!["PUBLIC", "PRIVATE"].includes(data.profileVisibility)) {
+			return { valid: false, error: "profileVisibility must be PUBLIC or PRIVATE" };
+		}
+	}
+	if (data.contentVisibility !== undefined && data.contentVisibility !== null) {
+		if (!["LISTED", "UNLISTED", "PRIVATE"].includes(data.contentVisibility)) {
+			return { valid: false, error: "contentVisibility must be LISTED, UNLISTED, or PRIVATE" };
 		}
 	}
 
@@ -174,14 +195,15 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		}
 	}
 
-	if (!data.location || typeof data.location !== "string") {
-		return { valid: false, error: "Event location is required" };
-	}
-	if (data.location.trim().length === 0) {
-		return { valid: false, error: "Event location cannot be empty" };
-	}
-	if (data.location.length > 255) {
-		return { valid: false, error: "Event location must be 255 characters or less" };
+	// Location is optional (Partiful-style — an event can be published as "location TBD").
+	// If provided, it must be a string within the length cap.
+	if (data.location !== undefined && data.location !== null && data.location !== "") {
+		if (typeof data.location !== "string") {
+			return { valid: false, error: "Event location must be a string" };
+		}
+		if (data.location.length > 255) {
+			return { valid: false, error: "Event location must be 255 characters or less" };
+		}
 	}
 
 	if (data.tags) {
@@ -297,7 +319,20 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		}
 	}
 
+	// Event visibility is derived from the owning profile — not validated/accepted here.
+
 	return { valid: true };
+}
+
+/**
+ * Gate the DRAFT→PUBLISHED transition (INV-10): a published event must have a non-empty
+ * title + content and a valid future date (location is optional — Partiful-style). Callers
+ * merge the stored row with the incoming patch and pass the result, so a draft that was
+ * created empty cannot be flipped to PUBLISHED without those fields being set. Delegates to
+ * validateEventData so the publish bar and the create bar never diverge.
+ */
+export function validateEventPublishable(merged: EventCreateInput): { valid: boolean; error?: string } {
+	return validateEventData(merged);
 }
 
 // RSVP validation utilities
@@ -435,6 +470,20 @@ export function validateMessageContent(content: string): { valid: boolean; error
 	return { valid: true };
 }
 
+/** Validate a comment body (required, non-empty, capped). Mirrors validateMessageContent. */
+export function validateCommentContent(content: string): { valid: boolean; error?: string } {
+	if (!content || typeof content !== "string") {
+		return { valid: false, error: "Comment is required" };
+	}
+	if (content.trim().length === 0) {
+		return { valid: false, error: "Comment cannot be empty" };
+	}
+	if (content.length > 5000) {
+		return { valid: false, error: "Comment must be 5000 characters or less" };
+	}
+	return { valid: true };
+}
+
 // Page validation utilities
 
 export interface PageCreateData {
@@ -471,7 +520,7 @@ export function validatePageData(data: PageCreateData): { valid: boolean; error?
 	if (!validateHandle(data.handle)) {
 		return {
 			valid: false,
-			error: "Page handle must be 3–30 lowercase letters, numbers, hyphens, or underscores",
+			error: "Page handle must be 3–30 lowercase letters, numbers, periods, hyphens, or underscores",
 		};
 	}
 	if (isReservedHandle(data.handle)) {
@@ -549,6 +598,8 @@ export function validatePageUpdateData(data: {
 	zip?: string | null;
 	category?: string | null;
 	avatarImageId?: string | null;
+	profileVisibility?: ProfileVisibility | null;
+	contentVisibility?: ContentVisibility | null;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -662,6 +713,18 @@ export function validatePageUpdateData(data: {
 	if (data.avatarImageId !== undefined && data.avatarImageId !== null) {
 		if (typeof data.avatarImageId !== "string") {
 			return { valid: false, error: "Avatar image ID must be a string" };
+		}
+	}
+
+	// Validate profileVisibility + contentVisibility: optional enums (mirrors validateProfileData)
+	if (data.profileVisibility !== undefined && data.profileVisibility !== null) {
+		if (!["PUBLIC", "PRIVATE"].includes(data.profileVisibility)) {
+			return { valid: false, error: "profileVisibility must be PUBLIC or PRIVATE" };
+		}
+	}
+	if (data.contentVisibility !== undefined && data.contentVisibility !== null) {
+		if (!["LISTED", "UNLISTED", "PRIVATE"].includes(data.contentVisibility)) {
+			return { valid: false, error: "contentVisibility must be LISTED, UNLISTED, or PRIVATE" };
 		}
 	}
 

@@ -6,13 +6,13 @@ type FormInputProps = InputHTMLAttributes<HTMLInputElement> & {
 
 export function FormInput({ error, className = "", ...props }: FormInputProps) {
 	const baseClasses = "w-full border p-2 rounded";
-	const errorClasses = error ? "border-red-500" : "";
+	const errorClasses = error ? "border-novel-red" : "";
 	const combinedClasses = `${baseClasses} ${errorClasses} ${className}`.trim();
 
 	return (
 		<>
 			<input className={combinedClasses} {...props} />
-			{error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+			{error && <p className="text-novel-red text-sm mt-1">{error}</p>}
 		</>
 	);
 }

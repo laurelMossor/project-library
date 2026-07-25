@@ -3,12 +3,13 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { validateEventData } from "@/lib/validations";
-import { checkRateLimit, getClientIdentifier } from "@/lib/utils/server/rate-limit";
-import { eventWithUserFields, eventCollectionFields } from "@/lib/utils/server/fields";
+import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
+import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { canPostAsPage } from "@/lib/utils/server/permission";
 import { logAction } from "@/lib/utils/server/log";
+import { getViewerContext, eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -28,18 +29,11 @@ function parseNumber(value: unknown): number | null {
  */
 export async function GET(request: Request) {
 	// Rate limiting: 60 requests per minute per IP
-	const clientId = getClientIdentifier(request);
-	const rateLimit = checkRateLimit(`search-events:${clientId}`, {
+	const limited = await enforceRateLimit(request, "search-events", {
 		maxRequests: 60,
 		windowMs: 60 * 1000,
 	});
-
-	if (!rateLimit.allowed) {
-		return NextResponse.json(
-			{ error: "Too many requests. Please try again later." },
-			{ status: 429 }
-		);
-	}
+	if (limited) return limited;
 
 	const { searchParams } = new URL(request.url);
 	const search = searchParams.get("search") || undefined;
@@ -53,19 +47,24 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
+	const viewer = await getViewerContext();
+
 	try {
-		// Only show published events in public listings
+		// Only show published, visible events in public listings
 		const events = await prisma.event.findMany({
 			where: {
 				status: "PUBLISHED",
-				...(search
-					? {
-							OR: [
-								{ title: { contains: search, mode: "insensitive" } },
-								{ content: { contains: search, mode: "insensitive" } },
-							],
-					  }
-					: {}),
+				AND: [
+					eventListWhere(viewer),
+					...(search
+						? [{
+								OR: [
+									{ title: { contains: search, mode: "insensitive" as const } },
+									{ content: { contains: search, mode: "insensitive" as const } },
+								],
+						  }]
+						: []),
+				],
 				...(userId ? { userId, pageId: null } : {}),
 				...(pageId ? { pageId } : {}),
 			},
@@ -84,8 +83,7 @@ export async function GET(request: Request) {
 			...e,
 			type: COLLECTION_TYPES.EVENT,
 			images: imagesMap.get(e.id) || [],
-			_count: { updates: _count.updates },
-			recentUpdate: updates[0] || null,
+			...toCollectionMeta({ _count, updates }),
 		}));
 
 		return NextResponse.json(eventsWithImages);
@@ -131,6 +129,8 @@ export async function POST(request: Request) {
 					eventDateTime: parsedDateTime,
 					eventTimezone: eventTimezone || null,
 					location: (location || "").trim(),
+					// Inherit visibility from the hosting page (or the creating user).
+					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 					status: "DRAFT",
 					tags: [],
 					topics: [],
@@ -201,6 +201,8 @@ export async function POST(request: Request) {
 				longitude: parsedLongitude,
 				tags: processedTags || [],
 				topics: Array.isArray(topics) ? topics : [],
+				// Inherit visibility from the hosting page (or the creating user).
+				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 				status: "PUBLISHED",
 			},
 			select: eventWithUserFields,

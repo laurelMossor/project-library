@@ -1,4 +1,4 @@
-import { PostStatus } from "@prisma/client";
+import { PostStatus, ContentVisibility } from "@prisma/client";
 import { BaseCollectionItem } from "./collection-item";
 import { ImageItem } from "./image";
 
@@ -16,6 +16,7 @@ export interface PostItem {
 	title: string | null; // Optional post title
 	content: string; // Post content (required)
 	status: PostStatus;
+	contentVisibility: ContentVisibility;
 	pinnedAt: Date | null; // When set, post is pinned to top of profile/page collection
 	tags: string[];
 	topics: string[];
@@ -78,13 +79,15 @@ export interface PostCollectionItem extends BaseCollectionItem {
  * Used by server components that query Prisma directly (e.g. post detail page).
  * API routes do this transform inline so client fetches don't need this.
  */
-export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _count?: { updates?: number }; recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null }): PostCollectionItem {
+export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _count?: { updates?: number; comments?: number }; recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null }): PostCollectionItem {
 	return {
 		id: post.id,
 		userId: post.userId,
+		pageId: post.pageId,
 		title: post.title,
 		content: post.content,
 		status: post.status,
+		contentVisibility: post.contentVisibility ?? ContentVisibility.LISTED,
 		tags: post.tags,
 		topics: post.topics,
 		type: "post",
@@ -97,7 +100,7 @@ export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _c
 		pinnedAt: post.pinnedAt,
 		images: post.images || [],
 		event: post.event,
-		...(post._count ? { _count: { updates: post._count.updates } } : {}),
+		...(post._count ? { _count: { updates: post._count.updates, comments: post._count.comments } } : {}),
 		...(post.recentUpdate ? { recentUpdate: post.recentUpdate } : {}),
 	};
 }

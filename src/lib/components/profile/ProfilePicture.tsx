@@ -45,7 +45,7 @@ export function ProfilePicture({ entity, size = "md", className = "", asLink = t
 	const content = avatarUrl ? (
 		<img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
 	) : (
-		<span className="text-gray-600 font-medium">{initials}</span>
+		<span className="text-warm-grey font-medium">{initials}</span>
 	);
 
 	if (asLink) {

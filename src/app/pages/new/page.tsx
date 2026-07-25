@@ -86,7 +86,7 @@ export default function NewPagePage() {
 				<FormField
 					label="URL Handle"
 					htmlFor="handle"
-					helpText="Used in your page's URL. Only lowercase letters, numbers, and hyphens."
+					helpText="Used in your page's URL. Only lowercase letters, numbers, periods, hyphens, and underscores."
 					required
 				>
 					<FormInput
@@ -95,7 +95,7 @@ export default function NewPagePage() {
 						value={handle}
 						onChange={handleHandleChange}
 						placeholder="e.g. portland-makers-guild"
-						pattern="[a-z0-9-]+"
+						pattern="[a-z0-9._-]+"
 						required
 					/>
 				</FormField>

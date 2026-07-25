@@ -1,40 +1,36 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, serverError } from "@/lib/utils/errors";
-import { getPagesForUser } from "@/lib/utils/server/permission";
-import { publicUserFields } from "@/lib/utils/server/user";
+import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { canPostAsPage } from "@/lib/utils/server/permission";
+import { getConversationIdsForIdentity } from "@/lib/utils/server/message";
+import { publicUserEmbedFields } from "@/lib/utils/server/user";
 
 /**
- * GET /api/messages/inbox
- * List conversations the user participates in (directly or via page membership)
- * Returns conversation summaries with last message
- * Protected endpoint
+ * GET /api/messages/inbox?asPageId=<id>
+ * List conversations for the ACTIVE identity: personal (no asPageId) or a single page the caller
+ * manages. Returns conversation summaries with last message. Protected endpoint.
  */
-export async function GET() {
+export async function GET(request: Request) {
 	try {
 		const ctx = await getSessionContext();
 		if (!ctx) {
 			return unauthorized();
 		}
 
-		// Get page IDs the user has access to
-		const userPages = await getPagesForUser(ctx.userId);
-		const pageIds = userPages.map((p) => p.id);
+		const asPageId = new URL(request.url).searchParams.get("asPageId") || null;
 
-		// Find all conversations the user participates in
-		// Either directly as a user, or via a page they manage
-		const participantRecords = await prisma.conversationParticipant.findMany({
-			where: {
-				OR: [
-					{ userId: ctx.userId },
-					...(pageIds.length > 0 ? [{ pageId: { in: pageIds } }] : []),
-				],
-			},
-			select: { conversationId: true },
-		});
+		// Acting as a page is verified from the session (ADMIN/EDITOR), never trusted from the query.
+		if (asPageId) {
+			const allowed = await canPostAsPage(ctx.userId, asPageId);
+			if (!allowed) {
+				return badRequest("You don't have permission to act as this page");
+			}
+		}
 
-		const conversationIds = [...new Set(participantRecords.map((p) => p.conversationId))];
+		// Scope to the active identity only: a personal inbox never shows page conversations and a
+		// page inbox never shows personal ones. Replaces the old client-side filter (findings #16/#25).
+		const conversationIds = await getConversationIdsForIdentity(ctx.userId, asPageId);
 
 		if (conversationIds.length === 0) {
 			return NextResponse.json([]);
@@ -48,7 +44,7 @@ export async function GET() {
 				participants: {
 					include: {
 						user: {
-							select: publicUserFields,
+							select: publicUserEmbedFields,
 						},
 						page: {
 							select: {
@@ -65,7 +61,7 @@ export async function GET() {
 					take: 1,
 					include: {
 						sender: {
-							select: publicUserFields,
+							select: publicUserEmbedFields,
 						},
 					},
 				},

@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useSession } from "next-auth/react";
 import { CardEntity, CardUser, CardPage, CardPageWithRole } from "@/lib/types/card";
 import { API_ME_USER, API_ME_PAGE, API_ME_PAGES, API_SESSION_ACTIVE_PAGE } from "@/lib/const/routes";
+import { isActingRole } from "@/lib/const/roles";
 
 interface ActiveProfileContextValue {
 	/** The resolved entity the user is currently acting as (user or page) */
@@ -37,9 +38,16 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Fetch the current user once when session is established
+	// Fetch the current user once when session is established. When the session loses its id
+	// (logout, or an invalidated/expired session), clear the cached identity so the nav's
+	// profile tag doesn't keep showing a user who is no longer logged in.
 	useEffect(() => {
-		if (!session?.user?.id) return;
+		if (!session?.user?.id) {
+			setCurrentUser(null);
+			setActiveEntity(null);
+			setPages([]);
+			return;
+		}
 		fetch(API_ME_USER)
 			.then((r) => (r.ok ? r.json() : null))
 			.then((user) => { if (user?.id) setCurrentUser(user as CardUser); })
@@ -71,7 +79,7 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 			// Only ADMIN/EDITOR can act as a page
 			setPages(
 				data
-					.filter((p) => p.role === "ADMIN" || p.role === "EDITOR")
+					.filter((p) => isActingRole(p.role))
 			.map((p) => ({
 				id: p.id,
 				name: p.name,

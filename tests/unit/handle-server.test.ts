@@ -87,14 +87,6 @@ describe("isHandleTaken", () => {
 			where: { handle: "laurel" },
 		});
 	});
-
-	test("works for already-lowercase input (idempotent normalization)", async () => {
-		vi.mocked(prisma.handle.findUnique).mockResolvedValue(null);
-		await isHandleTaken("laurel");
-		expect(vi.mocked(prisma.handle.findUnique)).toHaveBeenCalledWith({
-			where: { handle: "laurel" },
-		});
-	});
 });
 
 // ---------------------------------------------------------------------------

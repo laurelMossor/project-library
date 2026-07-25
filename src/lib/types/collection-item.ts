@@ -1,4 +1,5 @@
 import { COLLECTION_TYPES } from "./collection";
+import type { ContentVisibility } from "@prisma/client";
 /**
  * Base interface for all collection items (events, etc.)
  * Defines the common structure that all collection types must implement.
@@ -20,9 +21,11 @@ export type CollectionItemType = (typeof COLLECTION_TYPES)[keyof typeof COLLECTI
 export interface BaseCollectionItem {
 	id: string;
 	userId: string;
+	pageId: string | null;
 	title: string | null;
 	content: string;
 	status: "DRAFT" | "PUBLISHED";
+	contentVisibility: ContentVisibility;
 	tags: string[];
 	topics: string[];
 	user: { id: string; handle: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };
@@ -31,6 +34,6 @@ export interface BaseCollectionItem {
 	createdAt: Date;
 	updatedAt: Date;
 	type: CollectionItemType;
-	_count?: { updates?: number };
+	_count?: { updates?: number; comments?: number };
 	recentUpdate?: { id: string; title: string | null; content: string; createdAt: Date } | null;
 }
