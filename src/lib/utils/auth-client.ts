@@ -40,7 +40,9 @@ export async function getAuthStatus(): Promise<boolean> {
 	try {
 		const res = await fetch(API_AUTH_SESSION);
 		const data = await res.json();
-		return !!(data && data.user);
+		// Key on user.id, not mere user presence: an invalidated session can still carry a
+		// user object shape, but only an id means a live login (matches hasSession()).
+		return !!(data && data.user && data.user.id);
 	} catch {
 		return false;
 	}

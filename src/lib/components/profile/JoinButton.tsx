@@ -5,9 +5,13 @@ import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { UserPlusSignIcon, UserMinusSignIcon } from "@/lib/components/icons/icons";
 import { useMembership } from "@/lib/hooks/useMembership";
 import { FEATURES } from "@/lib/const/features";
+import type { ProfileVisibility } from "@prisma/client";
 
 type JoinButtonProps = {
 	pageId: string;
+	/** The page's profile visibility. PRIVATE means Join opens a pending request,
+	 *  so the button should read "Request to join" rather than "Join". */
+	profileVisibility?: ProfileVisibility;
 };
 
 /**
@@ -17,7 +21,7 @@ type JoinButtonProps = {
  * Hidden entirely while self-service membership is flagged off (beta) — Follow is the
  * single relationship for pages, so this covers both render sites with one guard.
  */
-export function JoinButton({ pageId }: JoinButtonProps) {
+export function JoinButton({ pageId, profileVisibility }: JoinButtonProps) {
 	const { currentUser, activePageId } = useActiveProfile();
 
 	const loggedIn = !!currentUser;
@@ -31,13 +35,17 @@ export function JoinButton({ pageId }: JoinButtonProps) {
 	if (!enabled || loading) return null;
 
 	const isLeavable = state === "member" || state === "privileged";
+	// PRIVATE pages gate Join behind owner approval (see requests.ts joinOrRequest).
+	const isPrivate = profileVisibility === "PRIVATE";
 	const label = toggling
 		? "..."
 		: state === "requested"
 			? "Requested"
 			: isLeavable
 				? "Leave group"
-				: "Join";
+				: isPrivate
+					? "Request to join"
+					: "Join";
 	const icon = isLeavable || state === "requested"
 		? <UserMinusSignIcon className="w-4 h-4" />
 		: <UserPlusSignIcon className="w-4 h-4" />;

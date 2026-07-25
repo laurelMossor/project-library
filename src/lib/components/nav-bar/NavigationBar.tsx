@@ -15,7 +15,7 @@ export function NavigationBar({ session }: NavigationBarProps) {
 				<AnimatedProjectLibraryLogo />
 				<div className="flex items-center gap-2">
 					<NavProfileTag session={session} />
-					{session && <NotificationBell />}
+					{session?.user?.id && <NotificationBell />}
 					<HamburgerMenu session={session} />
 				</div>
 			</div>

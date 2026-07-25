@@ -93,6 +93,7 @@ export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
+export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
 export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity

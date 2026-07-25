@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { DropdownMenu, dropdownMenuStyles } from "@/lib/components/ui/DropdownMenu";
 import { BellIcon } from "@/lib/components/icons/icons";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { hasSession } from "@/lib/utils/auth-client";
 import { API_NOTIFICATIONS, API_NOTIFICATIONS_READ } from "@/lib/const/routes";
 import type { NotificationItem } from "@/lib/types/notification";
 import { useNotificationCount } from "./NotificationContext";
@@ -16,6 +18,7 @@ import { NotificationRow } from "./NotificationRow";
  * latest notifications and marks them read.
  */
 export function NotificationBell() {
+	const { data: session, status } = useSession();
 	const { activeCount } = useNotificationCount();
 	const { activePageId } = useActiveProfile();
 	const [isOpen, setIsOpen] = useState(false);
@@ -51,6 +54,10 @@ export function NotificationBell() {
 			return next;
 		});
 	};
+
+	// Mounted only when the SSR session was authed. Once the client session loads, trust it so an
+	// out-of-band invalidation hides the bell live, matching NavProfileTag/HamburgerMenu.
+	if (status !== "loading" && !hasSession(session)) return null;
 
 	return (
 		<DropdownMenu

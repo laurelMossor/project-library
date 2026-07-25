@@ -72,6 +72,10 @@ describe("validateHandle", () => {
     expect(validateHandle("user_name-123")).toBe(true);
   });
 
+  test("accepts periods (matches the seeded `alice.example` handle format)", () => {
+    expect(validateHandle("alice.example")).toBe(true);
+  });
+
   test("rejects uppercase letters (must be normalized first)", () => {
     expect(validateHandle("UserName")).toBe(false);
   });

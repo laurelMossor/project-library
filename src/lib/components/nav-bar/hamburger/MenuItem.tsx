@@ -11,9 +11,11 @@ interface MenuItemProps {
 	closeMenu: () => void;
 	/** Optional element rendered at the trailing end of the row (e.g. a notification dot) */
 	indicator?: React.ReactNode;
+	/** When true, render the row greyed out and non-interactive (button variant only). */
+	disabled?: boolean;
 }
 
-export function MenuItem({ icon, label, href, onClick, closeMenu, indicator }: MenuItemProps) {
+export function MenuItem({ icon, label, href, onClick, closeMenu, indicator, disabled = false }: MenuItemProps) {
 	const handleClick = () => {
 		closeMenu();
 		onClick?.();
@@ -36,7 +38,12 @@ export function MenuItem({ icon, label, href, onClick, closeMenu, indicator }: M
 	}
 
 	return (
-		<button onClick={handleClick} className={linkClass} role="menuitem">
+		<button
+			onClick={handleClick}
+			disabled={disabled}
+			className={`${linkClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent`}
+			role="menuitem"
+		>
 			{content}
 		</button>
 	);
