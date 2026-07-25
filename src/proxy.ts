@@ -56,30 +56,6 @@ function maintenanceResponse(): NextResponse {
 	});
 }
 
-// ── Maintenance gate ────────────────────────────────────────────────────────
-// Flip ON by setting MAINTENANCE_MODE=1 in the environment (Vercel → Settings →
-// Environment Variables → Production) and redeploying; flip OFF by setting it back
-// to 0 and redeploying. When ON, every matched request is answered with a
-// self-contained 503 page from the edge — the Next render pipeline never runs, so
-// this holds even while a schema migration is mid-flight and the app would 500.
-// (The matcher below already excludes /api, so /api/health stays reachable.)
-//
-// Operator bypass: load any URL once with ?maint_bypass=<MAINTENANCE_BYPASS_TOKEN>.
-// That sets an httpOnly cookie; you then browse the real (new) site to verify it
-// while the public still sees the pause. Flip maintenance off once you're happy.
-const BYPASS_COOKIE = "maint_bypass";
-
-function maintenanceResponse(): NextResponse {
-	return new NextResponse(MAINTENANCE_HTML, {
-		status: 503,
-		headers: {
-			"content-type": "text/html; charset=utf-8",
-			"retry-after": "300",
-			"cache-control": "no-store",
-		},
-	});
-}
-
 export default function proxy(req: NextRequest) {
 	const { pathname } = req.nextUrl;
 
