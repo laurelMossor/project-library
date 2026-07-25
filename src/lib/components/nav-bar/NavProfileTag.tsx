@@ -22,8 +22,11 @@ interface NavProfileTagProps {
 }
 
 export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
-	const { data: session } = useSession();
-	const activeSession = session || sessionProp;
+	const { data: session, status } = useSession();
+	// Use the SSR prop only while the client session is still loading (avoids a logged-out
+	// flash on hydration). Once loaded, trust the live value — including a logged-out result —
+	// so an invalidated session isn't masked by the now-stale SSR prop.
+	const activeSession = status === "loading" ? sessionProp : session;
 	const isLoggedIn = hasSession(activeSession);
 
 	const { activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();

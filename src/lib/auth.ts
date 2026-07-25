@@ -6,6 +6,7 @@ import { LOGIN } from "./const/routes";
 import { logAction } from "./utils/server/log";
 import { normalizeEmail } from "./validations";
 import { canPostAsPage } from "./utils/server/permission";
+import { resolveSession } from "./utils/server/resolve-session";
 
 /**
  * Thrown when credentials are valid but the account's email isn't verified.
@@ -75,33 +76,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 		signIn: LOGIN,
 	},
 	callbacks: {
-		// Include user.id and activePageId in the session so we can use it in server components
-		async session({ session, token }) {
-			try {
-				if (token?.sub) {
-					// Reject sessions whose epoch is stale (e.g. after a password
-					// reset) or whose user no longer exists. One indexed lookup per
-					// authenticated request; getSessionContext() then trusts the session.
-					const user = await prisma.user.findUnique({
-						where: { id: token.sub },
-						select: { tokenVersion: true },
-					});
-					if (!user || (token.tokenVersion ?? 0) !== user.tokenVersion) {
-						// Leave session.user without an id → treated as unauthenticated.
-						return session;
-					}
-					session.user.id = token.sub;
-					// Include activePageId from token if present
-					if (token.activePageId) {
-						session.user.activePageId = token.activePageId;
-					}
-				}
-				return session;
-			} catch (error) {
-				console.error("Session callback error:", error);
-				return session;
-			}
-		},
+		// Include user.id and activePageId in the session so we can use it in server components.
+		// Extracted to resolveSession so the stale-epoch / no-user behavior is unit-testable.
+		session: ({ session, token }) => resolveSession(session, token),
 		async jwt({ token, user, trigger, session: sessionData }) {
 			// On sign in, set user id
 			if (user) {

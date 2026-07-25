@@ -40,10 +40,11 @@ describe("generateUniqueHandle", () => {
 	});
 
 	test("appends a suffix when the bare base is taken", async () => {
-		// Only the bare "janedoe" is taken; suffixed candidates are free.
-		findUnique.mockImplementation(({ where }: { where: { handle: string } }) =>
-			Promise.resolve(where.handle === "janedoe" ? ({ id: "h" } as never) : null),
-		);
+		// First candidate (bare "janedoe") is taken; the next (suffixed) is free. Candidates
+		// are checked in order, so ordered mock returns model exactly that.
+		findUnique
+			.mockResolvedValueOnce({ id: "h" } as never)
+			.mockResolvedValue(null);
 		const handle = await generateUniqueHandle("janedoe@example.com");
 		expect(handle).not.toBe("janedoe");
 		expect(handle.startsWith("janedoe-")).toBe(true);

@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Fri 07/24/2026 17:25 PDT
+Landed Phase 2 of the BUGS epic, the session-correctness pair, on `netwerk-10-bugs`. Reproduced the bug first. An invalidated session (stale token epoch) still returned the user's email, so the app claimed "logged in as X" with no valid login. The nav also held a stale server prop until a reload. The callback now clears the user entirely, and the client revalidates on an interval and trusts the live session over the prop. `/login` redirects an authenticated visitor server-side. Verified live by bumping the token epoch and watching the nav flip without a reload. Extracted the callback into its own module for a regression test. 429 unit green.
+
 #### Entry: Fri 07/24/2026 16:51 PDT
 Landed Phase 1 of the BUGS epic, the six non-auth tickets, on `netwerk-10-bugs`. The connections view now refreshes every slice after approving a request, so a new follower and its count show without a reload. A page's `?tab=Requests` deep-link opens the right tab despite the async admin check. Private profiles read "Request to follow", and Switch Profile greys out when there is nowhere to switch. Signup no longer asks for a handle and generates one from the email, with a new guarded endpoint to rename it in Settings. All six verified live and 419 unit green. The stale-session tickets are deliberately held for a repro-first pass and their own PR.
 

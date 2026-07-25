@@ -38,9 +38,16 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Fetch the current user once when session is established
+	// Fetch the current user once when session is established. When the session loses its id
+	// (logout, or an invalidated/expired session), clear the cached identity so the nav's
+	// profile tag doesn't keep showing a user who is no longer logged in.
 	useEffect(() => {
-		if (!session?.user?.id) return;
+		if (!session?.user?.id) {
+			setCurrentUser(null);
+			setActiveEntity(null);
+			setPages([]);
+			return;
+		}
 		fetch(API_ME_USER)
 			.then((r) => (r.ok ? r.json() : null))
 			.then((user) => { if (user?.id) setCurrentUser(user as CardUser); })
