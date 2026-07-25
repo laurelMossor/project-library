@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sat 07/25/2026 16:48 PDT
+Ran the first major prod migration, the Netwerk schema, behind a new maintenance page. Applied all 17 pending migrations to prod with no data loss, confirmed by the two-field visibility backfill and a green health check. Cleared a drift landmine first, where `eventTimezone` existed in prod but was never recorded, using `migrate resolve --applied`. Built the pause as an edge 503 in `proxy.ts`, gated by `MAINTENANCE_MODE` with a bypass token for operator verification. Also fixed a Vercel build P1001, where the build-time migrate could not reach the direct DB over IPv6, by pointing `DIRECT_URL` at the session pooler.
+
 #### Entry: Fri 07/24/2026 18:20 PDT
 Ran `/prolib-review` on `netwerk-10-bugs` against develop, then QA'd the whole BUGS epic. The review found the diff clean. The one hotfix made the notification bell clear live on an invalidated session, so it no longer lingers after the nav flips. Drove all 7 BUGS tickets live and moved them to Done. The private-page locked stub now reads "Request to follow" to match its button. Handles also accept periods now, across the validator and the page-handle input, fixing the seeded `alice.example` format. Also repaired two e2e tests that still filled the removed signup Handle field. 425 unit green, both e2e green.
 
