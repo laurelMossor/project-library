@@ -34,7 +34,7 @@ test.describe("Public pages — unauthenticated renders", () => {
     await page.goto(SIGNUP_WITH_INVITE(rawToken));
     await expect(page.getByRole("heading", { name: "Sign Up" })).toBeVisible();
     await expect(page.getByPlaceholder("Email")).toBeVisible();
-    await expect(page.getByPlaceholder("Handle")).toBeVisible();
+    // No Handle field — signup auto-generates one from the email server-side.
     await expect(page.getByPlaceholder("Password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible();
   });

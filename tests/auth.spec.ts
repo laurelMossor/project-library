@@ -29,14 +29,15 @@ test.describe("Authentication flows", () => {
   });
 
   test("signup with a valid invite redirects to the check-inbox page", async ({ page }) => {
-    // Handle max 30 chars; "tst" + 7 digits = 10. Matches the teardown's "tst" prefix.
+    // "tst" prefix matches the teardown; the auto-generated handle derives from the
+    // email local-part, so it also starts with "tst" and is cleaned up.
     const unique = `tst${Date.now() % 1e7}`;
     const email = `${unique}@example.com`;
     const { rawToken } = await createSignupInvite(email);
 
     await page.goto(SIGNUP_WITH_INVITE(rawToken));
     await page.getByPlaceholder("Email").fill(email);
-    await page.getByPlaceholder("Handle").fill(unique);
+    // Signup no longer collects a handle — one is auto-generated from the email server-side.
     await page.getByPlaceholder("Password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();
 

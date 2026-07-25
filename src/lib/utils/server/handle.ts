@@ -89,7 +89,7 @@ export async function setUserHandle(userId: string, rawHandle: string): Promise<
 	if (!validateHandle(handle)) {
 		return {
 			ok: false,
-			error: "Handle must be 3–30 characters: lowercase letters, numbers, underscores, or hyphens.",
+			error: "Handle must be 3–30 characters: lowercase letters, numbers, periods, underscores, or hyphens.",
 		};
 	}
 	if (isReservedHandle(handle)) {

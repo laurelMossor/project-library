@@ -27,7 +27,7 @@ export function LockedProfilePreview({ profile }: LockedProfilePreviewProps) {
 					<p className="text-base font-semibold text-rich-brown">This profile is private</p>
 					<p className="mt-1 text-sm text-dusty-grey">
 						{isPage
-							? `Request to join to see what ${displayName} is sharing.`
+							? `Request to follow to see what ${displayName} is sharing.`
 							: `Request to follow to see ${displayName}'s profile.`}
 					</p>
 				</div>

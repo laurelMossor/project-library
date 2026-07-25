@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
 		if (!validateHandle(normalizedHandle)) {
 			return badRequest(
-				"Handle must be 3–30 characters and contain only lowercase letters, numbers, underscores, and hyphens",
+				"Handle must be 3–30 characters and contain only lowercase letters, numbers, periods, underscores, and hyphens",
 			);
 		}
 

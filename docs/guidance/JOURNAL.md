@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Fri 07/24/2026 18:20 PDT
+Ran `/prolib-review` on `netwerk-10-bugs` against develop, then QA'd the whole BUGS epic. The review found the diff clean. The one hotfix made the notification bell clear live on an invalidated session, so it no longer lingers after the nav flips. Drove all 7 BUGS tickets live and moved them to Done. The private-page locked stub now reads "Request to follow" to match its button. Handles also accept periods now, across the validator and the page-handle input, fixing the seeded `alice.example` format. Also repaired two e2e tests that still filled the removed signup Handle field. 425 unit green, both e2e green.
+
 #### Entry: Fri 07/24/2026 17:25 PDT
 Landed Phase 2 of the BUGS epic, the session-correctness pair, on `netwerk-10-bugs`. Reproduced the bug first. An invalidated session (stale token epoch) still returned the user's email, so the app claimed "logged in as X" with no valid login. The nav also held a stale server prop until a reload. The callback now clears the user entirely, and the client revalidates on an interval and trusts the live session over the prop. `/login` redirects an authenticated visitor server-side. Verified live by bumping the token epoch and watching the nav flip without a reload. Extracted the callback into its own module for a regression test. 429 unit green.
 

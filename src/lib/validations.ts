@@ -35,7 +35,7 @@ export function normalizeEmail(input: unknown): string {
  */
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
-	return /^[a-z0-9_-]{3,30}$/.test(handle);
+	return /^[a-z0-9._-]{3,30}$/.test(handle);
 }
 
 export function validatePassword(password: string): boolean {
@@ -520,7 +520,7 @@ export function validatePageData(data: PageCreateData): { valid: boolean; error?
 	if (!validateHandle(data.handle)) {
 		return {
 			valid: false,
-			error: "Page handle must be 3–30 lowercase letters, numbers, hyphens, or underscores",
+			error: "Page handle must be 3–30 lowercase letters, numbers, periods, hyphens, or underscores",
 		};
 	}
 	if (isReservedHandle(data.handle)) {
