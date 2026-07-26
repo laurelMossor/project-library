@@ -15,8 +15,11 @@ name: Uptime
 
 on:
   schedule:
-    # Every 15 minutes. Keeps well within free Actions minutes and avoids the 5-min cliff.
-    - cron: "*/15 * * * *"
+    # Every 15 minutes, deliberately offset off :00/:15/:30/:45. GitHub's shared cron
+    # scheduler is busiest on the hour and the quarter-hour, and delayed ticks are dropped
+    # (not backfilled), so those slots are the most likely to be skipped. :03/:18/:33/:48
+    # sidesteps the congestion. Keeps well within free Actions minutes and the 5-min cliff.
+    - cron: "3,18,33,48 * * * *"
   workflow_dispatch: {} # allow manual runs for testing
 
 jobs:
@@ -24,19 +27,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      HEALTH_URL: "https://theprojectlibrary.com/api/health"
+      # Use the canonical www host directly. The apex (theprojectlibrary.com) 307-redirects
+      # here, and a redirect body ("Redirecting...") silently fails the status:ok assertion
+      # below — that was the 2026-07-26 false-alarm cause. --location (below) also follows
+      # any future canonicalization flip so this can't recur.
+      HEALTH_URL: "https://www.theprojectlibrary.com/api/health"
     steps:
       - name: Ping health endpoint
         run: |
           echo "Pinging $HEALTH_URL"
-          # --fail: non-2xx exits non-zero. --retry: ride out a single transient blip.
-          body=$(curl --fail --show-error --silent \
-                      --retry 2 --retry-delay 5 --max-time 20 \
-                      "$HEALTH_URL")
+          # --fail: non-2xx exits non-zero. --location: follow redirects (apex→www etc.) so a
+          # 3xx never masquerades as a failure. --retry: ride out a single transient blip.
+          # --write-out appends the final HTTP code on its own line so the log is self-explanatory.
+          response=$(curl --fail --show-error --silent --location \
+                          --retry 2 --retry-delay 5 --max-time 20 \
+                          --write-out '\n%{http_code}' \
+                          "$HEALTH_URL")
           status=$?
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "Final HTTP status: $http_code"
           echo "Response body: $body"
           if [ $status -ne 0 ]; then
-            echo "::error::Health check request failed (curl exit $status) for $HEALTH_URL"
+            echo "::error::Health check request failed (curl exit $status, http $http_code) for $HEALTH_URL"
             exit 1
           fi
           # Second assertion: the endpoint can return 200 only when healthy, but guard
