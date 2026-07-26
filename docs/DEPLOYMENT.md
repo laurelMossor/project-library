@@ -40,69 +40,29 @@ must exist before that build serves traffic.**
 
 ---
 
-## Maintenance mode (for destructive cutovers)
+## Maintenance mode (destructive cutovers)
 
-`src/proxy.ts` (Next 16's `proxy.ts` replaces the old `middleware.ts`) carries a
-maintenance gate. When `MAINTENANCE_MODE=1`, every **page** request is answered with a
-self-contained 503 page straight from the edge — the Next render pipeline never runs, so
-the pause holds even while a migration is mid-flight and the app itself would 500. `/api`
-is intentionally **not** gated (the proxy matcher excludes it), so `/api/health` stays
-reachable for uptime monitoring during the window.
+`src/proxy.ts` gates the site: `MAINTENANCE_MODE=1` serves a 503 pause page from the edge (no
+render, so it holds even mid-migration). `/api` is excluded, so `/api/health` stays reachable.
 
-**Env vars** (Vercel → Settings → Environment Variables → **Production**):
-- `MAINTENANCE_MODE` — `1` = pause on; anything else = off.
-- `MAINTENANCE_BYPASS_TOKEN` — a secret. Load any URL once with `?maint_bypass=<token>` to
-  set an httpOnly cookie; you then browse the **real** (new) site to verify the deploy while
-  the public still sees the pause.
+**Vercel env vars (Production)** — changes take effect only on the **next redeploy**:
+- `MAINTENANCE_MODE` — `1` = on, anything else = off.
+- `MAINTENANCE_BYPASS_TOKEN` — secret; hit any URL with `?maint_bypass=<token>` to set a cookie
+  and browse the real site while the public sees the pause. Practice locally with the same two
+  vars in `.env.local`.
 
-**Flipping it — Vercel env-var changes only take effect on the next deploy, so always
-redeploy after changing the value:**
-1. Set `MAINTENANCE_MODE=1` → **Redeploy** (Deployments → ⋯ → Redeploy). Public now sees the pause.
-2. …do the work…
-3. Set `MAINTENANCE_MODE=0` → **Redeploy**. Site live again.
+### Cutover playbook (destructive migrations)
 
-> For an *instant* toggle with no redeploy, move the flag to Vercel **Edge Config** and read
-> it from the proxy. Not set up today; env-var + redeploy is fine for a planned cutover.
+The gate must already be live on **both `main` and `develop`**. Then:
 
-**Practice locally:** put `MAINTENANCE_MODE` + `MAINTENANCE_BYPASS_TOKEN` in `.env.local`
-(gitignored). Set `MAINTENANCE_MODE=1`, restart `npm run dev`, load any page → pause; append
-`?maint_bypass=<token>` → slip past it.
-
-### Destructive-migration cutover playbook
-
-Use this when a release includes **destructive** migrations (drops / renames / backfills) —
-where the auto-migrate-in-build would otherwise flip the schema while the old deploy is still
-serving (the window that produces 500s). The maintenance page converts that window into a
-controlled pause.
-
-**Prereq:** the maintenance gate in `src/proxy.ts` must already be live on `main` **and**
-present on `develop`, so the cutover merge doesn't remove it.
-
-1. **Back up prod** — the free Supabase tier has **no** automated backups or PITR, so this is
-   the only restore point:
-   ```bash
-   pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc \
-     -f ~/prolib-backups/prod-$(date +%Y%m%d-%H%M).dump
-   ```
-   (Use `DIRECT_URL`, not the pooled `DATABASE_URL` — `pg_dump` can't run through pgbouncer,
-   and `pg_dump` must be ≥ the server's major version.)
-2. **Clear any drift** — for a migration whose objects already exist in prod (e.g. a column
-   applied by hand and never recorded), mark it applied so `migrate deploy` skips its SQL:
-   ```bash
-   NODE_ENV=production npx prisma migrate resolve --applied <migration_name>
-   ```
-3. **Pause the site:** set `MAINTENANCE_MODE=1` in Vercel → Redeploy. Public sees the pause;
-   the old code stops serving real queries.
-4. **Apply migrations manually:** `npm run db:migrate:deploy`. Watch every migration apply.
-   (State now: new schema, old code — but the pause is up, so nothing hits it.)
-5. **Deploy the new code:** merge `develop` → `main`. Vercel builds the new code; its
-   build-time `migrate deploy` is now a **no-op** (all applied in step 4). Keep
-   `MAINTENANCE_MODE=1` through this deploy.
-6. **Verify behind the pause:** load the site with `?maint_bypass=<token>` — new code on the
-   new schema. Click one logged-in flow.
-7. **Lift the pause:** set `MAINTENANCE_MODE=0` → Redeploy.
-8. **Post-deploy checks:** `/api/health` = 200, `NODE_ENV=production npx prisma migrate status`
-   clean, skim Vercel logs. Keep the backup dump until you're confident.
+1. **Back up** (free tier has no PITR): `pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc -f ~/prolib-backups/prod-<date>.dump`. Use `DIRECT_URL` (`:5432`), not the `:6543` pooler.
+2. **Clear drift** — if an object already exists in prod: `prisma migrate resolve --applied <name>`.
+3. **Pause:** `MAINTENANCE_MODE=1` → redeploy.
+4. **Migrate:** `npm run db:migrate:deploy`.
+5. **Deploy code:** merge `develop`→`main` (the build's `migrate deploy` is now a no-op); keep the pause on.
+6. **Verify** behind the pause via `?maint_bypass=<token>`.
+7. **Unpause:** `MAINTENANCE_MODE=0` → redeploy.
+8. **Confirm:** `/api/health` ok, `migrate status` clean; keep the backup until confident.
 
 ---
 
@@ -191,23 +151,12 @@ Trade-offs:
   you ever need a preview to exercise a brand-new migration, apply it to that preview's
   DB by hand.
 
-### Keep the auto-migrate, or remove it? (decision, 2026-07-25)
+### Keep the auto-migrate? (decision, 2026-07-25)
 
-**Keep it.** Running `migrate deploy` before serving is exactly right for **additive**
-migrations (new nullable column / table / index) — the common case, and the very gap it was
-built to close (a migration once sat unapplied for a week → silent outage). Removing it would
-reintroduce "forgot to migrate → new code serves against old schema → 500s" on *every*
-routine deploy.
-
-It is a hazard only for **destructive** migrations, where it would flip the schema mid-build
-while the old deploy still serves. That case is handled by the **maintenance-mode cutover
-playbook** above: you apply the migration manually *before* merging, so the build's
-`migrate deploy` is a harmless no-op. The two coexist — auto-migrate protects routine additive
-deploys; the maintenance flow owns the rare destructive cutover.
-
-> Future hardening (not built): a build-step guard that scans pending migrations for
-> destructive SQL (`DROP` / `RENAME` / `NOT NULL`) and fails the build unless an explicit flag
-> is set — forcing destructive changes through the maintenance path instead of auto-applying.
+**Yes.** It's right for **additive** migrations (the common case) and closes the "forgot to
+migrate → 500s" gap. Its only hazard — flipping schema mid-build on a **destructive** change —
+is handled by the maintenance playbook above (migrate manually first, so the build's
+`migrate deploy` is a no-op).
 
 ---
 

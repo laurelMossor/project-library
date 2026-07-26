@@ -2,22 +2,27 @@
 
 High-level summary of releases for The Project Library. Bullets are intentionally coarse — see `docs/guidance/JOURNAL.md` for the per-session detail and the git history for specifics.
 
+> **Bullet style:** a short bold headline, then one tight clause naming the concrete pieces (semicolon-separated) — one scannable line, no meta-commentary. Example:
+> *Transactional email — email verification + password reset via a swappable Resend sender; verification enforced at login.*
+
 > Most recent work is at the top. Dates and contents are correlated from git tags and the journal. `v0.2.0`+ map to real git tags; `v0.1.0` is a retroactive label for the early pre-tag scaffolding (split out at the schema-v0.4 rewrite, the clean architectural break). Later releases are short, incremental polish-and-fix passes.
 
 ---
 
-## [Unreleased] — v0.4.0 "Netwerk" (in progress)
+## v0.4.0 — "Netwerk" (2026-07-25)
 
-The Netwerk release: privacy/visibility, membership, transactional email, and release safety. Work landing on `develop`; not yet tagged.
+The Netwerk release: privacy/visibility, membership, notifications, transactional email, and release safety. Shipped to prod 2026-07-25 — the project's first major prod schema migration.
 
-- **Two-field visibility model** — separate profile visibility (Public / Private) and content visibility (Listed / Unlisted / Private), with centralized enforcement and cascade-sync.
-- **Visibility enforcement hardening** — closed API-route leaks, centralized draft/view gating, and scoped messaging to the active identity.
-- **Membership & access requests** — pages have members (add / remove / role-change, self-leave); Request-to-Follow / Request-to-Join approval flow; locked preview for private profiles.
+- **Two-field visibility** — profile (Public / Private) and content (Listed / Unlisted / Private) visibility; centralized enforcement, cascade-sync, identity-scoped messaging.
+- **Membership & access requests** — page members (add / remove / role-change, self-leave); Request-to-Follow / Request-to-Join approval flow; private-profile locked preview; self-service Join behind a beta flag.
+- **Comments** — comment on posts and events; compose / edit / delete; comment as a page.
+- **Notifications** — in-app activity bell (Activity-Streams dispatcher, per-recipient fan-out) and a coalescing email digest; per-context preferences; one-click unsubscribe.
 - **Transactional email** — email verification + password reset via a swappable Resend sender; verification enforced at login.
-- **Schema-invariant hardening** — added the missing DB CHECK constraints, guarded post creation, and closed an ownership-reassignment hole.
-- **CI, uptime & release safety** — `validate` gate on every PR; `/api/health` with scheduled prod ping; `migrate deploy` on build; expand/contract deploy runbook.
-- **Bug-fix & inline-edit rounds** — one shared profile-update executor (fixed silent data-loss); inline fields driven by `session.dirtyFields`.
-- **Tooling** — `/prolib-qa` and `/prolib-review` skills; Playwright E2E efficacy pass.
+- **Post photos & captions** — carousel photo add/edit for posts on a shared upload/modal helper.
+- **Schema-invariant hardening** — DB CHECK constraints; guarded post creation; closed an ownership-reassignment hole.
+- **CI, uptime & release safety** — `validate` PR gate; `/api/health` + scheduled prod ping; `migrate deploy` on build; `proxy.ts` maintenance-mode gate for destructive cutovers.
+- **Bug-fix & inline-edit rounds** — shared profile-update executor (silent data-loss fix); `session.dirtyFields`-driven inline fields; BUGS epic (connections refresh, deep-links, stale-session).
+- **Tooling** — `/prolib-qa`, `/prolib-review`, `/prolib-pm` skills; Playwright E2E efficacy pass.
 
 ---
 
