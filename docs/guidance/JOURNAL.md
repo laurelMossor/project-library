@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sun 07/26/2026 21:18 PDT
+Built `npm run invite`, an interactive CLI that emails beta invites via Resend, with a new InviteEmail template. It can't reuse the app's `sendEmail`, since the `server-only` guard throws in plain Node, so it renders the shared template through its own Resend client. Also traced why prod verification links pointed at localhost. `APP_BASE_URL` was unset in Vercel, so `getAppBaseUrl` fell back to localhost, and I added a Vercel-domain fallback to `url.ts`. Wiped a stuck unverified test account from prod. Separately fixed the uptime false alarms, where the monitor pinged the apex domain that now 307-redirects to www without following it. Staged v0.4.1.
+
 #### Entry: Sat 07/25/2026 16:48 PDT
 Ran the first major prod migration, the Netwerk schema, behind a new maintenance page. Applied all 17 pending migrations to prod with no data loss, confirmed by the two-field visibility backfill and a green health check. Cleared a drift landmine first, where `eventTimezone` existed in prod but was never recorded, using `migrate resolve --applied`. Built the pause as an edge 503 in `proxy.ts`, gated by `MAINTENANCE_MODE` with a bypass token for operator verification. Also fixed a Vercel build P1001, where the build-time migrate could not reach the direct DB over IPv6, by pointing `DIRECT_URL` at the session pooler.
 
