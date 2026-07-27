@@ -9,6 +9,13 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ---
 
+## v0.4.1 — Invite tooling & email-link fix (2026-07-26)
+
+- **Email link fix** — production verification, password-reset, and notification links now resolve to the canonical site URL instead of `localhost`
+- **Tooling** — `npm run invite`, an interactive operator CLI for sending beta invitations via Resend, with a dedicated invite email template.
+
+---
+
 ## v0.4.0 — "Netwerk" (2026-07-25)
 
 The Netwerk release: privacy/visibility, membership, notifications, transactional email, and release safety. Shipped to prod 2026-07-25 — the project's first major prod schema migration.
