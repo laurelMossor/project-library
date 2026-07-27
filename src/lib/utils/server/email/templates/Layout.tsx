@@ -45,7 +45,7 @@ export function Layout({ preview, managePrefsUrl, children }: LayoutProps) {
 					<Section style={card}>{children}</Section>
 					<Hr style={hr} />
 					<Text style={footer}>
-						The Project Library — creativity, mutuality, and lifelong learning.
+						The Project Library ~ creativity, mutuality, and lifelong learning ~
 					</Text>
 					{managePrefsUrl ? (
 						<Text style={footer}>
