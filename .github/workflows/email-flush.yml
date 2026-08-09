@@ -25,7 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      FLUSH_URL: "https://theprojectlibrary.com/api/notifications/flush"
+      # Use the canonical www host directly. The apex (theprojectlibrary.com) 307-redirects here, and
+      # curl --fail treats a 3xx as success — so a POST to the apex returned the "Redirecting..." body
+      # with exit 0 while the flush endpoint was NEVER hit (green runs, zero emails sent). That was the
+      # 2026-08 silent-no-op cause. Pointing at www also keeps the Bearer token intact: curl drops the
+      # Authorization header across a cross-host redirect (apex→www), so --location alone would 401.
+      FLUSH_URL: "https://www.theprojectlibrary.com/api/notifications/flush"
       FLUSH_SECRET: ${{ secrets.FLUSH_SECRET }}
     steps:
       - name: Trigger email flush
@@ -36,7 +41,9 @@ jobs:
           fi
           echo "POST $FLUSH_URL"
           # --fail: a non-2xx (e.g. 401 auth failure, 500) exits non-zero and emails the workflow author.
-          body=$(curl --fail --show-error --silent \
+          # --location: follow any future same-host canonicalization so a 3xx can't masquerade as success
+          # again (auth survives a same-host redirect; the www target above avoids the cross-host case).
+          body=$(curl --fail --show-error --silent --location \
                       --retry 2 --retry-delay 5 --max-time 55 \
                       -X POST \
                       -H "Authorization: Bearer $FLUSH_SECRET" \

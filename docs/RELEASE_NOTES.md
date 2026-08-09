@@ -9,6 +9,12 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ---
 
+## v0.4.2 — Notification email delivery fix (unreleased)
+
+- **Notification email delivery** — scheduled digest flush no longer silently no-ops in prod; cron targets the canonical `www` host instead of the redirecting apex.
+
+---
+
 ## v0.4.1 — Invite tooling & email-link fix (2026-07-26)
 
 - **Email link fix** — production verification, password-reset, and notification links now resolve to the canonical site URL instead of `localhost`

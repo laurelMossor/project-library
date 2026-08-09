@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sun 08/09/2026 10:59 PDT
+Traced why prod notification emails never sent. The flush cron POSTed the apex, which 307-redirects to www, and `curl --fail` treats a 3xx as success, so the endpoint never ran while every run reported green. Pointed the workflow at the www host directly, the fix `uptime.yml` already carried. Verified the pipeline end-to-end on dev, messaging a page and firing the real endpoint with prod Resend creds, and a real email landed. Also cut the rotted schema tree from `PROJECT_GUIDELINES` and started v0.4.2 notes.
+
 #### Entry: Sun 07/26/2026 21:18 PDT
 Built `npm run invite`, an interactive CLI that emails beta invites via Resend, with a new InviteEmail template. It can't reuse the app's `sendEmail`, since the `server-only` guard throws in plain Node, so it renders the shared template through its own Resend client. Also traced why prod verification links pointed at localhost. `APP_BASE_URL` was unset in Vercel, so `getAppBaseUrl` fell back to localhost, and I added a Vercel-domain fallback to `url.ts`. Wiped a stuck unverified test account from prod. Separately fixed the uptime false alarms, where the monitor pinged the apex domain that now 307-redirects to www without following it. Staged v0.4.1.
 
