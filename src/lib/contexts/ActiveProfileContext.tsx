@@ -28,6 +28,25 @@ interface ActiveProfileContextValue {
 
 const ActiveProfileCtx = createContext<ActiveProfileContextValue | undefined>(undefined);
 
+/**
+ * Resolve which entity the nav shows. Personal → the user; acting-as-page → the fresh
+ * server page prop when it matches the session's activePageId, otherwise keep whatever
+ * was already showing (an optimistic switch that the prop hasn't caught up to) and fall
+ * back to personal so the tag never blanks. Shared by the initial state and the re-sync
+ * effect so the two can't drift.
+ */
+function resolveActiveEntity(
+	currentUser: CardUser | null,
+	activePageId: string | null,
+	activePage: CardPage | null,
+	prev: CardEntity | null,
+): CardEntity | null {
+	if (!currentUser) return null;
+	if (!activePageId) return currentUser;
+	if (activePage && activePage.id === activePageId) return activePage;
+	return prev ?? currentUser;
+}
+
 interface ActiveProfileProviderProps {
 	children: ReactNode;
 	/** Server-resolved identity, seeded from the root layout (see getActingIdentity). */
@@ -40,7 +59,12 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 	const activePageId = session?.user?.activePageId ?? null;
 
 	const [currentUser, setCurrentUser] = useState<CardUser | null>(initialCurrentUser);
-	const [activeEntity, setActiveEntity] = useState<CardEntity | null>(null);
+	// Seed from the server props so the acting-identity tag paints correctly on the first
+	// frame instead of blanking until the resolver effect runs. Uses the same resolver the
+	// effect does, so seed and re-sync stay in lockstep.
+	const [activeEntity, setActiveEntity] = useState<CardEntity | null>(() =>
+		resolveActiveEntity(initialCurrentUser, activePageId, initialActivePage, null),
+	);
 	const [pages, setPages] = useState<CardPageWithRole[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -53,7 +77,7 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 	// Keyed on a primitive signature, not the object reference, so it fires exactly when the
 	// identity's displayed fields change — never on an incidental re-render.
 	const userSig = initialCurrentUser
-		? `${initialCurrentUser.id}|${initialCurrentUser.displayName ?? ""}|${initialCurrentUser.avatarImageId ?? ""}|${initialCurrentUser.avatarImage?.url ?? ""}`
+		? `${initialCurrentUser.id}|${initialCurrentUser.handle}|${initialCurrentUser.displayName ?? ""}|${initialCurrentUser.avatarImageId ?? ""}|${initialCurrentUser.avatarImage?.url ?? ""}`
 		: null;
 	useEffect(() => {
 		if (!session?.user?.id) {
@@ -72,13 +96,10 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 	// there's nothing to keep (e.g. a stale/forbidden activePageId at load), fall back to
 	// personal so the nav tag never blanks.
 	const pageSig = initialActivePage
-		? `${initialActivePage.id}|${initialActivePage.name}|${initialActivePage.avatarImageId ?? ""}|${initialActivePage.avatarImage?.url ?? ""}`
+		? `${initialActivePage.id}|${initialActivePage.handle}|${initialActivePage.name}|${initialActivePage.avatarImageId ?? ""}|${initialActivePage.avatarImage?.url ?? ""}`
 		: null;
 	useEffect(() => {
-		if (!currentUser) { setActiveEntity(null); return; }
-		if (!activePageId) { setActiveEntity(currentUser); return; }
-		if (initialActivePage && initialActivePage.id === activePageId) { setActiveEntity(initialActivePage); return; }
-		setActiveEntity((prev) => prev ?? currentUser);
+		setActiveEntity((prev) => resolveActiveEntity(currentUser, activePageId, initialActivePage, prev));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentUser, activePageId, pageSig]);
 
