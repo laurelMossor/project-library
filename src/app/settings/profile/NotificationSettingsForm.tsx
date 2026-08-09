@@ -73,14 +73,11 @@ export function NotificationSettingsForm() {
 
 	return (
 		<div className="space-y-4">
-			<div>
-				<h1 className="text-xl font-semibold text-rich-brown">Email notifications</h1>
-				<p className="text-sm text-misty-forest">
-					Preferences for <span className="font-medium">{whose}</span>. Switch profiles to manage a page’s emails.
-				</p>
-			</div>
+			<p className="text-sm text-misty-forest">
+				Preferences for <span className="font-medium">{whose}</span>. Switch profiles to manage a page’s emails.
+			</p>
 
-			<div className="rounded-lg border border-ash-green bg-white p-4">
+			<div>
 				<Toggle
 					label="Email me about activity"
 					description="Master switch — when off, nothing below is sent."

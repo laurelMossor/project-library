@@ -11,6 +11,18 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sun 08/09/2026 13:25 PDT
+Reviewed `4-0-followups` with `/prolib-review`, then landed three small follow-ups. Added `handle` to the nav identity signature, seeded `activeEntity` from server props to kill a first-frame blank, and added a test for the non-admin editor visibility gate. Then QA'd the whole QA column live and moved all four tickets to Done, covering the Settings consolidation, Reset Password, and the avatar refresh. Found and filed a P0 along the way. A PRIVATE profile ships its email and bio in the anonymous page payload, though the visible UI is only the locked stub. Also filed a backlog ticket for the inline-editable test gaps.
+
+#### Entry: Sun 08/09/2026 12:29 PDT
+Landed two small Settings follow-ups. Enabled the account "Reset Password" button, which had been a disabled placeholder, by wiring it to the existing email-reset flow. The reset backend already worked, so only the entry point was missing. Also consolidated Settings onto one page. Renamed `settings/notifications` to `settings/profile` and moved profile and content visibility there from personal-info, next to the email preferences. Each setting now has its own section header, and visibility has a single source of truth.
+
+#### Entry: Sun 08/09/2026 11:53 PDT
+Fixed a P0 where a new avatar never reached the nav profile tag. The root cause was duplicated identity state, a stale client cache in the nav and a separate local copy in the profile editor, that `router.refresh` could not touch. Made the server authoritative. The root layout now resolves the acting identity and passes it as props, so a refresh re-syncs every avatar surface from one source. Also fixed that Remove Photo did not visibly remove the photo on the edit page, the same way. Verified live and added unit tests.
+
+#### Entry: Sun 08/09/2026 10:59 PDT
+Traced why prod notification emails never sent. The flush cron POSTed the apex, which 307-redirects to www, and `curl --fail` treats a 3xx as success, so the endpoint never ran while every run reported green. Pointed the workflow at the www host directly, the fix `uptime.yml` already carried. Verified the pipeline end-to-end on dev, messaging a page and firing the real endpoint with prod Resend creds, and a real email landed. Also cut the rotted schema tree from `PROJECT_GUIDELINES` and started v0.4.2 notes.
+
 #### Entry: Sun 07/26/2026 21:18 PDT
 Built `npm run invite`, an interactive CLI that emails beta invites via Resend, with a new InviteEmail template. It can't reuse the app's `sendEmail`, since the `server-only` guard throws in plain Node, so it renders the shared template through its own Resend client. Also traced why prod verification links pointed at localhost. `APP_BASE_URL` was unset in Vercel, so `getAppBaseUrl` fell back to localhost, and I added a Vercel-domain fallback to `url.ts`. Wiped a stuck unverified test account from prod. Separately fixed the uptime false alarms, where the monitor pinged the apex domain that now 307-redirects to www without following it. Staged v0.4.1.
 

@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { CardEntity, CardUser, CardPage, CardPageWithRole } from "@/lib/types/card";
-import { API_ME_USER, API_ME_PAGE, API_ME_PAGES, API_SESSION_ACTIVE_PAGE } from "@/lib/const/routes";
+import { API_ME_PAGE, API_ME_PAGES, API_SESSION_ACTIVE_PAGE } from "@/lib/const/routes";
 import { isActingRole } from "@/lib/const/roles";
 
 interface ActiveProfileContextValue {
@@ -28,48 +28,80 @@ interface ActiveProfileContextValue {
 
 const ActiveProfileCtx = createContext<ActiveProfileContextValue | undefined>(undefined);
 
-export function ActiveProfileProvider({ children }: { children: ReactNode }) {
+/**
+ * Resolve which entity the nav shows. Personal → the user; acting-as-page → the fresh
+ * server page prop when it matches the session's activePageId, otherwise keep whatever
+ * was already showing (an optimistic switch that the prop hasn't caught up to) and fall
+ * back to personal so the tag never blanks. Shared by the initial state and the re-sync
+ * effect so the two can't drift.
+ */
+function resolveActiveEntity(
+	currentUser: CardUser | null,
+	activePageId: string | null,
+	activePage: CardPage | null,
+	prev: CardEntity | null,
+): CardEntity | null {
+	if (!currentUser) return null;
+	if (!activePageId) return currentUser;
+	if (activePage && activePage.id === activePageId) return activePage;
+	return prev ?? currentUser;
+}
+
+interface ActiveProfileProviderProps {
+	children: ReactNode;
+	/** Server-resolved identity, seeded from the root layout (see getActingIdentity). */
+	initialCurrentUser: CardUser | null;
+	initialActivePage: CardPage | null;
+}
+
+export function ActiveProfileProvider({ children, initialCurrentUser, initialActivePage }: ActiveProfileProviderProps) {
 	const { data: session, update: updateSession } = useSession();
 	const activePageId = session?.user?.activePageId ?? null;
 
-	const [currentUser, setCurrentUser] = useState<CardUser | null>(null);
-	const [activeEntity, setActiveEntity] = useState<CardEntity | null>(null);
+	const [currentUser, setCurrentUser] = useState<CardUser | null>(initialCurrentUser);
+	// Seed from the server props so the acting-identity tag paints correctly on the first
+	// frame instead of blanking until the resolver effect runs. Uses the same resolver the
+	// effect does, so seed and re-sync stay in lockstep.
+	const [activeEntity, setActiveEntity] = useState<CardEntity | null>(() =>
+		resolveActiveEntity(initialCurrentUser, activePageId, initialActivePage, null),
+	);
 	const [pages, setPages] = useState<CardPageWithRole[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Fetch the current user once when session is established. When the session loses its id
-	// (logout, or an invalidated/expired session), clear the cached identity so the nav's
-	// profile tag doesn't keep showing a user who is no longer logged in.
+	// Sync currentUser from the server prop. The layout re-runs getActingIdentity on every
+	// server render — including router.refresh() after an avatar/profile edit — so a fresh
+	// prop is how the nav learns about the change (this replaces the old client fetch-cache
+	// that never invalidated). Still gated on the *client* session id so an out-of-band
+	// session loss (logout, token-version bump) clears the identity without a reload.
+	// Keyed on a primitive signature, not the object reference, so it fires exactly when the
+	// identity's displayed fields change — never on an incidental re-render.
+	const userSig = initialCurrentUser
+		? `${initialCurrentUser.id}|${initialCurrentUser.handle}|${initialCurrentUser.displayName ?? ""}|${initialCurrentUser.avatarImageId ?? ""}|${initialCurrentUser.avatarImage?.url ?? ""}`
+		: null;
 	useEffect(() => {
 		if (!session?.user?.id) {
 			setCurrentUser(null);
-			setActiveEntity(null);
-			setPages([]);
+			setPages([]); // drop the lazy-loaded switcher list on logout
 			return;
 		}
-		fetch(API_ME_USER)
-			.then((r) => (r.ok ? r.json() : null))
-			.then((user) => { if (user?.id) setCurrentUser(user as CardUser); })
-			.catch(() => {});
-	}, [session?.user?.id]);
+		setCurrentUser(initialCurrentUser);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [session?.user?.id, userSig]);
 
-	// Resolve activeEntity whenever currentUser or activePageId changes.
-	// We wait for currentUser to be loaded before trying to resolve — this ensures
-	// that switching back to personal identity always has a user to display.
+	// Resolve activeEntity from the synced identity + the server-provided active page.
+	// Personal → currentUser. Acting-as-page → the fresh initialActivePage prop. When the
+	// page prop hasn't caught up to a just-switched pageId, keep the prior entity (switchProfile
+	// sets it optimistically — see below) so a page→page switch shows no personal-flash; when
+	// there's nothing to keep (e.g. a stale/forbidden activePageId at load), fall back to
+	// personal so the nav tag never blanks.
+	const pageSig = initialActivePage
+		? `${initialActivePage.id}|${initialActivePage.handle}|${initialActivePage.name}|${initialActivePage.avatarImageId ?? ""}|${initialActivePage.avatarImage?.url ?? ""}`
+		: null;
 	useEffect(() => {
-		if (!currentUser) return;
-
-		if (!activePageId) {
-			setActiveEntity(currentUser);
-			return;
-		}
-
-		fetch(API_ME_PAGE)
-			.then((r) => (r.ok ? r.json() : null))
-			.then((page) => { if (page?.id) setActiveEntity(page as CardPage); })
-			.catch(() => {});
-	}, [currentUser, activePageId]);
+		setActiveEntity((prev) => resolveActiveEntity(currentUser, activePageId, initialActivePage, prev));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentUser, activePageId, pageSig]);
 
 	async function fetchPages() {
 		try {
@@ -111,7 +143,10 @@ export function ActiveProfileProvider({ children }: { children: ReactNode }) {
 					return;
 				}
 				await updateSession({ activePageId: pageId });
-				// Fetch the new active page entity
+				// Optimistically set the new active page entity for an instant switch. This also
+				// feeds the resolver's keep-prior branch: on the next server render the fresh
+				// initialActivePage prop confirms this value. Keep this fetch and that branch in
+				// sync — removing this reintroduces a personal-flash on page→page switches.
 				const pageRes = await fetch(API_ME_PAGE);
 				if (pageRes.ok) {
 					const page = await pageRes.json();

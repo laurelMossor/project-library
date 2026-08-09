@@ -4,9 +4,9 @@ import { PublicUser } from "@/lib/types/user";
 import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/ProfileSettingsBase";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
-import { CONNECTIONS, NOTIFICATIONS_SETTINGS, PERSONAL_INFO } from "@/lib/const/routes";
+import { CONNECTIONS, FORGOT_PASSWORD, PROFILE_SETTINGS, PERSONAL_INFO } from "@/lib/const/routes";
 
-const USER_DISABLED_BUTTONS = ["Change Password", "Delete Account"];
+const USER_DISABLED_BUTTONS = ["Delete Account"];
 
 type UserSettingsContentProps = {
 	user: PublicUser;
@@ -36,8 +36,11 @@ export function UserSettingsContent({
 					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
 						Manage Connections
 					</ButtonLink>
-					<ButtonLink href={NOTIFICATIONS_SETTINGS} variant="secondary" fullWidth>
-						Email Notifications
+					<ButtonLink href={PROFILE_SETTINGS} variant="secondary" fullWidth>
+						Edit Profile Settings
+					</ButtonLink>
+					<ButtonLink href={FORGOT_PASSWORD} variant="secondary" fullWidth>
+						Reset Password
 					</ButtonLink>
 				</>
 			}

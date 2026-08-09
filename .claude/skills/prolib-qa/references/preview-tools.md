@@ -49,6 +49,13 @@ verdict decisive. Read it once before a QA run.
 - **Form typing:** `form_input` sets the value directly; for debounced inputs that need
   real keystroke events (search boxes), use `computer` `type`. Don't do both to one field —
   you'll get "patpat". To replace a field's contents, `triple_click` it first, then `type`.
+- **No file uploads.** A `<input type=file>` (avatar/image upload) opens a native OS file
+  picker these tools **cannot** populate — clicking "Change photo" fires the dialog and you're
+  stuck. Options, in order of fidelity: (a) drive the real widget via the **Chrome MCP**
+  (`file_upload`); (b) exercise the same code path from the other direction (e.g. **Remove
+  photo** proves the same avatar-sync mechanism as adding one); (c) set the state via API/DB
+  (setup) then trigger the client refresh and assert the sync — but say you did, since you
+  didn't drive the picker. **Never mark an upload criterion pass you couldn't actually drive.**
 
 ## Verification techniques — reach for these
 
@@ -133,13 +140,50 @@ import { prisma } from "./src/lib/utils/server/prisma";
 Use it for setup (arranging preconditions) *and* truth (verifying an effect) — but the
 *behavior under test* still goes through the UI.
 
-### Embed-leak check — what "attribution-only" means
+### 5. Prove a soft refresh (router.refresh) vs. a hard reload — window sentinel
 
-When a criterion is "embedded author/page objects carry no sensitive fields," the **allowed**
-attribution keys are: `id`, `handle`, `displayName`/`name`, `firstName`, `lastName`,
-`avatarImage` (+`avatarImageId`). Anything else — `bio`, `location`, `interests`,
+When a criterion is "X updates **without a page reload**" (a nav tag re-syncing after an edit,
+an optimistic list refreshing), you must distinguish a soft `router.refresh()` — which re-runs
+server components but **keeps** the JS context — from a full navigation that wipes it. Stamp a
+value on `window` before the action; a soft refresh preserves it, a hard reload clears it:
+
+```js
+// before the action (fresh load, so it isn't already set)
+window.__sentinel = 'x-' + Math.floor(performance.now());
+```
+```js
+// after clicking Save / Remove / switching identity — read both at once
+JSON.stringify({
+  survived: window.__sentinel || 'WIPED (hard reload happened)',
+  // + read the DOM you expect to have changed, e.g. the nav avatar src/alt or name text
+})
+```
+
+If the sentinel **survives** AND the target DOM changed, `router.refresh()` re-executed the
+server render and re-seeded the client with no full reload — exactly what a "without a reload"
+criterion asks for. (This is what makes the ProfileTag/identity-refresh class of ticket
+verifiable — and it works from the removal direction when the add direction needs a file upload
+you can't drive.)
+
+### Payload-leak check — assert the wire, not just the pixels
+
+A locked/gated view can render the **correct** restricted UI while the server still ships the
+**full record** in the page payload. A PRIVATE profile's stub can look right on screen yet leak
+`email`/`bio`/`location` in the RSC/HTML sent to an **anonymous** viewer, because the route
+handed the full object to a client component that only *renders* a subset. So for any
+privacy/visibility criterion, **check the payload, not only the rendered stub:** `curl` the page
+(or its JSON) logged-out and grep for the fields that should be hidden.
+
+```bash
+# a PRIVATE user's forbidden fields must NOT appear in the anon HTML
+curl -s http://localhost:3000/<private-handle> | grep -o '<email-or-bio-substring>'   # want: no match
+```
+
+When a criterion is instead "embedded author/page objects carry no sensitive fields," the
+**allowed** attribution keys are: `id`, `handle`, `displayName`/`name`, `firstName`,
+`lastName`, `avatarImage` (+`avatarImageId`). Anything else — `bio`, `location`, `interests`,
 `aboutContent`, `email`, `headline`, `profileVisibility`, `contentVisibility` — is a leak.
-Fetch the content JSON and diff the embed's keys against that forbidden set.
+Fetch the content JSON (or the anon page HTML) and diff the keys against that forbidden set.
 
 ## Recording evidence
 

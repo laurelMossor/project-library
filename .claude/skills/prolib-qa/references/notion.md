@@ -33,8 +33,8 @@ that's where informal acceptance checklists show up.
 
 ## Writing back (step 6 — immediately after each ticket)
 
-Do all three on a pass; on a fail, skip checking off criteria if the user prefers, and
-set Status as directed.
+Do **both** on a pass; on a fail, skip checking off criteria if the user prefers, and
+set Status as directed. (There is no third step — do **not** post a comment; see below.)
 
 ### 1. Check off existing acceptance criteria in the ticket body
 
@@ -86,20 +86,13 @@ curl -s -X PATCH "https://api.notion.com/v1/pages/$PAGE_ID" \
   -d '{ "properties": { "Status": { "status": { "name": "Done" } } } }'
 ```
 
-### 3. Add a QA-result comment
+### ~~3. Add a QA-result comment~~ — DON'T
 
-A short audit trail: verdict, date, one line on what was checked. (Pass the date in
-explicitly — don't rely on a generated timestamp.)
-
-```bash
-curl -s -X POST "https://api.notion.com/v1/comments" \
-  -H "Authorization: Bearer $NOTION_KEY" -H "Notion-Version: 2022-06-28" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "parent": { "page_id": "'"$PAGE_ID"'" },
-    "rich_text": [ { "text": { "content": "QA PASS (2026-06-15): verified inline description holds on blur and persists after Save; no console errors." } } ]
-  }'
-```
+Do **not** post a comment. This integration lacks comment-insert, so `POST /v1/comments`
+returns `403 "Insufficient permissions for this endpoint."` **every time** — a
+guaranteed-failing call, not something to attempt-and-note. The **checked-off criteria +
+Status are the durable audit trail**; put the verdict/date summary in your chat report to
+the user instead. (If the integration is ever granted comment-insert, revisit this.)
 
 ## Gotchas
 
@@ -112,8 +105,8 @@ curl -s -X POST "https://api.notion.com/v1/comments" \
   curl path above and the MCP path get the same result; just don't guess the field name.
 - The integration must be shared with the ticket's page for writes to succeed; if a PATCH/POST
   returns a permission error, that's why — surface it to the user rather than retrying blindly.
-- **Comments specifically may be blocked even when Status/criteria writes succeed.** Observed:
-  PATCH page Status and PATCH `to_do` `checked` both work, but `POST /v1/comments` returns
-  `"Insufficient permissions for this endpoint."` (the integration lacks comment-insert). Don't
-  let this fail the run — the Status move + checked criteria are the durable record. Note it to
-  the user (they can enable comment-insert on the integration if they want the audit trail).
+- **Never post comments — they 403 unconditionally.** PATCH page Status and PATCH `to_do`
+  `checked` both work, but `POST /v1/comments` returns `"Insufficient permissions for this
+  endpoint."` **every time** (the integration lacks comment-insert). Don't attempt it — it's not
+  a "note it and move on" case, it's a call to skip. The Status move + checked criteria are the
+  durable record. (If the user enables comment-insert on the integration later, revisit.)

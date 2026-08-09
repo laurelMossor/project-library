@@ -79,6 +79,13 @@ Most tickets arrive with **no** criteria, so this step is the rule, not the exce
     (two-field profile/content model, locked identity stub for PRIVATE profiles,
     404-never-403 for unviewable content). Read it before drafting, so the criteria
     match the contract rather than intuition about how privacy "should" work.
+    **Always include a payload-level criterion, not just a rendered-UI one.** A locked
+    stub can look perfectly correct on screen while the server still ships the full record
+    (`email`/`bio`/`location`) in the page payload to an anonymous viewer — that's exactly
+    where real leaks hide, and a pixels-only criterion sails right past it. Draft it as
+    "field X does **not** appear in the anon page HTML / JSON" and verify with the
+    payload-leak check in [references/preview-tools.md](references/preview-tools.md)
+    (`curl` logged-out + grep the forbidden fields), not just a screenshot of the stub.
 
 Write each criterion as a **manual test scenario**, not an assertion — a concrete thing
 you will *do* in the running app, plus the **observable result** that means it passed.
@@ -132,9 +139,10 @@ through the UI.
 are the biggest time sink — group everything you do *as* one identity before switching.
 
 The Browser-pane tools have non-obvious mechanics — eval-context persistence, **stale console
-logs**, ref-map resets, and **the a11y tree missing overlay/dropdown content** — plus four
-verification techniques (fetch-interception, hard-reload, authenticated-`fetch` gate checks,
-and direct DB-ground-truth queries). They're in
+logs**, ref-map resets, **the a11y tree missing overlay/dropdown content**, and **no way to
+drive an OS file dialog** — plus five verification techniques (fetch-interception, hard-reload,
+authenticated-`fetch` gate checks, direct DB-ground-truth queries, and the **window-sentinel
+soft-refresh-vs-hard-reload** check for "updates without a reload" criteria). They're in
 [references/preview-tools.md](references/preview-tools.md); read it before driving.
 
 ### 4. Reproduce & verify
@@ -206,7 +214,7 @@ before writing anything. Otherwise proceed directly to step 6.
 ### 6. Write back to Notion — immediately after each ticket
 
 Write to Notion right after reporting each ticket's result. Don't batch across tickets
-or wait for a separate user confirmation. Do all three:
+or wait for a separate user confirmation. Do **both**:
 
 1. **Check off the scenarios you drove and passed.** Fetch the ticket's block children,
    find the `to_do` blocks under the "Acceptance Criteria" heading, and PATCH `checked:
@@ -215,11 +223,14 @@ or wait for a separate user confirmation. Do all three:
    over. If the criteria weren't written yet, append them now, checking only the driven-
    and-passed ones. Never label the section "verified live" unless every checked row was.
 2. **Move Status** — `Done` on pass, `In progress` (or as directed) on fail.
-3. **Add a QA-result comment** — the verdict + date + a one-line summary of what was
-   checked.
 
-The exact REST recipes (fetch blocks, PATCH to_do checked, PATCH status, POST comment)
-are in [references/notion.md](references/notion.md).
+**Do NOT post a QA-result comment.** This integration lacks comment-insert, so
+`POST /v1/comments` returns 403 **every time** — it's a guaranteed-failing call, not a
+nice-to-have to attempt-and-note. The checked-off criteria + Status ARE the durable
+record; the verdict summary goes in your **chat report** to the user, not on the ticket.
+
+The exact REST recipes (fetch blocks, PATCH to_do checked, PATCH status) are in
+[references/notion.md](references/notion.md).
 
 **Exception:** if the user explicitly says to defer Notion writes (e.g. "don't touch
 Notion yet"), respect that for the current run.
@@ -251,9 +262,14 @@ See `tests/TESTING.md` for the existing suite's conventions and helpers.
   a flow fail a criterion; however the console log is cumulative and replays old compile
   errors, so confirm against a fresh page read before failing on it. See
   [references/preview-tools.md](references/preview-tools.md).
-- **Notion comments may be permission-blocked.** The integration can move Status and check
-  off `to_do` criteria, but POSTing a comment can return "Insufficient permissions" — if so,
-  note it and move on; Status + checked criteria are the durable record, the comment is a
-  nice-to-have, not a blocker.
+- **Don't post Notion comments — they always 403 here.** The integration can move Status and
+  check off `to_do` criteria, but `POST /v1/comments` returns "Insufficient permissions" **every
+  time** (it lacks comment-insert). Don't attempt it. The checked criteria + Status are the
+  durable record; the verdict summary goes in your chat report, not on the ticket.
+- **Can't drive a file upload.** A `<input type=file>` (avatar/image upload) opens a native OS
+  picker the browser-pane tools can't populate. Verify upload-dependent criteria another way
+  (Chrome MCP `file_upload`, or set the state via API/DB then assert the sync) and say which —
+  never mark an upload criterion pass you couldn't actually drive. See
+  [references/preview-tools.md](references/preview-tools.md).
 - **One worker, shared dev DB.** If you create test data, clean it up (or note it) so the
   next run starts clean — see the cleanup patterns in `tests/TESTING.md`.

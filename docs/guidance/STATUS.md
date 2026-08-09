@@ -2,8 +2,8 @@
 
 > Live tracker for where we are. Brevity is the feature — the high-level "where are we right now?" doc Claude reads at session start. Full history lives in `JOURNAL.md`.
 
-**Last updated:** 2026-07-25
-**Current phase:** Open Beta. **Netwerk is shipped to production** — the whole stack (two-field visibility, membership flag, in-app + email notifications, comments, transactional email, post photos, BUGS epic) went live on `main`/prod in the 2026-07-25 migration cutover, the project's first major prod schema migration. Next: tag `v0.4.0`, then start Meatup.
+**Last updated:** 2026-08-09
+**Current phase:** Open Beta. **Netwerk (`v0.4.0`) is shipped to production** — the whole stack (two-field visibility, membership flag, in-app + email notifications, comments, transactional email, post photos, BUGS epic) went live on `main`/prod in the 2026-07-25 migration cutover, the project's first major prod schema migration. Two follow-up releases have landed since: `v0.4.1` (beta-invite CLI + prod email-link fixes) and `v0.4.2` (notification-email delivery fix + Settings polish, currently unreleased). Next: start Meatup.
 **Usership:** Small group of real closed-beta users. Some data is still mocked. DB operations require approval.
 **Authoritative plan (only access if prompted):** [Open Beta – Project Plan (Google Doc)](https://docs.google.com/document/d/1FTW9_Ny-DWrPzHlO1BGGrfQFqOu4JBxZX2j-F_G5OMI/edit)
 **Ticket board (only access if prompted):** [ProLib Tickets (Notion)](https://www.notion.so/2d6453d029b080e99ebffce9169b18c6)
@@ -24,13 +24,9 @@ Follow-up: [authenticated member RSVP (`Rsvp.userId`)](https://app.notion.com/p/
 
 Most recent first. Full detail in `JOURNAL.md`.
 
-- **2026-07-25** — First prod migration: Netwerk schema cutover behind a new maintenance-mode gate (`proxy.ts` edge 503), 17 migrations, no data loss. Fixed a Vercel build P1001 by moving `DIRECT_URL` to the session pooler.
-- **2026-07-24** — BUGS epic (`netwerk-10`): all 7 tickets, incl. the stale-session leak and `/login` redirect.
-- **2026-07-24** — Post photos & captions (`netwerk-9`): carousel photo add/edit on a shared upload helper.
-- **2026-07-24** — Membership feature-flag (`netwerk-8`): Follow is the single beta relationship; page-privacy ADMIN-only.
-- **2026-07-22** — Email Notifications (`netwerk-7`): windowed flush, per-context preferences, one-click unsubscribe.
-- **2026-07-20** — Activity Notifications (`netwerk-6`): in-app bell + Activity-Streams dispatcher.
-- **2026-07-12** — Comments on Posts/Events.
+- **2026-08-09** — `v0.4.2` polish (unreleased): notification-email delivery fix (cron targets the `www` host), avatar-sync fix, and a Settings consolidation onto `/settings/profile`.
+- **2026-07-26** — `v0.4.1`: beta-invite CLI (`npm run invite`) and fixes for prod email links that resolved to `localhost`.
+- **2026-07-25** — `v0.4.0` "Netwerk" shipped: first prod migration behind a new maintenance-mode gate (`proxy.ts` edge 503), 17 migrations, no data loss.
 
 ---
 

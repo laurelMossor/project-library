@@ -262,6 +262,24 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEdi
 	const searchParams = useSearchParams();
 	const [entity, setEntity] = useState(initialEntity);
 
+	// Re-seed the avatar from the server after a router.refresh() (avatar save/remove goes
+	// through ClickableProfilePicture, which persists then refreshes). Same source-of-truth
+	// pattern as the nav: the server is authoritative, and local state re-syncs from the fresh
+	// prop rather than each mutator poking it. Keyed on the avatar signature so an inline text
+	// save (already merged locally via onSaved) never triggers a clobbering re-seed.
+	const avatarSig = `${initialEntity.data.avatarImageId ?? ""}|${initialEntity.data.avatarImage?.url ?? ""}`;
+	useEffect(() => {
+		setEntity((prev) => ({
+			...prev,
+			data: {
+				...prev.data,
+				avatarImageId: initialEntity.data.avatarImageId,
+				avatarImage: initialEntity.data.avatarImage,
+			},
+		} as ProfileEditEntity));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [avatarSig]);
+
 	// URL is the source of truth for edit/preview state
 	const previewMode = searchParams.get("edit") !== "true";
 
@@ -311,6 +329,9 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEdi
 				);
 				// Bug #1 fix: return to preview/view mode after a successful save
 				setPreviewMode(true);
+				// Re-run server components so the nav's server-seeded identity picks up an
+				// edited name/handle (same mechanism the avatar save already relies on).
+				router.refresh();
 			}}
 			canEdit={!previewMode}
 		>

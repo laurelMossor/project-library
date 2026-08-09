@@ -11,7 +11,7 @@ describe("NotificationEmail", () => {
 	test("renders every section, row, per-section unsubscribe, and the manage link", async () => {
 		const html = await render(
 			NotificationEmail({
-				managePrefsUrl: "https://app.test/settings/notifications",
+				managePrefsUrl: "https://app.test/settings/profile",
 				sections: [
 					{
 						name: "Personal",
@@ -47,7 +47,7 @@ describe("NotificationEmail", () => {
 		expect(html).toContain("https://app.test/unsubscribe?token=personal");
 		expect(html).toContain("https://app.test/unsubscribe?token=page");
 		// Footer manage-preferences link
-		expect(html).toContain("https://app.test/settings/notifications");
+		expect(html).toContain("https://app.test/settings/profile");
 		expect(html).toContain("Manage email preferences");
 	});
 });

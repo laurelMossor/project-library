@@ -50,6 +50,18 @@ Login does a full-page redirect on success, so wait for the URL to leave `/login
 asserting anything. (Signup is **invite-only** via `/signup?invite=…` and rate-limited to
 5/hr per IP — see the skill's "trip up" notes if a criterion needs a fresh account.)
 
+### Switching active identity — use the UI switcher, not the raw API
+
+To act as a page, switch via the **UI profile switcher** (nav avatar → **Switch Profile** →
+the page), **not** the raw `PUT /api/session/active-page`. The switcher calls NextAuth
+`updateSession()`, which re-issues the session cookie; the raw API updates server-side session
+state but does **not** refresh the cookie the nav reads. Because the nav is now **server-seeded**
+from the root layout (see `getActingIdentity`), it re-reads that cookie on load — so after a raw
+API set, the nav keeps showing the **old** identity while `/api/me/page` reports the **new** one.
+That split will cost you a confused retry. **Switcher for identity; API/DB for everything else.**
+Note the switcher's page order isn't fixed — confirm which row you're clicking by its label/role
+chip, not its position.
+
 ## Seeded pages — who admins what
 
 All six page files in `prisma/seed-data/pages/` are seeded — with one gate: `laurel`
@@ -147,9 +159,10 @@ These are the real route directories under `src/app/` — there is **no `/u/<han
 ## Driving the preview app
 
 The mechanical gotchas of the `preview_*` tools (eval context quirks, stale console logs,
-selector vs nodeId, plus two high-value verification techniques) live in
-[preview-tools.md](preview-tools.md). Read it before driving the app — a couple of those
-gotchas will otherwise cost you retries or a wrong verdict.
+selector vs nodeId, no file-upload, plus the verification techniques — fetch-interception,
+hard-reload, authed-`fetch` gates, DB ground truth, the window-sentinel soft-refresh check,
+and the payload-leak check) live in [preview-tools.md](preview-tools.md). Read it before
+driving the app — a couple of those gotchas will otherwise cost you retries or a wrong verdict.
 
 ## Cleanup
 
