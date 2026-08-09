@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
-import { API_UNSUBSCRIBE, NOTIFICATIONS_SETTINGS, UNSUBSCRIBE_TOKEN_QUERY } from "@/lib/const/routes";
+import { API_UNSUBSCRIBE, PROFILE_SETTINGS, UNSUBSCRIBE_TOKEN_QUERY } from "@/lib/const/routes";
 
 /**
  * Unsubscribe confirm page. Reaching it does nothing (GET is read-only, so email link-scanners that
@@ -56,7 +56,7 @@ function UnsubscribeInner() {
 				<p className="text-misty-forest">
 					You’ll no longer receive {label ? `${label} ` : ""}email notifications. You can turn them back on
 					anytime in{" "}
-					<Link href={NOTIFICATIONS_SETTINGS} className="text-moss-green underline">
+					<Link href={PROFILE_SETTINGS} className="text-moss-green underline">
 						notification settings
 					</Link>
 					.
@@ -75,7 +75,7 @@ function UnsubscribeInner() {
 			{state === "error" ? <p className="text-sm text-red-600">{error}</p> : null}
 			<p className="text-sm text-misty-forest">
 				Prefer to fine-tune instead?{" "}
-				<Link href={NOTIFICATIONS_SETTINGS} className="text-moss-green underline">
+				<Link href={PROFILE_SETTINGS} className="text-moss-green underline">
 					Manage preferences
 				</Link>
 			</p>

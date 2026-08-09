@@ -40,7 +40,7 @@ export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 // Session-scoped — active profile resolved from session, no handle in URL
 export const SETTINGS = "/settings";
 export const PERSONAL_INFO = "/settings/personal-info";
-export const NOTIFICATIONS_SETTINGS = "/settings/notifications";
+export const PROFILE_SETTINGS = "/settings/profile";
 
 // Unsubscribe (per-section link in notification emails; stateless token, no login)
 export const UNSUBSCRIBE = "/unsubscribe";

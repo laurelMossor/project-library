@@ -12,10 +12,12 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 ## v0.4.2 — Notification email delivery fix (unreleased)
 
 - **Notification email delivery** — scheduled digest flush no longer silently no-ops in prod; cron targets the canonical `www` host instead of the redirecting apex.
+- **Settings consolidation** — profile visibility, content visibility, and email notifications now live together on one `/settings/profile` page (reached via "Edit Profile Settings").
 
 ### Bug Fixes
 
 - **Avatar sync** — a changed profile photo now updates the nav profile tag and profile page immediately, with identity derived from one server source instead of a stale client cache.
+- **Reset password** — the account Settings "Reset Password" button is enabled and links to the existing reset-via-email flow, instead of sitting disabled as a placeholder.
 
 ---
 

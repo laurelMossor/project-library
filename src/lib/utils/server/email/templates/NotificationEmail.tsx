@@ -25,7 +25,7 @@ export interface EmailProfileSection {
 
 export interface NotificationEmailProps {
 	sections: EmailProfileSection[];
-	/** Footer "Manage email preferences" link → /settings/notifications. */
+	/** Footer "Manage email preferences" link → /settings/profile. */
 	managePrefsUrl: string;
 	/** Inbox preview snippet; defaults to the first row. */
 	preview?: string;

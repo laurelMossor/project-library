@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sun 08/09/2026 12:29 PDT
+Landed two small Settings follow-ups. Enabled the account "Reset Password" button, which had been a disabled placeholder, by wiring it to the existing email-reset flow. The reset backend already worked, so only the entry point was missing. Also consolidated Settings onto one page. Renamed `settings/notifications` to `settings/profile` and moved profile and content visibility there from personal-info, next to the email preferences. Each setting now has its own section header, and visibility has a single source of truth.
+
 #### Entry: Sun 08/09/2026 11:53 PDT
 Fixed a P0 where a new avatar never reached the nav profile tag. The root cause was duplicated identity state, a stale client cache in the nav and a separate local copy in the profile editor, that `router.refresh` could not touch. Made the server authoritative. The root layout now resolves the acting identity and passes it as props, so a refresh re-syncs every avatar surface from one source. Also fixed that Remove Photo did not visibly remove the photo on the edit page, the same way. Verified live and added unit tests.
 

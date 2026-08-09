@@ -13,7 +13,7 @@ import { sendNotificationEmail } from "./email/emails";
 import type { EmailProfileSection, EmailNotificationRow } from "./email/templates/NotificationEmail";
 import { signUnsubscribeToken } from "./unsubscribe-token";
 import { absoluteUrl } from "./url";
-import { NOTIFICATIONS_SETTINGS, UNSUBSCRIBE_WITH_TOKEN, MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { PROFILE_SETTINGS, UNSUBSCRIBE_WITH_TOKEN, MESSAGE_CONVERSATION } from "@/lib/const/routes";
 import { publicPageEmbedFields } from "./fields";
 import { publicUserEmbedFields } from "./user";
 import { resolveCardIdentity } from "@/lib/types/card";
@@ -129,7 +129,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 	const pageMap = new Map(pages.map((p) => [p.id, p]));
 	const senderUserMap = new Map(senderUsers.map((u) => [u.id, u]));
 
-	const managePrefsUrl = absoluteUrl(NOTIFICATIONS_SETTINGS);
+	const managePrefsUrl = absoluteUrl(PROFILE_SETTINGS);
 	let sent = 0;
 	const recipientGroups = groupBy(kept, (r) => r.recipientUserId);
 

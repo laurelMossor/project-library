@@ -1,6 +1,7 @@
 "use client";
 
 import { VisibilitySelector, type SelectorOption } from "./VisibilitySelector";
+import { SettingsSection } from "@/lib/components/profile/profile-settings/SettingsSection";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { ProfileVisibility, ContentVisibility } from "@prisma/client";
@@ -37,8 +38,10 @@ const CONTENT_OPTIONS: SelectorOption<ContentVisibility>[] = [
 ];
 
 type Props = {
-	/** Section label, e.g. "Profile Visibility" or "Page Visibility". */
-	label: string;
+	/** Section header for the profile-access control (e.g. "Profile Visibility"). */
+	profileSectionTitle: string;
+	/** Section header for the content-distribution control (e.g. "Content Visibility"). */
+	contentSectionTitle: string;
 	initialProfileVisibility: ProfileVisibility;
 	initialContentVisibility: ContentVisibility;
 };
@@ -46,9 +49,16 @@ type Props = {
 /**
  * The two independent visibility controls (profile access + content distribution) wired into
  * the surrounding InlineEditSession: changes batch with every other field and save via the
- * shared Save bar. Shared by user and page profiles so the two stay in lockstep.
+ * shared Save bar. Rendered as two titled SettingsSection blocks. Kept as one component instance
+ * so both fields share the session — the PRIVATE≠LISTED guard reads/writes both. Shared by user
+ * and page profiles so the two stay in lockstep.
  */
-export function VisibilityField({ label, initialProfileVisibility, initialContentVisibility }: Props) {
+export function VisibilityField({
+	profileSectionTitle,
+	contentSectionTitle,
+	initialProfileVisibility,
+	initialContentVisibility,
+}: Props) {
 	const session = useInlineEditSession();
 	const canEdit = session?.canEdit ?? false;
 	const profile = useInlineField<ProfileVisibility>("profileVisibility", initialProfileVisibility);
@@ -71,9 +81,8 @@ export function VisibilityField({ label, initialProfileVisibility, initialConten
 	}
 
 	return (
-		<div className="border-t border-gray-100 pt-4 space-y-6">
-			<div>
-				<p className="text-xs text-dusty-grey mb-3 uppercase tracking-wide">{label}</p>
+		<>
+			<SettingsSection title={profileSectionTitle}>
 				<VisibilitySelector
 					value={profile.value}
 					onChange={onProfileChange}
@@ -82,8 +91,8 @@ export function VisibilityField({ label, initialProfileVisibility, initialConten
 					legend="Who can see this profile"
 					disabled={!canEdit}
 				/>
-			</div>
-			<div>
+			</SettingsSection>
+			<SettingsSection title={contentSectionTitle}>
 				<VisibilitySelector
 					value={content.value}
 					onChange={content.setValue}
@@ -92,7 +101,7 @@ export function VisibilityField({ label, initialProfileVisibility, initialConten
 					legend="Where your posts appear"
 					disabled={!canEdit}
 				/>
-			</div>
-		</div>
+			</SettingsSection>
+		</>
 	);
 }

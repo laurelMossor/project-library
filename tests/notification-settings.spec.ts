@@ -8,7 +8,7 @@ import { switchToPage, switchToPersonal } from "./helpers/profile";
 // an unambiguous change in either direction.
 test.use({ storageState: STORAGE_STATE.alice });
 
-const NOTIF_SETTINGS = "/settings/notifications";
+const NOTIF_SETTINGS = "/settings/profile";
 const RSVPS = "Event RSVPs";
 
 /** Click a category switch and wait for its PUT to land, so a reload can't race the save. */
@@ -74,9 +74,9 @@ test.describe("Notification settings", () => {
     await setRsvps(page, false);
   });
 
-  test("the settings menu links to email notifications", async ({ page }) => {
+  test("the settings menu links to profile settings", async ({ page }) => {
     await page.goto("/settings");
-    const link = page.getByRole("link", { name: "Email Notifications" });
+    const link = page.getByRole("link", { name: "Edit Profile Settings" });
     await expect(link).toBeVisible({ timeout: 10_000 });
     await expect(link).toHaveAttribute("href", NOTIF_SETTINGS);
   });
