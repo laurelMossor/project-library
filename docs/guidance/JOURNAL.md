@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
 
 
+#### Entry: Sun 08/09/2026 13:25 PDT
+Reviewed `4-0-followups` with `/prolib-review`, then landed three small follow-ups. Added `handle` to the nav identity signature, seeded `activeEntity` from server props to kill a first-frame blank, and added a test for the non-admin editor visibility gate. Then QA'd the whole QA column live and moved all four tickets to Done, covering the Settings consolidation, Reset Password, and the avatar refresh. Found and filed a P0 along the way. A PRIVATE profile ships its email and bio in the anonymous page payload, though the visible UI is only the locked stub. Also filed a backlog ticket for the inline-editable test gaps.
+
 #### Entry: Sun 08/09/2026 12:29 PDT
 Landed two small Settings follow-ups. Enabled the account "Reset Password" button, which had been a disabled placeholder, by wiring it to the existing email-reset flow. The reset backend already worked, so only the entry point was missing. Also consolidated Settings onto one page. Renamed `settings/notifications` to `settings/profile` and moved profile and content visibility there from personal-info, next to the email preferences. Each setting now has its own section header, and visibility has a single source of truth.
 
