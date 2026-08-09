@@ -9,8 +9,8 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ---
 
-## v0.4.2 — Notification email delivery fix (unreleased)
-
+## v0.4.2 — Fast-follows and bug fixes
+- **Remove placeholder About and Community Guidelines content** — Not in line with the site's AI content policy (which is also only in draft)
 - **Notification email delivery** — scheduled digest flush no longer silently no-ops in prod; cron targets the canonical `www` host instead of the redirecting apex.
 - **Settings consolidation** — profile visibility, content visibility, and email notifications now live together on one `/settings/profile` page (reached via "Edit Profile Settings").
 
