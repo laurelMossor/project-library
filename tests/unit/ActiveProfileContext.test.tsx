@@ -1,26 +1,42 @@
 /**
  * Tests for ActiveProfileContext / useActiveProfile
  *
- * Covers: identity resolution, profile switching (success + 403), and fetchPages filtering.
- * fetch and next-auth/react are mocked — no network or session required.
+ * The acting identity is seeded from server props (initialCurrentUser / initialActivePage)
+ * and re-synced when those props change — this is how a router.refresh() after an avatar/
+ * profile edit reaches the nav. switchProfile still round-trips fetch for the interactive
+ * switch. fetch and next-auth/react are mocked — no network or session required.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { ActiveProfileProvider, useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import type { CardUser, CardPage } from "@/lib/types/card";
 import { useSession } from "next-auth/react";
 
 vi.mock("next-auth/react", () => ({ useSession: vi.fn() }));
 
 const mockUpdateSession = vi.fn().mockResolvedValue(undefined);
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <ActiveProfileProvider>{children}</ActiveProfileProvider>
-);
+// Minimal shapes — only fields the context reads
+const mockUser: CardUser = { id: "user-1", handle: "alice", displayName: "Alice Doe", avatarImageId: null, avatarImage: null };
+const mockPage: CardPage = { id: "page-1", name: "Makers Guild", handle: "makers-guild", avatarImageId: null, avatarImage: null };
 
-// Minimal shape — only fields the context reads
-const mockUser = { id: "user-1", firstName: "Alice", lastName: "Doe" };
-const mockPage = { id: "page-1", name: "Makers Guild", handle: "makers-guild" };
+/**
+ * Render the hook inside a provider whose props can be changed between renders
+ * (simulating the layout re-running getActingIdentity on router.refresh()).
+ */
+function renderWithProps(initialCurrentUser: CardUser | null, initialActivePage: CardPage | null = null) {
+  let props = { initialCurrentUser, initialActivePage };
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <ActiveProfileProvider {...props}>{children}</ActiveProfileProvider>
+  );
+  const utils = renderHook(() => useActiveProfile(), { wrapper });
+  const setProps = (p: Partial<typeof props>) => {
+    props = { ...props, ...p };
+    utils.rerender();
+  };
+  return { ...utils, setProps };
+}
 
 function mockSession(activePageId: string | null = null) {
   vi.mocked(useSession).mockReturnValue({
@@ -42,48 +58,71 @@ function fetchFail(data: unknown) {
 describe("ActiveProfileContext", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // -- Identity resolution --------------------------------------------------
+  // -- Identity resolution from props --------------------------------------
 
-  test("no session → currentUser and activeEntity are null", () => {
+  test("no session → currentUser and activeEntity are null even when a prop is seeded", async () => {
     vi.mocked(useSession).mockReturnValue({ data: null, update: mockUpdateSession, status: "unauthenticated" } as any);
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
-    expect(result.current.currentUser).toBeNull();
+    const { result } = renderWithProps(mockUser); // prop present, but session is gone
+    await waitFor(() => expect(result.current.currentUser).toBeNull());
     expect(result.current.activeEntity).toBeNull();
   });
 
-  test("session with no activePageId → fetches user; activeEntity resolves to currentUser", async () => {
+  test("session with no activePageId → activeEntity resolves to the seeded currentUser", async () => {
     mockSession(null);
-    global.fetch = vi.fn().mockReturnValueOnce(fetchOk(mockUser)); // /api/me/user
-
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
-
+    const { result } = renderWithProps(mockUser);
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
     expect(result.current.activeEntity).toEqual(mockUser);
     expect(result.current.activePageId).toBeNull();
   });
 
-  test("session with activePageId → fetches page; activeEntity resolves to the page", async () => {
+  test("session with activePageId → activeEntity resolves to the seeded active page", async () => {
     mockSession("page-1");
-    global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk(mockUser)) // /api/me/user
-      .mockReturnValueOnce(fetchOk(mockPage)); // /api/me/page
-
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
-
+    const { result } = renderWithProps(mockUser, mockPage);
     await waitFor(() => expect(result.current.activeEntity).toEqual(mockPage));
     expect(result.current.activePageId).toBe("page-1");
   });
 
-  // -- switchProfile --------------------------------------------------------
+  test("stale/forbidden activePageId (no page prop) → nav falls back to personal, never blank", async () => {
+    mockSession("page-gone"); // session claims a page, but server couldn't resolve it → prop null
+    const { result } = renderWithProps(mockUser, null);
+    await waitFor(() => expect(result.current.activeEntity).toEqual(mockUser));
+  });
+
+  // -- The bug fix: a fresh prop (router.refresh) updates the nav identity ---
+
+  test("updated currentUser prop propagates to currentUser + activeEntity (the avatar-refresh path)", async () => {
+    mockSession(null);
+    const { result, setProps } = renderWithProps(mockUser);
+    await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
+
+    // Simulate router.refresh() → layout re-runs getActingIdentity → new prop with a new avatar
+    const updated: CardUser = { ...mockUser, avatarImageId: "img-9", avatarImage: { url: "https://cdn/new.png" } };
+    act(() => setProps({ initialCurrentUser: updated }));
+
+    await waitFor(() => expect(result.current.currentUser).toEqual(updated));
+    expect(result.current.activeEntity).toEqual(updated);
+  });
+
+  test("updated active page prop propagates to activeEntity while acting as that page", async () => {
+    mockSession("page-1");
+    const { result, setProps } = renderWithProps(mockUser, mockPage);
+    await waitFor(() => expect(result.current.activeEntity).toEqual(mockPage));
+
+    const updatedPage: CardPage = { ...mockPage, avatarImageId: "img-p", avatarImage: { url: "https://cdn/page.png" } };
+    act(() => setProps({ initialActivePage: updatedPage }));
+
+    await waitFor(() => expect(result.current.activeEntity).toEqual(updatedPage));
+  });
+
+  // -- switchProfile (unchanged: optimistic round-trip) ---------------------
 
   test("switchProfile(pageId) success → calls PUT, updates session, sets activeEntity to page", async () => {
     mockSession(null);
     global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk(mockUser))                        // initial user fetch
       .mockReturnValueOnce(fetchOk({ activePageId: "page-1" }))     // PUT /api/session/active-page
       .mockReturnValueOnce(fetchOk(mockPage));                       // fetch page after switch
 
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
+    const { result } = renderWithProps(mockUser);
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
 
     await act(async () => { await result.current.switchProfile("page-1"); });
@@ -100,10 +139,9 @@ describe("ActiveProfileContext", () => {
   test("switchProfile(pageId) → 403 sets error and does not update session", async () => {
     mockSession(null);
     global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk(mockUser))                                       // initial user fetch
       .mockReturnValueOnce(fetchFail({ error: "You cannot act as this page" }));    // PUT → 403
 
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
+    const { result } = renderWithProps(mockUser);
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
 
     await act(async () => { await result.current.switchProfile("page-1"); });
@@ -115,11 +153,9 @@ describe("ActiveProfileContext", () => {
   test("switchProfile(null) → calls DELETE, updates session, resets activeEntity to currentUser", async () => {
     mockSession("page-1");
     global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk(mockUser))              // initial user fetch
-      .mockReturnValueOnce(fetchOk(mockPage))              // initial page fetch (activePageId set)
       .mockReturnValueOnce(fetchOk({ activePageId: null })); // DELETE /api/session/active-page
 
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
+    const { result } = renderWithProps(mockUser, mockPage);
     await waitFor(() => expect(result.current.activeEntity).toEqual(mockPage));
 
     await act(async () => { await result.current.switchProfile(null); });
@@ -141,11 +177,9 @@ describe("ActiveProfileContext", () => {
       { id: "p-2", name: "Beta",  handle: "beta",  role: "EDITOR", avatarImageId: null, avatarImage: null },
       { id: "p-3", name: "Gamma", handle: "gamma", role: "MEMBER", avatarImageId: null, avatarImage: null },
     ];
-    global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk(mockUser))    // initial user fetch
-      .mockReturnValueOnce(fetchOk(pagesData));  // /api/me/pages
+    global.fetch = vi.fn().mockReturnValueOnce(fetchOk(pagesData));  // /api/me/pages
 
-    const { result } = renderHook(() => useActiveProfile(), { wrapper });
+    const { result } = renderWithProps(mockUser);
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
 
     await act(async () => { await result.current.fetchPages(); });

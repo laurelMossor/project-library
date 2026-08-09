@@ -13,6 +13,10 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 - **Notification email delivery** — scheduled digest flush no longer silently no-ops in prod; cron targets the canonical `www` host instead of the redirecting apex.
 
+### Bug Fixes
+
+- **Avatar sync** — a changed profile photo now updates the nav profile tag and profile page immediately, with identity derived from one server source instead of a stale client cache.
+
 ---
 
 ## v0.4.1 — Invite tooling & email-link fix (2026-07-26)

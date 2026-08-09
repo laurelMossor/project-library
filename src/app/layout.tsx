@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
+import { getActingIdentity } from "@/lib/utils/server/session";
 import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
 import { Footer } from "@/lib/components/footer/Footer";
 import { Analytics } from "@vercel/analytics/next";
@@ -23,11 +24,15 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }) {
 	const session = await auth();
-	
+	// Resolve the acting identity server-side so the nav derives its profile tag from
+	// props. router.refresh() (called after avatar/profile edits) re-runs this and flows
+	// the fresh identity down — the single sync path, replacing a stale client cache.
+	const { currentUser, activePage } = await getActingIdentity(session);
+
 	return (
 		<html lang="en">
 			<body className="bg-grey-white text-rich-brown">
-				<Providers session={session}>
+				<Providers session={session} currentUser={currentUser} activePage={activePage}>
 					<div className="flex flex-col min-h-screen">
 						{/* Navigation bar */}
 						<NavigationBar session={session} />
