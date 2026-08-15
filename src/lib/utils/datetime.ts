@@ -21,7 +21,7 @@ export const formatDateTime = (date: Date | string, timezone: string): string =>
 };
 
 /**
- * Absolute calendar date for an instant, in the viewer's local timezone.
+ * Absolute date and time for an instant, in the viewer's local timezone.
  * Client-only — pair with `<LocalDate>` so SSR never renders a localized string.
  */
 export const formatInstantAbsolute = (date: Date | string): string => {
@@ -29,7 +29,13 @@ export const formatInstantAbsolute = (date: Date | string): string => {
 	const month = dateObj.toLocaleString("en-US", { month: "short" });
 	const day = dateObj.getDate();
 	const year = dateObj.getFullYear();
-	return `${month} ${day}, ${year}`;
+	const hour = dateObj.getHours();
+	const minute = dateObj.getMinutes();
+	const ampm = hour >= 12 ? "PM" : "AM";
+	const displayHour = hour % 12 || 12;
+	const displayMinute = minute.toString().padStart(2, "0");
+
+	return `${month} ${day}, ${year} at ${displayHour}:${displayMinute} ${ampm}`;
 };
 
 /**

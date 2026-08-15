@@ -8,8 +8,11 @@
 6. Litmus test before saving: if you'd expect "cut this in half," it already needs it.
 
 **Target shape:**
-> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming.)
+> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
+
+#### Entry: Sat 08/15/2026 12:59 PDT
+Ran `/prolib-review` on `meatup-1` against develop and landed the agreed fixes. Closed a member-RSVP spoofing hole where a logged-out caller who knew a member's email could overwrite that RSVP while it stayed attributed to the account. Restored date and time on all instant timestamps via `formatInstantAbsolute`, and aligned the attendee-list headcount with `goingTotal`. Added regression tests for both security paths. 
 
 #### Entry: Sat 08/15/2026 12:33 PDT
 Deepened the RSVP model on `meatup-1` in two phases. Phase 1 added a single plus-one guest via a new `RsvpGuest` child model, guest-aware counts (`goingTotal = GOING + guests`), an "Bringing a +1?" toggle in the form, and an indented guest sub-row in the attendee list. Phase 2 added `Rsvp.userId`, server-authoritative member identity (name/email auto-filled, not trusted from the client), and a compact `RsvpIdentityChip` replacing the name/email form for logged-in members. A `/prolib-review` caught a silent bug where unnamed plus-ones were dropped on edit. All unit tests pass. Drafted and wrote acceptance criteria to both Meatup RSVP tickets.

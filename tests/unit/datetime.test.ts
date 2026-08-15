@@ -27,9 +27,8 @@ describe("formatDateTime", () => {
 });
 
 describe("formatInstantAbsolute", () => {
-	test("produces MMM D, YYYY in local time", () => {
-		// Noon UTC on Aug 10 — calendar date is Aug 10 in US timezones
+	test("produces MMM D, YYYY at H:MM AM/PM in local time", () => {
 		const date = new Date("2026-08-10T12:00:00.000Z");
-		expect(formatInstantAbsolute(date)).toMatch(/Aug 10, 2026/);
+		expect(formatInstantAbsolute(date)).toMatch(/Aug 10, 2026 at \d{1,2}:\d{2} (AM|PM)/);
 	});
 });

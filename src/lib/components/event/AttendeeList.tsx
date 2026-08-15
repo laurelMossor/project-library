@@ -67,7 +67,7 @@ export function AttendeeList({ eventId }: AttendeeListProps) {
 	}
 
 	const headcount = rsvps.reduce(
-		(sum, r) => sum + 1 + (r.status === "GOING" ? r.guests.length : 0),
+		(sum, r) => sum + (r.status === "GOING" ? 1 + r.guests.length : 0),
 		0,
 	);
 

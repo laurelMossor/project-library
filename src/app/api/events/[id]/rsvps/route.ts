@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getUserById } from "@/lib/utils/server/user";
-import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, forbidden, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { canActAsEntity } from "@/lib/utils/server/permission";
-import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
+import { createOrUpdateRsvp, getRsvpByEmail, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { emitActivity, type EntityRef, type ActorRef } from "@/lib/utils/server/activity";
 import { getUserDisplayName } from "@/lib/types/user";
@@ -67,6 +67,13 @@ export async function POST(request: Request, { params }: Params) {
 		const validation = validateRsvpData(rsvpData);
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid RSVP data");
+		}
+
+		if (!userId) {
+			const existing = await getRsvpByEmail(id, rsvpData.email);
+			if (existing?.userId) {
+				return forbidden("This RSVP belongs to a member account. Sign in to change it.");
+			}
 		}
 
 		const { rsvp, created } = await createOrUpdateRsvp(id, rsvpData, { userId });
