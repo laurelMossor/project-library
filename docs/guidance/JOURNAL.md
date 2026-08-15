@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming.)
 
 
+#### Entry: Sat 08/15/2026 12:33 PDT
+Deepened the RSVP model on `meatup-1` in two phases. Phase 1 added a single plus-one guest via a new `RsvpGuest` child model, guest-aware counts (`goingTotal = GOING + guests`), an "Bringing a +1?" toggle in the form, and an indented guest sub-row in the attendee list. Phase 2 added `Rsvp.userId`, server-authoritative member identity (name/email auto-filled, not trusted from the client), and a compact `RsvpIdentityChip` replacing the name/email form for logged-in members. A `/prolib-review` caught a silent bug where unnamed plus-ones were dropped on edit. All unit tests pass. Drafted and wrote acceptance criteria to both Meatup RSVP tickets.
+
 #### Entry: Sat 08/15/2026 11:28 PDT
 Landed three P0 map/collection display fixes. Events with no geocoded location no longer drop a pin on the middle of SF. The editor now hides the map until a place is picked, and the SF default can't be silently saved. Map View also stops plotting past events, matching how list and grid already de-emphasize them. Posts and events now show their posted date. Used that to converge all instant timestamps onto one hydration-safe `LocalDate` client component, so nothing renders in UTC or drifts. Then drafted acceptance criteria onto the three QA tickets with `/prolib-qa`.
 
