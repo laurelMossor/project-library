@@ -39,6 +39,7 @@ import { CommentSection } from "@/lib/components/comment/CommentSection";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { RsvpStatus } from "@/lib/types/rsvp";
+import type { CardUser } from "@/lib/types/card";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 type EventPageClientProps = {
@@ -48,6 +49,9 @@ type EventPageClientProps = {
 	initialName?: string;
 	initialEmail?: string;
 	existingRsvpStatus?: RsvpStatus;
+	initialGuestName?: string | null;
+	initialHasPlusOne?: boolean;
+	memberUser?: CardUser;
 };
 
 /** Inner content — must be inside <InlineEditSession> to access editSession context */
@@ -59,6 +63,9 @@ function EventPageContent({
 	initialName,
 	initialEmail,
 	existingRsvpStatus,
+	initialGuestName,
+	initialHasPlusOne,
+	memberUser,
 }: {
 	event: EventItem;
 	setEvent: React.Dispatch<React.SetStateAction<EventItem>>;
@@ -67,6 +74,9 @@ function EventPageContent({
 	initialName?: string;
 	initialEmail?: string;
 	existingRsvpStatus?: RsvpStatus;
+	initialGuestName?: string | null;
+	initialHasPlusOne?: boolean;
+	memberUser?: CardUser;
 }) {
 	const router = useRouter();
 	const editSession = useInlineEditSession();
@@ -371,6 +381,9 @@ function EventPageContent({
 							initialName={initialName}
 							initialEmail={initialEmail}
 							existingRsvpStatus={existingRsvpStatus}
+							initialGuestName={initialGuestName}
+							initialHasPlusOne={initialHasPlusOne}
+							memberUser={memberUser}
 						/>
 					</div>
 				)}
@@ -453,7 +466,17 @@ function EventPageContent({
 	);
 }
 
-export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, initialName, initialEmail, existingRsvpStatus }: EventPageClientProps) {
+export function EventPageClient({
+	event: initialEvent,
+	isOwner,
+	isLoggedIn,
+	initialName,
+	initialEmail,
+	existingRsvpStatus,
+	initialGuestName,
+	initialHasPlusOne,
+	memberUser,
+}: EventPageClientProps) {
 	const [event, setEvent] = useState(initialEvent);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
@@ -491,6 +514,9 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 						initialName={initialName}
 						initialEmail={initialEmail}
 						existingRsvpStatus={existingRsvpStatus}
+						initialGuestName={initialGuestName}
+						initialHasPlusOne={initialHasPlusOne}
+						memberUser={memberUser}
 					/>
 				</InlineEditSession>
 			</ContentCard>

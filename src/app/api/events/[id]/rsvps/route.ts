@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
+import { getUserById } from "@/lib/utils/server/user";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
@@ -7,13 +8,15 @@ import { canActAsEntity } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { emitActivity, type EntityRef, type ActorRef } from "@/lib/utils/server/activity";
+import { getUserDisplayName } from "@/lib/types/user";
+import type { RsvpCreateInput } from "@/lib/types/rsvp";
 import { NotificationObject } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
 /**
  * POST /api/events/:id/rsvps
- * Create or update an RSVP (public, no auth required)
+ * Create or update an RSVP (public; authenticated members record userId server-side)
  */
 export async function POST(request: Request, { params }: Params) {
 	const limited = await enforceRateLimit(request, "rsvp-create", {
@@ -38,25 +41,44 @@ export async function POST(request: Request, { params }: Params) {
 			return badRequest("RSVPs are only accepted for published events");
 		}
 
-		const data = await request.json();
-		const validation = validateRsvpData(data);
+		const body = await request.json();
+		const ctx = await getSessionContext();
+
+		let rsvpData: RsvpCreateInput;
+		let userId: string | null = null;
+
+		if (ctx?.userId) {
+			const user = await getUserById(ctx.userId);
+			if (!user) {
+				return unauthorized();
+			}
+			// Member identity is server-authoritative — never trust client name/email.
+			rsvpData = {
+				name: getUserDisplayName(user),
+				email: user.email,
+				status: body.status,
+				guests: body.guests,
+			};
+			userId = ctx.userId;
+		} else {
+			rsvpData = body as RsvpCreateInput;
+		}
+
+		const validation = validateRsvpData(rsvpData);
 		if (!validation.valid) {
 			return badRequest(validation.error || "Invalid RSVP data");
 		}
 
-		const { rsvp, created } = await createOrUpdateRsvp(id, data);
+		const { rsvp, created } = await createOrUpdateRsvp(id, rsvpData, { userId });
 
-		// Notify the host — only on a NEW rsvp (editing must not re-notify). Prefer the authenticated
-		// user; fall back to the guest name. The cast keeps this working before AND after the
-		// Rsvp.userId fast-follow lands (today the column is absent, so it's always a guest).
+		// Notify the host — only on a NEW rsvp (editing must not re-notify).
 		if (created) {
 			const target: EntityRef = event.pageId
 				? { type: "PAGE", id: event.pageId }
 				: { type: "USER", id: event.userId };
-			const rsvpUserId = (rsvp as { userId?: string | null }).userId ?? null;
-			const actor: ActorRef = rsvpUserId
-				? { type: "USER", id: rsvpUserId }
-				: { type: "ANON", label: data.name.trim() };
+			const actor: ActorRef = rsvp.userId
+				? { type: "USER", id: rsvp.userId }
+				: { type: "ANON", label: rsvpData.name.trim() };
 			await emitActivity("rsvp.created", actor, target, { type: NotificationObject.EVENT, id });
 		}
 

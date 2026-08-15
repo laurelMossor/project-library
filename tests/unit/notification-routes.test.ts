@@ -5,19 +5,34 @@
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/utils/server/prisma", () => ({
-	prisma: {
-		notification: { findMany: vi.fn(), groupBy: vi.fn(), updateMany: vi.fn() },
-		user: { findMany: vi.fn() },
-		page: { findMany: vi.fn() },
-		post: { findMany: vi.fn() },
-		event: { findMany: vi.fn() },
-		rsvp: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-		// getViewerContext reads permissions; the visibility title-gate reads follow edges.
-		permission: { findMany: vi.fn() },
-		follow: { findFirst: vi.fn() },
-	},
-}));
+vi.mock("@/lib/utils/server/prisma", () => {
+	const tx = {
+		rsvp: {
+			create: vi.fn(),
+			update: vi.fn(),
+			findUniqueOrThrow: vi.fn(),
+		},
+		rsvpGuest: {
+			deleteMany: vi.fn(),
+			createMany: vi.fn(),
+		},
+	};
+	return {
+		prisma: {
+			notification: { findMany: vi.fn(), groupBy: vi.fn(), updateMany: vi.fn() },
+			user: { findMany: vi.fn() },
+			page: { findMany: vi.fn() },
+			post: { findMany: vi.fn() },
+			event: { findMany: vi.fn() },
+			rsvp: { findUnique: vi.fn(), groupBy: vi.fn(), findMany: vi.fn() },
+			rsvpGuest: { count: vi.fn(), deleteMany: vi.fn(), createMany: vi.fn() },
+			permission: { findMany: vi.fn() },
+			follow: { findFirst: vi.fn() },
+			$transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)),
+			__tx: tx,
+		},
+	};
+});
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 
 import { GET as listGET } from "@/app/api/notifications/route";
@@ -30,6 +45,10 @@ import { getSessionContext } from "@/lib/utils/server/session";
 
 const notif = vi.mocked(prisma.notification);
 const rsvp = vi.mocked(prisma.rsvp);
+const tx = (prisma as typeof prisma & { __tx: {
+	rsvp: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; findUniqueOrThrow: ReturnType<typeof vi.fn> };
+	rsvpGuest: { deleteMany: ReturnType<typeof vi.fn>; createMany: ReturnType<typeof vi.fn> };
+} }).__tx;
 
 function asUser(userId: string | null) {
 	vi.mocked(getSessionContext).mockResolvedValue(userId ? { userId, activePageId: null } : (null as never));
@@ -113,19 +132,21 @@ describe("getNotificationsForUser — object-title visibility gate", () => {
 describe("createOrUpdateRsvp create-detection", () => {
 	test("returns created=true for a brand-new RSVP", async () => {
 		rsvp.findUnique.mockResolvedValue(null as never);
-		rsvp.create.mockResolvedValue({ id: "r1" } as never);
-		const { created } = await createOrUpdateRsvp("ev1", { name: "A", email: "A@x.com", status: "GOING" } as never);
+		tx.rsvp.create.mockResolvedValue({ id: "r1" } as never);
+		tx.rsvp.findUniqueOrThrow.mockResolvedValue({ id: "r1", guests: [], user: null, userId: null } as never);
+		const { created } = await createOrUpdateRsvp("ev1", { name: "A", email: "A@x.com", status: "GOING" });
 		expect(created).toBe(true);
-		expect(rsvp.create).toHaveBeenCalled();
-		expect(rsvp.update).not.toHaveBeenCalled();
+		expect(tx.rsvp.create).toHaveBeenCalled();
+		expect(tx.rsvp.update).not.toHaveBeenCalled();
 	});
 
 	test("returns created=false when the RSVP already exists", async () => {
-		rsvp.findUnique.mockResolvedValue({ id: "r1" } as never);
-		rsvp.update.mockResolvedValue({ id: "r1" } as never);
-		const { created } = await createOrUpdateRsvp("ev1", { name: "A", email: "A@x.com", status: "MAYBE" } as never);
+		rsvp.findUnique.mockResolvedValue({ id: "r1", userId: null } as never);
+		tx.rsvp.update.mockResolvedValue({ id: "r1" } as never);
+		tx.rsvp.findUniqueOrThrow.mockResolvedValue({ id: "r1", guests: [], user: null, userId: null } as never);
+		const { created } = await createOrUpdateRsvp("ev1", { name: "A", email: "A@x.com", status: "MAYBE" });
 		expect(created).toBe(false);
-		expect(rsvp.update).toHaveBeenCalled();
-		expect(rsvp.create).not.toHaveBeenCalled();
+		expect(tx.rsvp.update).toHaveBeenCalled();
+		expect(tx.rsvp.create).not.toHaveBeenCalled();
 	});
 });
