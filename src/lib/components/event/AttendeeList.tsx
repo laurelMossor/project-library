@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { fetchRsvps } from "@/lib/utils/event-client";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import type { RsvpItem } from "@/lib/types/rsvp";
 
 type AttendeeListProps = {
@@ -83,7 +84,7 @@ export function AttendeeList({ eventId }: AttendeeListProps) {
 									</span>
 								</td>
 								<td className="py-2 text-gray-500">
-									{new Date(rsvp.createdAt).toLocaleDateString()}
+									<LocalDate value={rsvp.createdAt} mode="absolute" />
 								</td>
 							</tr>
 						))}

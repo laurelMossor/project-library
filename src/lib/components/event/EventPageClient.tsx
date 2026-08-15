@@ -34,6 +34,7 @@ import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
@@ -268,6 +269,15 @@ function EventPageContent({
 					</div>
 				</div>
 
+				{isPublished && (
+					<LocalDate
+						value={event.createdAt}
+						mode="absolute"
+						prefix="Posted "
+						className="text-xs text-dusty-grey"
+					/>
+				)}
+
 				{/* Description */}
 				<InlineEditable
 					canEdit={isOwner && isEditing}
@@ -314,6 +324,13 @@ function EventPageContent({
 							{(latValue as number | null) != null && (lngValue as number | null) != null && (
 								<EventMap latitude={(latValue as number)!} longitude={(lngValue as number)!} title={event.title || undefined} />
 							)}
+							{(latValue as number | null) == null && (lngValue as number | null) == null &&
+								(locationDisplay as string | null) &&
+								isOwner && (
+								<p className="text-sm text-misty-forest">
+									Add a map location by editing this event and picking a place from search.
+								</p>
+							)}
 						</div>
 					}
 					editContent={
@@ -324,14 +341,22 @@ function EventPageContent({
 								onSelect={handleLocationSelect}
 								autoFocus
 							/>
-							<InteractiveMap
-								latitude={latValue as number | null}
-								longitude={lngValue as number | null}
-								onLocationChange={(lat, lng) => {
-									setLat(lat);
-									setLng(lng);
-								}}
-							/>
+							{(latValue as number | null) != null && (lngValue as number | null) != null ? (
+								<InteractiveMap
+									latitude={latValue as number}
+									longitude={lngValue as number}
+									onLocationChange={(lat, lng) => {
+										setLat(lat);
+										setLng(lng);
+									}}
+								/>
+							) : (
+								<DashedPlaceholder className="p-6 flex justify-center">
+									<p className="text-sm text-misty-forest text-center">
+										Search for a location above and pick a suggestion to drop the pin.
+									</p>
+								</DashedPlaceholder>
+							)}
 						</div>
 					}
 				/>

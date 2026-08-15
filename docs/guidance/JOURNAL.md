@@ -8,8 +8,11 @@
 6. Litmus test before saving: if you'd expect "cut this in half," it already needs it.
 
 **Target shape:**
-> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
+> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming.)
 
+
+#### Entry: Sat 08/15/2026 11:28 PDT
+Landed three P0 map/collection display fixes. Events with no geocoded location no longer drop a pin on the middle of SF. The editor now hides the map until a place is picked, and the SF default can't be silently saved. Map View also stops plotting past events, matching how list and grid already de-emphasize them. Posts and events now show their posted date. Used that to converge all instant timestamps onto one hydration-safe `LocalDate` client component, so nothing renders in UTC or drifts. Then drafted acceptance criteria onto the three QA tickets with `/prolib-qa`. Live QA pass is next.
 
 #### Entry: Sun 08/09/2026 13:25 PDT
 Reviewed `4-0-followups` with `/prolib-review`, then landed three small follow-ups. Added `handle` to the nav identity signature, seeded `activeEntity` from server props to kill a first-frame blank, and added a test for the non-admin editor visibility gate. Then QA'd the whole QA column live and moved all four tickets to Done, covering the Settings consolidation, Reset Password, and the avatar refresh. Found and filed a P0 along the way. A PRIVATE profile ships its email and bio in the anonymous page payload, though the visible UI is only the locked stub. Also filed a backlog ticket for the inline-editable test gaps.

@@ -1,6 +1,25 @@
 import { CollectionItem, isEvent, isPost, getCollectionItemType, getCollectionItemDate, getCollectionItemCreatedAt, isPastEvent } from "../types/collection";
+import type { EventItem } from "../types/event";
 
 import { FilterCollectionType } from "../types/collection";
+
+/** Events with lat/lng set (includes past). */
+export function getEventsWithCoords(
+	items: CollectionItem[]
+): (EventItem & { latitude: number; longitude: number })[] {
+	return items
+		.filter(isEvent)
+		.filter((e): e is EventItem & { latitude: number; longitude: number } =>
+			e.latitude !== null && e.longitude !== null
+		);
+}
+
+/** Upcoming events with coords — the set Map View should plot. */
+export function getMappableEvents(
+	items: CollectionItem[]
+): (EventItem & { latitude: number; longitude: number })[] {
+	return getEventsWithCoords(items).filter((e) => !isPastEvent(e));
+}
 
 export const itemHasCollectionType = (item: CollectionItem) => isEvent(item) || isPost(item);
 

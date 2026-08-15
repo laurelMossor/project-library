@@ -115,7 +115,9 @@ export function CollectionMap({ events, center, radiusMiles, totalUnfiltered }: 
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [events, center?.lat, center?.lng, radiusMiles, updateVisibleCount]);
 
-	const initialCenter = center ?? (events[0] ? { lat: events[0].latitude, lng: events[0].longitude } : { lat: 37.7749, lng: -122.4194 });
+	// Neutral fallback (geographic center of the contiguous US) for the empty case —
+	// never a city-specific default, so a stray pin can't read as a real location.
+	const initialCenter = center ?? (events[0] ? { lat: events[0].latitude, lng: events[0].longitude } : { lat: 39.8283, lng: -98.5795 });
 
 	const footerText = totalUnfiltered && totalUnfiltered !== events.length
 		? `Showing ${visibleCount} of ${events.length} events within ${radiusMiles} mi`

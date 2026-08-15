@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PostItem } from "@/lib/types/post";
 import { CollectionType } from "@/lib/types/collection";
 import { getEventPosts, getPostUpdates } from "@/lib/utils/post-client";
-import { formatDateTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import Link from "next/link";
 import { resolveCardIdentity } from "@/lib/types/card";
 
@@ -86,9 +86,7 @@ export function PostsList({
 											{identity.name}
 										</Link>
 									</div>
-									<span className="text-xs text-dusty-grey">
-										{formatDateTime(post.createdAt)}
-									</span>
+									<LocalDate value={post.createdAt} mode="absolute" className="text-xs text-dusty-grey" />
 								</div>
 							)}
 							{post.title && (
@@ -96,9 +94,7 @@ export function PostsList({
 							)}
 							<p className="text-sm text-warm-grey whitespace-pre-wrap">{post.content}</p>
 							{!identity && (
-								<p className="text-xs text-dusty-grey mt-1">
-									{formatDateTime(post.createdAt)}
-								</p>
+								<LocalDate value={post.createdAt} mode="absolute" className="text-xs text-dusty-grey mt-1" />
 							)}
 						</div>
 					);
