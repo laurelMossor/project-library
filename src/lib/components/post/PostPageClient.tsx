@@ -18,6 +18,7 @@ import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { PostImagesModal } from "@/lib/components/images/PostImagesModal";
@@ -222,6 +223,15 @@ function PostPageContent({
 						)}
 					</div>
 				</div>
+
+				{isPublished && (
+					<LocalDate
+						value={post.createdAt}
+						mode="absolute"
+						prefix="Posted "
+						className="text-xs text-dusty-grey"
+					/>
+				)}
 
 				{/* Content */}
 				<InlineEditable

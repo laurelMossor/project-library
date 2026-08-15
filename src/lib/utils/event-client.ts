@@ -1,6 +1,6 @@
 import { EventItem } from "../types/event";
 import { API_EVENTS, API_EVENT, API_EVENT_RSVPS, API_EVENT_RSVP_COUNTS } from "../const/routes";
-import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "../types/rsvp";
+import type { RsvpItem, RsvpCreateInput, RsvpCountSummary, RsvpStatus } from "../types/rsvp";
 import { authFetch } from "./auth-client";
 
 // CLIENT-SIDE FETCH UTILITIES
@@ -102,9 +102,12 @@ export async function createDraftEvent(pageId?: string, title?: string): Promise
 }
 
 /**
- * Create or update an RSVP for an event (public, no auth required)
+ * Create or update an RSVP for an event (public; session cookie links member identity server-side)
  */
-export async function createRsvp(eventId: string, data: RsvpCreateInput): Promise<RsvpItem> {
+export async function createRsvp(
+	eventId: string,
+	data: RsvpCreateInput | { status: RsvpStatus; guests?: { name?: string }[] },
+): Promise<RsvpItem> {
 	const res = await fetch(API_EVENT_RSVPS(eventId), {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },

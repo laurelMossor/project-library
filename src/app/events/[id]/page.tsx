@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { EventPageClient } from "@/lib/components/event/EventPageClient";
 import { getUserDisplayName } from "@/lib/types/user";
 import type { RsvpStatus } from "@/lib/types/rsvp";
+import type { CardUser } from "@/lib/types/card";
 import { getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
 
 type Props = {
@@ -35,16 +36,28 @@ export default async function EventDetailPage({ params }: Props) {
 	let initialName: string | undefined;
 	let initialEmail: string | undefined;
 	let existingRsvpStatus: RsvpStatus | undefined;
+	let initialGuestName: string | null | undefined;
+	let initialHasPlusOne: boolean | undefined;
+	let memberUser: CardUser | undefined;
 
-	// For published events, pre-fill RSVP form and surface any existing RSVP for logged-in users
+	// For published events, pre-fill RSVP and surface any existing RSVP for logged-in users
 	if (session?.user?.id && event.status === "PUBLISHED") {
 		const user = await getUserById(session.user.id);
 		if (user) {
 			initialName = getUserDisplayName(user);
 			initialEmail = user.email;
+			memberUser = {
+				id: user.id,
+				handle: user.handle,
+				displayName: user.displayName,
+				avatarImageId: user.avatarImageId,
+				avatarImage: user.avatarImage,
+			};
 			const existingRsvp = await getRsvpByEmail(id, user.email);
 			if (existingRsvp) {
 				existingRsvpStatus = existingRsvp.status;
+				initialHasPlusOne = existingRsvp.guests.length > 0;
+				initialGuestName = existingRsvp.guests[0]?.name ?? null;
 			}
 		}
 	}
@@ -57,6 +70,9 @@ export default async function EventDetailPage({ params }: Props) {
 			initialName={initialName}
 			initialEmail={initialEmail}
 			existingRsvpStatus={existingRsvpStatus}
+			initialGuestName={initialGuestName}
+			initialHasPlusOne={initialHasPlusOne}
+			memberUser={memberUser}
 		/>
 	);
 }

@@ -361,6 +361,34 @@ export function validateRsvpData(data: RsvpCreateInput): { valid: boolean; error
 		return { valid: false, error: "Status must be GOING, MAYBE, or CANT_MAKE_IT" };
 	}
 
+	const guestCheck = validateRsvpGuests(data.guests);
+	if (!guestCheck.valid) return guestCheck;
+
+	return { valid: true };
+}
+
+/** Plus-one: at most one guest row; name optional, ≤100 chars when present. */
+export function validateRsvpGuests(guests: RsvpCreateInput["guests"]): { valid: boolean; error?: string } {
+	if (guests == null) return { valid: true };
+	if (!Array.isArray(guests)) {
+		return { valid: false, error: "Guests must be an array" };
+	}
+	if (guests.length > 1) {
+		return { valid: false, error: "At most one plus-one guest is allowed" };
+	}
+	for (const guest of guests) {
+		if (guest == null || typeof guest !== "object") {
+			return { valid: false, error: "Invalid guest entry" };
+		}
+		if (guest.name != null) {
+			if (typeof guest.name !== "string") {
+				return { valid: false, error: "Guest name must be a string" };
+			}
+			if (guest.name.length > 100) {
+				return { valid: false, error: "Guest name must be 100 characters or less" };
+			}
+		}
+	}
 	return { valid: true };
 }
 

@@ -1,8 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { CollectionItem, AnyCollectionItem, AboutCollectionItem, isEvent } from "@/lib/types/collection";
-import { EventItem } from "@/lib/types/event";
-import { getCollectionItemKey } from "@/lib/utils/collection";
+import { CollectionItem, AnyCollectionItem, AboutCollectionItem } from "@/lib/types/collection";
+import { getCollectionItemKey, getEventsWithCoords, getMappableEvents } from "@/lib/utils/collection";
 import { CollectionCard, PinConfig } from "@/lib/components/collection/CollectionCard";
 import { useColumnCount } from "@/lib/hooks/useColumnCount";
 import { MapControls } from "@/lib/components/map/MapControls";
@@ -75,13 +74,10 @@ export function FilteredCollection({ items, prependItems = [], view, pinConfig }
 	}
 
 	if (view === "map") {
-		const eventsWithLocation = items
-			.filter(isEvent)
-			.filter((e): e is EventItem & { latitude: number; longitude: number } =>
-				e.latitude !== null && e.longitude !== null
-			);
+		const withCoords = getEventsWithCoords(items);
+		const mappable = getMappableEvents(items);
 
-		if (eventsWithLocation.length === 0) {
+		if (withCoords.length === 0) {
 			return (
 				<div className="text-center py-12">
 					<p className="text-dusty-grey">No events with location data to display on the map.</p>
@@ -89,12 +85,20 @@ export function FilteredCollection({ items, prependItems = [], view, pinConfig }
 			);
 		}
 
+		if (mappable.length === 0) {
+			return (
+				<div className="text-center py-12">
+					<p className="text-dusty-grey">No upcoming events with a location to show on the map.</p>
+				</div>
+			);
+		}
+
 		// Apply radius filter if a center location is set
 		const filteredEvents = centerLocation
-			? eventsWithLocation.filter(
+			? mappable.filter(
 					(e) => haversineDistance(centerLocation.lat, centerLocation.lng, e.latitude, e.longitude) <= radiusMiles
 				)
-			: eventsWithLocation;
+			: mappable;
 
 		const mapEvents = filteredEvents.map((e) => ({
 			id: e.id,
@@ -124,7 +128,7 @@ export function FilteredCollection({ items, prependItems = [], view, pinConfig }
 						events={mapEvents}
 						center={centerLocation ?? undefined}
 						radiusMiles={centerLocation ? radiusMiles : undefined}
-						totalUnfiltered={eventsWithLocation.length}
+						totalUnfiltered={mappable.length}
 					/>
 				)}
 			</div>

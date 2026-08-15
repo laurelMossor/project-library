@@ -193,6 +193,8 @@ model User {
   // This user's email preferences (personal + one set per page they manage)
   notificationPreferences NotificationPreference[]
 
+  rsvps Rsvp[]
+
   @@map("users")
 }
 
@@ -483,15 +485,16 @@ model Event {
 }
 
 // ========================
-// RSVPs (anonymous event attendance)
+// RSVPs (event attendance)
 // ========================
 //
-// No userId required — attendees RSVP with name + email only.
-// Upsert by [eventId, email] to allow changing response.
+// Anonymous path: name + email only (userId null). Authenticated members record userId.
+// Upsert by [eventId, email] to allow changing response. Plus-one guests live in RsvpGuest.
 
 model Rsvp {
   id      String     @id @default(cuid())
   eventId String
+  userId  String?
   name    String
   email   String
   status  RsvpStatus
@@ -499,11 +502,26 @@ model Rsvp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event  Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user   User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guests RsvpGuest[]
 
   @@unique([eventId, email])
   @@index([eventId])
+  @@index([userId])
   @@map("rsvps")
+}
+
+// Optional plus-one for a host RSVP. Name optional; no email/status/reminders.
+model RsvpGuest {
+  id     String  @id @default(cuid())
+  rsvpId String
+  name   String?
+
+  rsvp Rsvp @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+
+  @@index([rsvpId])
+  @@map("rsvp_guests")
 }
 
 // ========================
