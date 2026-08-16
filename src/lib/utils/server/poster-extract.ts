@@ -294,7 +294,10 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			.join("\n\n");
 
 		// Multimodal user content: the poster image (when fetchable) + all gathered text.
-		const userContent: Array<{ type: "text"; text: string } | { type: "image"; image: URL }> = [
+		type UserPart =
+			| { type: "text"; text: string }
+			| { type: "image"; image: URL; providerOptions?: { openai: { imageDetail: "high" | "low" | "auto" } } };
+		const userContent: UserPart[] = [
 			{
 				type: "text",
 				text:
@@ -306,7 +309,13 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			},
 		];
 		if (hasImage) {
-			userContent.push({ type: "image", image: new URL(imageUrl!) });
+			// Read the poster at high detail — dates/venues are often small printed text that
+			// low-detail vision misses (the main cause of flaky Instagram poster extraction).
+			userContent.push({
+				type: "image",
+				image: new URL(imageUrl!),
+				providerOptions: { openai: { imageDetail: "high" } },
+			});
 		}
 
 		console.log("[poster-extract] extracting", {
