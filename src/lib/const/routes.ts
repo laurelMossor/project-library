@@ -53,6 +53,11 @@ export const CONNECTIONS_REQUESTS = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Req
 
 export const PAGE_NEW = "/pages/new";
 
+// ============================================================================
+// Admin (superadmin-gated operator surfaces)
+// ============================================================================
+export const ADMIN_SUBMISSIONS = "/admin/submissions";
+
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
@@ -124,6 +129,13 @@ export const API_UPLOAD = (folder: string) => `/api/upload?folder=${folder}`;
 export const API_IMAGE_ATTACHMENTS = "/api/image-attachments";
 export const API_IMAGE_ATTACHMENT = (id: string) => `/api/image-attachments/${id}`;
 export const API_IMAGE = (id: string) => `/api/images/${id}`;
+
+// Admin API Routes (Poster Catcher review; superadmin-gated)
+export const API_ADMIN_SUBMISSIONS = "/api/admin/submissions";
+export const API_ADMIN_SUBMISSION = (id: string) => `/api/admin/submissions/${id}`;
+
+// Telegram intake webhook (Poster Catcher)
+export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 
 // Page API Routes
 export const API_PAGES = "/api/pages";

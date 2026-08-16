@@ -45,6 +45,47 @@ export type UploadImageResult =
 	| { imageUrl: string; path: string; error: null }
 	| { imageUrl: null; path: string | null; error: string };
 
+/** Bytes + metadata for a source-agnostic upload (a File, or bytes fetched from Telegram). */
+export type ImageBytes = {
+	buffer: Buffer;
+	/** MIME type, e.g. "image/jpeg". */
+	contentType: string;
+	/** File extension without the dot, e.g. "jpg". Defaults to "jpg". */
+	extension?: string;
+};
+
+/** Build a unique `timestamp-random.ext` object key, optionally under a folder prefix. */
+function buildFilepath(folder: string, extension: string): string {
+	const timestamp = Date.now();
+	const random = Math.random().toString(36).substring(2, 9);
+	const filename = `${timestamp}-${random}.${extension || "jpg"}`;
+	// Supabase "folders" are just key prefixes; an empty folder uploads to the bucket root.
+	return folder ? `${folder}/${filename}` : filename;
+}
+
+/** Turn a File into ImageBytes (buffer + type + extension) for the shared upload core. */
+async function fileToImageBytes(file: File): Promise<ImageBytes> {
+	return {
+		buffer: Buffer.from(await file.arrayBuffer()),
+		contentType: file.type,
+		extension: file.name.split(".").pop()?.toLowerCase() || "jpg",
+	};
+}
+
+/**
+ * Choose the right storage backend for raw bytes: Supabase in prod (NEXT_PUBLIC_SUPABASE_URL
+ * set), local `public/uploads/` in dev. This is the one place callers (upload route, Telegram
+ * webhook) go through, so the dev/prod branch isn't restated per call site.
+ */
+export async function storeImageBytes(
+	bytes: ImageBytes,
+	folder: string = "user-uploads",
+): Promise<UploadImageResult> {
+	return process.env.NEXT_PUBLIC_SUPABASE_URL
+		? uploadImageBuffer(bytes, folder)
+		: uploadBufferLocally(bytes, folder);
+}
+
 /**
  * Upload an image file to Supabase storage
  * @param file - The file to upload
@@ -55,17 +96,20 @@ export async function uploadImage(
 	file: File,
 	folder: string = "user-uploads"
 ): Promise<UploadImageResult> {
+	return uploadImageBuffer(await fileToImageBytes(file), folder);
+}
+
+/**
+ * Upload raw image bytes to Supabase storage. Shared core behind `uploadImage` (File) and
+ * the Telegram webhook (bytes fetched from `getFile`), so both go through one upload path.
+ */
+export async function uploadImageBuffer(
+	{ buffer, contentType, extension }: ImageBytes,
+	folder: string = "user-uploads"
+): Promise<UploadImageResult> {
 	try {
 		const debug = process.env.DEBUG_UPLOADS === "true";
-
-		// Generate unique filename: timestamp-random.{ext}
-		const timestamp = Date.now();
-		const random = Math.random().toString(36).substring(2, 9);
-		const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-		const filename = `${timestamp}-${random}.${extension}`;
-		// Supabase Storage "folders" are just key prefixes.
-		// Allow passing an empty folder to upload directly to the bucket root.
-		const filepath = folder ? `${folder}/${filename}` : filename;
+		const filepath = buildFilepath(folder, extension || "jpg");
 
 		// Helpful when debugging: shows the exact REST URLs being used.
 		// Upload uses POST `${SUPABASE_URL}/storage/v1/object/<bucket>/<path>` (no /public/ in upload endpoint)
@@ -80,16 +124,12 @@ export async function uploadImage(
 			}
 		}
 
-		// Convert file to buffer
-		const bytes = await file.arrayBuffer();
-		const buffer = Buffer.from(bytes);
-
 		// Upload to Supabase storage
 		const supabase = getSupabaseClient();
 		const { error } = await supabase.storage
 			.from(BUCKET_NAME)
 			.upload(filepath, buffer, {
-				contentType: file.type,
+				contentType,
 				upsert: false,
 			});
 
@@ -188,18 +228,22 @@ export async function uploadImageLocally(
 	file: File,
 	folder: string = "user-uploads"
 ): Promise<UploadImageResult> {
-	try {
-		const timestamp = Date.now();
-		const random = Math.random().toString(36).substring(2, 9);
-		const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-		const filename = `${timestamp}-${random}.${extension}`;
-		const filepath = folder ? `${folder}/${filename}` : filename;
+	return uploadBufferLocally(await fileToImageBytes(file), folder);
+}
 
+/** Local-filesystem variant of `uploadImageBuffer` (dev only). Shared core behind both File and byte callers. */
+export async function uploadBufferLocally(
+	{ buffer, extension }: ImageBytes,
+	folder: string = "user-uploads"
+): Promise<UploadImageResult> {
+	try {
+		const filepath = buildFilepath(folder, extension || "jpg");
 		const uploadsDir = path.join(process.cwd(), "public", "uploads", folder);
 		fs.mkdirSync(uploadsDir, { recursive: true });
 
-		const bytes = await file.arrayBuffer();
-		fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(bytes));
+		// filepath is `${folder}/${filename}` (or just filename); write to the folder dir.
+		const filename = filepath.includes("/") ? filepath.slice(filepath.lastIndexOf("/") + 1) : filepath;
+		fs.writeFileSync(path.join(uploadsDir, filename), buffer);
 
 		return { imageUrl: `/uploads/${filepath}`, path: filepath, error: null };
 	} catch (error) {

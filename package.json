@@ -24,6 +24,7 @@
     "db:generate": "npx prisma generate",
     "invite:create": "tsx scripts/create-signup-invite.ts",
     "invite": "NODE_ENV=production tsx scripts/send-signup-invites.ts",
+    "telegram:webhook": "tsx scripts/telegram-set-webhook.ts",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
@@ -45,6 +46,7 @@
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
     "@vercel/analytics": "^2.0.1",
+    "ai": "^7.0.66",
     "autoprefixer": "^10.4.23",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
@@ -62,7 +64,8 @@
     "resend": "^6.12.4",
     "server-only": "^0.0.1",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",

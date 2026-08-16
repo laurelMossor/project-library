@@ -33,6 +33,36 @@ export async function uploadImageOnly({ file, folder, fetchImpl = fetch }: Uploa
 	return res.json();
 }
 
+/**
+ * Attach an already-uploaded image (existing Image id) to a target — no upload step.
+ * Used by the Poster Catcher approve flow, where the poster Image was created at intake.
+ * The image must be owned by the caller (server enforces uploadedByUserId === session user).
+ */
+export async function attachExistingImage({
+	imageId,
+	type,
+	targetId,
+	sortOrder,
+	fetchImpl = fetch,
+}: {
+	imageId: string;
+	type: AttachmentType;
+	targetId: string;
+	sortOrder?: number;
+	fetchImpl?: typeof fetch;
+}): Promise<{ id: string }> {
+	const res = await fetchImpl(API_IMAGE_ATTACHMENTS, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ imageId, type, targetId, sortOrder }),
+	});
+	if (!res.ok) {
+		const data = await res.json().catch(() => ({}));
+		throw new Error(data.error || "Failed to attach image");
+	}
+	return res.json();
+}
+
 type UploadAndAttachArgs = UploadOnlyArgs & {
 	type: AttachmentType;
 	targetId: string;
