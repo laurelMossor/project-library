@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
 import { FormField } from "@/lib/components/forms/FormField";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
@@ -235,13 +234,14 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 						<div className="flex gap-4">
 							{s.rawImage && (
 								<div className="shrink-0">
-									<Image
+									{/* Plain img (not next/image): admin-only tool, and it sidesteps the remote-domain
+									    allowlist so a stored Supabase poster always renders. */}
+									<img
 										src={s.rawImage.url}
 										alt="Captured poster"
 										width={140}
 										height={140}
 										className="rounded object-cover"
-										unoptimized
 									/>
 								</div>
 							)}

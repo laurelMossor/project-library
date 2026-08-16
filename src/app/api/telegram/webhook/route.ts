@@ -82,6 +82,17 @@ export async function POST(request: Request) {
 			}
 		}
 
+		// Visibility into what we captured (viewable in Vercel function logs). The image-capture
+		// note is otherwise overwritten by extraction, so log it here where it's authoritative.
+		console.log("[telegram] captured", {
+			senderId: String(senderId),
+			hasPhoto: !!photoFileId,
+			storedImage: !!rawImageId,
+			imageErrorNote,
+			hasSourceUrl: !!sourceUrl,
+			captionLen: caption?.length ?? 0,
+		});
+
 		// 4. Stage the submission (PENDING) and ack immediately.
 		const submission = await prisma.eventSubmission.create({
 			data: {

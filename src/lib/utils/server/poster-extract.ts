@@ -9,6 +9,8 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { sendMessage } from "./telegram";
+import { storeImageBytes, type ImageBytes } from "./storage";
+import { createImage } from "./image-attachment";
 import { withSourceLine } from "../text";
 import { parseFutureEventDate } from "../event-date";
 
@@ -18,41 +20,95 @@ const MODEL = process.env.POSTER_CATCHER_MODEL || "openai/gpt-4o-mini";
 // Extraction output. Everything nullable — the model returns what it can find; the
 // caller decides status. Tags capped at 3 per the PRD (1–3 inferred tags).
 const extractionSchema = z.object({
-	title: z.string().nullable().describe("A concise event title, or null if none is discernible."),
+	// `found` is the anti-hallucination gate: the model must first decide whether the material
+	// actually describes a real, specific event. When false, every other field must be null.
+	found: z
+		.boolean()
+		.describe(
+			"True ONLY if the provided image/caption/page text clearly describes a specific real event. " +
+				"False for login walls, generic site chrome, empty/ambiguous content, or anything you'd have to guess at.",
+		),
+	title: z.string().nullable().describe("The event's title, copied/summarized from the source. Null if not clearly present."),
 	content: z
 		.string()
 		.nullable()
-		.describe("A short event description in plain prose. Do NOT include the source link — it is added separately."),
+		.describe("A short description using ONLY facts present in the source. Do NOT include the source link — it is added separately."),
 	eventDate: z
 		.string()
 		.nullable()
 		.describe(
-			"ISO 8601 datetime (with offset if known) of the FIRST occurrence. Resolve relative dates against the capture date. Null if no date is discernible.",
+			"ISO 8601 datetime (with offset if known) of the FIRST occurrence, resolved against the capture date. Null if no date is clearly stated.",
 		),
 	eventTimezone: z.string().nullable().describe("IANA timezone (e.g. America/Los_Angeles) if determinable, else null."),
 	location: z.string().nullable().describe("Venue or address if present, else null."),
-	tags: z.array(z.string()).max(3).describe("1–3 short, sensible topic tags inferred from the event."),
+	tags: z
+		.array(z.string())
+		.max(3)
+		.describe("0–3 tags grounded in the event's ACTUAL content. Do not invent themes (e.g. don't add 'live music' unless music is mentioned)."),
 });
 
 export type ExtractionResult = z.infer<typeof extractionSchema>;
 
-/** Best-effort fetch of a public link's text. Login-walled sources fail quietly (caption is the fallback). */
-async function fetchLinkText(url: string): Promise<string | null> {
+type LinkMeta = { text: string | null; ogImage: string | null };
+
+/** Resolve a possibly-relative URL against a base; return null if it can't be parsed. */
+function absolutize(url: string, base: string): string | null {
+	try {
+		return new URL(url, base).toString();
+	} catch {
+		return null;
+	}
+}
+
+/** Pull an og:image / twitter:image URL out of raw HTML (order-agnostic on attribute position). */
+function extractOgImage(html: string, baseUrl: string): string | null {
+	const patterns = [
+		/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)(?::url)?["'][^>]+content=["']([^"']+)["']/i,
+		/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)(?::url)?["']/i,
+	];
+	for (const p of patterns) {
+		const m = html.match(p);
+		if (m?.[1]) return absolutize(m[1], baseUrl);
+	}
+	return null;
+}
+
+/** Best-effort fetch of a public link's text + social preview image. Login-walled sources fail quietly. */
+async function fetchLinkMeta(url: string): Promise<LinkMeta> {
 	try {
 		const res = await fetch(url, {
 			headers: { "user-agent": "Mozilla/5.0 (compatible; ProjectLibraryBot/1.0)" },
 			signal: AbortSignal.timeout(8000),
 		});
-		if (!res.ok) return null;
+		if (!res.ok) return { text: null, ogImage: null };
 		const html = await res.text();
+		const ogImage = extractOgImage(html, url);
 		// Crude tag strip — enough to feed the model context, not a parser.
-		const text = html
-			.replace(/<script[\s\S]*?<\/script>/gi, " ")
-			.replace(/<style[\s\S]*?<\/style>/gi, " ")
-			.replace(/<[^>]+>/g, " ")
-			.replace(/\s+/g, " ")
-			.trim();
-		return text.slice(0, 4000) || null;
+		const text =
+			html
+				.replace(/<script[\s\S]*?<\/script>/gi, " ")
+				.replace(/<style[\s\S]*?<\/style>/gi, " ")
+				.replace(/<[^>]+>/g, " ")
+				.replace(/\s+/g, " ")
+				.trim()
+				.slice(0, 4000) || null;
+		return { text, ogImage };
+	} catch {
+		return { text: null, ogImage: null };
+	}
+}
+
+/** Download a remote image into bytes for storage. Returns null on failure / non-image content. */
+async function downloadImage(url: string): Promise<ImageBytes | null> {
+	try {
+		const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+		if (!res.ok) return null;
+		const contentType = res.headers.get("content-type") || "image/jpeg";
+		if (!contentType.startsWith("image/")) return null;
+		const buffer = Buffer.from(await res.arrayBuffer());
+		if (buffer.length === 0) return null;
+		const extension = (contentType.split("/")[1] || "jpg").split(";")[0];
+		return { buffer, contentType, extension };
 	} catch {
 		return null;
 	}
@@ -61,6 +117,13 @@ async function fetchLinkText(url: string): Promise<string | null> {
 /** Is the image URL absolute (fetchable by the hosted model)? Dev's relative /uploads/ paths aren't. */
 function isAbsoluteUrl(url: string | null | undefined): url is string {
 	return !!url && /^https?:\/\//i.test(url);
+}
+
+/** Enough caption text beyond the bare source URL to be worth extracting from. */
+function captionIsMeaningful(caption: string | null, sourceUrl: string | null): boolean {
+	if (!caption) return false;
+	const stripped = (sourceUrl ? caption.replaceAll(sourceUrl, "") : caption).trim();
+	return stripped.length >= 15;
 }
 
 /**
@@ -90,12 +153,61 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 	}
 
 	try {
-		const linkText = submission.sourceUrl ? await fetchLinkText(submission.sourceUrl) : null;
+		const meta = submission.sourceUrl ? await fetchLinkMeta(submission.sourceUrl) : { text: null, ogImage: null };
+
+		// If we have no poster yet but the link exposed a social-preview image, adopt it as the
+		// poster — this is how link submissions (Eventbrite etc.) get an image. Best-effort;
+		// attributed to the Poster Catcher author account so approve can attach it.
+		let rawImageId = submission.rawImageId;
+		let imageUrl: string | null = submission.rawImage?.url ?? null;
+		const authorUserId = process.env.POSTER_CATCHER_AUTHOR_USER_ID;
+		if (!rawImageId && meta.ogImage && authorUserId) {
+			const bytes = await downloadImage(meta.ogImage);
+			if (bytes) {
+				const uploaded = await storeImageBytes(bytes, "poster-catcher");
+				if (uploaded.imageUrl) {
+					const image = await createImage({ url: uploaded.imageUrl, path: uploaded.path!, uploadedByUserId: authorUserId });
+					rawImageId = image.id;
+					imageUrl = uploaded.imageUrl;
+				}
+			}
+		}
+
+		const hasImage = isAbsoluteUrl(imageUrl);
+		const linkUnreadable = !!submission.sourceUrl && !meta.text;
+
+		// Anti-hallucination guard: with no readable image, no fetched page text, and a caption
+		// that's basically just the URL, there is nothing to extract — bail rather than let the
+		// model invent an event (the Instagram-login-wall failure mode).
+		if (!hasImage && !meta.text && !captionIsMeaningful(submission.rawCaption, submission.sourceUrl)) {
+			console.log("[poster-extract] no usable input", {
+				submissionId,
+				sourceUrl: submission.sourceUrl,
+				hasImage,
+				linkUnreadable,
+			});
+			await prisma.eventSubmission.update({
+				where: { id: submissionId },
+				data: {
+					status: "FAILED",
+					rawImageId,
+					errorNote: submission.sourceUrl
+						? "Couldn't read that link (it may require login). Forward the poster image or paste the event details."
+						: "Nothing to extract. Forward a poster image, a public link, or a text description.",
+				},
+			});
+			await reply("⚠️ Couldn't read that one — forward the poster image or the event details and I'll try again.");
+			return;
+		}
+
 		const captureContext = [
 			`Capture date (use to resolve relative dates like "this Friday"): ${submission.submittedAt.toISOString()}`,
 			submission.sourceUrl ? `Source link: ${submission.sourceUrl}` : null,
 			submission.rawCaption ? `Forwarded caption:\n${submission.rawCaption}` : null,
-			linkText ? `Fetched page text (best-effort):\n${linkText}` : null,
+			meta.text ? `Fetched page text (best-effort):\n${meta.text}` : null,
+			linkUnreadable
+				? "NOTE: The link could not be read (it may require login). Do NOT infer or invent its contents; rely only on the image/caption above."
+				: null,
 		]
 			.filter(Boolean)
 			.join("\n\n");
@@ -106,22 +218,50 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 				type: "text",
 				text:
 					"Extract the community event described by the following poster and/or text. " +
-					"For recurring events, use the first upcoming occurrence. Return null for anything you cannot determine.\n\n" +
+					"For recurring events, use the first upcoming occurrence.\n\n" +
 					captureContext,
 			},
 		];
-		if (isAbsoluteUrl(submission.rawImage?.url)) {
-			userContent.push({ type: "image", image: new URL(submission.rawImage.url) });
+		if (hasImage) {
+			userContent.push({ type: "image", image: new URL(imageUrl!) });
 		}
+
+		console.log("[poster-extract] extracting", {
+			submissionId,
+			hasImage,
+			imageFromOgTag: !submission.rawImage && !!rawImageId,
+			hasLinkText: !!meta.text,
+			captionLen: submission.rawCaption?.length ?? 0,
+			sourceUrl: submission.sourceUrl,
+		});
 
 		const { object } = await generateObject({
 			model: MODEL,
 			schema: extractionSchema,
 			system:
-				"You are an assistant that extracts structured event data from event posters, captions, and web pages. " +
-				"Be faithful to the source; never invent a date. Write the description as plain prose without links.",
+				"You extract structured event data from event posters, captions, and web pages. " +
+				"Use ONLY information explicitly present in the provided material. Never guess, infer, or invent — " +
+				"not a title, date, location, or tag. If the material doesn't clearly describe a specific real event " +
+				"(e.g. it's a login page, generic site chrome, or too vague), set found=false and null for everything. " +
+				"Write the description as plain prose without links.",
 			messages: [{ role: "user", content: userContent }],
 		});
+
+		console.log("[poster-extract] result", { submissionId, ...object });
+
+		// Respect the model's own "no real event here" signal — don't persist invented fields.
+		if (!object.found) {
+			await prisma.eventSubmission.update({
+				where: { id: submissionId },
+				data: {
+					status: "FAILED",
+					rawImageId,
+					errorNote: "Couldn't find a real event in that. Forward a clearer poster or the event details.",
+				},
+			});
+			await reply("⚠️ I couldn't find a real event in that one — try a clearer poster or the details.");
+			return;
+		}
 
 		const { date, isFuture } = parseFutureEventDate(object.eventDate);
 		// Bake the source link into the editable content so the operator can see/confirm it.
@@ -138,6 +278,7 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			where: { id: submissionId },
 			data: {
 				status,
+				rawImageId,
 				title: object.title,
 				content: content || null,
 				eventDate: isFuture ? date : null,

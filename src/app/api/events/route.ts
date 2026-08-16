@@ -116,6 +116,19 @@ export async function POST(request: Request) {
 			}
 		}
 
+		// Process tags once — both the draft and standard paths persist them. (Draft creation
+		// used to hardcode `tags: []`, which silently dropped tags supplied at creation, e.g.
+		// the Poster Catcher approve-as-draft flow.)
+		let processedTags: string[] | undefined;
+		if (tags) {
+			if (typeof tags === "string") {
+				processedTags = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+			} else if (Array.isArray(tags)) {
+				processedTags = tags.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim())).filter(Boolean);
+			}
+		}
+		const processedTopics = Array.isArray(topics) ? topics : [];
+
 		// Draft creation: minimal validation, used by inline editing flow
 		if (isDraft) {
 			const parsedDateTime = eventDateTime ? new Date(eventDateTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -132,8 +145,8 @@ export async function POST(request: Request) {
 					// Inherit visibility from the hosting page (or the creating user).
 					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 					status: "DRAFT",
-					tags: [],
-					topics: [],
+					tags: processedTags || [],
+					topics: processedTopics,
 				},
 				select: eventWithUserFields,
 			});
@@ -158,21 +171,6 @@ export async function POST(request: Request) {
 
 		const parsedLatitude = parseNumber(latitude);
 		const parsedLongitude = parseNumber(longitude);
-
-		// Process tags
-		let processedTags: string[] | undefined;
-		if (tags) {
-			if (typeof tags === "string") {
-				processedTags = tags
-					.split(",")
-					.map((tag) => tag.trim())
-					.filter(Boolean);
-			} else if (Array.isArray(tags)) {
-				processedTags = tags
-					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
-					.filter(Boolean);
-			}
-		}
 
 		// Validate event data
 		const validation = validateEventData({
@@ -200,7 +198,7 @@ export async function POST(request: Request) {
 				latitude: parsedLatitude,
 				longitude: parsedLongitude,
 				tags: processedTags || [],
-				topics: Array.isArray(topics) ? topics : [],
+				topics: processedTopics,
 				// Inherit visibility from the hosting page (or the creating user).
 				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 				status: "PUBLISHED",

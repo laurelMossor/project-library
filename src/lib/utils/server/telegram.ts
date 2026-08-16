@@ -42,6 +42,7 @@ export function isAllowedSender(telegramId: string | number | null | undefined):
 // Minimal shape of the Telegram message fields we consume. See https://core.telegram.org/bots/api#message
 export type PhotoSize = { file_id: string; width: number; height: number };
 export type MessageEntity = { type: string; offset: number; length: number; url?: string };
+export type TelegramDocument = { file_id: string; mime_type?: string };
 export type TelegramMessage = {
 	message_id: number;
 	from?: { id: number };
@@ -51,6 +52,7 @@ export type TelegramMessage = {
 	entities?: MessageEntity[];
 	caption_entities?: MessageEntity[];
 	photo?: PhotoSize[];
+	document?: TelegramDocument;
 };
 
 /** Pull the caption/text, first URL, and largest-photo file_id out of a Telegram message. */
@@ -80,8 +82,14 @@ export function parseTelegramMessage(msg: TelegramMessage): {
 		if (match) sourceUrl = match[0];
 	}
 
-	// Telegram sends photo sizes ascending; the last is the largest.
-	const photoFileId = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1].file_id : null;
+	// Telegram sends photo sizes ascending; the last is the largest. Fall back to an
+	// image sent as an uncompressed file (document with an image mime type).
+	const photoFileId =
+		msg.photo && msg.photo.length > 0
+			? msg.photo[msg.photo.length - 1].file_id
+			: msg.document?.mime_type?.startsWith("image/")
+				? msg.document.file_id
+				: null;
 
 	return { caption: text, sourceUrl, photoFileId };
 }

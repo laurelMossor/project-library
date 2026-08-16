@@ -92,6 +92,18 @@ describe("parseTelegramMessage (capture)", () => {
 		expect(photoOnly.sourceUrl).toBeNull();
 		expect(photoOnly.caption).toBeNull();
 	});
+
+	test("falls back to an image sent as an uncompressed file (document)", () => {
+		const asFile = parseTelegramMessage({
+			message_id: 4,
+			document: { file_id: "doc-1", mime_type: "image/png" },
+		});
+		expect(asFile.photoFileId).toBe("doc-1");
+
+		// A non-image document is ignored.
+		const pdf = parseTelegramMessage({ message_id: 5, document: { file_id: "doc-2", mime_type: "application/pdf" } });
+		expect(pdf.photoFileId).toBeNull();
+	});
 });
 
 describe("parseFutureEventDate (validity gate)", () => {
