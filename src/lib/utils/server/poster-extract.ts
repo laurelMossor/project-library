@@ -51,6 +51,12 @@ export type ExtractionResult = z.infer<typeof extractionSchema>;
 
 type LinkMeta = { text: string | null; ogImage: string | null };
 
+// A normal browser UA works for most sites (Eventbrite etc.). Instagram serves richer Open
+// Graph metadata (the caption in og:description) to social crawlers, so we retry IG with that.
+const BROWSER_UA =
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+const CRAWLER_UA = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+
 /** Resolve a possibly-relative URL against a base; return null if it can't be parsed. */
 function absolutize(url: string, base: string): string | null {
 	try {
@@ -60,42 +66,88 @@ function absolutize(url: string, base: string): string | null {
 	}
 }
 
-/** Pull an og:image / twitter:image URL out of raw HTML (order-agnostic on attribute position). */
-function extractOgImage(html: string, baseUrl: string): string | null {
+/** Decode the handful of HTML entities that commonly appear in og:description caption text. */
+function decodeEntities(s: string): string {
+	return s
+		.replace(/&amp;/g, "&")
+		.replace(/&quot;/g, '"')
+		.replace(/&#0?39;/g, "'")
+		.replace(/&#x27;/gi, "'")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&nbsp;/g, " ");
+}
+
+/** First `<meta>` content whose property/name matches one of `keys` (order-agnostic on attributes). */
+function metaContent(html: string, keys: string[]): string | null {
+	const group = keys.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
 	const patterns = [
-		/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)(?::url)?["'][^>]+content=["']([^"']+)["']/i,
-		/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)(?::url)?["']/i,
+		new RegExp(`<meta[^>]+(?:property|name)=["'](?:${group})["'][^>]+content=["']([^"']*)["']`, "i"),
+		new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["'](?:${group})["']`, "i"),
 	];
 	for (const p of patterns) {
 		const m = html.match(p);
-		if (m?.[1]) return absolutize(m[1], baseUrl);
+		if (m?.[1]) return decodeEntities(m[1]);
 	}
 	return null;
 }
 
-/** Best-effort fetch of a public link's text + social preview image. Login-walled sources fail quietly. */
-async function fetchLinkMeta(url: string): Promise<LinkMeta> {
+/** Parse the Open Graph fields we care about out of raw HTML. */
+function parseOpenGraph(html: string, baseUrl: string): { ogImage: string | null; ogTitle: string | null; ogDescription: string | null } {
+	const rawImage = metaContent(html, ["og:image", "og:image:url", "twitter:image", "twitter:image:src"]);
+	return {
+		ogImage: rawImage ? absolutize(rawImage, baseUrl) : null,
+		ogTitle: metaContent(html, ["og:title", "twitter:title"]),
+		ogDescription: metaContent(html, ["og:description", "twitter:description"]),
+	};
+}
+
+async function fetchHtml(url: string, ua: string): Promise<string | null> {
 	try {
 		const res = await fetch(url, {
-			headers: { "user-agent": "Mozilla/5.0 (compatible; ProjectLibraryBot/1.0)" },
+			headers: { "user-agent": ua, "accept-language": "en-US,en;q=0.9" },
 			signal: AbortSignal.timeout(8000),
 		});
-		if (!res.ok) return { text: null, ogImage: null };
-		const html = await res.text();
-		const ogImage = extractOgImage(html, url);
-		// Crude tag strip — enough to feed the model context, not a parser.
-		const text =
-			html
-				.replace(/<script[\s\S]*?<\/script>/gi, " ")
-				.replace(/<style[\s\S]*?<\/style>/gi, " ")
-				.replace(/<[^>]+>/g, " ")
-				.replace(/\s+/g, " ")
-				.trim()
-				.slice(0, 4000) || null;
-		return { text, ogImage };
+		if (!res.ok) return null;
+		return await res.text();
 	} catch {
-		return { text: null, ogImage: null };
+		return null;
 	}
+}
+
+/**
+ * Best-effort read of a public link. Prefers Open Graph metadata (og:title/description carry the
+ * real post caption — this is how we "see" an Instagram post without logging in, since the login
+ * wall is a JS modal layered over HTML whose <head> already holds the OG tags). Falls back to the
+ * stripped page body. Instagram is retried with a crawler UA, which it serves richer OG data to.
+ */
+async function fetchLinkMeta(url: string): Promise<LinkMeta> {
+	let html = await fetchHtml(url, BROWSER_UA);
+	let og = html ? parseOpenGraph(html, url) : { ogImage: null, ogTitle: null, ogDescription: null };
+
+	// Instagram (and similar) hand social crawlers the OG tags a browser UA may not get.
+	if (!og.ogDescription && !og.ogTitle && /(?:instagram\.com|facebook\.com|fb\.watch)/i.test(url)) {
+		const alt = await fetchHtml(url, CRAWLER_UA);
+		if (alt) {
+			html = alt;
+			og = parseOpenGraph(alt, url);
+		}
+	}
+
+	if (!html) return { text: null, ogImage: null };
+
+	const ogText = [og.ogTitle, og.ogDescription].filter(Boolean).join(" — ");
+	// Crude tag strip of the body — enough for context, not a parser.
+	const bodyText = html
+		.replace(/<script[\s\S]*?<\/script>/gi, " ")
+		.replace(/<style[\s\S]*?<\/style>/gi, " ")
+		.replace(/<[^>]+>/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+
+	// Lead with the OG caption (high-signal) then the body; the strict prompt filters noise.
+	const text = [ogText, bodyText].filter(Boolean).join("\n\n").slice(0, 4000) || null;
+	return { text, ogImage: og.ogImage };
 }
 
 /** Download a remote image into bytes for storage. Returns null on failure / non-image content. */
