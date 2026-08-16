@@ -162,7 +162,9 @@ async function fetchLinkMeta(url: string): Promise<LinkMeta> {
 
 	if (!html) return { text: null, ogImage: null };
 
-	const caption = og.ogDescription ? cleanSocialDescription(og.ogDescription) : null;
+	// Clean the caption, but fall back to the raw description if cleaning nuked it — never lose content.
+	const cleaned = og.ogDescription ? cleanSocialDescription(og.ogDescription) : null;
+	const caption = cleaned && cleaned.length >= 10 ? cleaned : og.ogDescription;
 	const ogText = [og.ogTitle, caption].filter(Boolean).join("\n\n");
 	// Crude tag strip of the body — enough for context, not a parser.
 	const bodyText = html
@@ -296,10 +298,9 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			{
 				type: "text",
 				text:
-					"Extract the community event described by the following poster image and/or text. " +
-					"Read the text PRINTED ON THE POSTER IMAGE carefully — posters usually show the date, time, " +
-					"venue name, and street address, which may not appear in the caption. Combine what's on the poster " +
-					"with the caption below; use the caption's wording for the description. " +
+					"Extract the community event from the material below. The poster image and the caption are BOTH " +
+					"sources — use whichever has each detail. Read any text printed on the poster (date, time, venue, " +
+					"address often appear there), and use the caption for the description and any details it adds. " +
 					"For recurring events, use the first upcoming occurrence.\n\n" +
 					captureContext,
 			},
@@ -312,21 +313,24 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			submissionId,
 			hasImage,
 			imageFromOgTag: !submission.rawImage && !!rawImageId,
-			hasLinkText: !!meta.text,
+			linkTextLen: meta.text?.length ?? 0,
 			captionLen: submission.rawCaption?.length ?? 0,
 			sourceUrl: submission.sourceUrl,
+			// Preview of the exact text handed to the model — the fastest way to see if the
+			// caption/poster details actually made it into the prompt.
+			textPreview: captureContext.slice(0, 500),
 		});
 
 		const { object } = await generateObject({
 			model: MODEL,
 			schema: extractionSchema,
 			system:
-				"You extract structured event data from event posters, captions, and web pages. " +
-				"When an image is provided, read ALL text printed on it (title, date, time, venue, address) — treat the " +
-				"poster as a primary source, not decoration. Use ONLY information explicitly present in the provided " +
-				"material (poster text or caption). Never guess, infer, or invent — not a title, date, location, or tag. " +
-				"If the material doesn't clearly describe a specific real event (e.g. it's a login page, generic site " +
-				"chrome, or too vague), set found=false and null for everything. Write the description as plain prose without links.",
+				"You extract structured event data from event posters, captions, and web pages. Treat BOTH the poster " +
+				"image and the caption/text as sources of equal weight: read text printed on the poster (title, date, " +
+				"time, venue, address) AND use the caption — take each field from whichever source has it. Use only " +
+				"information actually present in the material; do not fabricate. If the material doesn't describe a " +
+				"specific real event (e.g. it's a login page, generic site chrome, or too vague), set found=false and " +
+				"null for everything. Write the description as plain prose without links.",
 			messages: [{ role: "user", content: userContent }],
 		});
 
