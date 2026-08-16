@@ -9,6 +9,17 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ---
 
+## v0.5.0 — Poster Catcher (Unreleased)
+
+- **Poster Catcher** — forward a poster, link, or caption to a Telegram bot; it stages the capture, a vision LLM extracts title/date/location/tags, and a superadmin `/admin/submissions` surface approves each into a real event via the existing create path.
+- **Superadmin gate** — env-based operator capability (`SUPERADMIN_USER_IDS`) for the new `/admin/*` surface.
+
+### Bug Fixes
+
+- **Page handle editing** — pages can now change their handle from Page Info settings, kept in sync with the cross-entity `Handle`; previously only the name was editable.
+
+---
+
 ## v0.4.2 — Fast-follows and bug fixes (2026-08-09)
 - **Remove placeholder About and Community Guidelines content** — Not in line with the site's AI content policy (which is also only in draft)
 - **Notification email delivery** — scheduled digest flush no longer silently no-ops in prod; cron targets the canonical `www` host instead of the redirecting apex.

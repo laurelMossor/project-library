@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sun 08/16/2026 14:08 PDT
+Built Poster Catcher on `meatup-2-superadmin-event-submissions`. A Telegram bot captures forwarded posters, links, and captions into a new `EventSubmission` staging table, a vision model extracts the event fields, and a superadmin-only `/admin/submissions` surface reviews and approves each one into a real event through the existing create route. Added an env-based superadmin operator gate. Rebased the branch off develop onto main so only the additive submissions migration ships to prod, then applied that migration to prod live and confirmed the site healthy. Also fixed a bug where a page's handle couldn't be edited, adding a page handle editor and matching endpoint alongside the existing user one.
+
 #### Entry: Sat 08/15/2026 12:59 PDT
 Ran `/prolib-review` on `meatup-1` against develop and landed the agreed fixes. Closed a member-RSVP spoofing hole where a logged-out caller who knew a member's email could overwrite that RSVP while it stayed attributed to the account. Restored date and time on all instant timestamps via `formatInstantAbsolute`, and aligned the attendee-list headcount with `goingTotal`. Added regression tests for both security paths. 
 

@@ -10,11 +10,17 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 	prisma: {
 		handle: {
 			findUnique: vi.fn(),
+			upsert: vi.fn(),
 		},
+		page: {
+			findUnique: vi.fn(),
+			update: vi.fn(),
+		},
+		$transaction: vi.fn(),
 	},
 }));
 
-import { isHandleTaken, findEntityByHandle } from "@/lib/utils/server/handle";
+import { isHandleTaken, findEntityByHandle, setPageHandle } from "@/lib/utils/server/handle";
 import { prisma } from "@/lib/utils/server/prisma";
 
 const makeHandleRow = (overrides: Partial<{
@@ -133,5 +139,61 @@ describe("findEntityByHandle", () => {
 			where: { handle: "laurel" },
 			include: { user: true, page: true },
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// setPageHandle — page counterpart to setUserHandle (Page.handle + Handle row)
+// ---------------------------------------------------------------------------
+describe("setPageHandle", () => {
+	beforeEach(() => vi.clearAllMocks());
+
+	test("rejects an invalid handle format before any DB write", async () => {
+		const result = await setPageHandle("page-1", "no");
+		expect(result.ok).toBe(false);
+		expect(vi.mocked(prisma.page.findUnique)).not.toHaveBeenCalled();
+		expect(vi.mocked(prisma.$transaction)).not.toHaveBeenCalled();
+	});
+
+	test("rejects a reserved handle", async () => {
+		const result = await setPageHandle("page-1", "admin");
+		expect(result.ok).toBe(false);
+		expect(vi.mocked(prisma.$transaction)).not.toHaveBeenCalled();
+	});
+
+	test("no-ops when the handle is unchanged", async () => {
+		vi.mocked(prisma.page.findUnique).mockResolvedValue({ handle: "spats" } as unknown as never);
+		const result = await setPageHandle("page-1", "Spats");
+		expect(result).toEqual({ ok: true, handle: "spats" });
+		expect(vi.mocked(prisma.$transaction)).not.toHaveBeenCalled();
+	});
+
+	test("rejects when the new handle is already taken", async () => {
+		vi.mocked(prisma.page.findUnique).mockResolvedValue({ handle: "spats" } as unknown as never);
+		vi.mocked(prisma.handle.findUnique).mockResolvedValue(
+			makeHandleRow({ handle: "taken", userId: "user-9" }) as unknown as never,
+		);
+		const result = await setPageHandle("page-1", "taken");
+		expect(result.ok).toBe(false);
+		expect(vi.mocked(prisma.$transaction)).not.toHaveBeenCalled();
+	});
+
+	test("updates Page.handle and upserts the Handle row (keyed by pageId) in one transaction", async () => {
+		vi.mocked(prisma.page.findUnique).mockResolvedValue({ handle: "spats" } as unknown as never);
+		vi.mocked(prisma.handle.findUnique).mockResolvedValue(null); // not taken
+		vi.mocked(prisma.$transaction).mockResolvedValue([] as unknown as never);
+
+		const result = await setPageHandle("page-1", "Spats-Improv");
+		expect(result).toEqual({ ok: true, handle: "spats-improv" });
+		expect(vi.mocked(prisma.page.update)).toHaveBeenCalledWith({
+			where: { id: "page-1" },
+			data: { handle: "spats-improv" },
+		});
+		expect(vi.mocked(prisma.handle.upsert)).toHaveBeenCalledWith({
+			where: { pageId: "page-1" },
+			update: { handle: "spats-improv" },
+			create: { handle: "spats-improv", pageId: "page-1" },
+		});
+		expect(vi.mocked(prisma.$transaction)).toHaveBeenCalledOnce();
 	});
 });
