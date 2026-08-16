@@ -11,6 +11,7 @@ import { isSuperAdmin } from "@/lib/utils/server/superadmin";
 import { verifyWebhookSecret, isAllowedSender, parseTelegramMessage } from "@/lib/utils/server/telegram";
 import { parseFutureEventDate } from "@/lib/utils/event-date";
 import { withSourceLine } from "@/lib/utils/text";
+import { cleanSocialDescription } from "@/lib/utils/server/poster-extract";
 
 afterEach(() => {
 	vi.unstubAllEnvs();
@@ -122,6 +123,22 @@ describe("parseFutureEventDate (validity gate)", () => {
 		expect(parseFutureEventDate(null).isFuture).toBe(false);
 		expect(parseFutureEventDate("not-a-date").isFuture).toBe(false);
 		expect(parseFutureEventDate("not-a-date").date).toBeNull();
+	});
+});
+
+describe("cleanSocialDescription (recover the raw caption)", () => {
+	test("strips Instagram engagement chrome and quotes", () => {
+		const raw = '1,234 likes, 56 comments - oaklandreviewofbooks on Instagram: "Join us Fri Aug 22 at 7pm, 123 Main St."';
+		expect(cleanSocialDescription(raw)).toBe("Join us Fri Aug 22 at 7pm, 123 Main St.");
+	});
+
+	test("handles the unquoted 'on Instagram:' form", () => {
+		const raw = "500 likes, 12 comments - user on Instagram: Poetry night this Friday";
+		expect(cleanSocialDescription(raw)).toBe("Poetry night this Friday");
+	});
+
+	test("leaves a plain (non-social) description unchanged", () => {
+		expect(cleanSocialDescription("An evening of live jazz at The Hall.")).toBe("An evening of live jazz at The Hall.");
 	});
 });
 

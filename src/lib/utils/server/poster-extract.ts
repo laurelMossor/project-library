@@ -32,7 +32,10 @@ const extractionSchema = z.object({
 	content: z
 		.string()
 		.nullable()
-		.describe("A short description using ONLY facts present in the source. Do NOT include the source link — it is added separately."),
+		.describe(
+			"The event description. Draw it from the post/caption text and any description printed on the poster — " +
+				"prefer the event's own wording. Use ONLY facts present in the source. Do NOT include the source link — it is added separately.",
+		),
 	eventDate: z
 		.string()
 		.nullable()
@@ -40,7 +43,13 @@ const extractionSchema = z.object({
 			"ISO 8601 datetime (with offset if known) of the FIRST occurrence, resolved against the capture date. Null if no date is clearly stated.",
 		),
 	eventTimezone: z.string().nullable().describe("IANA timezone (e.g. America/Los_Angeles) if determinable, else null."),
-	location: z.string().nullable().describe("Venue or address if present, else null."),
+	location: z
+		.string()
+		.nullable()
+		.describe(
+			"Venue name and/or address. Look in BOTH the caption text and the text printed on the poster image — " +
+				"posters usually print the venue/address even when the caption omits it. Null only if truly absent.",
+		),
 	tags: z
 		.array(z.string())
 		.max(3)
@@ -64,6 +73,23 @@ function absolutize(url: string, base: string): string | null {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Strip social-preview chrome from an og:description to recover the raw caption. Instagram wraps
+ * captions as `"1,234 likes, 56 comments - username on Instagram: \"<caption>\""`; other sites
+ * usually return the description as-is (no match → returned unchanged, only trimmed).
+ */
+export function cleanSocialDescription(desc: string): string {
+	let d = desc.trim();
+	// Drop leading engagement counts: "1,234 likes, 56 comments - "
+	d = d.replace(/^[\d,.]+\s+likes?,\s*[\d,.]+\s+comments?\s*[-–—:]\s*/i, "");
+	// Prefer the quoted caption after "... on Instagram:"
+	const quoted = d.match(/on instagram:\s*["“”']([\s\S]+)["“”']\s*$/i);
+	if (quoted) return quoted[1].trim();
+	// Otherwise drop everything up to and including "on Instagram:" if present.
+	d = d.replace(/^[\s\S]*?\bon instagram:\s*/i, "");
+	return d.trim();
 }
 
 /** Decode the handful of HTML entities that commonly appear in og:description caption text. */
@@ -136,7 +162,8 @@ async function fetchLinkMeta(url: string): Promise<LinkMeta> {
 
 	if (!html) return { text: null, ogImage: null };
 
-	const ogText = [og.ogTitle, og.ogDescription].filter(Boolean).join(" — ");
+	const caption = og.ogDescription ? cleanSocialDescription(og.ogDescription) : null;
+	const ogText = [og.ogTitle, caption].filter(Boolean).join("\n\n");
 	// Crude tag strip of the body — enough for context, not a parser.
 	const bodyText = html
 		.replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -269,7 +296,10 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			{
 				type: "text",
 				text:
-					"Extract the community event described by the following poster and/or text. " +
+					"Extract the community event described by the following poster image and/or text. " +
+					"Read the text PRINTED ON THE POSTER IMAGE carefully — posters usually show the date, time, " +
+					"venue name, and street address, which may not appear in the caption. Combine what's on the poster " +
+					"with the caption below; use the caption's wording for the description. " +
 					"For recurring events, use the first upcoming occurrence.\n\n" +
 					captureContext,
 			},
@@ -292,10 +322,11 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 			schema: extractionSchema,
 			system:
 				"You extract structured event data from event posters, captions, and web pages. " +
-				"Use ONLY information explicitly present in the provided material. Never guess, infer, or invent — " +
-				"not a title, date, location, or tag. If the material doesn't clearly describe a specific real event " +
-				"(e.g. it's a login page, generic site chrome, or too vague), set found=false and null for everything. " +
-				"Write the description as plain prose without links.",
+				"When an image is provided, read ALL text printed on it (title, date, time, venue, address) — treat the " +
+				"poster as a primary source, not decoration. Use ONLY information explicitly present in the provided " +
+				"material (poster text or caption). Never guess, infer, or invent — not a title, date, location, or tag. " +
+				"If the material doesn't clearly describe a specific real event (e.g. it's a login page, generic site " +
+				"chrome, or too vague), set found=false and null for everything. Write the description as plain prose without links.",
 			messages: [{ role: "user", content: userContent }],
 		});
 
