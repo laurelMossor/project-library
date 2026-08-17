@@ -84,6 +84,35 @@ export async function publishEvent(id: string): Promise<EventItem> {
 }
 
 /**
+ * Create a fully-specified event (authenticated). Used by the Poster Catcher approve
+ * flow to materialize a submission through the same write path the app uses. Pass
+ * `isDraft: true` to create a draft (minimal validation) instead of publishing.
+ */
+export async function createEvent(data: {
+	title: string;
+	content: string;
+	eventDateTime: Date;
+	eventTimezone?: string | null;
+	location?: string;
+	tags?: string[];
+	pageId?: string | null;
+	isDraft?: boolean;
+}): Promise<EventItem> {
+	const res = await authFetch(API_EVENTS, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ ...data, eventDateTime: data.eventDateTime.toISOString() }),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to create event");
+	}
+
+	return res.json();
+}
+
+/**
  * Create a draft event for inline editing (authenticated)
  */
 export async function createDraftEvent(pageId?: string, title?: string): Promise<EventItem> {

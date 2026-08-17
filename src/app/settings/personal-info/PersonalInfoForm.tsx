@@ -10,7 +10,7 @@ import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { EyeIcon } from "@/lib/components/icons/icons";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
-import { API_ME_USER, API_ME_PAGE, API_ME_HANDLE, SETTINGS } from "@/lib/const/routes";
+import { API_ME_USER, API_ME_PAGE, API_ME_HANDLE, API_ME_PAGE_HANDLE, SETTINGS } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
@@ -40,7 +40,7 @@ function FieldLabel({ label, isPublic = false }: { label: string; isPublic?: boo
 // batch, because they must also update the cross-entity `Handle` namespace row. Kept as a
 // visibly distinct Change → Save/Cancel action so it reads as separate from the batch save.
 
-function HandleEditor({ initialHandle }: { initialHandle: string }) {
+function HandleEditor({ initialHandle, endpoint = API_ME_HANDLE }: { initialHandle: string; endpoint?: string }) {
 	const [handle, setHandle] = useState(initialHandle);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(initialHandle);
@@ -56,7 +56,7 @@ function HandleEditor({ initialHandle }: { initialHandle: string }) {
 		setSaving(true);
 		setError(null);
 		try {
-			const res = await authFetch(API_ME_HANDLE, {
+			const res = await authFetch(endpoint, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ handle: next }),
@@ -447,6 +447,9 @@ function PageFields({ data }: { data: PublicPage }) {
 							</div>
 						}
 					/>
+
+					{/* Handle — its own save action (see HandleEditor), scoped to the active page */}
+					<HandleEditor initialHandle={data.handle} endpoint={API_ME_PAGE_HANDLE} />
 
 					<InlineEditable
 						canEdit={canEdit}

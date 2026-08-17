@@ -52,6 +52,17 @@ enum EventStatus {
   PUBLISHED
 }
 
+// Lifecycle of a Poster Catcher capture (Telegram → staging → review → Event).
+// See EventSubmission model. Terminal states: PUBLISHED, REJECTED.
+enum EventSubmissionStatus {
+  PENDING // captured; extraction not finished
+  READY // extraction produced a valid future date; materializable
+  NEEDS_FIX // extraction ran but no resolvable date (near-miss); operator adds one → READY
+  FAILED // extraction itself failed (unreadable image / unfetchable link)
+  PUBLISHED // approved and materialized into an Event
+  REJECTED // discarded before materializing
+}
+
 enum PostStatus {
   DRAFT
   PUBLISHED
@@ -668,6 +679,9 @@ model Image {
   userAvatarFor User[]            @relation("UserAvatar")
   pageAvatarFor Page[]            @relation("PageAvatar")
 
+  // Poster Catcher: submissions whose captured poster is this image (SetNull on delete)
+  eventSubmissions EventSubmission[] @relation("SubmissionRawImage")
+
   @@index([uploadedByUserId])
   @@map("images")
 }
@@ -906,4 +920,49 @@ model ProfileElement {
   @@index([userId, sortOrder])
   @@index([pageId, sortOrder])
   @@map("profile_elements")
+}
+
+// ========================
+// Poster Catcher (event ingestion)
+// ========================
+//
+// A staging record for a captured community event, upstream of the events table.
+// The Telegram webhook writes one row per capture (PENDING); inline extraction fills
+// the extracted fields and moves it to READY/NEEDS_FIX/FAILED. The superadmin review
+// surface (/admin/submissions) then materializes an approved row into a real Event
+// through the existing POST /api/events path — nothing writes to `events` until then.
+// Designed to be transient/prunable and read only by the review surface.
+model EventSubmission {
+  id     String                @id @default(cuid())
+  status EventSubmissionStatus @default(PENDING)
+
+  // Who sent it (Telegram user id, as text). The submitter→account mapping is a
+  // future multi-user concern; v1 is solo, gated by a sender allowlist at intake.
+  submitterTelegramId String
+  submittedAt         DateTime @default(now())
+
+  // Raw captured input
+  sourceUrl  String?
+  rawCaption String?
+  rawImageId String?
+  rawImage   Image?  @relation("SubmissionRawImage", fields: [rawImageId], references: [id], onDelete: SetNull)
+
+  // Extracted fields (all soft/editable; date is the hard gate for materializing)
+  title         String?
+  content       String?
+  eventDate     DateTime?
+  eventTimezone String?
+  location      String?
+  tags          String[]  @default([])
+
+  // Review / outcome
+  errorNote        String?
+  reviewedAt       DateTime?
+  publishedEventId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, submittedAt])
+  @@map("event_submissions")
 }

@@ -4,6 +4,20 @@ export const truncateText = (text: string, maxLength: number = 150) => {
 };
 
 /**
+ * Poster Catcher: append a trailing "Original source: {url}" line to an event description.
+ * Idempotent — if the exact line is already present it isn't added twice. Used at extraction
+ * (to bake the source into the editable content) and on operator hand-fill of a link-only
+ * capture. Returns `content` unchanged when there's no source url.
+ */
+export function withSourceLine(content: string | null | undefined, sourceUrl: string | null | undefined): string {
+	const base = (content ?? "").trimEnd();
+	if (!sourceUrl) return base;
+	const line = `Original source: ${sourceUrl}`;
+	if (base.includes(line)) return base;
+	return base ? `${base}\n\n${line}` : line;
+}
+
+/**
  * Get initials from a user-like object (firstName, lastName, handle).
  * Canonical initials logic lives in card.ts (getCardUserInitials / getCardPageInitials).
  * This is a convenience wrapper for objects with a `handle` fallback.

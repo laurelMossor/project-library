@@ -9,6 +9,21 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ---
 
+## v0.5.0 — Meatup part 1 (Unreleased)
+
+- **Member RSVPs** — logged-in members RSVP with auto-filled identity; closes email spoofing on member RSVPs.
+- **Plus-one guests** — one guest per RSVP with guest-aware counts; toggle in the form and guest row in the attendee list.
+- **Event map & dates** — no default SF pin; map hidden until a place is picked; past events off Map View; posted dates with local-time timestamps.
+- **Poster Catcher** — Telegram bot stages posters/links; vision LLM extracts fields; superadmin review publishes via the normal event path; draft approval keeps tags.
+- **Superadmin gate** — env allowlist for operator `/admin/*` surfaces.
+
+### Bug Fixes
+
+- **Page handle editing** — pages can change handle from Page Info settings.
+- **RSVP display** — attendee count includes guests; timestamps show local date and time.
+
+---
+
 ## v0.4.2 — Fast-follows and bug fixes (2026-08-09)
 - **Remove placeholder About and Community Guidelines content** — Not in line with the site's AI content policy (which is also only in draft)
 - **Notification email delivery** — scheduled digest flush no longer silently no-ops in prod; cron targets the canonical `www` host instead of the redirecting apex.

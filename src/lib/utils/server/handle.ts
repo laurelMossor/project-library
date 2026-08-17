@@ -127,6 +127,56 @@ export async function setUserHandle(userId: string, rawHandle: string): Promise<
 }
 
 /**
+ * Change a page's handle, keeping `Page.handle` and the companion `Handle` namespace row in
+ * step atomically. Mirror of `setUserHandle` for the Page entity — same format/reserved/
+ * uniqueness checks, no-op on an unchanged handle, and the `Handle` row is upserted (keyed by
+ * `pageId`) so a legacy page missing one is repaired rather than 500ing. Permission (the caller
+ * may act as this page) is enforced by the route, not here.
+ */
+export async function setPageHandle(pageId: string, rawHandle: string): Promise<SetHandleResult> {
+	const handle = rawHandle.toLowerCase().trim();
+
+	if (!validateHandle(handle)) {
+		return {
+			ok: false,
+			error: "Handle must be 3–30 characters: lowercase letters, numbers, periods, underscores, or hyphens.",
+		};
+	}
+	if (isReservedHandle(handle)) {
+		return { ok: false, error: "That handle is reserved. Please choose another." };
+	}
+
+	const current = await prisma.page.findUnique({ where: { id: pageId }, select: { handle: true } });
+	if (!current) return { ok: false, error: "Page not found" };
+	// No-op: changing to the page's own current handle (its `handles` row is "taken" by this page).
+	if (current.handle === handle) return { ok: true, handle };
+
+	if (await isHandleTaken(handle)) {
+		return { ok: false, error: "That handle is already taken." };
+	}
+
+	try {
+		await prisma.$transaction([
+			prisma.page.update({ where: { id: pageId }, data: { handle } }),
+			prisma.handle.upsert({
+				where: { pageId },
+				update: { handle },
+				create: { handle, pageId },
+			}),
+		]);
+	} catch (err) {
+		if (
+			typeof err === "object" && err !== null && "code" in err &&
+			(err as { code?: string }).code === "P2002"
+		) {
+			return { ok: false, error: "That handle is already taken." };
+		}
+		throw err;
+	}
+	return { ok: true, handle };
+}
+
+/**
  * Resolve a handle URL segment to its owning entity (User or Page).
  *
  * Single query against the `handles` table. The result includes the related
