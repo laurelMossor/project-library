@@ -7,7 +7,6 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { Button } from "@/lib/components/ui/Button";
 import { authFetch, AuthError } from "@/lib/utils/auth-client";
 import { createEvent } from "@/lib/utils/event-client";
-import { attachExistingImage } from "@/lib/utils/image-client";
 import { withSourceLine } from "@/lib/utils/text";
 import { API_ADMIN_SUBMISSIONS, API_ADMIN_SUBMISSION, EVENT_DETAIL } from "@/lib/const/routes";
 
@@ -77,6 +76,9 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [busyId, setBusyId] = useState<string | null>(null);
+	// Remember the Event a submission already created, so a retry after a transient publish
+	// failure reuses it instead of materializing a duplicate.
+	const [createdEventIds, setCreatedEventIds] = useState<Record<string, string>>({});
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -177,31 +179,35 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 
 		setBusyId(submission.id);
 		try {
-			const event = await createEvent({
-				title: d.title.trim(),
-				content: d.content.trim(),
-				// Draft path tolerates a missing date (route fabricates one); publish requires `future`.
-				eventDateTime: future ?? new Date(),
-				eventTimezone: submission.eventTimezone,
-				location: d.location.trim(),
-				tags: parseTags(d.tags),
-				pageId: eventsPageId,
-				isDraft: asDraft,
-			});
-
-			if (submission.rawImageId) {
-				await attachExistingImage({ imageId: submission.rawImageId, type: "EVENT", targetId: event.id });
+			// Reuse an Event already created for this submission on a prior (failed) attempt.
+			let eventId = createdEventIds[submission.id];
+			if (!eventId) {
+				const event = await createEvent({
+					title: d.title.trim(),
+					content: d.content.trim(),
+					// Draft path tolerates a missing date (route fabricates one); publish requires `future`.
+					eventDateTime: future ?? new Date(),
+					eventTimezone: submission.eventTimezone,
+					location: d.location.trim(),
+					tags: parseTags(d.tags),
+					pageId: eventsPageId,
+					isDraft: asDraft,
+				});
+				eventId = event.id;
+				setCreatedEventIds((prev) => ({ ...prev, [submission.id]: eventId }));
 			}
 
+			// The server attaches the captured poster and marks the submission PUBLISHED,
+			// idempotently — so any superadmin can approve, not just the poster's author account.
 			const res = await authFetch(API_ADMIN_SUBMISSION(submission.id), {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ action: "publish", eventId: event.id }),
+				body: JSON.stringify({ action: "publish", eventId }),
 			});
 			if (!res.ok) throw new Error("Publish bookkeeping failed");
 
 			removeItem(submission.id);
-			window.open(EVENT_DETAIL(event.id), "_blank");
+			window.open(EVENT_DETAIL(eventId), "_blank");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to create the event.");
 		} finally {

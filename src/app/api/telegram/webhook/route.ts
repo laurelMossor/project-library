@@ -1,5 +1,4 @@
 import { NextResponse, after } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
 import {
 	verifyWebhookSecret,
 	isAllowedSender,
@@ -10,6 +9,7 @@ import {
 } from "@/lib/utils/server/telegram";
 import { storeImageBytes } from "@/lib/utils/server/storage";
 import { createImage } from "@/lib/utils/server/image-attachment";
+import { createSubmission } from "@/lib/utils/server/event-submission";
 import { extractSubmission } from "@/lib/utils/server/poster-extract";
 
 // Downloads media + writes rows; never cache. Headroom for the image download.
@@ -94,16 +94,12 @@ export async function POST(request: Request) {
 		});
 
 		// 4. Stage the submission (PENDING) and ack immediately.
-		const submission = await prisma.eventSubmission.create({
-			data: {
-				status: "PENDING",
-				submitterTelegramId: String(senderId),
-				sourceUrl: sourceUrl ?? null,
-				rawCaption: caption ?? null,
-				rawImageId,
-				errorNote: imageErrorNote,
-			},
-			select: { id: true },
+		const submission = await createSubmission({
+			submitterTelegramId: String(senderId),
+			sourceUrl,
+			rawCaption: caption,
+			rawImageId,
+			errorNote: imageErrorNote,
 		});
 
 		// 5. Extraction runs after the response is sent (keeps intake fast).

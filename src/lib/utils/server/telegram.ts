@@ -106,7 +106,8 @@ export async function getFile(fileId: string): Promise<TelegramFile | null> {
 		const json = (await res.json()) as { ok: boolean; result?: TelegramFile };
 		return json.ok && json.result ? json.result : null;
 	} catch (err) {
-		console.error("[telegram] getFile failed:", err);
+		// Log message only — the request URL embeds the bot token and must never reach logs.
+		console.error("[telegram] getFile failed:", err instanceof Error ? err.message : "unknown error");
 		return null;
 	}
 }
@@ -125,7 +126,8 @@ export async function downloadFile(
 		const extension = filePath.split(".").pop()?.toLowerCase() || "jpg";
 		return { buffer, contentType, extension };
 	} catch (err) {
-		console.error("[telegram] downloadFile failed:", err);
+		// Log message only — the request URL embeds the bot token and must never reach logs.
+		console.error("[telegram] downloadFile failed:", err instanceof Error ? err.message : "unknown error");
 		return null;
 	}
 }
@@ -153,6 +155,7 @@ export async function sendMessage(chatId: string | number, text: string): Promis
 			body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
 		});
 	} catch (err) {
-		console.error("[telegram] sendMessage failed:", err);
+		// Log message only — the request URL embeds the bot token and must never reach logs.
+		console.error("[telegram] sendMessage failed:", err instanceof Error ? err.message : "unknown error");
 	}
 }

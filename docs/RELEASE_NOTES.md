@@ -9,14 +9,18 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 
 ---
 
-## v0.5.0 — Poster Catcher (Unreleased)
+## v0.5.0 — Meatup part 1 (Unreleased)
 
-- **Poster Catcher** — forward a poster, link, or caption to a Telegram bot; it stages the capture, a vision LLM extracts title/date/location/tags, and a superadmin `/admin/submissions` surface approves each into a real event via the existing create path.
-- **Superadmin gate** — env-based operator capability (`SUPERADMIN_USER_IDS`) for the new `/admin/*` surface.
+- **Member RSVPs** — logged-in members RSVP with auto-filled identity; closes email spoofing on member RSVPs.
+- **Plus-one guests** — one guest per RSVP with guest-aware counts; toggle in the form and guest row in the attendee list.
+- **Event map & dates** — no default SF pin; map hidden until a place is picked; past events off Map View; posted dates with local-time timestamps.
+- **Poster Catcher** — Telegram bot stages posters/links; vision LLM extracts fields; superadmin review publishes via the normal event path; draft approval keeps tags.
+- **Superadmin gate** — env allowlist for operator `/admin/*` surfaces.
 
 ### Bug Fixes
 
-- **Page handle editing** — pages can now change their handle from Page Info settings, kept in sync with the cross-entity `Handle`; previously only the name was editable.
+- **Page handle editing** — pages can change handle from Page Info settings.
+- **RSVP display** — attendee count includes guests; timestamps show local date and time.
 
 ---
 

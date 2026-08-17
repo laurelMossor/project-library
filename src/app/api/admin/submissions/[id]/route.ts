@@ -4,7 +4,7 @@ import {
 	getSubmissionById,
 	applySubmissionEdits,
 	rejectSubmission,
-	markSubmissionPublished,
+	materializeSubmission,
 	type SubmissionEdits,
 } from "@/lib/utils/server/event-submission";
 import { badRequest, forbidden, notFound, serverError } from "@/lib/utils/errors";
@@ -48,8 +48,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 				if (!body.eventId || typeof body.eventId !== "string") {
 					return badRequest("eventId is required to mark a submission published");
 				}
-				await markSubmissionPublished(id, body.eventId);
-				return NextResponse.json(await getSubmissionById(id));
+				// Attaches the poster server-side + marks PUBLISHED, idempotently.
+				return NextResponse.json(await materializeSubmission(id, body.eventId));
 			}
 			default:
 				return badRequest("Unknown action (expected edit | reject | publish)");
