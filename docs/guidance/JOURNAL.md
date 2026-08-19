@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Tue 08/18/2026 18:04 PDT
+Landed the meatup-3 polish bits. Map pins show date and time, descriptions wrap long URLs, and Poster Catcher listings carry a no-contact disclaimer. Signup now confirms the password like reset. Clicking an event banner or profile photo opens the full image.
+
 #### Entry: Sun 08/16/2026 15:24 PDT
 Hardened Poster Catcher against live prod testing. Fixed tags dropped on approve-as-draft and added anti-hallucination guards, so an unreadable Instagram link no longer invents an event. Taught the link reader to pull Open Graph title, caption, and preview image, which also gives Eventbrite links a photo. Added high-detail image OCR and runtime logging for visibility. Using the prod logs, traced that Instagram serves anonymous requests only a cropped 640px preview, so link-only IG is inherently partial, and documented the forwarded-screenshot and ticket-link paths as reliable. Wrote a feature README with a Future Scope section on Apify.
 

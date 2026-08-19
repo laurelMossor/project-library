@@ -4,13 +4,13 @@
  *   - Telegram webhook auth: secret-token verification + sender allowlist
  *   - capture parsing: pulling caption / link / largest photo out of a Telegram message
  *   - the date validity gate (READY vs NEEDS_FIX) shared by extraction + review
- *   - the "Original source" content line
+ *   - the "Original source" content line and community-share disclaimer
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { isSuperAdmin } from "@/lib/utils/server/superadmin";
 import { verifyWebhookSecret, isAllowedSender, parseTelegramMessage } from "@/lib/utils/server/telegram";
 import { parseFutureEventDate } from "@/lib/utils/event-date";
-import { withSourceLine } from "@/lib/utils/text";
+import { POSTER_CATCHER_DISCLAIMER, withDisclaimer, withSourceLine } from "@/lib/utils/text";
 import { cleanSocialDescription } from "@/lib/utils/server/poster-extract";
 
 afterEach(() => {
@@ -155,5 +155,29 @@ describe("withSourceLine", () => {
 	test("no url → content unchanged; empty content + url → just the line", () => {
 		expect(withSourceLine("Body", null)).toBe("Body");
 		expect(withSourceLine("", "https://x.test")).toBe("Original source: https://x.test");
+	});
+});
+
+describe("withDisclaimer", () => {
+	test("appends the disclaimer to existing content", () => {
+		expect(withDisclaimer("Come dance")).toBe(`Come dance\n\n${POSTER_CATCHER_DISCLAIMER}`);
+	});
+
+	test("is idempotent (never doubles the disclaimer)", () => {
+		const once = withDisclaimer("Body");
+		expect(withDisclaimer(once)).toBe(once);
+	});
+
+	test("empty/null content → just the disclaimer", () => {
+		expect(withDisclaimer("")).toBe(POSTER_CATCHER_DISCLAIMER);
+		expect(withDisclaimer(null)).toBe(POSTER_CATCHER_DISCLAIMER);
+	});
+
+	test("composed with withSourceLine, source line stays last", () => {
+		const composed = withSourceLine(withDisclaimer("Come dance"), "https://x.test");
+		expect(composed).toBe(
+			`Come dance\n\n${POSTER_CATCHER_DISCLAIMER}\n\nOriginal source: https://x.test`
+		);
+		expect(withSourceLine(withDisclaimer(composed), "https://x.test")).toBe(composed);
 	});
 });

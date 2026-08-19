@@ -4,15 +4,16 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/lib/components/ui/Button";
-import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
+import { PasswordPair } from "@/lib/components/auth/PasswordPair";
 import {
 	API_AUTH_RESET_PASSWORD,
 	FORGOT_PASSWORD,
 	LOGIN,
 	RESET_PASSWORD_TOKEN_QUERY,
 } from "@/lib/const/routes";
+import { validatePasswordPair } from "@/lib/validations";
 
 function ResetPasswordForm() {
 	const router = useRouter();
@@ -28,12 +29,9 @@ function ResetPasswordForm() {
 		e.preventDefault();
 		setError("");
 
-		if (password.length < 8) {
-			setError("Password must be at least 8 characters long");
-			return;
-		}
-		if (password !== confirm) {
-			setError("Passwords don't match");
+		const pairError = validatePasswordPair(password, confirm);
+		if (pairError) {
+			setError(pairError);
 			return;
 		}
 
@@ -78,19 +76,13 @@ function ResetPasswordForm() {
 
 				<FormError error={error} />
 
-				<FormInput
-					type="password"
-					placeholder="New password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					required
-				/>
-				<FormInput
-					type="password"
-					placeholder="Confirm new password"
-					value={confirm}
-					onChange={(e) => setConfirm(e.target.value)}
-					required
+				<PasswordPair
+					password={password}
+					confirm={confirm}
+					onPasswordChange={setPassword}
+					onConfirmChange={setConfirm}
+					passwordPlaceholder="New password"
+					confirmPlaceholder="Confirm new password"
 				/>
 				<Button type="submit" fullWidth disabled={submitting}>
 					{submitting ? "Saving…" : "Reset password"}

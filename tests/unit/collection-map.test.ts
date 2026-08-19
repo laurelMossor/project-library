@@ -1,5 +1,8 @@
 import { describe, test, expect } from "vitest";
 import { getEventsWithCoords, getMappableEvents } from "@/lib/utils/collection";
+import { eventPopupHtml } from "@/lib/components/map/eventPopupHtml";
+import { formatDateTime, formatInstantAbsolute } from "@/lib/utils/datetime";
+import { EVENT_DETAIL } from "@/lib/const/routes";
 import type { EventItem } from "@/lib/types/event";
 import type { PostCollectionItem } from "@/lib/types/post";
 
@@ -77,5 +80,35 @@ describe("getMappableEvents", () => {
 		} as PostCollectionItem;
 		const upcoming = makeEvent({ id: "e1", eventDateTime: new Date("2099-06-01") });
 		expect(getMappableEvents([post, upcoming])).toHaveLength(1);
+	});
+});
+
+describe("eventPopupHtml", () => {
+	test("escapes a hostile title and includes the formatted date", () => {
+		const eventDateTime = new Date("2099-06-01T18:30:00Z");
+		const html = eventPopupHtml({
+			id: "evt-1",
+			title: `Foo <img src=x onerror=alert(1)> "bar"`,
+			eventDateTime,
+			eventTimezone: "America/Los_Angeles",
+		});
+
+		expect(html).toContain("&lt;img");
+		expect(html).toContain("&quot;bar&quot;");
+		expect(html).not.toContain("<img");
+		expect(html).toContain(`href="${EVENT_DETAIL("evt-1")}"`);
+		expect(html).toContain(formatDateTime(eventDateTime, "America/Los_Angeles"));
+	});
+
+	test("falls back to formatInstantAbsolute when there is no timezone", () => {
+		const eventDateTime = new Date("2099-06-01T18:30:00Z");
+		const html = eventPopupHtml({
+			id: "evt-2",
+			title: "Untitled-ish",
+			eventDateTime,
+			eventTimezone: null,
+		});
+
+		expect(html).toContain(formatInstantAbsolute(eventDateTime));
 	});
 });

@@ -105,6 +105,8 @@ export function FilteredCollection({ items, prependItems = [], view, pinConfig }
 			title: e.title,
 			latitude: e.latitude,
 			longitude: e.longitude,
+			eventDateTime: e.eventDateTime,
+			eventTimezone: e.eventTimezone,
 		}));
 
 		return (

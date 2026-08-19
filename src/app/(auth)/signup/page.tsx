@@ -6,7 +6,9 @@ import { Button } from "@/lib/components/ui/Button";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
+import { PasswordPair } from "@/lib/components/auth/PasswordPair";
 import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import { validatePasswordPair } from "@/lib/validations";
 import Link from "next/link";
 
 export const InviteCTA = () => {
@@ -25,13 +27,20 @@ function SignupForm() {
 
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [confirm, setConfirm] = useState("");
 	const [error, setError] = useState("");
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
 
-		// No handle field — one is auto-generated server-side from the email; users can
+		const pairError = validatePasswordPair(password, confirm);
+		if (pairError) {
+			setError(pairError);
+			return;
+		}
+
+		// No handle field; one is auto-generated server-side from the email; users can
 		// personalize it later in Settings.
 		const res = await fetch(API_AUTH_SIGNUP, {
 			method: "POST",
@@ -86,12 +95,11 @@ function SignupForm() {
 					onChange={(e) => setEmail(e.target.value)}
 					required
 				/>
-				<FormInput
-					type="password"
-					placeholder="Password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					required
+				<PasswordPair
+					password={password}
+					confirm={confirm}
+					onPasswordChange={setPassword}
+					onConfirmChange={setConfirm}
 				/>
 				<Button type="submit" fullWidth>
 					Sign Up

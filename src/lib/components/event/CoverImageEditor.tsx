@@ -5,18 +5,31 @@ type CoverImageEditorProps = {
 	canEdit: boolean;
 	/** Opens the shared ImageEditModal (owned by EventPageClient). */
 	onEdit?: () => void;
+	/** Opens the full-size viewer when a cover image is present. */
+	onOpen?: () => void;
 };
 
 /**
- * Cover image area for the event page — purely presentational.
- * Shows a gradient placeholder when no image is set. The overlaid button opens
- * the shared ImageEditModal, which owns the upload/attach (immediate, like avatars).
+ * Cover image area for the event page; purely presentational.
+ * Shows a gradient placeholder when no image is set. Clicking the photo opens
+ * the lightbox. The overlaid button opens the shared ImageEditModal.
  */
-export function CoverImageEditor({ imageUrl, canEdit, onEdit }: CoverImageEditorProps) {
+export function CoverImageEditor({ imageUrl, canEdit, onEdit, onOpen }: CoverImageEditorProps) {
 	return (
 		<div className="relative w-full overflow-hidden rounded-t-lg">
 			{imageUrl ? (
-				<img src={imageUrl} alt="Event cover" className="h-80 w-full object-cover" />
+				onOpen ? (
+					<button
+						type="button"
+						onClick={onOpen}
+						className="block w-full cursor-pointer"
+						aria-label="View cover image"
+					>
+						<img src={imageUrl} alt="Event cover" className="h-80 w-full object-cover" />
+					</button>
+				) : (
+					<img src={imageUrl} alt="Event cover" className="h-80 w-full object-cover" />
+				)
 			) : (
 				<div className="h-80 w-full bg-gradient-to-br from-melon-green via-ash-green to-moss-green" />
 			)}

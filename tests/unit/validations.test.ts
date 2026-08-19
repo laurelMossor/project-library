@@ -3,6 +3,9 @@ import {
   validateEmail,
   validateHandle,
   validatePassword,
+  validatePasswordPair,
+  PASSWORD_TOO_SHORT,
+  PASSWORDS_DONT_MATCH,
   validateMessageContent,
   validatePostData,
   validateEventData,
@@ -159,6 +162,21 @@ describe("validatePassword", () => {
 
   test("rejects empty string", () => {
     expect(validatePassword("")).toBe(false);
+  });
+});
+
+describe("validatePasswordPair", () => {
+  test("accepts matching passwords of 8+ characters", () => {
+    expect(validatePasswordPair("password123", "password123")).toBe(null);
+  });
+
+  test("rejects short passwords before checking match", () => {
+    expect(validatePasswordPair("short", "short")).toBe(PASSWORD_TOO_SHORT);
+    expect(validatePasswordPair("short", "other")).toBe(PASSWORD_TOO_SHORT);
+  });
+
+  test("rejects a mismatch when the password is long enough", () => {
+    expect(validatePasswordPair("password123", "password124")).toBe(PASSWORDS_DONT_MATCH);
   });
 });
 
