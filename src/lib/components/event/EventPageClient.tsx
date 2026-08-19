@@ -9,6 +9,7 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { CoverImageEditor } from "@/lib/components/event/CoverImageEditor";
 import { ImageEditModal } from "@/lib/components/images/ImageEditModal";
+import { ImageLightbox } from "@/lib/components/images/ImageLightbox";
 import { InlineDateTimePicker } from "@/lib/components/inline-editable/InlineDateTimePicker";
 import { RsvpForm } from "@/lib/components/event/RsvpForm";
 import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
@@ -87,6 +88,7 @@ function EventPageContent({
 	const isPublished = event.status === "PUBLISHED";
 	const [isEditing, setIsEditing] = useState(isDraft);
 	const [coverModalOpen, setCoverModalOpen] = useState(false);
+	const [coverLightboxOpen, setCoverLightboxOpen] = useState(false);
 	const page = event.page;
 	const coverImageUrl = event.images?.[0]?.url || null;
 
@@ -196,7 +198,11 @@ function EventPageContent({
 				imageUrl={coverImageUrl}
 				canEdit={isOwner && isEditing}
 				onEdit={() => setCoverModalOpen(true)}
+				onOpen={coverImageUrl ? () => setCoverLightboxOpen(true) : undefined}
 			/>
+			{coverLightboxOpen && coverImageUrl && (
+				<ImageLightbox src={coverImageUrl} alt="Event cover" onClose={() => setCoverLightboxOpen(false)} />
+			)}
 			{isOwner && coverModalOpen && (
 				<ImageEditModal
 					isOpen
