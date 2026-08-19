@@ -7,7 +7,7 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { Button } from "@/lib/components/ui/Button";
 import { authFetch, AuthError } from "@/lib/utils/auth-client";
 import { createEvent } from "@/lib/utils/event-client";
-import { withSourceLine } from "@/lib/utils/text";
+import { withDisclaimer, withSourceLine } from "@/lib/utils/text";
 import { API_ADMIN_SUBMISSIONS, API_ADMIN_SUBMISSION, EVENT_DETAIL } from "@/lib/const/routes";
 
 type SubmissionStatus = "PENDING" | "READY" | "NEEDS_FIX" | "FAILED" | "PUBLISHED" | "REJECTED";
@@ -50,8 +50,8 @@ function toLocalInput(iso: string | null): string {
 }
 
 function seedDraft(s: Submission): Draft {
-	// Pre-fill the source line when there's a link but no extracted content (hand-fill case).
-	const content = s.content ?? (s.sourceUrl ? withSourceLine("", s.sourceUrl) : "");
+	// Pre-fill disclaimer + source line when there's no extracted content (hand-fill case).
+	const content = s.content ?? withSourceLine(withDisclaimer(""), s.sourceUrl);
 	return {
 		title: s.title ?? "",
 		content,
@@ -255,7 +255,7 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 								<FormField label="Title">
 									<FormInput value={d.title} onChange={(e) => updateDraft(s.id, { title: e.target.value })} />
 								</FormField>
-								<FormField label="Description" helpText="The 'Original source' line publishes exactly as shown.">
+								<FormField label="Description" helpText="The disclaimer and 'Original source' line publish exactly as shown.">
 									<FormTextarea rows={5} value={d.content} onChange={(e) => updateDraft(s.id, { content: e.target.value })} />
 								</FormField>
 								<div className="flex gap-3">

@@ -44,6 +44,19 @@ export function validatePassword(password: string): boolean {
 	return password.length >= 8;
 }
 
+export const PASSWORD_TOO_SHORT = "Password must be at least 8 characters long";
+export const PASSWORDS_DONT_MATCH = "Passwords don't match";
+
+/**
+ * Client-side check for signup / reset: length first, then the two fields match.
+ * Returns an error string or null. Confirm is UI-only; APIs still receive one password.
+ */
+export function validatePasswordPair(password: string, confirm: string): string | null {
+	if (!validatePassword(password)) return PASSWORD_TOO_SHORT;
+	if (password !== confirm) return PASSWORDS_DONT_MATCH;
+	return null;
+}
+
 /** Raw invite token from URL (base64url); keep bounds to avoid abuse. */
 export function validateInviteToken(token: unknown): token is string {
 	if (typeof token !== "string") return false;

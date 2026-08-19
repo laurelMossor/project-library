@@ -92,7 +92,7 @@ export function PostsList({
 							{post.title && (
 								<h4 className="font-medium text-rich-brown mb-1">{post.title}</h4>
 							)}
-							<p className="text-sm text-warm-grey whitespace-pre-wrap">{post.content}</p>
+							<p className="text-sm text-warm-grey whitespace-pre-wrap break-words">{post.content}</p>
 							{!identity && (
 								<LocalDate value={post.createdAt} mode="absolute" className="text-xs text-dusty-grey mt-1" />
 							)}

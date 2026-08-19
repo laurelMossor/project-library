@@ -12,7 +12,7 @@ import { sendMessage } from "./telegram";
 import { storeImageBytes, type ImageBytes } from "./storage";
 import { createImage } from "./image-attachment";
 import { safeFetch } from "./safe-fetch";
-import { withSourceLine } from "../text";
+import { withDisclaimer, withSourceLine } from "../text";
 import { parseFutureEventDate } from "../event-date";
 
 // Vision-capable model, routed through the Vercel AI Gateway (AI_GATEWAY_API_KEY).
@@ -34,8 +34,8 @@ const extractionSchema = z.object({
 		.string()
 		.nullable()
 		.describe(
-			"The event description. Draw it from the post/caption text and any description printed on the poster — " +
-				"prefer the event's own wording. Use ONLY facts present in the source. Do NOT include the source link — it is added separately.",
+			"The event description. Draw it from the post/caption text and any description printed on the poster; " +
+				"prefer the event's own wording. Use ONLY facts present in the source. Do NOT include the source link or a sharing disclaimer; they are added separately.",
 		),
 	eventDate: z
 		.string()
@@ -368,8 +368,8 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 		}
 
 		const { date, isFuture } = parseFutureEventDate(object.eventDate);
-		// Bake the source link into the editable content so the operator can see/confirm it.
-		const content = withSourceLine(object.content, submission.sourceUrl);
+		// Bake disclaimer + source link into the editable content so the operator can see/confirm them.
+		const content = withSourceLine(withDisclaimer(object.content), submission.sourceUrl);
 
 		const status = isFuture ? "READY" : "NEEDS_FIX";
 		const errorNote = isFuture

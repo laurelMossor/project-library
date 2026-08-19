@@ -3,13 +3,46 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LeafletMap } from "./LeafletMap";
 import { EVENT_DETAIL } from "@/lib/const/routes";
+import { formatDateTime, formatInstantAbsolute } from "@/lib/utils/datetime";
 
 type MapEvent = {
 	id: string;
 	title: string | null;
 	latitude: number;
 	longitude: number;
+	eventDateTime: Date | string;
+	eventTimezone: string | null;
 };
+
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;");
+}
+
+function eventPopupHtml(event: MapEvent): string {
+	const title = escapeHtml(event.title || "Untitled Event");
+	const href = escapeHtml(EVENT_DETAIL(event.id));
+	const when = escapeHtml(
+		event.eventTimezone
+			? formatDateTime(event.eventDateTime, event.eventTimezone)
+			: formatInstantAbsolute(event.eventDateTime)
+	);
+	return (
+		`<a href="${href}" style="font-weight:600;color:var(--color-rich-brown)">${title}</a>` +
+		`<div style="margin-top:4px;font-size:12px;color:var(--color-dusty-grey)">${when}</div>`
+	);
+}
+
+function addEventMarkers(L: any, map: any, events: MapEvent[]) {
+	return events.map((event) => {
+		const marker = L.marker([event.latitude, event.longitude]).addTo(map);
+		marker.bindPopup(eventPopupHtml(event));
+		return marker;
+	});
+}
 
 type CollectionMapProps = {
 	events: MapEvent[];
@@ -43,14 +76,7 @@ export function CollectionMap({ events, center, radiusMiles, totalUnfiltered }: 
 		mapRef.current = map;
 		leafletRef.current = L;
 
-		markersRef.current = events.map((event) => {
-			const marker = L.marker([event.latitude, event.longitude]).addTo(map);
-			const title = event.title || "Untitled Event";
-			marker.bindPopup(
-				`<a href="${EVENT_DETAIL(event.id)}" style="font-weight:600;color:var(--color-rich-brown)">${title}</a>`
-			);
-			return marker;
-		});
+		markersRef.current = addEventMarkers(L, map, events);
 
 		if (center && radiusMiles) {
 			const radiusMeters = radiusMiles * 1609.34;
@@ -84,14 +110,7 @@ export function CollectionMap({ events, center, radiusMiles, totalUnfiltered }: 
 			circleRef.current = null;
 		}
 
-		markersRef.current = events.map((event) => {
-			const marker = L.marker([event.latitude, event.longitude]).addTo(map);
-			const title = event.title || "Untitled Event";
-			marker.bindPopup(
-				`<a href="${EVENT_DETAIL(event.id)}" style="font-weight:600;color:var(--color-rich-brown)">${title}</a>`
-			);
-			return marker;
-		});
+		markersRef.current = addEventMarkers(L, map, events);
 
 		if (center && radiusMiles) {
 			const radiusMeters = radiusMiles * 1609.34;

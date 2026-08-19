@@ -80,8 +80,10 @@ before publish.
   re-checked in every submission API route.
 - Lists open submissions with the extracted fields + poster. Per item: **edit**, **approve (publish
   or save as draft)**, or **reject**.
-- **Source line:** when a submission has a `sourceUrl`, an `Original source: {url}` line is written
-  into the editable `content` at extraction, so it's visible/adjustable and publishes as shown.
+- **Disclaimer + source line:** extraction bakes a community-share disclaimer into the editable
+  `content` (always), plus an `Original source: {url}` line when a `sourceUrl` exists. Both are
+  visible/adjustable and publish as shown. No contact email is included; the source line points
+  at the real organizer.
 - **Approve** runs in your session and reuses the app's normal write path: `createEvent` →
   `POST /api/events` (hosted by the "PL Events" page), then attach the stored poster via
   `POST /api/image-attachments`, then `PATCH` the submission to `PUBLISHED`. (The poster `Image` is

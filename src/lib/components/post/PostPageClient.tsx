@@ -242,7 +242,7 @@ function PostPageContent({
 					displayContent={(() => {
 						const body = (
 							<InlinePlaceholder value={content as string} placeholder="What are you working on or thinking about?">
-								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap">{content as string}</p>
+								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap break-words">{content as string}</p>
 							</InlinePlaceholder>
 						);
 						return (content as string)

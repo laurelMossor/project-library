@@ -17,6 +17,22 @@ export function withSourceLine(content: string | null | undefined, sourceUrl: st
 	return base ? `${base}\n\n${line}` : line;
 }
 
+/** Poster Catcher community-share disclaimer. Baked into editable event content. */
+export const POSTER_CATCHER_DISCLAIMER =
+	"This listing was shared on The Project Library as a community post. We didn't organize this event and aren't affiliated with the hosts. Details can change; confirm with the original source before you go.";
+
+/**
+ * Poster Catcher: append the community-share disclaimer to an event description.
+ * Idempotent; used at extraction and on operator hand-fill. Always appended
+ * (unlike withSourceLine, which is URL-gated). Compose as
+ * withSourceLine(withDisclaimer(content), sourceUrl) so the source line stays last.
+ */
+export function withDisclaimer(content: string | null | undefined): string {
+	const base = (content ?? "").trimEnd();
+	if (base.includes(POSTER_CATCHER_DISCLAIMER)) return base;
+	return base ? `${base}\n\n${POSTER_CATCHER_DISCLAIMER}` : POSTER_CATCHER_DISCLAIMER;
+}
+
 /**
  * Get initials from a user-like object (firstName, lastName, handle).
  * Canonical initials logic lives in card.ts (getCardUserInitials / getCardPageInitials).
