@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LeafletMap } from "./LeafletMap";
-import { EVENT_DETAIL } from "@/lib/const/routes";
-import { formatDateTime, formatInstantAbsolute } from "@/lib/utils/datetime";
+import { eventPopupHtml } from "./eventPopupHtml";
 
 type MapEvent = {
 	id: string;
@@ -13,28 +12,6 @@ type MapEvent = {
 	eventDateTime: Date | string;
 	eventTimezone: string | null;
 };
-
-function escapeHtml(value: string): string {
-	return value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;");
-}
-
-function eventPopupHtml(event: MapEvent): string {
-	const title = escapeHtml(event.title || "Untitled Event");
-	const href = escapeHtml(EVENT_DETAIL(event.id));
-	const when = escapeHtml(
-		event.eventTimezone
-			? formatDateTime(event.eventDateTime, event.eventTimezone)
-			: formatInstantAbsolute(event.eventDateTime)
-	);
-	return (
-		`<a href="${href}" style="font-weight:600;color:var(--color-rich-brown)">${title}</a>` +
-		`<div style="margin-top:4px;font-size:12px;color:var(--color-dusty-grey)">${when}</div>`
-	);
-}
 
 function addEventMarkers(L: any, map: any, events: MapEvent[]) {
 	return events.map((event) => {

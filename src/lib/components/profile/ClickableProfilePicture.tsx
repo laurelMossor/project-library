@@ -12,11 +12,11 @@ import { getUserInitials, getPageInitials } from "@/lib/utils/text";
 
 type ClickableProfilePictureProps = {
 	entity: CardEntity;
-	/** Owner can open the photo editor. Defaults true (the profile edit page). */
+	/** Owner can open the photo editor. Defaults false (public profiles). */
 	canEdit?: boolean;
 };
 
-export function ClickableProfilePicture({ entity, canEdit = true }: ClickableProfilePictureProps) {
+export function ClickableProfilePicture({ entity, canEdit = false }: ClickableProfilePictureProps) {
 	const router = useRouter();
 	const [editOpen, setEditOpen] = useState(false);
 	const [lightboxOpen, setLightboxOpen] = useState(false);

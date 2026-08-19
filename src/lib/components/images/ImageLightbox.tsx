@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useInlineEditSessionContext } from "@/lib/components/inline-editable/InlineEditSession";
 
 type ImageLightboxProps = {
@@ -12,17 +12,37 @@ type ImageLightboxProps = {
 /**
  * Full-size image viewer. Click the backdrop, press Escape, or use the close
  * button to dismiss. Hides the inline-edit save bar while open, same as ModalShell.
+ * Moves focus to Close on mount and restores the trigger on unmount so aria-modal
+ * matches keyboard behavior.
  */
 export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
 	const setOverlayOpen = useInlineEditSessionContext()?.setOverlayOpen;
+	const closeRef = useRef<HTMLButtonElement>(null);
+	const triggerRef = useRef<HTMLElement | null>(null);
+
 	useEffect(() => {
 		setOverlayOpen?.(true);
 		return () => setOverlayOpen?.(false);
 	}, [setOverlayOpen]);
 
 	useEffect(() => {
+		triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		closeRef.current?.focus();
+		return () => {
+			triggerRef.current?.focus();
+		};
+	}, []);
+
+	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
+			if (e.key === "Escape") {
+				onClose();
+				return;
+			}
+			if (e.key === "Tab") {
+				e.preventDefault();
+				closeRef.current?.focus();
+			}
 		};
 		document.addEventListener("keydown", onKey);
 		return () => document.removeEventListener("keydown", onKey);
@@ -37,6 +57,7 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
 			aria-label={alt}
 		>
 			<button
+				ref={closeRef}
 				type="button"
 				onClick={onClose}
 				className="absolute top-4 right-4 text-white/80 hover:text-white"
