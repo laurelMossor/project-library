@@ -7,10 +7,20 @@ export interface Tag {
     // childOf?: string;
 }
 
-export const Tag = ({ tag }: { tag: string }) => {
+export const Tag = ({ tag, onRemove }: { tag: string; onRemove?: () => void }) => {
 	return (
-		<div className="px-3 py-1 border text-grey-white bg-whale-blue rounded text-xs">
+		<div className="inline-flex items-center gap-1 px-3 py-1 border text-grey-white bg-whale-blue rounded text-xs">
 			{tag}
+			{onRemove && (
+				<button
+					type="button"
+					onClick={onRemove}
+					className="hover:text-alert-red transition-colors leading-none"
+					aria-label={`Remove ${tag}`}
+				>
+					×
+				</button>
+			)}
 		</div>
 	);
 };

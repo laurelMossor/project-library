@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
-import { validateEventData } from "@/lib/validations";
+import { validateEventData, isValidCoordinate } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
@@ -133,6 +133,17 @@ export async function POST(request: Request) {
 		if (isDraft) {
 			const parsedDateTime = eventDateTime ? new Date(eventDateTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+			// Coordinates are optional, but if the caller sends a pin it must be a valid,
+			// in-range pair — a lenient draft still shouldn't store a garbage location.
+			const draftLatitude = parseNumber(latitude);
+			const draftLongitude = parseNumber(longitude);
+			if (
+				(draftLatitude !== null || draftLongitude !== null) &&
+				!(draftLatitude !== null && draftLongitude !== null && isValidCoordinate(draftLatitude, draftLongitude))
+			) {
+				return badRequest("Invalid event coordinates");
+			}
+
 			const event = await prisma.event.create({
 				data: {
 					userId: ctx.userId,
@@ -142,6 +153,10 @@ export async function POST(request: Request) {
 					eventDateTime: parsedDateTime,
 					eventTimezone: eventTimezone || null,
 					location: (location || "").trim(),
+					// Carry through coordinates when the caller has them (e.g. the Poster
+					// Catcher approve flow geocodes the location before creating the draft).
+					latitude: draftLatitude,
+					longitude: draftLongitude,
 					// Inherit visibility from the hosting page (or the creating user).
 					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 					status: "DRAFT",

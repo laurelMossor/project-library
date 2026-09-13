@@ -244,15 +244,37 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		if (typeof data.latitude !== "number" || Number.isNaN(data.latitude)) {
 			return { valid: false, error: "Latitude must be a number" };
 		}
+		if (data.latitude < -90 || data.latitude > 90) {
+			return { valid: false, error: "Latitude must be between -90 and 90" };
+		}
 	}
 
 	if (data.longitude !== undefined && data.longitude !== null) {
 		if (typeof data.longitude !== "number" || Number.isNaN(data.longitude)) {
 			return { valid: false, error: "Longitude must be a number" };
 		}
+		if (data.longitude < -180 || data.longitude > 180) {
+			return { valid: false, error: "Longitude must be between -180 and 180" };
+		}
 	}
 
 	return { valid: true };
+}
+
+/**
+ * Finite, in-range geographic coordinate check (lat ∈ [-90, 90], lng ∈ [-180, 180]).
+ * Single source of the bounds so the event create paths — the publish path via
+ * `validateEventData`, and the lenient draft path in `POST /api/events` — agree.
+ */
+export function isValidCoordinate(latitude: number, longitude: number): boolean {
+	return (
+		Number.isFinite(latitude) &&
+		Number.isFinite(longitude) &&
+		latitude >= -90 &&
+		latitude <= 90 &&
+		longitude >= -180 &&
+		longitude <= 180
+	);
 }
 
 export function validateEventUpdateData(data: EventUpdateInput): { valid: boolean; error?: string } {

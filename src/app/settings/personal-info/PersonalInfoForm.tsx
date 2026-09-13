@@ -7,6 +7,7 @@ import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSe
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
+import { Tag } from "@/lib/components/tag/Tag";
 import { EyeIcon } from "@/lib/components/icons/icons";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
@@ -348,7 +349,7 @@ function UserFields({ data }: { data: PersonalUser }) {
 								{currentInterests.length > 0 ? (
 									<div className="mt-2 flex flex-wrap gap-2">
 										{currentInterests.map((i) => (
-											<span key={i} className="px-3 py-1 bg-melon-green border border-ash-green text-misty-forest text-xs rounded-full">{i}</span>
+											<Tag key={i} tag={i} />
 										))}
 									</div>
 								) : (
@@ -360,7 +361,7 @@ function UserFields({ data }: { data: PersonalUser }) {
 							<div>
 								<FieldLabel label="Interests" isPublic />
 								<div className="mt-1">
-									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} placeholder="Type and press Enter" />
+									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} />
 								</div>
 							</div>
 						}
@@ -525,7 +526,7 @@ function PageFields({ data }: { data: PublicPage }) {
 								{currentInterests.length > 0 ? (
 									<div className="mt-2 flex flex-wrap gap-2">
 										{currentInterests.map((i) => (
-											<span key={i} className="px-3 py-1 bg-melon-green border border-ash-green text-misty-forest text-xs rounded-full">{i}</span>
+											<Tag key={i} tag={i} />
 										))}
 									</div>
 								) : (
@@ -537,7 +538,7 @@ function PageFields({ data }: { data: PublicPage }) {
 							<div>
 								<FieldLabel label="Interests" isPublic />
 								<div className="mt-1">
-									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} placeholder="Type and press Enter" />
+									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} />
 								</div>
 							</div>
 						}

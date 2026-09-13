@@ -44,6 +44,8 @@ export type SubmissionEdits = {
 	eventDate?: string | null;
 	eventTimezone?: string | null;
 	location?: string | null;
+	latitude?: number | null;
+	longitude?: number | null;
 	tags?: string[];
 };
 
@@ -87,6 +89,8 @@ export async function applySubmissionEdits(id: string, edits: SubmissionEdits): 
 			...(hasDateEdit ? { eventDate: isFuture ? date : null } : {}),
 			...(edits.eventTimezone !== undefined ? { eventTimezone: edits.eventTimezone } : {}),
 			...(edits.location !== undefined ? { location: edits.location } : {}),
+			...(edits.latitude !== undefined ? { latitude: edits.latitude } : {}),
+			...(edits.longitude !== undefined ? { longitude: edits.longitude } : {}),
 			...(edits.tags !== undefined ? { tags: edits.tags } : {}),
 			...(status ? { status } : {}),
 			...(hasDateEdit && !isFuture
