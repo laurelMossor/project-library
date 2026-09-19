@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
-import { formatRelativeTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { resolveCardIdentity } from "@/lib/types/card";
 import { commentIdentity, type CommentItem } from "@/lib/types/comment";
 
@@ -103,7 +103,7 @@ export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, o
 					<>
 						<p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-warm-grey">{comment.content}</p>
 						<div className="mt-1.5 flex items-center gap-3 text-xs text-dusty-grey">
-							<span>{formatRelativeTime(comment.createdAt)}</span>
+							<LocalDate value={comment.createdAt} mode="relative" />
 							{canEdit && (
 								<button
 									type="button"

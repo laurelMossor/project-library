@@ -2,14 +2,24 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { LeafletMap } from "./LeafletMap";
-import { EVENT_DETAIL } from "@/lib/const/routes";
+import { eventPopupHtml } from "./eventPopupHtml";
 
 type MapEvent = {
 	id: string;
 	title: string | null;
 	latitude: number;
 	longitude: number;
+	eventDateTime: Date | string;
+	eventTimezone: string | null;
 };
+
+function addEventMarkers(L: any, map: any, events: MapEvent[]) {
+	return events.map((event) => {
+		const marker = L.marker([event.latitude, event.longitude]).addTo(map);
+		marker.bindPopup(eventPopupHtml(event));
+		return marker;
+	});
+}
 
 type CollectionMapProps = {
 	events: MapEvent[];
@@ -43,14 +53,7 @@ export function CollectionMap({ events, center, radiusMiles, totalUnfiltered }: 
 		mapRef.current = map;
 		leafletRef.current = L;
 
-		markersRef.current = events.map((event) => {
-			const marker = L.marker([event.latitude, event.longitude]).addTo(map);
-			const title = event.title || "Untitled Event";
-			marker.bindPopup(
-				`<a href="${EVENT_DETAIL(event.id)}" style="font-weight:600;color:var(--color-rich-brown)">${title}</a>`
-			);
-			return marker;
-		});
+		markersRef.current = addEventMarkers(L, map, events);
 
 		if (center && radiusMiles) {
 			const radiusMeters = radiusMiles * 1609.34;
@@ -84,14 +87,7 @@ export function CollectionMap({ events, center, radiusMiles, totalUnfiltered }: 
 			circleRef.current = null;
 		}
 
-		markersRef.current = events.map((event) => {
-			const marker = L.marker([event.latitude, event.longitude]).addTo(map);
-			const title = event.title || "Untitled Event";
-			marker.bindPopup(
-				`<a href="${EVENT_DETAIL(event.id)}" style="font-weight:600;color:var(--color-rich-brown)">${title}</a>`
-			);
-			return marker;
-		});
+		markersRef.current = addEventMarkers(L, map, events);
 
 		if (center && radiusMiles) {
 			const radiusMeters = radiusMiles * 1609.34;
@@ -115,7 +111,9 @@ export function CollectionMap({ events, center, radiusMiles, totalUnfiltered }: 
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [events, center?.lat, center?.lng, radiusMiles, updateVisibleCount]);
 
-	const initialCenter = center ?? (events[0] ? { lat: events[0].latitude, lng: events[0].longitude } : { lat: 37.7749, lng: -122.4194 });
+	// Neutral fallback (geographic center of the contiguous US) for the empty case —
+	// never a city-specific default, so a stray pin can't read as a real location.
+	const initialCenter = center ?? (events[0] ? { lat: events[0].latitude, lng: events[0].longitude } : { lat: 39.8283, lng: -98.5795 });
 
 	const footerText = totalUnfiltered && totalUnfiltered !== events.length
 		? `Showing ${visibleCount} of ${events.length} events within ${radiusMiles} mi`

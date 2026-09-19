@@ -238,6 +238,25 @@ DATABASE_URL="postgresql://postgres:password@host:5432/dbname" # pooled — used
 ```
 `prisma.config.ts` uses **`DIRECT_URL`** for migrations, so it must be set wherever you run `migrate deploy`.
 
+### Poster Catcher (Telegram event ingestion)
+
+Set locally (`.env` / `.env.local`) and in Vercel. All are server-side (no `NEXT_PUBLIC_`).
+
+```bash
+TELEGRAM_BOT_TOKEN="123456:ABC..."          # from BotFather (bot: PLEvents_bot)
+TELEGRAM_WEBHOOK_SECRET="<random-string>"   # echoed back by Telegram; verified by the webhook route
+TELEGRAM_ALLOWED_SENDER_IDS="111111111"     # comma-separated Telegram user ids allowed to submit
+SUPERADMIN_USER_IDS="<user-id>"             # comma-separated app user ids that can open /admin/*
+POSTER_CATCHER_AUTHOR_USER_ID="<user-id>"   # app user the bot attributes captured posters to
+POSTER_CATCHER_PAGE_ID="<page-id>"          # the "PL Events" page approved events are hosted by
+AI_GATEWAY_API_KEY="<vercel-ai-gateway-key>" # extraction is skipped (NEEDS_FIX) when unset
+POSTER_CATCHER_MODEL="openai/gpt-4o-mini"   # optional; vision-capable model id (default shown)
+```
+
+- Find your Telegram sender id by forwarding any message to `@userinfobot`, or read it from the first webhook log.
+- After deploy, register the webhook once: `npm run telegram:webhook -- https://<your-app-url>`.
+- `POSTER_CATCHER_AUTHOR_USER_ID` should match the account you're logged in as when approving, because attaching the poster to a new event requires owning the image.
+
 ---
 
 ## Pre-deploy checklist

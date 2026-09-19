@@ -7,17 +7,17 @@ import { PostItem } from "@/lib/types/post";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
-import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
+import { TagsField } from "@/lib/components/tag/TagsField";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
-import { Tag } from "@/lib/components/tag/Tag";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { PostImagesModal } from "@/lib/components/images/PostImagesModal";
@@ -223,6 +223,15 @@ function PostPageContent({
 					</div>
 				</div>
 
+				{isPublished && (
+					<LocalDate
+						value={post.createdAt}
+						mode="absolute"
+						prefix="Posted "
+						className="text-xs text-dusty-grey"
+					/>
+				)}
+
 				{/* Content */}
 				<InlineEditable
 					canEdit={isOwner && isEditing}
@@ -232,7 +241,7 @@ function PostPageContent({
 					displayContent={(() => {
 						const body = (
 							<InlinePlaceholder value={content as string} placeholder="What are you working on or thinking about?">
-								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap">{content as string}</p>
+								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap break-words">{content as string}</p>
 							</InlinePlaceholder>
 						);
 						return (content as string)
@@ -288,26 +297,14 @@ function PostPageContent({
 				)}
 
 				{/* Tags */}
-				<InlineEditable
-					canEdit={isOwner && isEditing}
-					isEditing={editingField === "tags"}
+				<TagsField
+					value={tags as string[]}
+					onChange={(newTags) => setTags(newTags)}
+					isOwner={isOwner}
+					isEditing={isEditing}
+					editingField={editingField}
 					onEditStart={() => setEditingField("tags")}
 					onCancel={() => setEditingField(null)}
-					displayContent={
-						(tags as string[]).length > 0 ? (
-							<div className="flex flex-wrap gap-2">
-								{(tags as string[]).map((tag) => <Tag key={tag} tag={tag} />)}
-							</div>
-						) : (
-							<InlinePlaceholder value={null} placeholder="Add topics" />
-						)
-					}
-					editContent={
-						<TagInputField
-							tags={tags as string[]}
-							onTagsChange={(newTags) => setTags(newTags)}
-						/>
-					}
 				/>
 
 				{/* Child updates */}

@@ -53,6 +53,11 @@ export const CONNECTIONS_REQUESTS = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Req
 
 export const PAGE_NEW = "/pages/new";
 
+// ============================================================================
+// Admin (superadmin-gated operator surfaces)
+// ============================================================================
+export const ADMIN_SUBMISSIONS = "/admin/submissions";
+
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
@@ -95,6 +100,7 @@ export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
 export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
+export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
 export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
 export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
@@ -124,6 +130,13 @@ export const API_UPLOAD = (folder: string) => `/api/upload?folder=${folder}`;
 export const API_IMAGE_ATTACHMENTS = "/api/image-attachments";
 export const API_IMAGE_ATTACHMENT = (id: string) => `/api/image-attachments/${id}`;
 export const API_IMAGE = (id: string) => `/api/images/${id}`;
+
+// Admin API Routes (Poster Catcher review; superadmin-gated)
+export const API_ADMIN_SUBMISSIONS = "/api/admin/submissions";
+export const API_ADMIN_SUBMISSION = (id: string) => `/api/admin/submissions/${id}`;
+
+// Telegram intake webhook (Poster Catcher)
+export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 
 // Page API Routes
 export const API_PAGES = "/api/pages";

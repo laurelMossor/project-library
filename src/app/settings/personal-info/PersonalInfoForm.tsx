@@ -7,10 +7,11 @@ import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSe
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
+import { Tag } from "@/lib/components/tag/Tag";
 import { EyeIcon } from "@/lib/components/icons/icons";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
-import { API_ME_USER, API_ME_PAGE, API_ME_HANDLE, SETTINGS } from "@/lib/const/routes";
+import { API_ME_USER, API_ME_PAGE, API_ME_HANDLE, API_ME_PAGE_HANDLE, SETTINGS } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
@@ -40,7 +41,7 @@ function FieldLabel({ label, isPublic = false }: { label: string; isPublic?: boo
 // batch, because they must also update the cross-entity `Handle` namespace row. Kept as a
 // visibly distinct Change → Save/Cancel action so it reads as separate from the batch save.
 
-function HandleEditor({ initialHandle }: { initialHandle: string }) {
+function HandleEditor({ initialHandle, endpoint = API_ME_HANDLE }: { initialHandle: string; endpoint?: string }) {
 	const [handle, setHandle] = useState(initialHandle);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(initialHandle);
@@ -56,7 +57,7 @@ function HandleEditor({ initialHandle }: { initialHandle: string }) {
 		setSaving(true);
 		setError(null);
 		try {
-			const res = await authFetch(API_ME_HANDLE, {
+			const res = await authFetch(endpoint, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ handle: next }),
@@ -348,7 +349,7 @@ function UserFields({ data }: { data: PersonalUser }) {
 								{currentInterests.length > 0 ? (
 									<div className="mt-2 flex flex-wrap gap-2">
 										{currentInterests.map((i) => (
-											<span key={i} className="px-3 py-1 bg-melon-green border border-ash-green text-misty-forest text-xs rounded-full">{i}</span>
+											<Tag key={i} tag={i} />
 										))}
 									</div>
 								) : (
@@ -360,7 +361,7 @@ function UserFields({ data }: { data: PersonalUser }) {
 							<div>
 								<FieldLabel label="Interests" isPublic />
 								<div className="mt-1">
-									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} placeholder="Type and press Enter" />
+									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} />
 								</div>
 							</div>
 						}
@@ -448,6 +449,9 @@ function PageFields({ data }: { data: PublicPage }) {
 						}
 					/>
 
+					{/* Handle — its own save action (see HandleEditor), scoped to the active page */}
+					<HandleEditor initialHandle={data.handle} endpoint={API_ME_PAGE_HANDLE} />
+
 					<InlineEditable
 						canEdit={canEdit}
 						isEditing={editingField === "headline"}
@@ -522,7 +526,7 @@ function PageFields({ data }: { data: PublicPage }) {
 								{currentInterests.length > 0 ? (
 									<div className="mt-2 flex flex-wrap gap-2">
 										{currentInterests.map((i) => (
-											<span key={i} className="px-3 py-1 bg-melon-green border border-ash-green text-misty-forest text-xs rounded-full">{i}</span>
+											<Tag key={i} tag={i} />
 										))}
 									</div>
 								) : (
@@ -534,7 +538,7 @@ function PageFields({ data }: { data: PublicPage }) {
 							<div>
 								<FieldLabel label="Interests" isPublic />
 								<div className="mt-1">
-									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} placeholder="Type and press Enter" />
+									<TagInputField tags={editInterests} onTagsChange={(tags) => { setEditInterests(tags); session?.setDirty("interests", tags, data.interests); }} />
 								</div>
 							</div>
 						}

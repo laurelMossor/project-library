@@ -1,6 +1,6 @@
 import { EventItem } from "../types/event";
 import { API_EVENTS, API_EVENT, API_EVENT_RSVPS, API_EVENT_RSVP_COUNTS } from "../const/routes";
-import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "../types/rsvp";
+import type { RsvpItem, RsvpCreateInput, RsvpCountSummary, RsvpStatus } from "../types/rsvp";
 import { authFetch } from "./auth-client";
 
 // CLIENT-SIDE FETCH UTILITIES
@@ -84,6 +84,37 @@ export async function publishEvent(id: string): Promise<EventItem> {
 }
 
 /**
+ * Create a fully-specified event (authenticated). Used by the Poster Catcher approve
+ * flow to materialize a submission through the same write path the app uses. Pass
+ * `isDraft: true` to create a draft (minimal validation) instead of publishing.
+ */
+export async function createEvent(data: {
+	title: string;
+	content: string;
+	eventDateTime: Date;
+	eventTimezone?: string | null;
+	location?: string;
+	latitude?: number | null;
+	longitude?: number | null;
+	tags?: string[];
+	pageId?: string | null;
+	isDraft?: boolean;
+}): Promise<EventItem> {
+	const res = await authFetch(API_EVENTS, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ ...data, eventDateTime: data.eventDateTime.toISOString() }),
+	});
+
+	if (!res.ok) {
+		const errorData = await res.json().catch(() => ({}));
+		throw new Error(errorData.error || "Failed to create event");
+	}
+
+	return res.json();
+}
+
+/**
  * Create a draft event for inline editing (authenticated)
  */
 export async function createDraftEvent(pageId?: string, title?: string): Promise<EventItem> {
@@ -102,9 +133,12 @@ export async function createDraftEvent(pageId?: string, title?: string): Promise
 }
 
 /**
- * Create or update an RSVP for an event (public, no auth required)
+ * Create or update an RSVP for an event (public; session cookie links member identity server-side)
  */
-export async function createRsvp(eventId: string, data: RsvpCreateInput): Promise<RsvpItem> {
+export async function createRsvp(
+	eventId: string,
+	data: RsvpCreateInput | { status: RsvpStatus; guests?: { name?: string }[] },
+): Promise<RsvpItem> {
 	const res = await fetch(API_EVENT_RSVPS(eventId), {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },

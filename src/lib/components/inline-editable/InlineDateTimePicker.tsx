@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { formatDateTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 
 const TIMEZONE_OPTIONS = [
 	{ label: "Pacific", value: "America/Los_Angeles" },
@@ -123,9 +124,13 @@ export function InlineDateTimePicker({ eventDateTime, eventTimezone, canEdit }: 
 			}}
 			onCancel={() => setIsEditing(false)}
 			displayContent={
-				<p className="text-lg font-medium text-rich-brown">
-					{formatDateTime(currentDateTime, currentTimezone as string | null | undefined)}
-				</p>
+				(currentTimezone as string | null) ? (
+					<p className="text-lg font-medium text-rich-brown">
+						{formatDateTime(currentDateTime, currentTimezone as string)}
+					</p>
+				) : (
+					<LocalDate value={currentDateTime} mode="absolute" className="text-lg font-medium text-rich-brown" />
+				)
 			}
 			editContent={
 				<div className="flex items-center gap-2">

@@ -8,6 +8,7 @@ import { ProfilePicture } from "../profile/ProfilePicture";
 import { Tags } from "../tag/Tag";
 import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import ImageCarousel from "../images/ImageCarousel";
 import { EVENT_DETAIL, POST_DETAIL, PROFILE_ABOUT } from "@/lib/const/routes";
 import { resolveCardIdentity } from "@/lib/types/card";
@@ -63,6 +64,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 
 	const isPinned = Boolean(ri.pinnedAt);
 	const isDraft = ri.status === "DRAFT";
+	const isPublished = ri.status === "PUBLISHED";
 	const isPast = isPastEvent(ri);
 	const canPin = !!pinConfig && (
 		pinConfig.currentUserId === ri.userId ||
@@ -129,7 +131,12 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 			{ev && (
 				<div className="mb-2 text-sm text-warm-grey">
 					<p className="font-medium flex items-center gap-2">
-						📅 {formatDateTime(ev.eventDateTime, ev.eventTimezone)}
+						📅{" "}
+						{ev.eventTimezone ? (
+							formatDateTime(ev.eventDateTime, ev.eventTimezone)
+						) : (
+							<LocalDate value={ev.eventDateTime} mode="absolute" />
+						)}
 						{isPast && <span className="text-xs font-medium uppercase tracking-wide text-dusty-grey border border-dusty-grey rounded px-1.5 py-0.5">Past</span>}
 					</p>
 					<p className="text-xs">📍 {ev.location}</p>
@@ -188,6 +195,15 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 			)}
 
 			<Tags item={ri} />
+
+			{isPublished && (
+				<LocalDate
+					value={ri.createdAt}
+					mode="absolute"
+					prefix="Posted "
+					className="text-xs text-dusty-grey mt-2"
+				/>
+			)}
 		</div>
 	);
 }

@@ -99,7 +99,7 @@ function ProfileOwnerContent({
 			{/* Header */}
 			<div className="flex items-start justify-between gap-4">
 				<div className="flex items-center gap-4">
-					<ClickableProfilePicture entity={avatarEntity} />
+					<ClickableProfilePicture entity={avatarEntity} canEdit={canEdit} />
 					<div>
 						{/* Name */}
 						<InlineEditable
@@ -235,7 +235,6 @@ function ProfileOwnerContent({
 						<TagInputField
 							tags={interests as string[]}
 							onTagsChange={(tags) => setInterests(tags)}
-							placeholder="Add interests"
 						/>
 					}
 				/>

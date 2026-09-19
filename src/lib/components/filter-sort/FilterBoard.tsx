@@ -71,7 +71,6 @@ export function FilterBoard({
 				<TagInputField
 					tags={selectedTags}
 					onTagsChange={onTagsChange}
-					placeholder="Type and press Enter"
 				/>
 			</div>
 		</div>

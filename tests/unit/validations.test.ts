@@ -3,11 +3,15 @@ import {
   validateEmail,
   validateHandle,
   validatePassword,
+  validatePasswordPair,
+  PASSWORD_TOO_SHORT,
+  PASSWORDS_DONT_MATCH,
   validateMessageContent,
   validatePostData,
   validateEventData,
   validateEventPublishable,
   validatePageData,
+  isValidCoordinate,
 } from "@/lib/validations";
 import { generateHandle } from "@/lib/utils/handle";
 
@@ -162,6 +166,21 @@ describe("validatePassword", () => {
   });
 });
 
+describe("validatePasswordPair", () => {
+  test("accepts matching passwords of 8+ characters", () => {
+    expect(validatePasswordPair("password123", "password123")).toBe(null);
+  });
+
+  test("rejects short passwords before checking match", () => {
+    expect(validatePasswordPair("short", "short")).toBe(PASSWORD_TOO_SHORT);
+    expect(validatePasswordPair("short", "other")).toBe(PASSWORD_TOO_SHORT);
+  });
+
+  test("rejects a mismatch when the password is long enough", () => {
+    expect(validatePasswordPair("password123", "password124")).toBe(PASSWORDS_DONT_MATCH);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // validateMessageContent
 // ---------------------------------------------------------------------------
@@ -290,6 +309,72 @@ describe("validateEventData", () => {
       location: "Portland, OR",
       tags,
     })).toMatchObject({ valid: false });
+  });
+
+  test("accepts in-range coordinates", () => {
+    expect(validateEventData({
+      title: "Event",
+      content: "Details",
+      eventDateTime: futureDate,
+      location: "Portland, OR",
+      latitude: 45.52,
+      longitude: -122.68,
+    })).toEqual({ valid: true });
+  });
+
+  test("accepts omitted coordinates (optional)", () => {
+    expect(validateEventData({
+      title: "Event",
+      content: "Details",
+      eventDateTime: futureDate,
+      location: "Portland, OR",
+    })).toEqual({ valid: true });
+  });
+
+  test("rejects out-of-range latitude", () => {
+    for (const latitude of [91, -91]) {
+      expect(validateEventData({
+        title: "Event",
+        content: "Details",
+        eventDateTime: futureDate,
+        location: "Portland, OR",
+        latitude,
+        longitude: 0,
+      })).toMatchObject({ valid: false });
+    }
+  });
+
+  test("rejects out-of-range longitude", () => {
+    for (const longitude of [181, -181]) {
+      expect(validateEventData({
+        title: "Event",
+        content: "Details",
+        eventDateTime: futureDate,
+        location: "Portland, OR",
+        latitude: 0,
+        longitude,
+      })).toMatchObject({ valid: false });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidCoordinate
+// ---------------------------------------------------------------------------
+describe("isValidCoordinate", () => {
+  test("accepts in-range pairs including the bounds", () => {
+    expect(isValidCoordinate(0, 0)).toBe(true);
+    expect(isValidCoordinate(90, 180)).toBe(true);
+    expect(isValidCoordinate(-90, -180)).toBe(true);
+  });
+
+  test("rejects out-of-range and non-finite values", () => {
+    expect(isValidCoordinate(91, 0)).toBe(false);
+    expect(isValidCoordinate(0, 181)).toBe(false);
+    expect(isValidCoordinate(-91, 0)).toBe(false);
+    expect(isValidCoordinate(0, -181)).toBe(false);
+    expect(isValidCoordinate(NaN, 0)).toBe(false);
+    expect(isValidCoordinate(0, Infinity)).toBe(false);
   });
 });
 

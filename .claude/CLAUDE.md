@@ -12,6 +12,8 @@ Skills, referenced files, and live observation of the app are **inputs to your t
 
 Form your plan *from* those inputs. This produces solutions grounded in the actual codebase and product instead of plausible-looking guesses.
 
+**Antagonist pass before presenting a plan.** Before you present *any* plan — an implementation approach, a PM brief, a spec — switch hats to a skeptical staff engineer and try to break your own draft. Interrogate it for: hidden coupling, a simpler solution or existing abstraction you skipped, DRY/SOLID violations, unhandled edge cases and failure modes, and scope that can be cut. Revise the plan from that critique and present the hardened version — not your first pass. Note the tradeoffs you weighed so the reader sees the reasoning.
+
 ---
 
 ## Session start bootstrap

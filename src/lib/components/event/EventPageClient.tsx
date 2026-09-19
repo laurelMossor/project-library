@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
@@ -9,18 +9,17 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { CoverImageEditor } from "@/lib/components/event/CoverImageEditor";
 import { ImageEditModal } from "@/lib/components/images/ImageEditModal";
+import { ImageLightbox } from "@/lib/components/images/ImageLightbox";
 import { InlineDateTimePicker } from "@/lib/components/inline-editable/InlineDateTimePicker";
 import { RsvpForm } from "@/lib/components/event/RsvpForm";
 import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
 import { AttendeeList } from "@/lib/components/event/AttendeeList";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
-import { Tag } from "@/lib/components/tag/Tag";
-import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
+import { TagsField } from "@/lib/components/tag/TagsField";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
-import { InteractiveMap } from "@/lib/components/map/InteractiveMap";
-import { LocationSearchInput, type LocationResult } from "@/lib/components/map/LocationSearchInput";
+import { LocationField } from "@/lib/components/map/LocationField";
 import { updateEvent, deleteEvent } from "@/lib/utils/event-client";
 import { uploadAndAttachImage } from "@/lib/utils/image-client";
 import { eventHasContent } from "@/lib/utils/content";
@@ -34,10 +33,12 @@ import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { RsvpStatus } from "@/lib/types/rsvp";
+import type { CardUser } from "@/lib/types/card";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 type EventPageClientProps = {
@@ -47,6 +48,9 @@ type EventPageClientProps = {
 	initialName?: string;
 	initialEmail?: string;
 	existingRsvpStatus?: RsvpStatus;
+	initialGuestName?: string | null;
+	initialHasPlusOne?: boolean;
+	memberUser?: CardUser;
 };
 
 /** Inner content — must be inside <InlineEditSession> to access editSession context */
@@ -58,6 +62,9 @@ function EventPageContent({
 	initialName,
 	initialEmail,
 	existingRsvpStatus,
+	initialGuestName,
+	initialHasPlusOne,
+	memberUser,
 }: {
 	event: EventItem;
 	setEvent: React.Dispatch<React.SetStateAction<EventItem>>;
@@ -66,6 +73,9 @@ function EventPageContent({
 	initialName?: string;
 	initialEmail?: string;
 	existingRsvpStatus?: RsvpStatus;
+	initialGuestName?: string | null;
+	initialHasPlusOne?: boolean;
+	memberUser?: CardUser;
 }) {
 	const router = useRouter();
 	const editSession = useInlineEditSession();
@@ -76,6 +86,7 @@ function EventPageContent({
 	const isPublished = event.status === "PUBLISHED";
 	const [isEditing, setIsEditing] = useState(isDraft);
 	const [coverModalOpen, setCoverModalOpen] = useState(false);
+	const [coverLightboxOpen, setCoverLightboxOpen] = useState(false);
 	const page = event.page;
 	const coverImageUrl = event.images?.[0]?.url || null;
 
@@ -156,12 +167,6 @@ function EventPageContent({
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
 	};
 
-	const handleLocationSelect = useCallback((result: LocationResult) => {
-		setLat(result.lat);
-		setLng(result.lng);
-		setLocationDisplay(result.displayName);
-	}, [setLat, setLng, setLocationDisplay]);
-
 	const handleAuthorSwitch = async (pageId: string | null) => {
 		try {
 			const updated = await updateEvent(event.id, { pageId });
@@ -185,7 +190,11 @@ function EventPageContent({
 				imageUrl={coverImageUrl}
 				canEdit={isOwner && isEditing}
 				onEdit={() => setCoverModalOpen(true)}
+				onOpen={coverImageUrl ? () => setCoverLightboxOpen(true) : undefined}
 			/>
+			{coverLightboxOpen && coverImageUrl && (
+				<ImageLightbox src={coverImageUrl} alt="Event cover" onClose={() => setCoverLightboxOpen(false)} />
+			)}
 			{isOwner && coverModalOpen && (
 				<ImageEditModal
 					isOpen
@@ -268,6 +277,15 @@ function EventPageContent({
 					</div>
 				</div>
 
+				{isPublished && (
+					<LocalDate
+						value={event.createdAt}
+						mode="absolute"
+						prefix="Posted "
+						className="text-xs text-dusty-grey"
+					/>
+				)}
+
 				{/* Description */}
 				<InlineEditable
 					canEdit={isOwner && isEditing}
@@ -277,7 +295,7 @@ function EventPageContent({
 					displayContent={(() => {
 						const body = (
 							<InlinePlaceholder value={content as string} placeholder="What should people know?">
-								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap">{content as string}</p>
+								<p className="text-base leading-relaxed text-warm-grey whitespace-pre-wrap break-words">{content as string}</p>
 							</InlinePlaceholder>
 						);
 						return (content as string)
@@ -314,25 +332,28 @@ function EventPageContent({
 							{(latValue as number | null) != null && (lngValue as number | null) != null && (
 								<EventMap latitude={(latValue as number)!} longitude={(lngValue as number)!} title={event.title || undefined} />
 							)}
+							{(latValue as number | null) == null && (lngValue as number | null) == null &&
+								(locationDisplay as string | null) &&
+								isOwner && (
+								<p className="text-sm text-misty-forest">
+									Add a map location by editing this event and picking a place from search.
+								</p>
+							)}
 						</div>
 					}
 					editContent={
-						<div className="space-y-3">
-							<LocationSearchInput
-								value={(locationDisplay as string | null) ?? ""}
-								onChange={(v) => setLocationDisplay(v || null)}
-								onSelect={handleLocationSelect}
-								autoFocus
-							/>
-							<InteractiveMap
-								latitude={latValue as number | null}
-								longitude={lngValue as number | null}
-								onLocationChange={(lat, lng) => {
-									setLat(lat);
-									setLng(lng);
-								}}
-							/>
-						</div>
+						<LocationField
+							location={(locationDisplay as string | null) ?? ""}
+							latitude={latValue as number | null}
+							longitude={lngValue as number | null}
+							onChange={({ location, latitude, longitude }) => {
+								setLocationDisplay(location || null);
+								setLat(latitude);
+								setLng(longitude);
+							}}
+							autoFocus
+							interactiveByDefault
+						/>
 					}
 				/>
 
@@ -346,33 +367,22 @@ function EventPageContent({
 							initialName={initialName}
 							initialEmail={initialEmail}
 							existingRsvpStatus={existingRsvpStatus}
+							initialGuestName={initialGuestName}
+							initialHasPlusOne={initialHasPlusOne}
+							memberUser={memberUser}
 						/>
 					</div>
 				)}
 
 				{/* Tags */}
-				<InlineEditable
-					canEdit={isOwner && isEditing}
-					isEditing={editingField === "tags"}
+				<TagsField
+					value={tags as string[]}
+					onChange={(newTags) => setTags(newTags)}
+					isOwner={isOwner}
+					isEditing={isEditing}
+					editingField={editingField}
 					onEditStart={() => setEditingField("tags")}
 					onCancel={() => setEditingField(null)}
-					displayContent={
-						(tags as string[]).length > 0
-							? (
-								<div className="flex flex-wrap gap-2">
-									{(tags as string[]).map((tag) => (
-										<Tag key={tag} tag={tag} />
-									))}
-								</div>
-							)
-							: <InlinePlaceholder value={null} placeholder="Add topics" />
-					}
-					editContent={
-						<TagInputField
-							tags={tags as string[]}
-							onTagsChange={(newTags) => setTags(newTags)}
-						/>
-					}
 				/>
 
 				{/* Posts / updates */}
@@ -428,7 +438,17 @@ function EventPageContent({
 	);
 }
 
-export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, initialName, initialEmail, existingRsvpStatus }: EventPageClientProps) {
+export function EventPageClient({
+	event: initialEvent,
+	isOwner,
+	isLoggedIn,
+	initialName,
+	initialEmail,
+	existingRsvpStatus,
+	initialGuestName,
+	initialHasPlusOne,
+	memberUser,
+}: EventPageClientProps) {
 	const [event, setEvent] = useState(initialEvent);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
@@ -466,6 +486,9 @@ export function EventPageClient({ event: initialEvent, isOwner, isLoggedIn, init
 						initialName={initialName}
 						initialEmail={initialEmail}
 						existingRsvpStatus={existingRsvpStatus}
+						initialGuestName={initialGuestName}
+						initialHasPlusOne={initialHasPlusOne}
+						memberUser={memberUser}
 					/>
 				</InlineEditSession>
 			</ContentCard>

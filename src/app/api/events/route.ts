@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
-import { validateEventData } from "@/lib/validations";
+import { validateEventData, isValidCoordinate } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
@@ -116,9 +116,33 @@ export async function POST(request: Request) {
 			}
 		}
 
+		// Process tags once — both the draft and standard paths persist them. (Draft creation
+		// used to hardcode `tags: []`, which silently dropped tags supplied at creation, e.g.
+		// the Poster Catcher approve-as-draft flow.)
+		let processedTags: string[] | undefined;
+		if (tags) {
+			if (typeof tags === "string") {
+				processedTags = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+			} else if (Array.isArray(tags)) {
+				processedTags = tags.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim())).filter(Boolean);
+			}
+		}
+		const processedTopics = Array.isArray(topics) ? topics : [];
+
 		// Draft creation: minimal validation, used by inline editing flow
 		if (isDraft) {
 			const parsedDateTime = eventDateTime ? new Date(eventDateTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+			// Coordinates are optional, but if the caller sends a pin it must be a valid,
+			// in-range pair — a lenient draft still shouldn't store a garbage location.
+			const draftLatitude = parseNumber(latitude);
+			const draftLongitude = parseNumber(longitude);
+			if (
+				(draftLatitude !== null || draftLongitude !== null) &&
+				!(draftLatitude !== null && draftLongitude !== null && isValidCoordinate(draftLatitude, draftLongitude))
+			) {
+				return badRequest("Invalid event coordinates");
+			}
 
 			const event = await prisma.event.create({
 				data: {
@@ -129,11 +153,15 @@ export async function POST(request: Request) {
 					eventDateTime: parsedDateTime,
 					eventTimezone: eventTimezone || null,
 					location: (location || "").trim(),
+					// Carry through coordinates when the caller has them (e.g. the Poster
+					// Catcher approve flow geocodes the location before creating the draft).
+					latitude: draftLatitude,
+					longitude: draftLongitude,
 					// Inherit visibility from the hosting page (or the creating user).
 					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 					status: "DRAFT",
-					tags: [],
-					topics: [],
+					tags: processedTags || [],
+					topics: processedTopics,
 				},
 				select: eventWithUserFields,
 			});
@@ -158,21 +186,6 @@ export async function POST(request: Request) {
 
 		const parsedLatitude = parseNumber(latitude);
 		const parsedLongitude = parseNumber(longitude);
-
-		// Process tags
-		let processedTags: string[] | undefined;
-		if (tags) {
-			if (typeof tags === "string") {
-				processedTags = tags
-					.split(",")
-					.map((tag) => tag.trim())
-					.filter(Boolean);
-			} else if (Array.isArray(tags)) {
-				processedTags = tags
-					.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
-					.filter(Boolean);
-			}
-		}
 
 		// Validate event data
 		const validation = validateEventData({
@@ -200,7 +213,7 @@ export async function POST(request: Request) {
 				latitude: parsedLatitude,
 				longitude: parsedLongitude,
 				tags: processedTags || [],
-				topics: Array.isArray(topics) ? topics : [],
+				topics: processedTopics,
 				// Inherit visibility from the hosting page (or the creating user).
 				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
 				status: "PUBLISHED",

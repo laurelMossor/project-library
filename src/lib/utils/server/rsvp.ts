@@ -2,7 +2,26 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
+import { publicUserEmbedFields } from "./user";
 import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "@/lib/types/rsvp";
+
+const rsvpWithGuestsSelect = {
+	include: {
+		guests: true,
+		user: { select: publicUserEmbedFields },
+	},
+} as const;
+
+function normalizeGuests(
+	status: RsvpCreateInput["status"],
+	guests: RsvpCreateInput["guests"],
+): { name: string | null }[] {
+	if (status !== "GOING") return [];
+	if (!guests?.length) return [];
+	const guest = guests[0];
+	const trimmed = guest.name?.trim();
+	return [{ name: trimmed && trimmed.length > 0 ? trimmed : null }];
+}
 
 /**
  * Create or update an RSVP for an event (one RSVP per email per event).
@@ -14,20 +33,52 @@ import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "@/lib/types/rs
 export async function createOrUpdateRsvp(
 	eventId: string,
 	data: RsvpCreateInput,
+	options?: { userId?: string | null },
 ): Promise<{ rsvp: RsvpItem; created: boolean }> {
 	const email = data.email.trim().toLowerCase();
-	const existing = await prisma.rsvp.findUnique({ where: { eventId_email: { eventId, email } } });
+	const existing = await prisma.rsvp.findUnique({
+		where: { eventId_email: { eventId, email } },
+	});
 
-	const rsvp = existing
-		? await prisma.rsvp.update({
-			where: { eventId_email: { eventId, email } },
-			data: { name: data.name.trim(), status: data.status },
-		})
-		: await prisma.rsvp.create({
-			data: { eventId, name: data.name.trim(), email, status: data.status },
+	const userId = options?.userId ?? existing?.userId ?? null;
+
+	const { rsvp, created } = await prisma.$transaction(async (tx) => {
+		const row = existing
+			? await tx.rsvp.update({
+				where: { eventId_email: { eventId, email } },
+				data: {
+					name: data.name.trim(),
+					status: data.status,
+					userId,
+				},
+			})
+			: await tx.rsvp.create({
+				data: {
+					eventId,
+					name: data.name.trim(),
+					email,
+					status: data.status,
+					userId,
+				},
+			});
+
+		await tx.rsvpGuest.deleteMany({ where: { rsvpId: row.id } });
+		const normalized = normalizeGuests(data.status, data.guests);
+		if (normalized.length > 0) {
+			await tx.rsvpGuest.createMany({
+				data: normalized.map((g) => ({ rsvpId: row.id, name: g.name })),
+			});
+		}
+
+		const withGuests = await tx.rsvp.findUniqueOrThrow({
+			where: { id: row.id },
+			include: { guests: true, user: { select: publicUserEmbedFields } },
 		});
 
-	return { rsvp, created: !existing };
+		return { rsvp: withGuests as RsvpItem, created: !existing };
+	});
+
+	return { rsvp, created };
 }
 
 /**
@@ -41,7 +92,8 @@ export async function getRsvpByEmail(eventId: string, email: string): Promise<Rs
 				email: email.trim().toLowerCase(),
 			},
 		},
-	});
+		...rsvpWithGuestsSelect,
+	}) as Promise<RsvpItem | null>;
 }
 
 /**
@@ -51,21 +103,34 @@ export async function getRsvpsByEvent(eventId: string): Promise<RsvpItem[]> {
 	return prisma.rsvp.findMany({
 		where: { eventId },
 		orderBy: { createdAt: "desc" },
-	});
+		...rsvpWithGuestsSelect,
+	}) as Promise<RsvpItem[]>;
 }
 
 /**
  * Get aggregate RSVP counts for an event.
- * Uses groupBy to avoid fetching individual records.
+ * goingTotal = GOING host RSVPs + their plus-ones; MAYBE is shown but never counted toward capacity.
  */
 export async function getRsvpCounts(eventId: string): Promise<RsvpCountSummary> {
-	const counts = await prisma.rsvp.groupBy({
-		by: ["status"],
-		where: { eventId },
-		_count: { status: true },
-	});
+	const [counts, guestCount] = await Promise.all([
+		prisma.rsvp.groupBy({
+			by: ["status"],
+			where: { eventId },
+			_count: { status: true },
+		}),
+		prisma.rsvpGuest.count({
+			where: { rsvp: { eventId, status: "GOING" } },
+		}),
+	]);
 
-	const summary: RsvpCountSummary = { going: 0, maybe: 0, cantMakeIt: 0, total: 0 };
+	const summary: RsvpCountSummary = {
+		going: 0,
+		maybe: 0,
+		cantMakeIt: 0,
+		total: 0,
+		guests: guestCount,
+		goingTotal: 0,
+	};
 
 	for (const row of counts) {
 		const count = row._count.status;
@@ -82,6 +147,8 @@ export async function getRsvpCounts(eventId: string): Promise<RsvpCountSummary> 
 		}
 		summary.total += count;
 	}
+
+	summary.goingTotal = summary.going + summary.guests;
 
 	return summary;
 }

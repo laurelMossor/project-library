@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { API_MESSAGE, API_MESSAGES, LOGIN_WITH_CALLBACK, MESSAGES } from "@/lib/const/routes";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import { formatRelativeTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 
 interface Message {
 	id: string;
@@ -149,7 +149,7 @@ export function ConversationThread({ targetId, targetType, asPageId }: Conversat
 								<div className={`max-w-[70%] rounded p-3 ${isSent ? "bg-black text-white" : "bg-gray-200 text-black"}`}>
 									<p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
 									<p className={`text-xs mt-1 ${isSent ? "text-gray-300" : "text-gray-500"}`}>
-										{formatRelativeTime(message.createdAt)}
+										<LocalDate value={message.createdAt} mode="relative" />
 									</p>
 								</div>
 							</div>

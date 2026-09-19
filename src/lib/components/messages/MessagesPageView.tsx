@@ -8,7 +8,7 @@ import { ConversationThread } from "./ConversationThread";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { CardUser, CardPageWithRole, getCardUserDisplayName } from "@/lib/types/card";
 import { truncateText } from "@/lib/utils/text";
-import { formatRelativeTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { API_MESSAGE, API_MESSAGES_INBOX } from "@/lib/const/routes";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ export function MessagesPageView() {
 								</div>
 								{conv.lastMessage && (
 									<p className={`text-xs shrink-0 ${isUnread ? "font-semibold text-rich-brown" : "text-dusty-grey"}`}>
-										{formatRelativeTime(conv.lastMessage.createdAt)}
+										<LocalDate value={conv.lastMessage.createdAt} mode="relative" />
 									</p>
 								)}
 							</div>

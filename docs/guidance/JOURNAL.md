@@ -8,8 +8,29 @@
 6. Litmus test before saving: if you'd expect "cut this in half," it already needs it.
 
 **Target shape:**
-> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app.
+> Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
+
+#### Entry: Sun 09/13/2026 11:44 PDT
+Unified the drifted tag UI onto one blue chiclet. The Tag component now owns both the display and a removable draft variant, so the green pills and the duplicated post/event field blocks collapse behind one shared TagsField. Tags normalize on entry, raising only a lowercase first letter so DIY and 3D survive, and dedup is case-insensitive. Also improved Poster Catcher. The extractor defaults times to Pacific and demands an explicit offset, the model moved to Gemini Flash Lite, and the location auto-geocodes so the review shows a confirmation map. The bot reply now links straight to the review queue.
+
+#### Entry: Tue 08/18/2026 18:04 PDT
+Landed the meatup-3 polish bits. Map pins show date and time, descriptions wrap long URLs, and Poster Catcher listings carry a no-contact disclaimer. Signup now confirms the password like reset. Clicking an event banner or profile photo opens the full image.
+
+#### Entry: Sun 08/16/2026 15:24 PDT
+Hardened Poster Catcher against live prod testing. Fixed tags dropped on approve-as-draft and added anti-hallucination guards, so an unreadable Instagram link no longer invents an event. Taught the link reader to pull Open Graph title, caption, and preview image, which also gives Eventbrite links a photo. Added high-detail image OCR and runtime logging for visibility. Using the prod logs, traced that Instagram serves anonymous requests only a cropped 640px preview, so link-only IG is inherently partial, and documented the forwarded-screenshot and ticket-link paths as reliable. Wrote a feature README with a Future Scope section on Apify.
+
+#### Entry: Sun 08/16/2026 14:08 PDT
+Built Poster Catcher on `meatup-2-superadmin-event-submissions`. A Telegram bot captures forwarded posters, links, and captions into a new `EventSubmission` staging table, a vision model extracts the event fields, and a superadmin-only `/admin/submissions` surface reviews and approves each one into a real event through the existing create route. Added an env-based superadmin operator gate. Rebased the branch off develop onto main so only the additive submissions migration ships to prod, then applied that migration to prod live and confirmed the site healthy. Also fixed a bug where a page's handle couldn't be edited, adding a page handle editor and matching endpoint alongside the existing user one.
+
+#### Entry: Sat 08/15/2026 12:59 PDT
+Ran `/prolib-review` on `meatup-1` against develop and landed the agreed fixes. Closed a member-RSVP spoofing hole where a logged-out caller who knew a member's email could overwrite that RSVP while it stayed attributed to the account. Restored date and time on all instant timestamps via `formatInstantAbsolute`, and aligned the attendee-list headcount with `goingTotal`. Added regression tests for both security paths. 
+
+#### Entry: Sat 08/15/2026 12:33 PDT
+Deepened the RSVP model on `meatup-1` in two phases. Phase 1 added a single plus-one guest via a new `RsvpGuest` child model, guest-aware counts (`goingTotal = GOING + guests`), an "Bringing a +1?" toggle in the form, and an indented guest sub-row in the attendee list. Phase 2 added `Rsvp.userId`, server-authoritative member identity (name/email auto-filled, not trusted from the client), and a compact `RsvpIdentityChip` replacing the name/email form for logged-in members. A `/prolib-review` caught a silent bug where unnamed plus-ones were dropped on edit. All unit tests pass. Drafted and wrote acceptance criteria to both Meatup RSVP tickets.
+
+#### Entry: Sat 08/15/2026 11:28 PDT
+Landed three P0 map/collection display fixes. Events with no geocoded location no longer drop a pin on the middle of SF. The editor now hides the map until a place is picked, and the SF default can't be silently saved. Map View also stops plotting past events, matching how list and grid already de-emphasize them. Posts and events now show their posted date. Used that to converge all instant timestamps onto one hydration-safe `LocalDate` client component, so nothing renders in UTC or drifts. Then drafted acceptance criteria onto the three QA tickets with `/prolib-qa`.
 
 #### Entry: Sun 08/09/2026 13:25 PDT
 Reviewed `4-0-followups` with `/prolib-review`, then landed three small follow-ups. Added `handle` to the nav identity signature, seeded `activeEntity` from server props to kill a first-frame blank, and added a test for the non-admin editor visibility gate. Then QA'd the whole QA column live and moved all four tickets to Done, covering the Settings consolidation, Reset Password, and the avatar refresh. Found and filed a P0 along the way. A PRIVATE profile ships its email and bio in the anonymous page payload, though the visible UI is only the locked stub. Also filed a backlog ticket for the inline-editable test gaps.

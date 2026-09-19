@@ -1,5 +1,4 @@
 import { ProfileEntity, getProfileDisplayName, getProfileIdentifier, getProfileHeadline, getProfileLocation } from "@/lib/types/profile";
-import { ProfilePicture } from "./ProfilePicture";
 import { ClickableProfilePicture } from "./ClickableProfilePicture";
 
 type ProfileHeaderProps = {
@@ -13,7 +12,7 @@ type ProfileHeaderProps = {
 /**
  * Shared profile header for User and Page public profiles.
  * Displays avatar (lg), display name, @handle, headline (italic), and location.
- * When isOwnProfile=true, the avatar is clickable to edit the photo.
+ * A photo opens in a lightbox; owners also get an Edit control on the avatar.
  */
 export function ProfileHeader({ profile, isOwnProfile = false, identityOnly = false }: ProfileHeaderProps) {
 	const displayName = getProfileDisplayName(profile);
@@ -29,11 +28,7 @@ export function ProfileHeader({ profile, isOwnProfile = false, identityOnly = fa
 
 	return (
 		<div className="flex items-center gap-4">
-			{isOwnProfile ? (
-				<ClickableProfilePicture entity={entity} />
-			) : (
-				<ProfilePicture entity={entity} size="lg" asLink={false} className="ring-4 ring-rich-brown" />
-			)}
+			<ClickableProfilePicture entity={entity} canEdit={isOwnProfile} />
 			<div>
 				<h1 className="text-3xl font-bold">{displayName}</h1>
 				<p className="text-sm text-dusty-grey mt-0.5">@{handle}</p>

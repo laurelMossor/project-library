@@ -2,10 +2,30 @@
 
 High-level summary of releases for The Project Library. Bullets are intentionally coarse — see `docs/guidance/JOURNAL.md` for the per-session detail and the git history for specifics.
 
-> **Bullet style:** a short bold headline, then one tight clause naming the concrete pieces (semicolon-separated) — one scannable line, no meta-commentary. Example:
-> *Transactional email — email verification + password reset via a swappable Resend sender; verification enforced at login.*
+Most recent work is at the top. Dates and contents are correlated from git tags and the journal. `v0.2.0`+ map to real git tags; `v0.1.0` is a retroactive label for the early pre-tag scaffolding (split out at the schema-v0.4 rewrite, the clean architectural break). Later releases are short, incremental polish-and-fix passes.
 
-> Most recent work is at the top. Dates and contents are correlated from git tags and the journal. `v0.2.0`+ map to real git tags; `v0.1.0` is a retroactive label for the early pre-tag scaffolding (split out at the schema-v0.4 rewrite, the clean architectural break). Later releases are short, incremental polish-and-fix passes.
+**Bullet style:** a short bold headline, then one tight clause naming the concrete pieces (semicolon-separated) — one scannable line, no meta-commentary.
+> *Example*: **Transactional email** — email verification + password reset via a swappable Resend sender; verification enforced at login.
+
+
+---
+
+## v0.4.3 — Meatup part 1 (9/19/26)
+
+- **Member RSVPs** — logged-in members RSVP with auto-filled identity; closes email spoofing on member RSVPs.
+- **Plus-one guests** — one guest per RSVP with guest-aware counts; toggle in the form and guest row in the attendee list.
+- **Event map & dates** — no default SF pin; map hidden until a place is picked; past events off Map View; posted dates with local-time timestamps; map pin popup shows date and time.
+- **Poster Catcher and revisions** — Telegram bot stages posters/links; vision LLM extracts fields; superadmin review & publishes. PDT-default times; locations auto-geocode with a review map; bot reply links to the review queue.
+- **Superadmin gate** — env allowlist for operator `/admin/*` surfaces.
+- **Password confirm** — signup asks for the password twice, matching reset.
+- **Open photos** — event banners and profile photos open full-size from the cropped view.
+- **Tags & topics** — unified onto one blue chiclet; title-cased on input with case-insensitive de-dup.
+
+### Bug Fixes
+
+- **Page handle editing** — pages can change handle from Page Info settings.
+- **RSVP display** — attendee count includes guests; timestamps show local date and time.
+- **Description wrap** — long URLs in post and event descriptions wrap instead of clipping.
 
 ---
 

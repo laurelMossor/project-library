@@ -4,6 +4,52 @@ export const truncateText = (text: string, maxLength: number = 150) => {
 };
 
 /**
+ * Normalize a tag/topic for display: capitalize the first letter of each word only
+ * if it's lowercase, leaving all other characters untouched so intentional caps are
+ * preserved ("DIY" → "DIY", "3D printing" → "3D Printing", "oil painting" → "Oil Painting").
+ */
+export function toTitleCase(text: string): string {
+	return text
+		.trim()
+		.split(/(\s+)/) // keep whitespace runs so we don't collapse spacing
+		.map((part) => {
+			const first = part.charAt(0);
+			return first >= "a" && first <= "z" ? first.toUpperCase() + part.slice(1) : part;
+		})
+		.join("");
+}
+
+/**
+ * Poster Catcher: append a trailing "Original source: {url}" line to an event description.
+ * Idempotent — if the exact line is already present it isn't added twice. Used at extraction
+ * (to bake the source into the editable content) and on operator hand-fill of a link-only
+ * capture. Returns `content` unchanged when there's no source url.
+ */
+export function withSourceLine(content: string | null | undefined, sourceUrl: string | null | undefined): string {
+	const base = (content ?? "").trimEnd();
+	if (!sourceUrl) return base;
+	const line = `Original source: ${sourceUrl}`;
+	if (base.includes(line)) return base;
+	return base ? `${base}\n\n${line}` : line;
+}
+
+/** Poster Catcher community-share disclaimer. Baked into editable event content. */
+export const POSTER_CATCHER_DISCLAIMER =
+	"This listing was shared on The Project Library as a community post. We didn't organize this event and aren't affiliated with the hosts. Details can change; confirm with the original source before you go.";
+
+/**
+ * Poster Catcher: append the community-share disclaimer to an event description.
+ * Idempotent; used at extraction and on operator hand-fill. Always appended
+ * (unlike withSourceLine, which is URL-gated). Compose as
+ * withSourceLine(withDisclaimer(content), sourceUrl) so the source line stays last.
+ */
+export function withDisclaimer(content: string | null | undefined): string {
+	const base = (content ?? "").trimEnd();
+	if (base.includes(POSTER_CATCHER_DISCLAIMER)) return base;
+	return base ? `${base}\n\n${POSTER_CATCHER_DISCLAIMER}` : POSTER_CATCHER_DISCLAIMER;
+}
+
+/**
  * Get initials from a user-like object (firstName, lastName, handle).
  * Canonical initials logic lives in card.ts (getCardUserInitials / getCardPageInitials).
  * This is a convenience wrapper for objects with a `handle` fallback.

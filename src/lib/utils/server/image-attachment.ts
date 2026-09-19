@@ -9,6 +9,29 @@ import { canActAsEntity } from "./permission";
 import { deleteImage } from "./storage";
 
 /**
+ * Persist an Image row for an already-uploaded blob. The single owner of Image-row creation,
+ * shared by the upload route (session user) and the Telegram webhook (attributed to the
+ * Poster Catcher author user id). Pair with `storeImageBytes`/`uploadImage*` which upload the blob.
+ */
+export async function createImage(input: {
+	url: string;
+	path: string;
+	uploadedByUserId: string;
+	altText?: string | null;
+	caption?: string | null;
+}) {
+	return prisma.image.create({
+		data: {
+			url: input.url,
+			path: input.path,
+			uploadedByUserId: input.uploadedByUserId,
+			altText: input.altText ?? null,
+			caption: input.caption ?? null,
+		},
+	});
+}
+
+/**
  * Can `userId` manage the entity an attachment points at? Resolves the (type, targetId) pair to
  * its owning user/page and defers to `canActAsEntity` (author, or ADMIN/EDITOR of the page).
  * IMAGE / MESSAGE targets have no ownership path here → false. Used to authorize attachment

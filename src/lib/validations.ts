@@ -44,6 +44,19 @@ export function validatePassword(password: string): boolean {
 	return password.length >= 8;
 }
 
+export const PASSWORD_TOO_SHORT = "Password must be at least 8 characters long";
+export const PASSWORDS_DONT_MATCH = "Passwords don't match";
+
+/**
+ * Client-side check for signup / reset: length first, then the two fields match.
+ * Returns an error string or null. Confirm is UI-only; APIs still receive one password.
+ */
+export function validatePasswordPair(password: string, confirm: string): string | null {
+	if (!validatePassword(password)) return PASSWORD_TOO_SHORT;
+	if (password !== confirm) return PASSWORDS_DONT_MATCH;
+	return null;
+}
+
 /** Raw invite token from URL (base64url); keep bounds to avoid abuse. */
 export function validateInviteToken(token: unknown): token is string {
 	if (typeof token !== "string") return false;
@@ -231,15 +244,37 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 		if (typeof data.latitude !== "number" || Number.isNaN(data.latitude)) {
 			return { valid: false, error: "Latitude must be a number" };
 		}
+		if (data.latitude < -90 || data.latitude > 90) {
+			return { valid: false, error: "Latitude must be between -90 and 90" };
+		}
 	}
 
 	if (data.longitude !== undefined && data.longitude !== null) {
 		if (typeof data.longitude !== "number" || Number.isNaN(data.longitude)) {
 			return { valid: false, error: "Longitude must be a number" };
 		}
+		if (data.longitude < -180 || data.longitude > 180) {
+			return { valid: false, error: "Longitude must be between -180 and 180" };
+		}
 	}
 
 	return { valid: true };
+}
+
+/**
+ * Finite, in-range geographic coordinate check (lat ∈ [-90, 90], lng ∈ [-180, 180]).
+ * Single source of the bounds so the event create paths — the publish path via
+ * `validateEventData`, and the lenient draft path in `POST /api/events` — agree.
+ */
+export function isValidCoordinate(latitude: number, longitude: number): boolean {
+	return (
+		Number.isFinite(latitude) &&
+		Number.isFinite(longitude) &&
+		latitude >= -90 &&
+		latitude <= 90 &&
+		longitude >= -180 &&
+		longitude <= 180
+	);
 }
 
 export function validateEventUpdateData(data: EventUpdateInput): { valid: boolean; error?: string } {
@@ -361,6 +396,34 @@ export function validateRsvpData(data: RsvpCreateInput): { valid: boolean; error
 		return { valid: false, error: "Status must be GOING, MAYBE, or CANT_MAKE_IT" };
 	}
 
+	const guestCheck = validateRsvpGuests(data.guests);
+	if (!guestCheck.valid) return guestCheck;
+
+	return { valid: true };
+}
+
+/** Plus-one: at most one guest row; name optional, ≤100 chars when present. */
+export function validateRsvpGuests(guests: RsvpCreateInput["guests"]): { valid: boolean; error?: string } {
+	if (guests == null) return { valid: true };
+	if (!Array.isArray(guests)) {
+		return { valid: false, error: "Guests must be an array" };
+	}
+	if (guests.length > 1) {
+		return { valid: false, error: "At most one plus-one guest is allowed" };
+	}
+	for (const guest of guests) {
+		if (guest == null || typeof guest !== "object") {
+			return { valid: false, error: "Invalid guest entry" };
+		}
+		if (guest.name != null) {
+			if (typeof guest.name !== "string") {
+				return { valid: false, error: "Guest name must be a string" };
+			}
+			if (guest.name.length > 100) {
+				return { valid: false, error: "Guest name must be 100 characters or less" };
+			}
+		}
+	}
 	return { valid: true };
 }
 

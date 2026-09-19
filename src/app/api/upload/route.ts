@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { uploadImage, uploadImageLocally } from "@/lib/utils/server/storage";
+import { createImage } from "@/lib/utils/server/image-attachment";
 
 /**
  * POST /api/upload
@@ -52,14 +52,11 @@ export async function POST(request: Request) {
 			return serverError(result.error || "Upload failed");
 		}
 
-		// Create Image record in database
-		const image = await prisma.image.create({
-			data: {
-				url: result.imageUrl,
-				path: result.path!,
-				altText: null,
-				uploadedByUserId: ctx.userId,
-			},
+		// Create Image record in database (shared helper — same path as the Telegram webhook)
+		const image = await createImage({
+			url: result.imageUrl,
+			path: result.path!,
+			uploadedByUserId: ctx.userId,
 		});
 
 		return NextResponse.json(

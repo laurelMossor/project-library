@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import type { NotificationItem } from "@/lib/types/notification";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
-import { formatRelativeTime } from "@/lib/utils/datetime";
+import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { notificationMessage } from "./notification-copy";
 
 /**
@@ -32,7 +34,7 @@ export function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavi
 				<span className={`block text-sm text-rich-brown ${n.readAt ? "" : "font-semibold"}`}>
 					{notificationMessage(n)}
 				</span>
-				<span className="block text-xs text-ash-green mt-0.5">{formatRelativeTime(n.createdAt)}</span>
+				<LocalDate value={n.createdAt} mode="relative" className="block text-xs text-ash-green mt-0.5" />
 			</span>
 
 			{!n.readAt && (

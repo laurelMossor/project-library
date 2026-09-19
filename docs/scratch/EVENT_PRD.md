@@ -2,8 +2,12 @@
 
 **Product:** Project Library  
 **Feature:** Events  
-**Last updated:** March 2026  
-**Status:** Discovery
+**Last updated:** August 2026  
+**Status:** P0 core loop shipped; MEATUP release in progress
+
+> **This doc is product intent, not the backlog.** Live task scope is tracked in the
+> 🥩 MEATUP RELEASE ticket and its child tickets in ProLib Tickets (Notion). Where this
+> outline and the tickets disagree, the tickets win.
 
 ---
 
@@ -208,23 +212,23 @@ Avoid: grey form inputs, visible field labels above each element, "required" ast
 
 ## Scoping & sequencing
 
-**P0 — Core loop:** (Done)
-- Event creation (required fields + description + cover image)
-- Public event page with shareable link
-- RSVP (going/maybe/can't, name + email)
-- Attendee list
+**P0 — Core loop:** ✅ Done (verified in code)
+- ✅ Event creation (required fields + description + cover image)
+- ✅ Public event page with shareable link
+- ✅ RSVP (going/maybe/can't, name + email) — `RsvpStatus` enum + `Rsvp` model live
+- ✅ Attendee list — organizer-gated
 
-**P1 — Communication & coordination:**
-- Attendee messaging (email)
-- Add to calendar (.ics)
-- Co-hosts (Someone granted 'Editor' role on the event resource)
-- Event notes and photos
+**P1 — Communication & coordination:** (tracked under MEATUP)
+- Attendee messaging (email) → ticket "Post event updates + broadcast to attendees"
+- Add to calendar (.ics) → folded into "Improved Share Event (or Post)"
+- Co-hosts (Editor role on the event resource) → ticket "Co-hosts (event-level)"
+- Event notes and photos — event **photos** shipped; **private organizer notes** not yet built and *not* ticketed (backlog; add if it earns MEATUP scope)
 
 **P3 — Depth:**
 - SMS delivery channel
 - Custom RSVP question
-- Automatic 24-hour reminder
-- Public/unlisted visibility toggle
+- Automatic 24-hour reminder → now a MEATUP ticket "Event reminders (24hr / day-of)" (email infra shipped, unblocked)
+- ~~Public/unlisted visibility toggle~~ ✅ **Done** — two-field `contentVisibility` (LISTED/UNLISTED/PRIVATE) shipped with Netwerk
 
 ## Notes
 Discovery: Events appear on the explore page if they are public

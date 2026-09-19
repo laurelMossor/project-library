@@ -38,10 +38,26 @@ test.describe("Authentication flows", () => {
     await page.goto(SIGNUP_WITH_INVITE(rawToken));
     await page.getByPlaceholder("Email").fill(email);
     // Signup no longer collects a handle — one is auto-generated from the email server-side.
-    await page.getByPlaceholder("Password").fill("password123");
+    await page.getByPlaceholder("Password", { exact: true }).fill("password123");
+    await page.getByPlaceholder("Confirm password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();
 
     await page.waitForURL(/\/verify-email\/check-inbox/, { timeout: 15_000 });
+  });
+
+  test("signup with mismatched passwords stays on signup and shows an error", async ({ page }) => {
+    const unique = `tst${Date.now() % 1e7}`;
+    const email = `${unique}@example.com`;
+    const { rawToken } = await createSignupInvite(email);
+
+    await page.goto(SIGNUP_WITH_INVITE(rawToken));
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Password", { exact: true }).fill("password123");
+    await page.getByPlaceholder("Confirm password").fill("password124");
+    await page.getByRole("button", { name: "Sign Up" }).click();
+
+    await expect(page.getByText("Passwords don't match")).toBeVisible();
+    await expect(page).toHaveURL(/\/signup/);
   });
 
   test("/settings redirects unauthenticated users to login", async ({ page }) => {
