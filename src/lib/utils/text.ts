@@ -4,6 +4,22 @@ export const truncateText = (text: string, maxLength: number = 150) => {
 };
 
 /**
+ * Normalize a tag/topic for display: capitalize the first letter of each word only
+ * if it's lowercase, leaving all other characters untouched so intentional caps are
+ * preserved ("DIY" → "DIY", "3D printing" → "3D Printing", "oil painting" → "Oil Painting").
+ */
+export function toTitleCase(text: string): string {
+	return text
+		.trim()
+		.split(/(\s+)/) // keep whitespace runs so we don't collapse spacing
+		.map((part) => {
+			const first = part.charAt(0);
+			return first >= "a" && first <= "z" ? first.toUpperCase() + part.slice(1) : part;
+		})
+		.join("");
+}
+
+/**
  * Poster Catcher: append a trailing "Original source: {url}" line to an event description.
  * Idempotent — if the exact line is already present it isn't added twice. Used at extraction
  * (to bake the source into the editable content) and on operator hand-fill of a link-only

@@ -15,9 +15,11 @@ High-level summary of releases for The Project Library. Bullets are intentionall
 - **Plus-one guests** — one guest per RSVP with guest-aware counts; toggle in the form and guest row in the attendee list.
 - **Event map & dates** — no default SF pin; map hidden until a place is picked; past events off Map View; posted dates with local-time timestamps; map pin popup shows date and time.
 - **Poster Catcher** — Telegram bot stages posters/links; vision LLM extracts fields; superadmin review publishes via the normal event path; draft approval keeps tags; published listings carry a no-contact community-share disclaimer.
+- **Poster Catcher accuracy & review** — Pacific-default event times; locations auto-geocode with a review map; bot reply links to the review queue.
 - **Superadmin gate** — env allowlist for operator `/admin/*` surfaces.
 - **Password confirm** — signup asks for the password twice, matching reset.
 - **Open photos** — event banners and profile photos open full-size from the cropped view.
+- **Tags & topics** — unified onto one blue chiclet; title-cased on input with case-insensitive de-dup.
 
 ### Bug Fixes
 

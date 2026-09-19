@@ -235,7 +235,6 @@ function ProfileOwnerContent({
 						<TagInputField
 							tags={interests as string[]}
 							onTagsChange={(tags) => setInterests(tags)}
-							placeholder="Add interests"
 						/>
 					}
 				/>

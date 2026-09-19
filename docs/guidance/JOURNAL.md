@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sun 09/13/2026 11:44 PDT
+Unified the drifted tag UI onto one blue chiclet. The Tag component now owns both the display and a removable draft variant, so the green pills and the duplicated post/event field blocks collapse behind one shared TagsField. Tags normalize on entry, raising only a lowercase first letter so DIY and 3D survive, and dedup is case-insensitive. Also improved Poster Catcher. The extractor defaults times to Pacific and demands an explicit offset, the model moved to Gemini Flash Lite, and the location auto-geocodes so the review shows a confirmation map. The bot reply now links straight to the review queue.
+
 #### Entry: Tue 08/18/2026 18:04 PDT
 Landed the meatup-3 polish bits. Map pins show date and time, descriptions wrap long URLs, and Poster Catcher listings carry a no-contact disclaimer. Signup now confirms the password like reset. Clicking an event banner or profile photo opens the full image.
 

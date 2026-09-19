@@ -94,6 +94,8 @@ export async function createEvent(data: {
 	eventDateTime: Date;
 	eventTimezone?: string | null;
 	location?: string;
+	latitude?: number | null;
+	longitude?: number | null;
 	tags?: string[];
 	pageId?: string | null;
 	isDraft?: boolean;

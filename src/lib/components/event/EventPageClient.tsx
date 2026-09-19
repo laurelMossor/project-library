@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { EventItem } from "@/lib/types/event";
@@ -16,12 +16,10 @@ import { RsvpCounts } from "@/lib/components/event/RsvpCounts";
 import { AttendeeList } from "@/lib/components/event/AttendeeList";
 import { ShareButton } from "@/lib/components/ui/ShareButton";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
-import { Tag } from "@/lib/components/tag/Tag";
-import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
+import { TagsField } from "@/lib/components/tag/TagsField";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
-import { InteractiveMap } from "@/lib/components/map/InteractiveMap";
-import { LocationSearchInput, type LocationResult } from "@/lib/components/map/LocationSearchInput";
+import { LocationField } from "@/lib/components/map/LocationField";
 import { updateEvent, deleteEvent } from "@/lib/utils/event-client";
 import { uploadAndAttachImage } from "@/lib/utils/image-client";
 import { eventHasContent } from "@/lib/utils/content";
@@ -168,12 +166,6 @@ function EventPageContent({
 	const handleAuthError = () => {
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
 	};
-
-	const handleLocationSelect = useCallback((result: LocationResult) => {
-		setLat(result.lat);
-		setLng(result.lng);
-		setLocationDisplay(result.displayName);
-	}, [setLat, setLng, setLocationDisplay]);
 
 	const handleAuthorSwitch = async (pageId: string | null) => {
 		try {
@@ -350,30 +342,18 @@ function EventPageContent({
 						</div>
 					}
 					editContent={
-						<div className="space-y-3">
-							<LocationSearchInput
-								value={(locationDisplay as string | null) ?? ""}
-								onChange={(v) => setLocationDisplay(v || null)}
-								onSelect={handleLocationSelect}
-								autoFocus
-							/>
-							{(latValue as number | null) != null && (lngValue as number | null) != null ? (
-								<InteractiveMap
-									latitude={latValue as number}
-									longitude={lngValue as number}
-									onLocationChange={(lat, lng) => {
-										setLat(lat);
-										setLng(lng);
-									}}
-								/>
-							) : (
-								<DashedPlaceholder className="p-6 flex justify-center">
-									<p className="text-sm text-misty-forest text-center">
-										Search for a location above and pick a suggestion to drop the pin.
-									</p>
-								</DashedPlaceholder>
-							)}
-						</div>
+						<LocationField
+							location={(locationDisplay as string | null) ?? ""}
+							latitude={latValue as number | null}
+							longitude={lngValue as number | null}
+							onChange={({ location, latitude, longitude }) => {
+								setLocationDisplay(location || null);
+								setLat(latitude);
+								setLng(longitude);
+							}}
+							autoFocus
+							interactiveByDefault
+						/>
 					}
 				/>
 
@@ -395,28 +375,14 @@ function EventPageContent({
 				)}
 
 				{/* Tags */}
-				<InlineEditable
-					canEdit={isOwner && isEditing}
-					isEditing={editingField === "tags"}
+				<TagsField
+					value={tags as string[]}
+					onChange={(newTags) => setTags(newTags)}
+					isOwner={isOwner}
+					isEditing={isEditing}
+					editingField={editingField}
 					onEditStart={() => setEditingField("tags")}
 					onCancel={() => setEditingField(null)}
-					displayContent={
-						(tags as string[]).length > 0
-							? (
-								<div className="flex flex-wrap gap-2">
-									{(tags as string[]).map((tag) => (
-										<Tag key={tag} tag={tag} />
-									))}
-								</div>
-							)
-							: <InlinePlaceholder value={null} placeholder="Add topics" />
-					}
-					editContent={
-						<TagInputField
-							tags={tags as string[]}
-							onTagsChange={(newTags) => setTags(newTags)}
-						/>
-					}
 				/>
 
 				{/* Posts / updates */}

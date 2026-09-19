@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Tag } from "@/lib/components/tag/Tag";
+import { toTitleCase } from "@/lib/utils/text";
 
 type TagInputFieldProps = {
 	tags: string[];
@@ -19,8 +21,9 @@ export function TagInputField({
 	const atLimit = tags.length >= maxTags;
 
 	const addTag = (raw: string) => {
-		const tag = raw.trim();
-		if (!tag || tags.includes(tag) || atLimit) return;
+		const tag = toTitleCase(raw);
+		const isDuplicate = tags.some((t) => t.toLowerCase() === tag.toLowerCase());
+		if (!tag || isDuplicate || atLimit) return;
 		onTagsChange([...tags, tag]);
 		setInput("");
 	};
@@ -38,20 +41,11 @@ export function TagInputField({
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			{tags.map((tag) => (
-				<span
+				<Tag
 					key={tag}
-					className="flex items-center gap-1 px-3 py-1 bg-melon-green border border-ash-green text-misty-forest text-xs rounded-full"
-				>
-					{tag}
-					<button
-						type="button"
-						onClick={() => onTagsChange(tags.filter((t) => t !== tag))}
-						className="hover:text-rich-brown transition-colors"
-						aria-label={`Remove ${tag}`}
-					>
-						×
-					</button>
-				</span>
+					tag={tag}
+					onRemove={() => onTagsChange(tags.filter((t) => t !== tag))}
+				/>
 			))}
 			{!atLimit && (
 				<input

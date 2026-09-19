@@ -14,9 +14,13 @@ import { createImage } from "./image-attachment";
 import { safeFetch } from "./safe-fetch";
 import { withDisclaimer, withSourceLine } from "../text";
 import { parseFutureEventDate } from "../event-date";
+import { absoluteUrl } from "./url";
+import { ADMIN_SUBMISSIONS } from "../../const/routes";
 
 // Vision-capable model, routed through the Vercel AI Gateway (AI_GATEWAY_API_KEY).
-const MODEL = process.env.POSTER_CATCHER_MODEL || "openai/gpt-4o-mini";
+// Gemini Flash Lite is cheaper than gpt-4o-mini with stronger poster OCR; override
+// via POSTER_CATCHER_MODEL (e.g. google/gemini-2.5-flash for a step up in accuracy).
+const MODEL = process.env.POSTER_CATCHER_MODEL || "google/gemini-2.5-flash-lite";
 
 // Extraction output. Everything nullable — the model returns what it can find; the
 // caller decides status. Tags capped at 3 per the PRD (1–3 inferred tags).
@@ -41,9 +45,14 @@ const extractionSchema = z.object({
 		.string()
 		.nullable()
 		.describe(
-			"ISO 8601 datetime (with offset if known) of the FIRST occurrence, resolved against the capture date. Null if no date is clearly stated.",
+			"ISO 8601 datetime WITH an explicit UTC offset, e.g. 2026-09-20T19:00:00-07:00, for the FIRST occurrence, resolved against the capture date. " +
+				"Read the exact hour and AM/PM directly from the poster. Default to Pacific Time (America/Los_Angeles) unless the poster clearly states a different timezone, " +
+				"and emit the corresponding offset. Null only if no date is clearly stated.",
 		),
-	eventTimezone: z.string().nullable().describe("IANA timezone (e.g. America/Los_Angeles) if determinable, else null."),
+	eventTimezone: z
+		.string()
+		.nullable()
+		.describe("IANA timezone of the event (e.g. America/Los_Angeles). Default America/Los_Angeles unless the poster states otherwise."),
 	location: z
 		.string()
 		.nullable()
@@ -203,6 +212,33 @@ function isAbsoluteUrl(url: string | null | undefined): url is string {
 	return !!url && /^https?:\/\//i.test(url);
 }
 
+/**
+ * Best-effort geocode of an extracted location string via Nominatim (the same
+ * service the event editor's LocationSearchInput uses). Returns the top hit so the
+ * review shows a map and the created event lands its pin without a manual re-search.
+ * Null on miss/failure — the operator can still search manually in review.
+ */
+async function geocodeLocation(location: string): Promise<{ latitude: number; longitude: number } | null> {
+	const query = location.trim();
+	if (query.length < 3) return null;
+	try {
+		const res = await fetch(
+			`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+			{ headers: { "User-Agent": "ProjectLibrary/1.0" }, signal: AbortSignal.timeout(5000) },
+		);
+		if (!res.ok) return null;
+		const data: Array<{ lat: string; lon: string }> = await res.json();
+		const top = data[0];
+		if (!top) return null;
+		const latitude = parseFloat(top.lat);
+		const longitude = parseFloat(top.lon);
+		if (Number.isNaN(latitude) || Number.isNaN(longitude)) return null;
+		return { latitude, longitude };
+	} catch {
+		return null;
+	}
+}
+
 /** Enough caption text beyond the bare source URL to be worth extracting from. */
 function captionIsMeaningful(caption: string | null, sourceUrl: string | null): boolean {
 	if (!caption) return false;
@@ -345,8 +381,10 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 				"You extract structured event data from event posters, captions, and web pages. Treat BOTH the poster " +
 				"image and the caption/text as sources of equal weight: read text printed on the poster (title, date, " +
 				"time, venue, address) AND use the caption — take each field from whichever source has it. Use only " +
-				"information actually present in the material; do not fabricate. If the material doesn't describe a " +
-				"specific real event (e.g. it's a login page, generic site chrome, or too vague), set found=false and " +
+				"information actually present in the material; do not fabricate. Read the event time carefully — the exact " +
+				"hour and AM/PM — and emit eventDate as an ISO 8601 datetime with an explicit UTC offset. Default to Pacific " +
+				"Time (America/Los_Angeles) unless the poster clearly states a different timezone. If the material doesn't " +
+				"describe a specific real event (e.g. it's a login page, generic site chrome, or too vague), set found=false and " +
 				"null for everything. Write the description as plain prose without links.",
 			messages: [{ role: "user", content: userContent }],
 		});
@@ -371,6 +409,9 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 		// Bake disclaimer + source link into the editable content so the operator can see/confirm them.
 		const content = withSourceLine(withDisclaimer(object.content), submission.sourceUrl);
 
+		// Best-effort geocode so the review shows a map pin and the event lands it on publish.
+		const geo = object.location ? await geocodeLocation(object.location) : null;
+
 		const status = isFuture ? "READY" : "NEEDS_FIX";
 		const errorNote = isFuture
 			? null
@@ -388,16 +429,19 @@ export async function extractSubmission(submissionId: string): Promise<void> {
 				eventDate: isFuture ? date : null,
 				eventTimezone: object.eventTimezone,
 				location: object.location,
+				latitude: geo?.latitude ?? null,
+				longitude: geo?.longitude ?? null,
 				tags: object.tags ?? [],
 				errorNote,
 			},
 		});
 
+		const reviewLink = `[Open review →](${absoluteUrl(ADMIN_SUBMISSIONS)})`;
 		if (status === "READY") {
 			const when = date ? date.toDateString() : "";
-			await reply(`Got it — *${object.title ?? "Untitled event"}${when ? `, ${when}` : ""}* ✅ Added to review.`);
+			await reply(`Got it — *${object.title ?? "Untitled event"}${when ? `, ${when}` : ""}* ✅ Added to review.\n${reviewLink}`);
 		} else {
-			await reply(`⚠️ ${errorNote} Added to review.`);
+			await reply(`⚠️ ${errorNote} Added to review.\n${reviewLink}`);
 		}
 	} catch (err) {
 		console.error("[poster-extract] extraction failed:", err);

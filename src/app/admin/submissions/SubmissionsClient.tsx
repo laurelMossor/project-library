@@ -5,6 +5,8 @@ import { FormField } from "@/lib/components/forms/FormField";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { Button } from "@/lib/components/ui/Button";
+import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
+import { LocationField } from "@/lib/components/map/LocationField";
 import { authFetch, AuthError } from "@/lib/utils/auth-client";
 import { createEvent } from "@/lib/utils/event-client";
 import { withDisclaimer, withSourceLine } from "@/lib/utils/text";
@@ -27,6 +29,8 @@ type Submission = {
 	eventDate: string | null;
 	eventTimezone: string | null;
 	location: string | null;
+	latitude: number | null;
+	longitude: number | null;
 	tags: string[];
 	errorNote: string | null;
 };
@@ -37,7 +41,9 @@ type Draft = {
 	content: string;
 	eventDate: string; // datetime-local value ("YYYY-MM-DDTHH:mm") or ""
 	location: string;
-	tags: string; // comma-separated
+	latitude: number | null;
+	longitude: number | null;
+	tags: string[];
 };
 
 /** ISO → datetime-local input value in the browser's local time. */
@@ -57,7 +63,9 @@ function seedDraft(s: Submission): Draft {
 		content,
 		eventDate: toLocalInput(s.eventDate),
 		location: s.location ?? "",
-		tags: s.tags.join(", "),
+		latitude: s.latitude,
+		longitude: s.longitude,
+		tags: s.tags,
 	};
 }
 
@@ -105,12 +113,6 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 
 	const removeItem = (id: string) => setItems((prev) => prev.filter((s) => s.id !== id));
 
-	const parseTags = (raw: string) =>
-		raw
-			.split(",")
-			.map((t) => t.trim())
-			.filter(Boolean);
-
 	// Persist operator edits without materializing (recomputes READY/NEEDS_FIX from date).
 	const saveEdits = async (id: string) => {
 		const d = drafts[id];
@@ -127,7 +129,9 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 						content: d.content || null,
 						eventDate: d.eventDate ? new Date(d.eventDate).toISOString() : null,
 						location: d.location || null,
-						tags: parseTags(d.tags),
+						latitude: d.latitude,
+						longitude: d.longitude,
+						tags: d.tags,
 					},
 				}),
 			});
@@ -189,7 +193,9 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 					eventDateTime: future ?? new Date(),
 					eventTimezone: submission.eventTimezone,
 					location: d.location.trim(),
-					tags: parseTags(d.tags),
+					latitude: d.latitude,
+					longitude: d.longitude,
+					tags: d.tags,
 					pageId: eventsPageId,
 					isDraft: asDraft,
 				});
@@ -260,7 +266,11 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 								</FormField>
 								<div className="flex gap-3">
 									<div className="flex-1">
-										<FormField label="Date & time" required>
+										<FormField
+											label="Date & time"
+											required
+											helpText={s.eventTimezone ? `Times are in ${s.eventTimezone}` : "Times default to Pacific (America/Los_Angeles)"}
+										>
 											<FormInput
 												type="datetime-local"
 												value={d.eventDate}
@@ -268,14 +278,20 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 											/>
 										</FormField>
 									</div>
-									<div className="flex-1">
-										<FormField label="Location">
-											<FormInput value={d.location} onChange={(e) => updateDraft(s.id, { location: e.target.value })} />
-										</FormField>
-									</div>
 								</div>
-								<FormField label="Tags" helpText="Comma-separated">
-									<FormInput value={d.tags} onChange={(e) => updateDraft(s.id, { tags: e.target.value })} />
+								<FormField label="Location">
+									<LocationField
+										location={d.location}
+										latitude={d.latitude}
+										longitude={d.longitude}
+										onChange={(next) => updateDraft(s.id, next)}
+									/>
+								</FormField>
+								<FormField label="Tags">
+									<TagInputField
+										tags={d.tags}
+										onTagsChange={(tags) => updateDraft(s.id, { tags })}
+									/>
 								</FormField>
 							</div>
 						</div>
