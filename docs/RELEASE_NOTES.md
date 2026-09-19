@@ -10,7 +10,7 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
-## v0.4.3 — Meatup part 1 (Unreleased)
+## v0.4.3 — Meatup part 1 (9/19/26)
 
 - **Member RSVPs** — logged-in members RSVP with auto-filled identity; closes email spoofing on member RSVPs.
 - **Plus-one guests** — one guest per RSVP with guest-aware counts; toggle in the form and guest row in the attendee list.
