@@ -41,6 +41,26 @@
           "content": "[Example message] Welcome! We have a few spots open for next Saturday. Sign up at the door or message us here to reserve."
         }
       ]
+    },
+    {
+      "kind": "GROUP",
+      "name": "[Example] Tool library crew",
+      "participants": ["alice.example", "sam.example", "portland-makers-guild"],
+      "messages": [
+        {
+          "senderHandle": "alice.example",
+          "content": "[Example message] Hi both! Want to set up a tool lending shelf at the next open shop night?"
+        },
+        {
+          "senderHandle": "sam.example",
+          "asPageHandle": "portland-makers-guild",
+          "content": "[Example message] The Guild is in — we can host the shelf by the front door."
+        },
+        {
+          "senderHandle": "sam.example",
+          "content": "[Example message] I'll bring my spare drills and a label maker."
+        }
+      ]
     }
   ],
   "rsvps": [

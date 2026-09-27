@@ -12,6 +12,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 		emailOutbox: { updateMany: vi.fn(), findMany: vi.fn() },
 		notification: { findMany: vi.fn() },
 		message: { findMany: vi.fn() },
+		conversationParticipant: { findMany: vi.fn() },
 		user: { findMany: vi.fn() },
 		page: { findMany: vi.fn() },
 		permission: { findMany: vi.fn() },
@@ -67,6 +68,7 @@ beforeEach(() => {
 	outboxFindMany.mockResolvedValue([] as never);
 	notifFindMany.mockResolvedValue([] as never);
 	vi.mocked(prisma.message.findMany).mockResolvedValue([] as never);
+	vi.mocked(prisma.conversationParticipant.findMany).mockResolvedValue([] as never);
 	vi.mocked(prisma.user.findMany).mockResolvedValue([alice()] as never);
 	vi.mocked(prisma.page.findMany).mockResolvedValue([] as never);
 	vi.mocked(prisma.permission.findMany).mockResolvedValue([] as never);
@@ -140,12 +142,15 @@ describe("flushEmailOutbox", () => {
 		]);
 	});
 
-	test("a page-context message row deep-links with the page identity (asPageId)", async () => {
+	test("a page-context message row deep-links to the conversation under the page identity", async () => {
 		outboxFindMany.mockResolvedValue([
 			outboxRow({ id: "o1", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES", contextPageId: "pageX" }),
 		] as never);
 		vi.mocked(prisma.message.findMany).mockResolvedValue([
-			{ id: "m1", senderId: "sam", asPageId: null, content: "hello there", readAt: null },
+			{ id: "m1", conversationId: "c1", senderId: "sam", asPageId: null, content: "hello there", createdAt: new Date() },
+		] as never);
+		vi.mocked(prisma.conversationParticipant.findMany).mockResolvedValue([
+			{ conversationId: "c1", userId: null, pageId: "pageX", lastReadAt: null },
 		] as never);
 		// The section identity is the page (contextPageId) → must be in the page map.
 		vi.mocked(prisma.page.findMany).mockResolvedValue([
@@ -162,8 +167,35 @@ describe("flushEmailOutbox", () => {
 		expect(send).toHaveBeenCalledTimes(1);
 		const props = send.mock.calls[0][1] as any;
 		const href = props.sections[0].rows[0].href as string;
-		expect(href).toContain("/messages/u/sam");
+		expect(href).toContain("/messages/c/c1");
 		expect(href).toContain("asPageId=pageX");
+	});
+
+	test("message read-suppression is per recipient identity", async () => {
+		const sentAt = new Date(Date.now() - 60_000);
+		outboxFindMany.mockResolvedValue([
+			outboxRow({ id: "o-bob", recipientUserId: "bob", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES" }),
+			outboxRow({ id: "o-alice", recipientUserId: "alice", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES" }),
+			outboxRow({ id: "o-guild", recipientUserId: "alice", contextPageId: "guild", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES" }),
+			outboxRow({ id: "o-pat", recipientUserId: "pat", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES" }),
+		] as never);
+		vi.mocked(prisma.message.findMany).mockResolvedValue([
+			{ id: "m1", conversationId: "g1", senderId: "sam", asPageId: null, content: "hi all", createdAt: sentAt },
+		] as never);
+		vi.mocked(prisma.conversationParticipant.findMany).mockResolvedValue([
+			{ conversationId: "g1", userId: "bob", pageId: null, lastReadAt: new Date() }, // read after the send
+			{ conversationId: "g1", userId: "alice", pageId: null, lastReadAt: null }, // unread
+			{ conversationId: "g1", userId: null, pageId: "guild", lastReadAt: new Date(sentAt.getTime() - 1) }, // read before it
+			// pat has left the group → no participant row
+		] as never);
+
+		await flushEmailOutbox();
+		const stamped = outboxUpdateMany.mock.calls.map((c) => c[0] as any).filter((a) => a?.data?.outcome);
+		const outcomeOf = (id: string) => stamped.find((a) => a.where.id.in.includes(id))?.data.outcome;
+		expect(outcomeOf("o-bob")).toBe("SUPPRESSED_READ");
+		expect(outcomeOf("o-pat")).toBe("SUPPRESSED_MISSING");
+		expect(outcomeOf("o-alice")).not.toMatch(/^SUPPRESSED/);
+		expect(outcomeOf("o-guild")).not.toMatch(/^SUPPRESSED/);
 	});
 
 	test("dead-letter: a send failure stamps aged-out rows FAILED_MAX_AGE while releasing fresh ones", async () => {

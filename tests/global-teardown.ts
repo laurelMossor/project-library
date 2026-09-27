@@ -42,9 +42,11 @@ export default async function globalTeardown() {
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
-    const [pages, messages, users, prefs] = await Promise.all([
+    const [pages, messages, groups, users, prefs] = await Promise.all([
       prisma.page.deleteMany({ where: { handle: { startsWith: "playwright-test-" } } }),
       prisma.message.deleteMany({ where: { content: { startsWith: "Hello from Playwright" } } }),
+      // Groups created by messaging-groups.spec (they show in inboxes even when empty, so they must go).
+      prisma.conversation.deleteMany({ where: { kind: "GROUP", name: { startsWith: "PW group" } } }),
       prisma.user.deleteMany({ where: { handle: { startsWith: "tst" } } }),
       prisma.notificationPreference.deleteMany({
         where: { user: { handle: { in: ["alice.example", "sam.example"] } } },
@@ -52,7 +54,7 @@ export default async function globalTeardown() {
     ]);
 
     console.log(
-      `[teardown] cleaned up — pages: ${pages.count}, messages: ${messages.count}, users: ${users.count}, prefs: ${prefs.count}`
+      `[teardown] cleaned up — pages: ${pages.count}, messages: ${messages.count}, groups: ${groups.count}, users: ${users.count}, prefs: ${prefs.count}`
     );
   } finally {
     await prisma.$disconnect();

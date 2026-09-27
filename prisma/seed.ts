@@ -128,6 +128,8 @@ export type SeedPagePacket = {
 export type SeedRelationships = {
   follows?: { follower: string; following: string }[];
   conversations?: {
+    kind?: "DIRECT" | "GROUP"; // default DIRECT
+    name?: string; // GROUP only
     participants: string[];
     messages: {
       senderHandle: string;
@@ -812,6 +814,8 @@ async function main() {
 
     const conversation = await prisma.conversation.create({
       data: {
+        kind: convo.kind ?? "DIRECT",
+        name: convo.name ?? null,
         participants: {
           create: participantData.map((p) => ({
             userId: p.userId ?? null,

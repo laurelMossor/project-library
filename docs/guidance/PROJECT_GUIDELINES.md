@@ -40,8 +40,11 @@ Profile pages: ProfileCollectionSection (wraps CollectionPage for user/page prof
 Identity:      ProfileTag (avatar + name + handle + badge, works for User or Page)
                NavProfileTag (nav bar profile trigger w/ dropdown: View Profile, Switch Profile)
                ProfilePicture (handles User or Page, image or initials fallback)
-Messaging:     MessagesPageView (TabbedPanel inbox, profile-scoped threads)
-               ConversationThread (message list + send form, receives asPageId)
+Messaging:     MessagesPageView (TabbedPanel inbox of DMs + groups, scoped to the active identity)
+               ConversationThread (thread by conversationId + send form, receives asPageId)
+               StandaloneThreadPage (deep-link thread pages /messages/c/:id and /messages/u|p/:id)
+               NewGroupModal / MembersModal (on ModalShell) + MemberPicker, AvatarStack
+               Server: utils/server/message.ts owns access, read state, groups; message-routes.ts is the route prelude
 Image display: ImageCarousel (multi-image carousel on cards)
 Posts on cards: PostsList (fetches child posts/updates for a parent post or event)
 Layout:        CenteredLayout, FormLayout, TabbedPanel (dual-axis tabbed container)
