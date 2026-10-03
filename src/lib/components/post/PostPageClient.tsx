@@ -219,6 +219,7 @@ function PostPageContent({
 							<div className="space-y-2">
 								<DropdownProfileSelector
 									label="Posting as"
+									hint="Pages you can manage"
 									initialPageId={post.asPageId ?? null}
 									onChange={handleAuthorSwitch}
 								/>

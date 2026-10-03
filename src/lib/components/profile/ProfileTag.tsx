@@ -44,12 +44,19 @@ export function ProfileTag({
 	const href = PUBLIC_PROFILE(entity.handle);
 	const resolvedBadge = badge ?? (variant === "compact" && !page ? "me" : undefined);
 
-	const avatar = <ProfilePicture entity={entity} size={size} asLink={false} />;
+	const picture = <ProfilePicture entity={entity} size={size} asLink={false} />;
+	// Avatar and name are separate links so `trailing` (often its own link) is never nested inside one.
+	const avatar = asLink ? (
+		<Link href={href} className="hover:opacity-80 transition-opacity shrink-0">{picture}</Link>
+	) : picture;
+	const nameText = asLink ? (
+		<Link href={href} className="hover:opacity-80 transition-opacity">{name}</Link>
+	) : name;
 
 	const nameBlock =
 		variant === "compact" ? (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{name}{trailing}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{nameText}{trailing}</p>
 				{resolvedBadge && (
 					<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize mt-1 inline-block">
 						{resolvedBadge}
@@ -58,19 +65,14 @@ export function ProfileTag({
 			</div>
 		) : (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight">{name}{trailing}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight">{nameText}{trailing}</p>
 				<p className="text-xs text-dusty-grey">@{handle}</p>
 			</div>
 		);
 
 	const alignClass = variant === "compact" ? "items-start" : "items-center";
 
-	const leftSection = asLink ? (
-		<Link href={href} className={`flex ${alignClass} gap-3 hover:opacity-80 transition-opacity min-w-0`}>
-			{avatar}
-			{nameBlock}
-		</Link>
-	) : (
+	const leftSection = (
 		<div className={`flex ${alignClass} gap-3 min-w-0`}>
 			{avatar}
 			{nameBlock}

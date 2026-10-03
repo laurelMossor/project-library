@@ -272,6 +272,7 @@ function EventPageContent({
 							<div className="space-y-2">
 								<DropdownProfileSelector
 									label="Posting as"
+									hint="Pages you can manage"
 									initialPageId={event.asPageId ?? null}
 									onChange={handleAuthorSwitch}
 								/>

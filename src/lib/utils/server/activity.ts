@@ -22,6 +22,16 @@ export type EntityRef = { type: "USER" | "PAGE"; id: string };
 export type ActorRef = EntityRef | { type: "ANON"; label: string };
 /** What an activity is about, for the deep link. Kinds come from the schema enum — never string literals. */
 export type ObjectRef = { type: NotificationObject; id: string };
+/** An invite has no deep-link object; the offered role is stored on the row so the copy can name it. */
+export type RoleRef = { role: PermissionRole };
+export type ActivityObject = ObjectRef | RoleRef;
+
+/** objectType/objectId columns for a notification row. A role ref stores the role in objectId only. */
+function objectColumns(object: ActivityObject | undefined): { objectType: NotificationObject | null; objectId: string | null } {
+	if (!object) return { objectType: null, objectId: null };
+	if ("role" in object) return { objectType: null, objectId: object.role };
+	return { objectType: object.type, objectId: object.id };
+}
 
 /** Maps the dotted action strings the call sites already emit to a persisted notification type. */
 const ACTION_TO_TYPE: Record<string, NotificationType> = {
@@ -63,13 +73,12 @@ async function resolveRecipients(
 	type: NotificationType,
 	target: EntityRef,
 	actor: ActorRef,
-	object: ObjectRef | undefined,
+	object: ActivityObject | undefined,
 ): Promise<Prisma.NotificationCreateManyInput[]> {
 	const base = {
 		type,
 		...actorColumns(actor),
-		objectType: object?.type ?? null,
-		objectId: object?.id ?? null,
+		...objectColumns(object),
 	};
 
 	let recipients: { recipientUserId: string; contextPageId: string | null }[];
@@ -101,7 +110,7 @@ export async function emitActivity(
 	action: string,
 	actor: ActorRef,
 	target: EntityRef,
-	object?: ObjectRef,
+	object?: ActivityObject,
 ): Promise<void> {
 	logAction(action, actor.type === "USER" ? actor.id : undefined, { actor, target, object });
 	try {

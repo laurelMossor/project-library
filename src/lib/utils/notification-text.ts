@@ -22,6 +22,11 @@ function titled(title?: string | null): string {
 	return title ? ` “${title}”` : "";
 }
 
+/** "Admin" → "an", "Member" → "a". */
+function articleFor(word: string): "a" | "an" {
+	return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
 /**
  * Plain-language text for one notification, from the recipient's point of view ("you / your"). Correct
  * for the identity-scoped bell and for a profile-scoped email section, since both address the recipient
@@ -44,8 +49,11 @@ export function notificationText(n: NotificationTextInput): string {
 			return `${who} RSVP’d to your event${titled(n.objectTitle)}`;
 		case "REQUEST_APPROVED":
 			return `${who} accepted your request`;
-		case "MEMBER_INVITE":
-			return `${who} invited you to a role on their page`;
+		case "MEMBER_INVITE": {
+			const role = n.objectTitle?.trim();
+			if (!role) return `${who} invited you to join their page`;
+			return `${who} invited you to be ${articleFor(role)} ${role} on their page`;
+		}
 		case "ROLE_CHANGED":
 			return `${who} changed your role`;
 		default:

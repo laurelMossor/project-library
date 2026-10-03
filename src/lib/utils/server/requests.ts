@@ -181,7 +181,7 @@ export async function invitePageMember(pageId: string, userId: string, role: Per
     { type: "USER", id: userId },
     { role },
   );
-  await emitActivity("membership.invited", { type: "PAGE", id: pageId }, { type: "USER", id: userId });
+  await emitActivity("membership.invited", { type: "PAGE", id: pageId }, { type: "USER", id: userId }, { role });
   return { ok: true, status: "invited" };
 }
 
