@@ -16,11 +16,13 @@ describe("NOTIFICATION_TYPE_TO_CATEGORY", () => {
 		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.FOLLOW_REQUEST]).toBe(NotificationCategory.REQUESTS);
 		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.JOIN_REQUEST]).toBe(NotificationCategory.REQUESTS);
 		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.REQUEST_APPROVED]).toBe(NotificationCategory.REQUESTS);
+		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.MEMBER_INVITE]).toBe(NotificationCategory.REQUESTS);
 	});
 
 	test("groups passive follow activity under FOLLOWS", () => {
 		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.NEW_FOLLOWER]).toBe(NotificationCategory.FOLLOWS);
 		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.NEW_MEMBER]).toBe(NotificationCategory.FOLLOWS);
+		expect(NOTIFICATION_TYPE_TO_CATEGORY[NotificationType.ROLE_CHANGED]).toBe(NotificationCategory.FOLLOWS);
 	});
 
 	test("comments and RSVPs map to their own categories", () => {

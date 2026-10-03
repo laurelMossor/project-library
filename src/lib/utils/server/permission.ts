@@ -31,6 +31,43 @@ export async function canPostAsPage(userId: string, pageId: string): Promise<boo
   return hasPermission(userId, pageId, ResourceType.PAGE, [...ACTING_ROLES]);
 }
 
+/**
+ * May this user post TO the page (their words, the page's collection)?
+ * The page must allow member posts, and the user must hold any role on it.
+ */
+export async function canPostToPage(userId: string, pageId: string): Promise<boolean> {
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    select: { allowMemberPosts: true },
+  });
+  if (!page?.allowMemberPosts) return false;
+  const role = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  return role !== null;
+}
+
+type ContentAuthority = { userId: string; asPageId?: string | null; pageId?: string | null };
+
+/**
+ * May this user edit the content's words? The author, or a manager of the page
+ * it is spoken AS. A page editor cannot edit a member's post to the page.
+ */
+export async function canEditContent(userId: string, content: ContentAuthority): Promise<boolean> {
+  if (content.userId === userId) return true;
+  if (content.asPageId) return canPostAsPage(userId, content.asPageId);
+  return false;
+}
+
+/**
+ * May this user delete the content or its comments? Editors, plus a manager of
+ * the page the content lives on — so a page can remove a member's post without
+ * being able to rewrite it.
+ */
+export async function canModerateContent(userId: string, content: ContentAuthority): Promise<boolean> {
+  if (await canEditContent(userId, content)) return true;
+  if (content.pageId) return canPostAsPage(userId, content.pageId);
+  return false;
+}
+
 /** Check if user can manage a page (ADMIN only — page config / destructive actions). */
 export async function canManagePage(userId: string, pageId: string): Promise<boolean> {
   return hasPermission(userId, pageId, ResourceType.PAGE, [PermissionRole.ADMIN]);
@@ -169,6 +206,8 @@ export async function getPagesForUser(userId: string) {
       zip: true,
       category: true,
       tags: true,
+      membershipPolicy: true,
+      allowMemberPosts: true,
     },
   });
 

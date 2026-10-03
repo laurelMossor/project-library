@@ -44,6 +44,10 @@ export function notificationText(n: NotificationTextInput): string {
 			return `${who} RSVP’d to your event${titled(n.objectTitle)}`;
 		case "REQUEST_APPROVED":
 			return `${who} accepted your request`;
+		case "MEMBER_INVITE":
+			return `${who} invited you to a role on their page`;
+		case "ROLE_CHANGED":
+			return `${who} changed your role`;
 		default:
 			return `${who} sent you a notification`;
 	}

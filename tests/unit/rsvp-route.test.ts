@@ -4,7 +4,10 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/utils/server/prisma", () => ({ prisma: {} }));
-vi.mock("@/lib/utils/server/permission", () => ({ canActAsEntity: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+	canEditContent: vi.fn(),
+	canActAsEntity: vi.fn(),
+}));
 vi.mock("@/lib/utils/server/rate-limit", () => ({ enforceRateLimit: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/utils/server/visibility", () => ({
 	getViewerContext: vi.fn().mockResolvedValue({ userId: "viewer" }),

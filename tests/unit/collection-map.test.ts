@@ -11,6 +11,8 @@ function makeEvent(overrides: Partial<EventItem> & Pick<EventItem, "id" | "event
 		type: "event",
 		userId: "u1",
 		pageId: null,
+		asPageId: null,
+		showOnAuthorProfile: false,
 		title: "Test",
 		content: "Body",
 		status: "PUBLISHED",

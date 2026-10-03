@@ -22,6 +22,8 @@ export interface BaseCollectionItem {
 	id: string;
 	userId: string;
 	pageId: string | null;
+	asPageId: string | null;
+	showOnAuthorProfile: boolean;
 	title: string | null;
 	content: string;
 	status: "DRAFT" | "PUBLISHED";

@@ -7,8 +7,9 @@ import { postCollectionFields, postWithUserFields, toCollectionMeta } from "./fi
 import { getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
-import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
-import { canPostAsPage } from "./permission";
+import { authorProfilePlacementWhere, collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { canEditContent } from "./permission";
+import { PlacementError, resolveContentPlacement } from "./content-placement";
 import { ContentVisibility } from "@prisma/client";
 
 /**
@@ -19,7 +20,7 @@ import { ContentVisibility } from "@prisma/client";
 export async function getEventUpdates(eventId: string, viewer?: ViewerContext): Promise<PostItem[]> {
 	const event = await prisma.event.findUnique({
 		where: { id: eventId },
-		select: { id: true, userId: true, pageId: true, contentVisibility: true },
+		select: { id: true, userId: true, pageId: true, asPageId: true, contentVisibility: true },
 	});
 	if (!event) return [];
 
@@ -63,14 +64,15 @@ export async function getPostsByUser(
 	userId: string,
 	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
 ): Promise<PostCollectionItem[]> {
+	const personal = await collectionVisibilityWhere("USER", userId, viewer);
+	const placed = await authorProfilePlacementWhere(viewer);
 	const posts = await prisma.post.findMany({
 		where: {
 			userId,
-			pageId: null,
 			parentPostId: null,
 			eventId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
-			...(await collectionVisibilityWhere("USER", userId, viewer)),
+			OR: [{ pageId: null, ...personal }, placed],
 		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -147,15 +149,18 @@ export async function createPost(
 		throw new PostInputError("Content is required and cannot be empty");
 	}
 
-	// A reply inherits its page from the parent (INV-3); a client-supplied pageId is only
-	// meaningful for non-reply posts. effectivePageId is the value actually written.
-	let effectivePageId: string | null = data.parentPostId ? null : data.pageId || null;
+	// A reply inherits placement from its parent (INV-3). Otherwise the caller chooses
+	// who's speaking (asPageId) and, when speaking as themselves, where it lives (pageId).
+	let placement: { pageId: string | null; asPageId: string | null; showOnAuthorProfile: boolean } = {
+		pageId: null,
+		asPageId: null,
+		showOnAuthorProfile: false,
+	};
 
 	if (data.parentPostId) {
-		// Reply: parent must exist, be top-level (INV-2), and be owned by the caller.
 		const parentPost = await prisma.post.findUnique({
 			where: { id: data.parentPostId },
-			select: { id: true, parentPostId: true, userId: true, pageId: true },
+			select: { id: true, parentPostId: true, userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true },
 		});
 		if (!parentPost) {
 			throw new PostInputError("Parent post not found");
@@ -163,17 +168,20 @@ export async function createPost(
 		if (parentPost.parentPostId) {
 			throw new PostInputError("Cannot nest posts more than one level deep");
 		}
-		const parentOwned = parentPost.pageId
-			? await canPostAsPage(userId, parentPost.pageId)
-			: parentPost.userId === userId;
-		if (!parentOwned) {
+		if (!(await canEditContent(userId, parentPost))) {
 			throw new PostInputError("You can only add updates to your own posts");
 		}
-		effectivePageId = parentPost.pageId;
-	} else if (data.pageId) {
-		// Page-authored post (INV-8): caller must hold ADMIN/EDITOR on the page.
-		if (!(await canPostAsPage(userId, data.pageId))) {
-			throw new PostInputError("You don't have permission to post as this page");
+		placement = await resolveContentPlacement(userId, { parent: parentPost });
+	} else {
+		try {
+			placement = await resolveContentPlacement(userId, {
+				asPageId: data.asPageId,
+				pageId: data.pageId,
+				showOnAuthorProfile: data.showOnAuthorProfile,
+			});
+		} catch (err) {
+			if (err instanceof PlacementError) throw new PostInputError(err.message);
+			throw err;
 		}
 	}
 
@@ -197,12 +205,14 @@ export async function createPost(
 	// non-replies, derive from the (effective) page → event → user chain as usual.
 	const contentVisibility = data.parentPostId
 		? await resolveParentVisibility(userId, null, null, data.parentPostId)
-		: await resolveParentVisibility(userId, effectivePageId, data.eventId, null);
+		: await resolveParentVisibility(userId, placement.pageId, data.eventId, null);
 
 	const post = await prisma.post.create({
 		data: {
 			userId,
-			pageId: effectivePageId,
+			pageId: placement.pageId,
+			asPageId: placement.asPageId,
+			showOnAuthorProfile: placement.showOnAuthorProfile,
 			eventId: data.eventId || null,
 			parentPostId: data.parentPostId || null,
 			title: data.title?.trim() || null,

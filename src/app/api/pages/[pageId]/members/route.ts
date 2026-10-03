@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
-import {
-	canManagePage,
-	getResourcePermissions,
-	grantPermission,
-} from "@/lib/utils/server/permission";
+import { canManagePage, getResourcePermissions } from "@/lib/utils/server/permission";
 import { getViewerContext, requireViewableProfile } from "@/lib/utils/server/visibility";
-import { assignableRoles } from "@/lib/const/roles";
-import { ResourceType } from "@prisma/client";
+import { invitePageMember, listPageInvites } from "@/lib/utils/server/requests";
+import { PermissionRole, ResourceType } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
+const ASSIGNABLE = new Set<string>(Object.values(PermissionRole));
+
 /**
  * GET /api/pages/[pageId]/members
- * List members (permissions) for a page
- * Public endpoint
+ * List members. A page ADMIN also sees pending invites, each flagged `pending: true`.
  */
 export async function GET(_request: Request, { params }: RouteParams) {
 	try {
@@ -25,8 +22,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
 			return notFound("Page not found");
 		}
 		const permissions = await getResourcePermissions(pageId, ResourceType.PAGE);
+		const members = permissions.map((p) => ({ ...p, pending: false }));
 
-		return NextResponse.json(permissions);
+		const isAdmin = viewer.userId ? await canManagePage(viewer.userId, pageId) : false;
+		if (!isAdmin) return NextResponse.json(members);
+
+		const invites = await listPageInvites(pageId);
+		const pending = invites
+			.filter((inv) => inv.targetUser)
+			.map((inv) => ({
+				id: inv.id,
+				userId: inv.targetUserId,
+				role: inv.role,
+				pending: true,
+				user: inv.targetUser,
+				createdAt: inv.createdAt,
+			}));
+
+		return NextResponse.json([...members, ...pending]);
 	} catch (error) {
 		console.error("GET /api/pages/[pageId]/members error:", error);
 		return serverError("Failed to fetch members");
@@ -35,39 +48,36 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 /**
  * POST /api/pages/[pageId]/members
- * Add a member to a page
- * Protected endpoint (requires ADMIN permission)
+ * Invite someone to a role. They must accept; nothing is granted here.
+ * Protected endpoint (requires ADMIN permission).
  */
 export async function POST(request: Request, { params }: RouteParams) {
 	try {
 		const ctx = await getSessionContext();
-		if (!ctx) {
-			return unauthorized();
-		}
+		if (!ctx) return unauthorized();
 
 		const { pageId } = await params;
-		const isAdmin = await canManagePage(ctx.userId, pageId);
-		if (!isAdmin) {
+		if (!(await canManagePage(ctx.userId, pageId))) {
 			return unauthorized("You do not have permission to manage this page");
 		}
 
 		const data = await request.json();
 		const { userId, role } = data;
 
-		if (!userId || !role) {
-			return badRequest("userId and role are required");
+		if (!userId || !role) return badRequest("userId and role are required");
+		if (!ASSIGNABLE.has(role)) return badRequest("Invalid role");
+
+		const result = await invitePageMember(pageId, userId, role);
+		if (!result.ok) {
+			if (result.reason === "not_found") return notFound("Page not found");
+			if (result.reason === "user_not_found") return badRequest("User not found");
+			if (result.reason === "already_member") return badRequest("That person already has a role on this page");
+			return badRequest("That role isn't available for this page");
 		}
 
-		// Only currently-assignable roles (MEMBER drops out while membership is flagged off).
-		if (!assignableRoles().includes(role)) {
-			return badRequest("Invalid role");
-		}
-
-		const permission = await grantPermission(userId, pageId, ResourceType.PAGE, role);
-
-		return NextResponse.json(permission, { status: 201 });
+		return NextResponse.json({ status: "invited" }, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/pages/[pageId]/members error:", error);
-		return serverError("Failed to add member");
+		return serverError("Failed to invite member");
 	}
 }

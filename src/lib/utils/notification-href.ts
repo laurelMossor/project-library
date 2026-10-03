@@ -1,7 +1,7 @@
 // Isomorphic (no prisma): maps a notification to its deep link. Switches on the NotificationObject
 // enum — never string literals. Kept out of the read query so the client row stays dumb.
 import { NotificationType, NotificationObject } from "@prisma/client";
-import { POST_DETAIL, EVENT_DETAIL, PUBLIC_PROFILE, CONNECTIONS_REQUESTS, CONNECTIONS } from "@/lib/const/routes";
+import { POST_DETAIL, EVENT_DETAIL, PUBLIC_PROFILE, CONNECTIONS_REQUESTS, CONNECTIONS_MEMBERSHIP, CONNECTIONS } from "@/lib/const/routes";
 
 export interface NotificationHrefInput {
 	type: NotificationType;
@@ -26,6 +26,9 @@ export function notificationHref({ type, objectType, objectId, actorHandle }: No
 		case NotificationType.FOLLOW_REQUEST:
 		case NotificationType.JOIN_REQUEST:
 			return CONNECTIONS_REQUESTS;
+		case NotificationType.MEMBER_INVITE:
+		case NotificationType.ROLE_CHANGED:
+			return CONNECTIONS_MEMBERSHIP;
 		default:
 			return CONNECTIONS;
 	}

@@ -20,7 +20,11 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 		imageAttachment: { count: vi.fn().mockResolvedValue(0) },
 	},
 }));
-vi.mock("@/lib/utils/server/permission", () => ({ canPostAsPage: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+	canPostAsPage: vi.fn(),
+	canEditContent: vi.fn().mockResolvedValue(true),
+	canModerateContent: vi.fn().mockResolvedValue(true),
+}));
 vi.mock("@/lib/utils/server/user", () => ({ publicUserEmbedFields: {} }));
 vi.mock("@/lib/utils/server/visibility", () => ({
 	getViewerContext: vi.fn(),

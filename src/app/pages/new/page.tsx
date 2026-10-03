@@ -9,6 +9,8 @@ import { FormError } from "@/lib/components/forms/FormError";
 import { FormActions } from "@/lib/components/forms/FormActions";
 import { API_PAGES, LOGIN_WITH_CALLBACK, EXPLORE_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { generateHandle } from "@/lib/utils/handle";
+import { MembershipSettingsFields } from "@/lib/components/profile/MembershipSettingsFields";
+import type { MembershipPolicy } from "@prisma/client";
 
 /**
  * PAGES NEW
@@ -24,6 +26,8 @@ export default function NewPagePage() {
 	const [name, setName] = useState("");
 	const [handle, setHandle] = useState("");
 	const [autoGenerateHandle, setAutoGenerateHandle] = useState(true);
+	const [membershipPolicy, setMembershipPolicy] = useState<MembershipPolicy>("CLOSED");
+	const [allowMemberPosts, setAllowMemberPosts] = useState(false);
 
 	const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newName = e.target.value;
@@ -46,7 +50,12 @@ export default function NewPagePage() {
 		const res = await fetch(API_PAGES, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name: name.trim(), handle: finalHandle }),
+			body: JSON.stringify({
+				name: name.trim(),
+				handle: finalHandle,
+				membershipPolicy,
+				allowMemberPosts: membershipPolicy === "CLOSED" ? false : allowMemberPosts,
+			}),
 		});
 
 		if (!res.ok) {
@@ -99,6 +108,14 @@ export default function NewPagePage() {
 						required
 					/>
 				</FormField>
+
+				<MembershipSettingsFields
+					policy={membershipPolicy}
+					onPolicyChange={setMembershipPolicy}
+					allowMemberPosts={allowMemberPosts}
+					onAllowMemberPostsChange={setAllowMemberPosts}
+					name="new-page-membership"
+				/>
 
 				<FormActions
 					submitLabel="Create Page"

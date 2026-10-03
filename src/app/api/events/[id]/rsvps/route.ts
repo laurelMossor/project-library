@@ -4,7 +4,7 @@ import { getUserById } from "@/lib/utils/server/user";
 import { unauthorized, badRequest, forbidden, notFound, serverError } from "@/lib/utils/errors";
 import { validateRsvpData } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { canActAsEntity } from "@/lib/utils/server/permission";
+import { canEditContent } from "@/lib/utils/server/permission";
 import { createOrUpdateRsvp, getRsvpByEmail, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
 import { getViewerContext, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { emitActivity, type EntityRef, type ActorRef } from "@/lib/utils/server/activity";
@@ -80,8 +80,8 @@ export async function POST(request: Request, { params }: Params) {
 
 		// Notify the host — only on a NEW rsvp (editing must not re-notify).
 		if (created) {
-			const target: EntityRef = event.pageId
-				? { type: "PAGE", id: event.pageId }
+			const target: EntityRef = event.asPageId
+				? { type: "PAGE", id: event.asPageId }
 				: { type: "USER", id: event.userId };
 			const actor: ActorRef = rsvp.userId
 				? { type: "USER", id: rsvp.userId }
@@ -118,9 +118,7 @@ export async function GET(request: Request, { params }: Params) {
 			return notFound("Event not found");
 		}
 
-		const canManage = event.pageId
-			? await canActAsEntity(ctx.userId, { page: { id: event.pageId } })
-			: await canActAsEntity(ctx.userId, { user: { id: event.userId } });
+		const canManage = await canEditContent(ctx.userId, event);
 		if (!canManage) {
 			return NextResponse.json(
 				{ error: "Only the event organizer can view the attendee list" },

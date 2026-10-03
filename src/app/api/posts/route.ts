@@ -153,7 +153,7 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
+		const { content, title, pageId, asPageId, showOnAuthorProfile, eventId, parentPostId, tags, topics, isDraft } = data;
 
 		// HTTP-shape validation (length limits) stays at the edge; createPost owns the
 		// data invariants (XOR, nesting, page permission, child pageId — INV-1/2/3/8).
@@ -189,6 +189,8 @@ export async function POST(request: Request) {
 				content,
 				title,
 				pageId: pageId || null,
+				asPageId: asPageId || null,
+				showOnAuthorProfile: showOnAuthorProfile === true,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,

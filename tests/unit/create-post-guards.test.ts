@@ -12,7 +12,11 @@ vi.mock("@/lib/utils/server/prisma", () => ({
     event: { findUnique: vi.fn() },
   },
 }));
-vi.mock("@/lib/utils/server/permission", () => ({ canPostAsPage: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+  canPostAsPage: vi.fn(),
+  canPostToPage: vi.fn(),
+  canEditContent: vi.fn().mockResolvedValue(true),
+}));
 vi.mock("@/lib/utils/server/visibility", () => ({
   resolveParentVisibility: vi.fn().mockResolvedValue("LISTED"),
 }));
@@ -54,7 +58,7 @@ describe("createPost guards", () => {
 
   test("INV-8: rejects a page post when the user lacks permission on the page", async () => {
     vi.mocked(canPostAsPage).mockResolvedValue(false as never);
-    await expect(createPost("u1", { content: "x", pageId: "page-9" })).rejects.toThrow(
+    await expect(createPost("u1", { content: "x", asPageId: "page-9" })).rejects.toThrow(
       /permission/i
     );
     expect(prisma.post.create).not.toHaveBeenCalled();

@@ -5,7 +5,7 @@
 // operations → refetch. Used by PUT /api/me/user and PUT /api/pages/[pageId] so
 // the visibility cascade rules live in exactly one place.
 
-import { ProfileVisibility, ContentVisibility } from "@prisma/client";
+import { ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
 import { prisma } from "./prisma";
 import { updateUserProfile, personalProfileFields } from "./user";
 import { updatePageProfile, publicPageFields } from "./page";
@@ -78,7 +78,8 @@ export function pickProfileFields(kind: ProfileKind, fields: FieldMap): FieldMap
       ? ["firstName", "middleName", "lastName", "displayName", "headline", "bio",
          "interests", "location", "profileVisibility", "contentVisibility", "avatarImageId", "aboutContent"]
       : ["name", "headline", "bio", "interests", "location", "addressLine1",
-         "addressLine2", "city", "state", "zip", "category", "avatarImageId", "profileVisibility", "contentVisibility"];
+         "addressLine2", "city", "state", "zip", "category", "avatarImageId",
+         "profileVisibility", "contentVisibility", "membershipPolicy", "allowMemberPosts"];
   const picked: FieldMap = {};
   for (const k of keys) {
     if (fields[k] !== undefined) picked[k] = fields[k];
@@ -119,32 +120,35 @@ export type SaveMyProfileResult =
   | { ok: true; profile: unknown }
   | { ok: false; error: string; forbidden?: boolean };
 
-/** The profile-wide visibility defaults — changing either is ADMIN-only on a page. */
-const VISIBILITY_FIELDS = ["profileVisibility", "contentVisibility"] as const;
+/**
+ * Page settings only an ADMIN may change: privacy, who can be a member, and
+ * whether members can post to the page. An EDITOR may edit the rest of the profile.
+ */
+const MANAGE_FIELDS = ["profileVisibility", "contentVisibility", "membershipPolicy", "allowMemberPosts"] as const;
 
 /**
  * Validate + persist a `SavePayload` for the current user's own profile or
  * active page. Callers (the two `/api/me/*` routes) own auth + id resolution;
  * this owns the whitelist, validation, and the cascading write.
  *
- * `opts.allowVisibilityChange` gates the visibility fields independently of the
+ * `opts.allowManageChange` gates the manage-only fields independently of the
  * rest of the profile edit: a page EDITOR may edit content/bio (canPostAsPage) but
- * only an ADMIN (canManagePage) may change the page's privacy. A user editing their
- * own profile is always allowed (self), so callers default this to true.
+ * only an ADMIN (canManagePage) may change privacy or membership settings. A user
+ * editing their own profile is always allowed (self), so callers default this to true.
  */
 export async function saveMyProfile(
   kind: ProfileKind,
   id: string,
   body: SavePayload,
-  opts: { allowVisibilityChange?: boolean } = {},
+  opts: { allowManageChange?: boolean } = {},
 ): Promise<SaveMyProfileResult> {
-  const { allowVisibilityChange = true } = opts;
+  const { allowManageChange = true } = opts;
   const { fields = {}, elements } = body;
   const picked = pickProfileFields(kind, fields);
 
-  if (!allowVisibilityChange && VISIBILITY_FIELDS.some((k) => picked[k] !== undefined)) {
+  if (!allowManageChange && MANAGE_FIELDS.some((k) => picked[k] !== undefined)) {
     // `forbidden` lets the route map this to 403 without matching on the message prose.
-    return { ok: false, error: "Only an admin can change this page's visibility.", forbidden: true };
+    return { ok: false, error: "Only an admin can change this page's settings.", forbidden: true };
   }
 
   const error = validateProfileFields(kind, picked);
@@ -158,6 +162,11 @@ export async function saveMyProfile(
   // on the post/event's own field and is intentionally NOT gated here.
   const guardError = await assertProfileContentPairing(kind, id, picked);
   if (guardError) return { ok: false, error: guardError };
+
+  if (kind === "PAGE") {
+    const membershipError = await normalizeMembershipFields(id, picked);
+    if (membershipError) return { ok: false, error: membershipError };
+  }
 
   const profile = await updateProfileWithCascade(kind, id, picked, elements);
   return { ok: true, profile };
@@ -184,6 +193,26 @@ export async function assertProfileContentPairing(
   const mergedContentVis = incomingContentVis ?? current?.contentVisibility;
   if (mergedProfileVis === ProfileVisibility.PRIVATE && mergedContentVis === ContentVisibility.LISTED) {
     return "A private profile can't have listed content — choose Unlisted or Private for your posts.";
+  }
+  return null;
+}
+
+/**
+ * Membership settings, evaluated on the merged (stored + incoming) policy.
+ * OPEN is rejected by validation before this runs. Saving CLOSED forces member
+ * posts off — the toggle is meaningless while the page has no members.
+ * Mutates `picked`. Returns an error string or null.
+ */
+export async function normalizeMembershipFields(id: string, picked: FieldMap): Promise<string | null> {
+  if (picked.membershipPolicy === undefined && picked.allowMemberPosts === undefined) return null;
+
+  const current = await prisma.page.findUnique({
+    where: { id },
+    select: { membershipPolicy: true },
+  });
+  const merged = (picked.membershipPolicy as MembershipPolicy | undefined) ?? current?.membershipPolicy;
+  if (merged === MembershipPolicy.CLOSED) {
+    picked.allowMemberPosts = false;
   }
   return null;
 }

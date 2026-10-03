@@ -11,6 +11,8 @@ export type ProfileTagProps = {
 	/** Whether the left section (avatar + name) links to the profile. Defaults true. */
 	asLink?: boolean;
 	actions?: ReactNode;
+	/** Extra text on the same line as the name, e.g. " › Page" for a post placed on a page. */
+	trailing?: ReactNode;
 	className?: string;
 	/**
 	 * "default" (standard): shows @handle, badge inline to the right.
@@ -31,6 +33,7 @@ export function ProfileTag({
 	size = "sm",
 	asLink = true,
 	actions,
+	trailing,
 	className = "",
 	variant = "default",
 	align = "left",
@@ -46,7 +49,7 @@ export function ProfileTag({
 	const nameBlock =
 		variant === "compact" ? (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{name}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{name}{trailing}</p>
 				{resolvedBadge && (
 					<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize mt-1 inline-block">
 						{resolvedBadge}
@@ -55,7 +58,7 @@ export function ProfileTag({
 			</div>
 		) : (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight">{name}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight">{name}{trailing}</p>
 				<p className="text-xs text-dusty-grey">@{handle}</p>
 			</div>
 		);

@@ -68,15 +68,12 @@ export async function PUT(request: Request) {
 
 		const body = (await request.json()) as SavePayload;
 
-		// Changing the page's privacy (profile/content visibility) is ADMIN-only, even
-		// though an EDITOR may edit the rest of the profile (canPostAsPage above).
+		// Privacy and membership settings are ADMIN-only, even though an EDITOR may
+		// edit the rest of the profile (canPostAsPage above).
 		const isAdmin = await canManagePage(ctx.userId, ctx.activePageId);
 
-		// Shared executor: whitelist + validate (incl. visibility) + cascade.
-		// The old hand-rolled transaction here dropped `visibility` and skipped
-		// the descendant-visibility cascade — using saveMyProfile fixes both.
 		const result = await saveMyProfile("PAGE", ctx.activePageId, body, {
-			allowVisibilityChange: isAdmin,
+			allowManageChange: isAdmin,
 		});
 		if (!result.ok) {
 			// A non-admin attempting a visibility change is a permission failure (403),

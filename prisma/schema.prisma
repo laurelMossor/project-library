@@ -28,7 +28,16 @@ enum ContentVisibility {
 enum PermissionRole {
   ADMIN // full control: edit page, manage permissions, post as page, manage messages
   EDITOR // can post as page, edit content, view/send page messages
-  MEMBER // basic membership (future use)
+  MEMBER // member of a page that has membership turned on
+}
+
+// Whether a page has members, and how they join. CLOSED is the default (no members).
+// OPEN is reserved for a later self-join; the server rejects it until that ships.
+enum MembershipPolicy {
+  CLOSED
+  INVITE_ONLY
+  REQUEST_TO_JOIN
+  OPEN
 }
 
 // Permission is polymorphic (resourceId + resourceType) so a role set can attach to
@@ -44,7 +53,8 @@ enum ResourceType {
 // Kind of pending access request (see AccessRequest model).
 enum AccessRequestKind {
   FOLLOW // requester wants to follow a private User or Page → materializes a Follow
-  JOIN // requester (a User) wants MEMBER on a private Page → materializes a Permission(MEMBER)
+  JOIN // requester (a User) wants MEMBER on a page → materializes a Permission(MEMBER)
+  INVITE // a page invites a user to a role; the invitee must accept → materializes a Permission(role)
 }
 
 enum EventStatus {
@@ -98,6 +108,8 @@ enum NotificationType {
   NEW_MEMBER
   RSVP
   REQUEST_APPROVED
+  MEMBER_INVITE // a page invited this user to a role
+  ROLE_CHANGED // an admin changed this member's role
 }
 
 // What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
@@ -290,6 +302,10 @@ model Page {
   location          String?
   profileVisibility ProfileVisibility @default(PUBLIC)
   contentVisibility ContentVisibility
+  // Membership is configuration on the page. CLOSED = no members.
+  membershipPolicy  MembershipPolicy  @default(CLOSED)
+  // Members (any role) may post TO this page. Forced off while the policy is CLOSED.
+  allowMemberPosts  Boolean           @default(false)
 
   // Address (useful for small biz, community spaces)
   addressLine1 String?
@@ -431,7 +447,11 @@ model Permission {
 model Post {
   id           String  @id @default(cuid())
   userId       String
-  pageId       String?
+  pageId       String? // where the post lives (its audience). Null = the author's profile.
+  // Who is speaking. Null = the author. When set it equals pageId (DB CHECK
+  // posts_as_page_matches_page) — "posted AS the page", not "posted TO the page".
+  asPageId             String?
+  showOnAuthorProfile  Boolean @default(false) // also list a to-page post on the author's profile
   eventId      String?
   parentPostId String?
 
@@ -473,7 +493,12 @@ model Post {
 model Event {
   id     String  @id @default(cuid())
   userId String
-  pageId String?
+  pageId String? // where the event lives (its audience). Null = the author's profile.
+  // Who is speaking. Null = the author. When set it equals pageId (DB CHECK
+  // events_as_page_matches_page).
+  asPageId            String?
+  showOnAuthorProfile Boolean @default(false)
+
 
   title             String?
   content           String
@@ -628,10 +653,10 @@ model Follow {
 // Access requests (Request-to-Follow / Request-to-Join)
 // ========================
 //
-// A pending request to gain access to a PRIVATE entity. The row's existence IS
-// the "pending" state — there is no status column. On approval the matching edge
-// is materialized (Follow for FOLLOW, Permission(MEMBER) for JOIN) and the request
-// row is deleted in the same transaction; on denial the row is simply deleted.
+// A pending request. The row's existence IS the "pending" state — there is no status
+// column. On approval the matching edge is materialized (Follow for FOLLOW,
+// Permission for JOIN/INVITE) and the request row is deleted in the same transaction;
+// on denial the row is simply deleted.
 // This keeps the grant tables (Follow / Permission) meaning "granted, full stop" —
 // the visibility layer reads their existence directly, so a pending request must
 // never live there.
@@ -653,6 +678,9 @@ model AccessRequest {
   // Target — exactly one
   targetUserId String?
   targetPageId String?
+
+  // Set only for INVITE: the role the invitee is offered. JOIN always materializes MEMBER.
+  role PermissionRole?
 
   requester     User? @relation("RequestsMade", fields: [requesterId], references: [id], onDelete: Cascade)
   requesterPage Page? @relation("RequestsMadeAs", fields: [requesterPageId], references: [id], onDelete: Cascade)

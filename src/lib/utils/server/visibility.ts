@@ -21,7 +21,7 @@
 import { ContentVisibility, ProfileVisibility } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getSessionContext } from "./session";
-import { canActAsEntity, getMemberPageIds } from "./permission";
+import { canEditContent, getMemberPageIds } from "./permission";
 
 type ProfileKind = "USER" | "PAGE";
 
@@ -214,24 +214,24 @@ export async function requireViewableProfile(
 }
 
 /**
- * Is the viewer the "owner" of this content for gating purposes — its author, or a
- * manager (ADMIN/EDITOR) of the hosting page? Plain page MEMBERs are NOT owners. This is
- * the single source for the DRAFT-visibility rule so a page admin sees co-authored drafts
- * (finding 8) while a stranger does not.
+ * Is the viewer allowed to see this content while it is still a DRAFT? The author, or a
+ * manager of the page it is spoken AS. A page editor does not see a member's draft posted
+ * to the page. `asPageId` must be loaded — without it, only the author matches.
  */
 export async function isContentOwner(
   viewer: ViewerContext,
-  content: { userId: string; pageId: string | null },
+  content: { userId: string; asPageId?: string | null },
 ): Promise<boolean> {
   if (!viewer.userId) return false;
-  if (content.pageId) return canActAsEntity(viewer.userId, { page: { id: content.pageId } });
-  return viewer.userId === content.userId;
+  return canEditContent(viewer.userId, content);
 }
 
 type ViewableEvent = {
   id: string;
   userId: string;
   pageId: string | null;
+  asPageId: string | null;
+  showOnAuthorProfile: boolean;
   status: "DRAFT" | "PUBLISHED";
   contentVisibility: ContentVisibility;
 };
@@ -248,7 +248,7 @@ export async function requireViewableEvent(
 ): Promise<ViewableEvent | null> {
   const event = await prisma.event.findUnique({
     where: { id },
-    select: { id: true, userId: true, pageId: true, status: true, contentVisibility: true },
+    select: { id: true, userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true, status: true, contentVisibility: true },
   });
   if (!event) return null;
   if (event.status === "DRAFT" && !(await isContentOwner(viewer, event))) return null;
@@ -260,6 +260,8 @@ type ViewablePost = {
   id: string;
   userId: string;
   pageId: string | null;
+  asPageId: string | null;
+  showOnAuthorProfile: boolean;
   eventId: string | null;
   parentPostId: string | null;
   status: "DRAFT" | "PUBLISHED";
@@ -277,7 +279,7 @@ export async function requireViewablePost(
 ): Promise<ViewablePost | null> {
   const post = await prisma.post.findUnique({
     where: { id },
-    select: { id: true, userId: true, pageId: true, eventId: true, parentPostId: true, status: true, contentVisibility: true },
+    select: { id: true, userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true, eventId: true, parentPostId: true, status: true, contentVisibility: true },
   });
   if (!post) return null;
   if (post.status === "DRAFT" && !(await isContentOwner(viewer, post))) return null;
@@ -358,6 +360,41 @@ export async function collectionVisibilityWhere(
 ): Promise<object> {
   if (await maySeePrivateOf(kind, id, viewer)) return {};
   return { contentVisibility: { in: PROFILE_COLLECTION_VISIBILITY } };
+}
+
+/**
+ * Where-clause for a to-page post that also lists on its author's profile.
+ * The post is never wider here than on its page: a public page with non-PRIVATE
+ * content, or a page the viewer belongs to or follows. Loads followed pages
+ * itself so ViewerContext stays unchanged.
+ */
+export async function authorProfilePlacementWhere(viewer?: ViewerContext): Promise<object> {
+  const followed = viewer?.userId
+    ? await prisma.follow.findMany({
+        where: { followerId: viewer.userId, followingPageId: { not: null } },
+        select: { followingPageId: true },
+      })
+    : [];
+  const accessible = [
+    ...new Set([
+      ...(viewer?.memberPageIds ?? []),
+      ...followed.map((row) => row.followingPageId).filter((id): id is string => !!id),
+    ]),
+  ];
+  return {
+    asPageId: null,
+    showOnAuthorProfile: true,
+    OR: [
+      {
+        contentVisibility: { not: ContentVisibility.PRIVATE },
+        page: {
+          profileVisibility: ProfileVisibility.PUBLIC,
+          contentVisibility: { not: ContentVisibility.PRIVATE },
+        },
+      },
+      ...(accessible.length > 0 ? [{ pageId: { in: accessible } }] : []),
+    ],
+  };
 }
 
 // ---------------------------------------------------------------------------

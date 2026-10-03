@@ -4,48 +4,40 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { UserPlusSignIcon, UserMinusSignIcon } from "@/lib/components/icons/icons";
 import { useMembership } from "@/lib/hooks/useMembership";
-import { FEATURES } from "@/lib/const/features";
-import type { ProfileVisibility } from "@prisma/client";
+import type { MembershipPolicy } from "@prisma/client";
 
 type JoinButtonProps = {
 	pageId: string;
-	/** The page's profile visibility. PRIVATE means Join opens a pending request,
-	 *  so the button should read "Request to join" rather than "Join". */
-	profileVisibility?: ProfileVisibility;
+	/** The page's membership policy. Request-to-join shows the button to non-members. */
+	membershipPolicy?: MembershipPolicy;
 };
 
 /**
- * Self-service Join/Request/Leave button for page profiles.
- * Only visible when the viewer is logged in and acting as their personal identity (not as a page).
- *
- * Hidden entirely while self-service membership is flagged off (beta) — Follow is the
- * single relationship for pages, so this covers both render sites with one guard.
+ * Request-to-join / Leave for page profiles.
+ * Shown when the viewer is logged in and acting as themselves.
+ * "Request to join" appears on every REQUEST_TO_JOIN page. Members of any page see "Leave".
  */
-export function JoinButton({ pageId, profileVisibility }: JoinButtonProps) {
+export function JoinButton({ pageId, membershipPolicy }: JoinButtonProps) {
 	const { currentUser, activePageId } = useActiveProfile();
 
 	const loggedIn = !!currentUser;
-	// Hide entirely when acting as a page
 	const actingAsPage = !!activePageId;
-
-	// Gate before the membership fetch so a flagged-off build issues no needless GET.
-	const enabled = FEATURES.SELF_SERVICE_MEMBERSHIP && loggedIn && !actingAsPage;
+	const enabled = loggedIn && !actingAsPage;
 	const { state, loading, toggling, error, toggle } = useMembership(pageId, enabled);
 
 	if (!enabled || loading) return null;
 
 	const isLeavable = state === "member" || state === "privileged";
-	// PRIVATE pages gate Join behind owner approval (see requests.ts joinOrRequest).
-	const isPrivate = profileVisibility === "PRIVATE";
+	const canRequest = membershipPolicy === "REQUEST_TO_JOIN";
+	if (!isLeavable && !canRequest && state !== "requested") return null;
+
 	const label = toggling
 		? "..."
 		: state === "requested"
 			? "Requested"
 			: isLeavable
-				? "Leave group"
-				: isPrivate
-					? "Request to join"
-					: "Join";
+				? "Leave"
+				: "Request to join";
 	const icon = isLeavable || state === "requested"
 		? <UserMinusSignIcon className="w-4 h-4" />
 		: <UserPlusSignIcon className="w-4 h-4" />;

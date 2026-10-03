@@ -7,7 +7,7 @@ import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { logAction } from "@/lib/utils/server/log";
 import { getViewerContext, eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
@@ -106,15 +106,16 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, isDraft, pageId } = data;
+		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, isDraft, pageId, asPageId, showOnAuthorProfile } = data;
 
-		// If posting as a page, verify permission
-		if (pageId) {
-			const allowed = await canPostAsPage(ctx.userId, pageId);
-			if (!allowed) {
-				return badRequest("You don't have permission to create events for this page");
-			}
+		let placement;
+		try {
+			placement = await resolveContentPlacement(ctx.userId, { asPageId, pageId, showOnAuthorProfile });
+		} catch (err) {
+			if (err instanceof PlacementError) return badRequest(err.message);
+			throw err;
 		}
+		const contentVisibility = await resolveParentVisibility(ctx.userId, placement.pageId);
 
 		// Process tags once — both the draft and standard paths persist them. (Draft creation
 		// used to hardcode `tags: []`, which silently dropped tags supplied at creation, e.g.
@@ -147,7 +148,9 @@ export async function POST(request: Request) {
 			const event = await prisma.event.create({
 				data: {
 					userId: ctx.userId,
-					...(pageId ? { pageId } : {}),
+					pageId: placement.pageId,
+					asPageId: placement.asPageId,
+					showOnAuthorProfile: placement.showOnAuthorProfile,
 					title: (title || "").trim(),
 					content: (content || "").trim(),
 					eventDateTime: parsedDateTime,
@@ -157,8 +160,7 @@ export async function POST(request: Request) {
 					// Catcher approve flow geocodes the location before creating the draft).
 					latitude: draftLatitude,
 					longitude: draftLongitude,
-					// Inherit visibility from the hosting page (or the creating user).
-					contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
+					contentVisibility,
 					status: "DRAFT",
 					tags: processedTags || [],
 					topics: processedTopics,
@@ -204,7 +206,9 @@ export async function POST(request: Request) {
 		const event = await prisma.event.create({
 			data: {
 				userId: ctx.userId,
-				...(pageId ? { pageId } : {}),
+				pageId: placement.pageId,
+				asPageId: placement.asPageId,
+				showOnAuthorProfile: placement.showOnAuthorProfile,
 				title: title.trim(),
 				content: content.trim(),
 				eventDateTime: parsedDateTime,
@@ -214,8 +218,7 @@ export async function POST(request: Request) {
 				longitude: parsedLongitude,
 				tags: processedTags || [],
 				topics: processedTopics,
-				// Inherit visibility from the hosting page (or the creating user).
-				contentVisibility: await resolveParentVisibility(ctx.userId, pageId || null),
+				contentVisibility,
 				status: "PUBLISHED",
 			},
 			select: eventWithUserFields,

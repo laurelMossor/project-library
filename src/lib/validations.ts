@@ -1,5 +1,5 @@
 import { ProfileData } from "./types/user";
-import type { ProfileVisibility, ContentVisibility } from "@prisma/client";
+import type { ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
@@ -587,6 +587,30 @@ export function validateCommentContent(content: string): { valid: boolean; error
 
 // Page validation utilities
 
+const SAVABLE_MEMBERSHIP_POLICIES = ["CLOSED", "INVITE_ONLY", "REQUEST_TO_JOIN"] as const;
+
+/**
+ * Membership settings shared by page create and page update.
+ * OPEN exists in the enum for a later self-join feature and is rejected here.
+ */
+export function validateMembershipFields(data: {
+	membershipPolicy?: unknown;
+	allowMemberPosts?: unknown;
+}): { valid: boolean; error?: string } {
+	if (data.membershipPolicy !== undefined && data.membershipPolicy !== null) {
+		if (data.membershipPolicy === "OPEN") {
+			return { valid: false, error: "Open membership is not available yet" };
+		}
+		if (!SAVABLE_MEMBERSHIP_POLICIES.includes(data.membershipPolicy as (typeof SAVABLE_MEMBERSHIP_POLICIES)[number])) {
+			return { valid: false, error: "Invalid membership policy" };
+		}
+	}
+	if (data.allowMemberPosts !== undefined && typeof data.allowMemberPosts !== "boolean") {
+		return { valid: false, error: "allowMemberPosts must be a boolean" };
+	}
+	return { valid: true };
+}
+
 export interface PageCreateData {
 	name: string;
 	handle: string;
@@ -594,6 +618,8 @@ export interface PageCreateData {
 	bio?: string;
 	interests?: string[];
 	location?: string;
+	membershipPolicy?: MembershipPolicy;
+	allowMemberPosts?: boolean;
 }
 
 export function validatePageData(data: PageCreateData): { valid: boolean; error?: string } {
@@ -683,6 +709,9 @@ export function validatePageData(data: PageCreateData): { valid: boolean; error?
 		}
 	}
 
+	const membership = validateMembershipFields(data);
+	if (!membership.valid) return membership;
+
 	return { valid: true };
 }
 
@@ -701,6 +730,8 @@ export function validatePageUpdateData(data: {
 	avatarImageId?: string | null;
 	profileVisibility?: ProfileVisibility | null;
 	contentVisibility?: ContentVisibility | null;
+	membershipPolicy?: MembershipPolicy | null;
+	allowMemberPosts?: boolean | null;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -828,6 +859,9 @@ export function validatePageUpdateData(data: {
 			return { valid: false, error: "contentVisibility must be LISTED, UNLISTED, or PRIVATE" };
 		}
 	}
+
+	const membership = validateMembershipFields(data);
+	if (!membership.valid) return membership;
 
 	return { valid: true };
 }

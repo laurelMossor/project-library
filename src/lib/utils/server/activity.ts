@@ -32,6 +32,8 @@ const ACTION_TO_TYPE: Record<string, NotificationType> = {
 	"membership.joined": NotificationType.NEW_MEMBER,
 	"rsvp.created": NotificationType.RSVP,
 	"request.approved": NotificationType.REQUEST_APPROVED,
+	"membership.invited": NotificationType.MEMBER_INVITE,
+	"role.changed": NotificationType.ROLE_CHANGED,
 };
 
 /** Request types target a gated action (approval), so they reach only those who can act — ADMINs. */

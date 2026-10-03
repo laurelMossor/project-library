@@ -3,8 +3,8 @@
 
 import { prisma } from "./prisma";
 import { commentWithAuthorFields } from "./fields";
-import { canPostAsPage } from "./permission";
-import { isContentOwner, type ViewerContext } from "./visibility";
+import { canModerateContent, canPostAsPage } from "./permission";
+import type { ViewerContext } from "./visibility";
 import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
 import { NotificationObject } from "@prisma/client";
 import type { CommentItem } from "@/lib/types/comment";
@@ -22,12 +22,12 @@ type CreateCommentData = {
 	content: string;
 };
 
-type ContentOwner = { userId: string; pageId: string | null };
+type ContentOwner = { userId: string; pageId: string | null; asPageId: string | null };
 
 /** Fetch the owning identity of the parent post/event (for moderation + the activity target). */
 async function getContentOwner(postId: string | null, eventId: string | null): Promise<ContentOwner | null> {
-	if (postId) return prisma.post.findUnique({ where: { id: postId }, select: { userId: true, pageId: true } });
-	if (eventId) return prisma.event.findUnique({ where: { id: eventId }, select: { userId: true, pageId: true } });
+	if (postId) return prisma.post.findUnique({ where: { id: postId }, select: { userId: true, pageId: true, asPageId: true } });
+	if (eventId) return prisma.event.findUnique({ where: { id: eventId }, select: { userId: true, pageId: true, asPageId: true } });
 	return null;
 }
 
@@ -70,7 +70,9 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 	// content (actor == target), which needs no self-notification. The object is the post/event so
 	// the bell row deep-links to it.
 	const actor: EntityRef = data.asPageId ? { type: "PAGE", id: data.asPageId } : { type: "USER", id: userId };
-	const target: EntityRef = owner.pageId ? { type: "PAGE", id: owner.pageId } : { type: "USER", id: owner.userId };
+	const target: EntityRef = owner.asPageId
+		? { type: "PAGE", id: owner.asPageId }
+		: { type: "USER", id: owner.userId };
 	if (actor.type !== target.type || actor.id !== target.id) {
 		const object: ObjectRef = data.postId
 			? { type: NotificationObject.POST, id: data.postId }
@@ -116,12 +118,12 @@ export async function getCommentForModeration(id: string) {
  */
 export async function canModerateComment(
 	comment: { authorId: string },
-	parent: { userId: string; pageId: string | null },
+	parent: { userId: string; pageId: string | null; asPageId?: string | null },
 	viewer: ViewerContext,
 ): Promise<boolean> {
 	if (!viewer.userId) return false;
 	if (viewer.userId === comment.authorId) return true;
-	return isContentOwner(viewer, parent);
+	return canModerateContent(viewer.userId, parent);
 }
 
 /**

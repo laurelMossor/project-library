@@ -1,9 +1,10 @@
 // ⚠️ SERVER-ONLY: Page utility functions
 import { prisma } from "./prisma";
-import { PermissionRole, ResourceType } from "@prisma/client";
+import { MembershipPolicy, PermissionRole, ResourceType } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
 import { grantPermission } from "./permission";
+import { upsertFollow } from "./requests";
 
 export const publicPageFields = {
   id: true,
@@ -16,6 +17,8 @@ export const publicPageFields = {
   location: true,
   profileVisibility: true,
   contentVisibility: true,
+  membershipPolicy: true,
+  allowMemberPosts: true,
   addressLine1: true,
   addressLine2: true,
   city: true,
@@ -71,6 +74,8 @@ export async function updatePageProfile(
     aboutContent?: string | null;
     profileVisibility?: import("@prisma/client").ProfileVisibility;
     contentVisibility?: import("@prisma/client").ContentVisibility;
+    membershipPolicy?: MembershipPolicy;
+    allowMemberPosts?: boolean;
   },
   tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
 ) {
@@ -110,10 +115,15 @@ export async function createPage(
     bio?: string;
     interests?: string[];
     location?: string;
+    membershipPolicy?: MembershipPolicy;
+    allowMemberPosts?: boolean;
   }
 ) {
   // Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
   const handle = data.handle.toLowerCase();
+  // CLOSED has no members, so member posts can't be on. OPEN is rejected before this runs.
+  const membershipPolicy = data.membershipPolicy ?? MembershipPolicy.CLOSED;
+  const allowMemberPosts = membershipPolicy === MembershipPolicy.CLOSED ? false : (data.allowMemberPosts ?? false);
   return prisma.$transaction(async (tx) => {
     const page = await tx.page.create({
       data: {
@@ -124,6 +134,8 @@ export async function createPage(
         bio: data.bio?.trim() || null,
         interests: data.interests || [],
         location: data.location?.trim() || null,
+        membershipPolicy,
+        allowMemberPosts,
         // New pages default to open distribution; explicit since the column no longer
         // carries a DB default.
         contentVisibility: "LISTED",
@@ -132,8 +144,9 @@ export async function createPage(
       select: publicPageFields,
     });
 
-    // Auto-grant the creator ADMIN, through the shared write helper (tx-aware).
+    // Auto-grant the creator ADMIN, then follow the page they just made.
     await grantPermission(userId, page.id, ResourceType.PAGE, PermissionRole.ADMIN, tx);
+    await upsertFollow({ type: "USER", id: userId }, { type: "PAGE", id: page.id }, tx);
 
     return page;
   });

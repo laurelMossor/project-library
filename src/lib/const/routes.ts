@@ -50,6 +50,7 @@ export const UNSUBSCRIBE_WITH_TOKEN = (token: string) =>
 export const CONNECTIONS = "/connections";
 export const CONNECTIONS_TAB_QUERY = "tab"; // ?tab= selects the initial connections tab
 export const CONNECTIONS_REQUESTS = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Requests`; // deep-link to the Requests tab
+export const CONNECTIONS_MEMBERSHIP = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Membership`; // deep-link to the Membership tab
 
 export const PAGE_NEW = "/pages/new";
 
@@ -106,6 +107,7 @@ export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's hand
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
+export const API_ME_INVITES = "/api/me/invites"; // GET role invitations waiting on the current user
 export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
 export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
 
@@ -147,6 +149,8 @@ export const API_PAGES = "/api/pages";
 export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 
 export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
+export const API_PAGE_MEMBERS = (pageId: string) => `/api/pages/${pageId}/members`;
+export const API_PAGE_MEMBER = (pageId: string, userId: string) => `/api/pages/${pageId}/members/${userId}`;
 
 // Access-request API Routes (Request-to-Follow / Request-to-Join)
 export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;

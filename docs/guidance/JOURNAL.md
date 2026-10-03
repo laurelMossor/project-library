@@ -11,6 +11,15 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sat 10/03/2026 12:49 PDT
+Membership is a page setting now. A page starts Closed, or it can be Invite only or Request to join. Open is in the enum and the server rejects it. Request to join shows on every such page, public or private. Joining no longer depends on the profile being public.
+
+Every new role is an invitation the person accepts. Accepting grants the role and follows the page. Leaving does not unfollow. Creating a page follows it for the creator. Changing someone who already has a role stays direct and notifies them.
+
+Posting to a page is separate from posting as one. pageId is where a post lives and who can see it. asPageId is who is speaking. Existing page posts were backfilled so they still speak as the page. The composer checkboxes store whether a to-page post also appears on the author's profile. That extra listing never reaches anyone who cannot already see it on the page.
+
+A page manager can delete a member's post and pin it. The author still edits their own words. Placement can change only while the post is a draft. The five membership tickets are in QA.
+
 #### Entry: Sat 10/03/2026 10:40 PDT
 Built MVP group messaging on top of 1:1 messaging, addressing conversations by id instead of by peer so messaging someone can no longer land in a group shared with them. Read state moved to per-participant markers, and page messages now show sender attribution only to that page's own managers. Ran `/prolib-review` and closed all 17 findings, converging duplicated identity, read-state, and search logic onto single owners. Closed two real CI bugs along the way: a unit test's accidental Prisma import at module load, and a seeded group conversation that left alice permanently unread, breaking an existing nav test.
 

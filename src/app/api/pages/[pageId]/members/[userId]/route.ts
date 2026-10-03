@@ -3,12 +3,15 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import {
 	canManagePage,
+	getUserPermission,
 	grantPermission,
 	revokePermission,
 	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
 import { assignableRoles } from "@/lib/const/roles";
-import { ResourceType, PermissionRole } from "@prisma/client";
+import { prisma } from "@/lib/utils/server/prisma";
+import { emitActivity } from "@/lib/utils/server/activity";
+import { PermissionRole, ResourceType } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string; userId: string }> };
 
@@ -37,8 +40,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
 			return badRequest("role is required");
 		}
 
-		// Only currently-assignable roles — blocks demoting *to* MEMBER while flagged off.
-		if (!assignableRoles().includes(role)) {
+		const page = await prisma.page.findUnique({
+			where: { id: pageId },
+			select: { membershipPolicy: true },
+		});
+		if (!page) return badRequest("Page not found");
+
+		// Direct change is for someone who already has a role. New people are invited.
+		const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+		if (!existing) return badRequest("That person is not a member of this page");
+
+		if (!assignableRoles(page.membershipPolicy).includes(role)) {
 			return badRequest("Invalid role");
 		}
 
@@ -48,6 +60,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 		}
 
 		const permission = await grantPermission(userId, pageId, ResourceType.PAGE, role);
+		if (existing !== role) {
+			await emitActivity("role.changed", { type: "PAGE", id: pageId }, { type: "USER", id: userId });
+		}
 
 		return NextResponse.json(permission);
 	} catch (error) {

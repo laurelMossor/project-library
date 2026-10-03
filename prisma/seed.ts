@@ -118,8 +118,7 @@ export type SeedPagePacket = {
   creatorHandle: string;
   editors?: string[];
   // Users to seed as FOLLOWERS of the page. ("*" = all non-creator/non-editor users.)
-  // Self-service membership is flagged off (FEATURES.SELF_SERVICE_MEMBERSHIP); following a
-  // page grants the same access members had, so seed page connections as follows.
+  // Seeded pages stay CLOSED (no members). Following a page is the seeded connection.
   followers?: "*" | string[];
   posts?: SeedPost[];
   events?: SeedEvent[];

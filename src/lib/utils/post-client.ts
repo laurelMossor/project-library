@@ -91,11 +91,11 @@ export async function createPost(data: {
 /**
  * Create a minimal draft post — called from /posts/new (client component).
  */
-export async function createDraftPost(pageId?: string, title?: string, content?: string): Promise<PostItem> {
+export async function createDraftPost(asPageId?: string, title?: string, content?: string): Promise<PostItem> {
 	const res = await authFetch(API_POSTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}), ...(title ? { title } : {}), ...(content ? { content } : {}) }),
+		body: JSON.stringify({ isDraft: true, ...(asPageId ? { asPageId } : {}), ...(title ? { title } : {}), ...(content ? { content } : {}) }),
 	});
 
 	if (!res.ok) {
@@ -111,7 +111,7 @@ export async function createDraftPost(pageId?: string, title?: string, content?:
  */
 export async function updatePost(
 	id: string,
-	data: Partial<{ title: string | null; content: string; tags: string[]; status: string; pageId: string | null }>
+	data: Partial<{ title: string | null; content: string; tags: string[]; status: string; pageId: string | null; asPageId: string | null; showOnAuthorProfile: boolean }>
 ): Promise<PostItem> {
 	const res = await authFetch(API_POST(id), {
 		method: "PATCH",

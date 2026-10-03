@@ -15,16 +15,18 @@ vi.mock("@/lib/utils/server/prisma", () => ({
     event: { findUnique: vi.fn() },
   },
 }));
-vi.mock("@/lib/utils/server/permission", () => ({ canPostAsPage: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+  canPostAsPage: vi.fn(),
+  canModerateContent: vi.fn(),
+}));
 vi.mock("@/lib/utils/server/activity", () => ({ emitActivity: vi.fn() }));
 vi.mock("@/lib/utils/server/visibility", () => ({ isContentOwner: vi.fn() }));
 
 import { createComment, canModerateComment, canEditComment, CommentInputError } from "@/lib/utils/server/comment";
 import { validateCommentContent } from "@/lib/validations";
 import { prisma } from "@/lib/utils/server/prisma";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { canModerateContent, canPostAsPage } from "@/lib/utils/server/permission";
 import { emitActivity } from "@/lib/utils/server/activity";
-import { isContentOwner } from "@/lib/utils/server/visibility";
 import type { ViewerContext } from "@/lib/utils/server/visibility";
 
 const viewer = (userId: string | null): ViewerContext => ({ userId, memberPageIds: [] });
@@ -79,7 +81,7 @@ describe("createComment guards", () => {
   });
 
   test("as-page comment targets the owning page and records the page as actor", async () => {
-    vi.mocked(prisma.post.findUnique).mockResolvedValue({ userId: "owner", pageId: "host-page" } as never);
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({ userId: "owner", pageId: "host-page", asPageId: "host-page" } as never);
     await createComment("u1", { postId: "p1", asPageId: "my-page", content: "hi" });
     expect(emitActivity).toHaveBeenCalledWith(
       "comment.created",
@@ -96,17 +98,24 @@ describe("canModerateComment", () => {
   test("the comment author may delete their own comment", async () => {
     const ok = await canModerateComment({ authorId: "u1" }, parent, viewer("u1"));
     expect(ok).toBe(true);
-    expect(isContentOwner).not.toHaveBeenCalled();
+    expect(canModerateContent).not.toHaveBeenCalled();
   });
 
   test("the content owner may delete any comment", async () => {
-    vi.mocked(isContentOwner).mockResolvedValue(true as never);
+    vi.mocked(canModerateContent).mockResolvedValue(true);
     const ok = await canModerateComment({ authorId: "someone" }, parent, viewer("owner"));
     expect(ok).toBe(true);
+    expect(canModerateContent).toHaveBeenCalled();
+  });
+
+  test("a page manager may delete a member post's comment without being able to edit the post", async () => {
+    vi.mocked(canModerateContent).mockResolvedValue(true);
+    const memberPost = { userId: "alice", pageId: "page-1", asPageId: null };
+    expect(await canModerateComment({ authorId: "someone" }, memberPost, viewer("editor"))).toBe(true);
   });
 
   test("an unrelated logged-in user may not delete", async () => {
-    vi.mocked(isContentOwner).mockResolvedValue(false as never);
+    vi.mocked(canModerateContent).mockResolvedValue(false);
     const ok = await canModerateComment({ authorId: "someone" }, parent, viewer("stranger"));
     expect(ok).toBe(false);
   });
