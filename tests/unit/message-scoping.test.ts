@@ -200,6 +200,33 @@ describe("getThread", () => {
 		vi.mocked(canManagePage).mockResolvedValue(true);
 		expect((await getThread("g1", guild, "alice"))!.canLeave).toBe(true);
 	});
+
+	// Viewing marks read, inline with the fetch — no second request, and (by construction) no race with
+	// a message arriving between "load" and "mark read": they're the same request.
+	test("fetching the thread marks it read up to its newest message, in the same request", async () => {
+		p.message.findFirst.mockResolvedValue({ createdAt: t(4) }); // "m1"'s own createdAt
+		await getThread("g1", sam, "sam");
+		expect(p.message.findFirst.mock.calls[0][0].where).toEqual({ id: "m1", conversationId: "g1" });
+		expect(p.conversationParticipant.update).toHaveBeenCalledWith(
+			expect.objectContaining({ data: { lastReadAt: t(4) } }),
+		);
+	});
+
+	test("already read as of a later time → the marker never moves backwards", async () => {
+		p.conversationParticipant.findFirst.mockResolvedValue({
+			createdAt: t(3), lastReadAt: t(5), conversation: { id: "g1", kind: "GROUP", name: "Crew" },
+		});
+		p.message.findFirst.mockResolvedValue({ createdAt: t(4) });
+		await getThread("g1", sam, "sam");
+		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
+	});
+
+	test("an empty thread has nothing to mark read", async () => {
+		p.message.findMany.mockResolvedValue([]);
+		await getThread("g1", sam, "sam");
+		expect(p.message.findFirst).not.toHaveBeenCalled();
+		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
+	});
 });
 
 describe("group lifecycle", () => {

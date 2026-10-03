@@ -7,6 +7,15 @@
  *   - the "Original source" content line and community-share disclaimer
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+
+// None of the functions under test touch the database, but poster-extract.ts (for
+// cleanSocialDescription) transitively imports ./prisma, which throws at module-load time when
+// DATABASE_URL isn't set (prisma.ts eagerly instantiates a client — every other server util that
+// needs an env var checks it lazily, at call time, e.g. supabase.ts's getSupabaseClient). Mock it out
+// so this suite stays true to tests/TESTING.md's "no prerequisites" and doesn't depend on a shell
+// that happens to have DATABASE_URL exported.
+vi.mock("@/lib/utils/server/prisma", () => ({ prisma: {} }));
+
 import { isSuperAdmin } from "@/lib/utils/server/superadmin";
 import { verifyWebhookSecret, isAllowedSender, parseTelegramMessage } from "@/lib/utils/server/telegram";
 import { parseFutureEventDate } from "@/lib/utils/event-date";

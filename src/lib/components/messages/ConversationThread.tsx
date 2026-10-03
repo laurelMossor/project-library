@@ -9,7 +9,6 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import {
 	API_CONVERSATION,
 	API_CONVERSATION_MESSAGES,
-	API_CONVERSATION_READ,
 	LOGIN_WITH_CALLBACK,
 	MESSAGES,
 } from "@/lib/const/routes";
@@ -54,23 +53,11 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 	const onReadRef = useRef(onRead);
 	useEffect(() => { onReadRef.current = onRead; }, [onRead]);
 
-	// Read up to the newest message actually loaded — never "up to now", which would swallow a message
-	// that arrived after this fetch.
-	const markRead = useCallback((upToMessageId: string | undefined) => {
-		fetch(API_CONVERSATION_READ(conversationId), {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ asPageId, upToMessageId }),
-		})
-			.then((r) => {
-				if (!r.ok) return;
-				onReadRef.current?.(conversationId);
-				window.dispatchEvent(new Event("messages:read"));
-			})
-			.catch(() => {});
-	}, [conversationId, asPageId]);
-
-	/** Load (or, in the background, refresh) the thread; resolves to the data, or null on failure. */
+	/**
+	 * Load (or, in the background, refresh) the thread; resolves to the data, or null on failure.
+	 * The server marks the thread read as part of this GET (see `getThread`) — no separate PATCH, and no
+	 * race with a message arriving between "fetch" and "mark read": it's the same request.
+	 */
 	const fetchThread = useCallback(async (background = false): Promise<ConversationThreadData | null> => {
 		if (!background) { setLoading(true); setError(""); }
 		try {
@@ -82,8 +69,13 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 			const hasNew = data.messages.some((m) => !seenIds.current.has(m.id));
 			seenIds.current = new Set(data.messages.map((m) => m.id));
 			setThread(data);
-			// Opening a thread (or new messages arriving while it's open) reads it for this identity.
-			if (!background || hasNew) markRead(data.messages.at(-1)?.id);
+			// Tell the inbox/nav to drop this conversation's unread state — the fetch above already did
+			// the marking server-side. Skip the no-op case (an empty thread, or a background poll with
+			// nothing new) so we don't dispatch an event for nothing.
+			if ((!background || hasNew) && data.messages.length > 0) {
+				onReadRef.current?.(conversationId);
+				window.dispatchEvent(new Event("messages:read"));
+			}
 			return data;
 		} catch {
 			if (!background) setError("Failed to load conversation");
@@ -91,7 +83,7 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 		} finally {
 			if (!background) setLoading(false);
 		}
-	}, [conversationId, asPageId, router, markRead]);
+	}, [conversationId, asPageId, router]);
 
 	useEffect(() => {
 		seenIds.current = new Set();

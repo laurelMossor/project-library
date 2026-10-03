@@ -271,6 +271,11 @@ export async function listInbox(identity: MessagingIdentity, limit = 50): Promis
  * A conversation as the acting identity sees it: members, and messages since it joined. Each page
  * message carries `sentBy` (the human who sent it) ONLY when the viewer is that same page — co-managers
  * coordinate internally, while every other member sees only the page's one voice.
+ *
+ * Fetching a thread also marks it read (up to its newest message) as a side effect — "viewing" IS
+ * "reading" here, and doing it inline avoids both a second request and any race with a separate PATCH.
+ * `PATCH .../read` / `markConversationRead` still exist for a caller that wants to mark read without a
+ * full fetch.
  */
 export async function getThread(
 	conversationId: string,
@@ -294,7 +299,14 @@ export async function getThread(
 	]);
 
 	const members = toMembers(participants, identity);
-	const pages = await pagesById(messages.map((m) => m.asPageId).filter((id): id is string => !!id), members);
+	const latest = messages.at(-1);
+	const [pages] = await Promise.all([
+		pagesById(messages.map((m) => m.asPageId).filter((id): id is string => !!id), members),
+		// Viewing a thread marks it read, atomically with the fetch, in parallel with the work above —
+		// no separate round trip from the client, and no race window: we mark exactly what we're about
+		// to return, never "now" (which could swallow a message that arrives a moment later).
+		latest ? markConversationRead(conversationId, identity, latest.id) : Promise.resolve(true),
+	]);
 	const { conversation } = participation;
 
 	return {
