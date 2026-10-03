@@ -68,8 +68,9 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	const isDraft = ri.status === "DRAFT";
 	const isPublished = ri.status === "PUBLISHED";
 	const isPast = isPastEvent(ri);
-	// On a page, only someone acting as that page can pin. The author of a
-	// member post does not. A personal post is pinned by its author.
+	// A page post is pinnable when this profile was opened in that page's pin
+	// scope (the viewer can act as the page — admin or editor). The author of a
+	// member post does not get that scope. A personal post is pinned by its author.
 	const canPin = !!pinConfig && (
 		ri.page
 			? ri.page.id === pinConfig.activePageId

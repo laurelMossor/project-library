@@ -27,7 +27,8 @@ import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPageByHandle } from "@/lib/utils/server/page";
 import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
-import { canManagePage } from "@/lib/utils/server/permission";
+import { canManagePage, canPostAsPage } from "@/lib/utils/server/permission";
+import { getSessionContext } from "@/lib/utils/server/session";
 import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
@@ -74,6 +75,7 @@ export default async function HandleProfilePage({ params }: Props) {
 		if (access === "LOCKED") return <LockedProfilePreview profile={profile} />;
 
 		const isOwnProfile = viewerId === user.id;
+		const acting = isOwnProfile ? await getSessionContext() : null;
 		const userDisplayName = getUserDisplayName(user);
 
 		const [events, posts] = await Promise.all([
@@ -108,6 +110,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						emptyMessage={`${handle} hasn't created anything yet.`}
 						showCreateLinks={false}
 						currentUserId={user.id}
+						activePageId={acting?.activePageId ?? null}
 					/>
 				</CenteredLayout>
 			);
@@ -144,7 +147,13 @@ export default async function HandleProfilePage({ params }: Props) {
 		const access = await resolveProfileAccess("PAGE", page, viewer);
 		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
 
-		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
+		// Admins get the edit chrome. Editors can pin (same gate as the pin PATCH) without editing the page.
+		const [isOwner, canPinAsPage] = viewerId
+			? await Promise.all([
+				canManagePage(viewerId, page.id),
+				canPostAsPage(viewerId, page.id),
+			])
+			: [false, false];
 
 		const [events, posts] = await Promise.all([
 			getEventsByPage(page.id, { includeDrafts: isOwner, viewer }),
@@ -178,7 +187,8 @@ export default async function HandleProfilePage({ params }: Props) {
 						title={`${displayName}'s Collection`}
 						emptyMessage={`${displayName} hasn't created anything yet.`}
 						showCreateLinks={false}
-						currentUserId={viewerId ?? undefined}
+						currentUserId={canPinAsPage ? viewerId ?? undefined : undefined}
+						activePageId={canPinAsPage ? page.id : undefined}
 					/>
 				</CenteredLayout>
 			);
@@ -197,6 +207,8 @@ export default async function HandleProfilePage({ params }: Props) {
 					title={`${displayName}'s Collection`}
 					emptyMessage={`${displayName} hasn't created anything yet.`}
 					showCreateLinks={false}
+					currentUserId={canPinAsPage ? viewerId ?? undefined : undefined}
+					activePageId={canPinAsPage ? page.id : undefined}
 				/>
 			</CenteredLayout>
 		);
