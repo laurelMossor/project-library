@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sun 10/04/2026 12:46 PDT
+Profiles without a photo now get a generated Bauhaus avatar in the Project Library colors. An uploaded photo still shows instead. The picture is seeded by the account id, so renaming a handle leaves it unchanged.
+
 #### Entry: Sun 10/04/2026 12:15 PDT
 Reviewed the membership and post-to-page branch and landed the review fixes. Only a current admin or editor can edit content spoken as a page, and removing a member also drops their follow. Event updates and member drafts stay with their real audience, and a leftover join or closed-page invite can no longer change a role. Drafted unchecked acceptance criteria for these onto both QA tickets.
 

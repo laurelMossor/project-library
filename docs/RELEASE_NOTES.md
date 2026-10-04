@@ -10,11 +10,15 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
-## v0.5.0 — Meatup part 2: Group Messaging (Unreleased)
+## v0.5.0 — Meatup part 2: Groups & Messaging (Unreleased)
 
-Group messaging on top of the existing 1:1 DMs. On `meatup-4-group-messaging`, PR #52, not yet merged.
+Group messaging, page membership, and member posting. Group messaging is on `meatup-4-group-messaging` (PR #52) and generated avatars on `meatup-6-boring-avatars`; neither is merged yet.
 
-- **Group messaging** — multi-participant threads alongside DMs; create / rename / add members / leave; pages act as shared inboxes with co-manager-only sender attribution; per-participant read state; restyled thread UI.
+- **Group messaging** — multi-person threads alongside DMs; pages act as shared inboxes; per-person read state.
+- **Page membership settings** — Closed / Invite only / Request to join, set per page; members auto-follow the page.
+- **Role invitations** — page roles are invites the person accepts; pending invitees show in the member list.
+- **Members post to a page** — members post and create events on a page, credited as "alice › Page".
+- **Generated avatars** — profiles without a photo get a Bauhaus mark in Project Library colors.
 
 ---
 
