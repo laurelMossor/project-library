@@ -6,6 +6,7 @@ import { Button } from "@/lib/components/ui/Button";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
+import { HandleInput } from "@/lib/components/forms/HandleInput";
 import { PasswordPair } from "@/lib/components/auth/PasswordPair";
 import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
 import { validatePasswordPair } from "@/lib/validations";
@@ -28,6 +29,9 @@ function SignupForm() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirm, setConfirm] = useState("");
+	const [handle, setHandle] = useState("");
+	const [handleAvailable, setHandleAvailable] = useState(false);
+	const [displayName, setDisplayName] = useState("");
 	const [error, setError] = useState("");
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -40,8 +44,11 @@ function SignupForm() {
 			return;
 		}
 
-		// No handle field; one is auto-generated server-side from the email; users can
-		// personalize it later in Settings.
+		if (!handleAvailable) {
+			setError("Pick an available handle.");
+			return;
+		}
+
 		const res = await fetch(API_AUTH_SIGNUP, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -49,6 +56,8 @@ function SignupForm() {
 				email,
 				password,
 				invite: inviteToken,
+				handle: handle.trim().toLowerCase(),
+				displayName: displayName.trim() || undefined,
 			}),
 		});
 
@@ -100,6 +109,14 @@ function SignupForm() {
 					confirm={confirm}
 					onPasswordChange={setPassword}
 					onConfirmChange={setConfirm}
+				/>
+				<HandleInput value={handle} onChange={setHandle} onAvailable={setHandleAvailable} />
+				<FormInput
+					type="text"
+					placeholder="Display name (optional, defaults to your handle)"
+					value={displayName}
+					onChange={(e) => setDisplayName(e.target.value)}
+					maxLength={100}
 				/>
 				<Button type="submit" fullWidth>
 					Sign Up

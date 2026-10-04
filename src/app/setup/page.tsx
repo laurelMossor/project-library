@@ -18,8 +18,8 @@ export default async function SetupPage({
 
 	const { next } = await searchParams;
 	const destination = safeNext(next);
-	// A finished user revisiting /setup goes on. A page lands here right after creation.
-	if (!session.user.needsSetup && !session.user.activePageId) redirect(destination);
+	// A finished user revisiting /setup goes on.
+	if (!session.user.needsSetup) redirect(destination);
 
 	return <SetupClient next={destination} />;
 }

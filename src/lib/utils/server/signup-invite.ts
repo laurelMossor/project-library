@@ -65,6 +65,7 @@ export async function consumeInviteAndCreateUser(args: {
 	handle: string;
 	passwordHash: string;
 	rawInviteToken: string;
+	displayName?: string | null;
 }): Promise<ConsumeInviteResult> {
 	const tokenHash = hashInviteToken(args.rawInviteToken);
 	// Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
@@ -111,6 +112,7 @@ export async function consumeInviteAndCreateUser(args: {
 					firstName: null,
 					middleName: null,
 					lastName: null,
+					displayName: args.displayName ?? null,
 					// New accounts default to open distribution; explicit since the column no longer
 					// carries a DB default.
 					contentVisibility: "LISTED",

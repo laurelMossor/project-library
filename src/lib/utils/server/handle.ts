@@ -31,6 +31,16 @@ export async function isHandleTaken(handle: string): Promise<boolean> {
 	return existing !== null;
 }
 
+/** The reason a handle can't be used for a new account or page, or null when it's free. */
+export async function handleUnavailableReason(handle: string): Promise<string | null> {
+	if (!validateHandle(handle)) {
+		return "Handle must be 3–30 characters: lowercase letters, numbers, periods, underscores, or hyphens.";
+	}
+	if (isReservedHandle(handle)) return "That handle is reserved. Please choose another.";
+	if (await isHandleTaken(handle)) return "That handle is already taken.";
+	return null;
+}
+
 /**
  * Generate a unique, valid handle from a seed (typically the email local-part), for the signup
  * flow that no longer asks users to pick one. The result always passes `validateHandle`, isn't

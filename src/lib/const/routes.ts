@@ -97,6 +97,7 @@ export const MESSAGE_THREAD = (conversationId: string, asPageId?: string | null)
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
+export const API_HANDLE_AVAILABLE = "/api/handles/available"; // GET ?handle= — public, rate-limited
 export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
 export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
 export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";

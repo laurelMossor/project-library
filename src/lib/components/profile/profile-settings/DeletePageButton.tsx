@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/lib/components/ui/Button";
 import { ConfirmModal } from "@/lib/components/ui/ConfirmModal";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import { API_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { API_PAGE, SETTINGS } from "@/lib/const/routes";
 
 export function DeletePageButton({ pageId, pageName }: { pageId: string; pageName: string }) {
 	const router = useRouter();
-	const { currentUser, switchProfile } = useActiveProfile();
+	const { switchProfile } = useActiveProfile();
 	const [open, setOpen] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -24,8 +24,8 @@ export function DeletePageButton({ pageId, pageName }: { pageId: string; pageNam
 				throw new Error(data.error || "Couldn't delete the page");
 			}
 			await switchProfile(null);
-			if (currentUser?.handle) router.push(PUBLIC_PROFILE(currentUser.handle));
-			else router.refresh();
+			router.push(SETTINGS);
+			router.refresh();
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Couldn't delete the page");
 			setBusy(false);

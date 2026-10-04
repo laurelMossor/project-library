@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { auth } from "@/lib/auth";
 import { getActingIdentity } from "@/lib/utils/server/session";
 import { NavigationBar } from "@/lib/components/nav-bar/NavigationBar";
+import { SetupHeader } from "@/lib/components/nav-bar/SetupHeader";
 import { SetupGate } from "@/lib/components/setup/SetupGate";
 import { Footer } from "@/lib/components/footer/Footer";
 import { Analytics } from "@vercel/analytics/next";
@@ -39,8 +40,8 @@ export default async function RootLayout({
 						<SetupGate needsSetup={!!session?.user?.needsSetup} />
 					</Suspense>
 					<div className="flex flex-col min-h-screen">
-						{/* Navigation bar */}
-						<NavigationBar session={session} />
+						{/* Navigation bar. An account still in setup sees only the logo. */}
+						{session?.user?.needsSetup ? <SetupHeader /> : <NavigationBar session={session} />}
 
 						{/* Main content area - no sidebar */}
 						<main className="flex-1">
