@@ -89,7 +89,20 @@ client content visibility.
 9. **Messaging is identity-scoped, ADMIN/EDITOR for pages.** Page conversation access uses
    `getManagedPageIds` / `canPostAsPage` (ADMIN/EDITOR) — **never** `getPagesForUser` (which
    includes plain MEMBER). Acting as a page is verified from the session on every method (GET *and*
-   PATCH), never trusted from a client `asPageId`.
+   PATCH), never trusted from a client `asPageId`. All of this lives in
+   `src/lib/utils/server/message.ts` (+ the `message-routes.ts` prelude); routes apply it, never
+   re-derive it. For DMs **and groups**:
+   - **Participant-only.** A conversation is reachable only by an identity that is a participant;
+     everyone else gets **404** on every method (never 403 — no existence leak).
+   - **History from join time.** A participant sees only messages sent at/after it joined (its
+     participant row's `createdAt`) — in the thread, the inbox preview, and unread counts.
+   - **A page speaks with one voice.** Other members see a page's messages as the page only. The human
+     sender (`Message.senderId`) is included **only** when the viewer is that same page (its
+     co-managers) — never in another member's payload.
+   - **Leaving as a page is a manage action (ADMIN, `canManagePage`)** — it removes the page for all of
+     its managers. EDITORs may still read, send, rename, and add.
+   - **Read state is per identity** (`ConversationParticipant.lastReadAt`); a page's marker is shared by
+     its managers. Email read-suppression uses the same marker (`isMessageReadBy`).
 
 10. **Mutations authorize the specific target**, derived from the session — "logged in" is never
     enough. Guard the id, not just the verb (IDOR is the default failure mode).
@@ -135,6 +148,8 @@ Shared value-sets (`FEED_VISIBILITY`, `PROFILE_COLLECTION_VISIBILITY`) are the s
 - [ ] **Relationship lists** gate on the parent profile first.
 - [ ] **RSVP / attendee data** (name+email) restricted to the event owner/host.
 - [ ] **Messaging:** page access via `getManagedPageIds`/`canPostAsPage`; `asPageId` verified on every method.
+- [ ] **Conversations (DM or group):** participant check → 404 otherwise; messages floored at join time;
+      a page message's human sender only for that page's managers; page leave is ADMIN-only.
 - [ ] **Mutation:** authorization verifies the caller may act on *this* id.
 - [ ] A test exists that a wrong-viewer request gets 404 / a stub / an empty list — not the content.
 

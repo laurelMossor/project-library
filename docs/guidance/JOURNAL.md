@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sat 10/03/2026 10:40 PDT
+Built MVP group messaging on top of 1:1 messaging, addressing conversations by id instead of by peer so messaging someone can no longer land in a group shared with them. Read state moved to per-participant markers, and page messages now show sender attribution only to that page's own managers. Ran `/prolib-review` and closed all 17 findings, converging duplicated identity, read-state, and search logic onto single owners. Closed two real CI bugs along the way: a unit test's accidental Prisma import at module load, and a seeded group conversation that left alice permanently unread, breaking an existing nav test.
+
 #### Entry: Sun 09/13/2026 11:44 PDT
 Unified the drifted tag UI onto one blue chiclet. The Tag component now owns both the display and a removable draft variant, so the green pills and the duplicated post/event field blocks collapse behind one shared TagsField. Tags normalize on entry, raising only a lowercase first letter so DIY and 3D survive, and dedup is case-insensitive. Also improved Poster Catcher. The extractor defaults times to Pacific and demands an explicit offset, the model moved to Gemini Flash Lite, and the location auto-geocodes so the review shows a confirmation map. The bot reply now links straight to the review queue.
 

@@ -4,6 +4,7 @@ import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
 import { isReservedHandle } from "./const/reserved-handles";
+import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS, type MessagingIdentityRef } from "./const/messaging";
 
 // Validation utilities for user input
 // Provides reusable validation functions for email, handle, password, and profile data
@@ -531,6 +532,43 @@ export function validateMessageContent(content: string): { valid: boolean; error
 		return { valid: false, error: "Message content must be 5000 characters or less" };
 	}
 	return { valid: true };
+}
+
+/**
+ * Validate a group's optional display name. `null`, `undefined`, or blank/whitespace-only all mean
+ * "no name" (and clear it on rename) — the field is optional, so blank is never an error. A real name
+ * must fit MAX_GROUP_NAME_LENGTH once trimmed.
+ */
+export function validateGroupName(name: unknown): { valid: boolean; error?: string } {
+	if (name === null || name === undefined) return { valid: true };
+	if (typeof name !== "string") return { valid: false, error: "Group name must be text" };
+	if (name.trim().length > MAX_GROUP_NAME_LENGTH) {
+		return { valid: false, error: `Group name must be ${MAX_GROUP_NAME_LENGTH} characters or less` };
+	}
+	return { valid: true };
+}
+
+/**
+ * Validate a list of group member refs ({ type: "user" | "page", id }). Shape only — existence and the
+ * participant cap (which depends on who is already in the group) are enforced in the server layer.
+ */
+export function validateGroupMemberRefs(members: unknown): { valid: boolean; error?: string; refs?: MessagingIdentityRef[] } {
+	if (!Array.isArray(members) || members.length === 0) {
+		return { valid: false, error: "Add at least one member" };
+	}
+	if (members.length > MAX_GROUP_PARTICIPANTS) {
+		return { valid: false, error: `A group can have at most ${MAX_GROUP_PARTICIPANTS} members` };
+	}
+	const refs: MessagingIdentityRef[] = [];
+	for (const m of members) {
+		if (!m || typeof m !== "object") return { valid: false, error: "Invalid member" };
+		const { type, id } = m as Record<string, unknown>;
+		if ((type !== "user" && type !== "page") || typeof id !== "string" || id.length === 0) {
+			return { valid: false, error: "Invalid member" };
+		}
+		refs.push({ type, id });
+	}
+	return { valid: true, refs };
 }
 
 /** Validate a comment body (required, non-empty, capped). Mirrors validateMessageContent. */

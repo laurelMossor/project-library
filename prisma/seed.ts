@@ -128,6 +128,8 @@ export type SeedPagePacket = {
 export type SeedRelationships = {
   follows?: { follower: string; following: string }[];
   conversations?: {
+    kind?: "DIRECT" | "GROUP"; // default DIRECT
+    name?: string; // GROUP only
     participants: string[];
     messages: {
       senderHandle: string;
@@ -812,6 +814,8 @@ async function main() {
 
     const conversation = await prisma.conversation.create({
       data: {
+        kind: convo.kind ?? "DIRECT",
+        name: convo.name ?? null,
         participants: {
           create: participantData.map((p) => ({
             userId: p.userId ?? null,
@@ -821,6 +825,7 @@ async function main() {
       },
     });
 
+    let lastMessageAt: Date | null = null;
     for (const msg of convo.messages) {
       const sender = usersByHandle.get(msg.senderHandle.toLowerCase());
       if (!sender) {
@@ -836,13 +841,26 @@ async function main() {
         asPageId = page.id;
       }
 
-      await prisma.message.create({
+      const created = await prisma.message.create({
         data: {
           conversationId: conversation.id,
           senderId: sender.id,
           asPageId,
           content: msg.content,
         },
+      });
+      lastMessageAt = created.createdAt;
+    }
+
+    // Every seeded conversation starts fully read for all its participants — a fresh demo
+    // environment shouldn't carry unread badges for content that was never actually new. Without
+    // this, every participant row defaults to lastReadAt: null, so the last message of every
+    // conversation (often not authored by every participant) reads as permanently unread until
+    // something in the app happens to open that exact thread.
+    if (lastMessageAt) {
+      await prisma.conversationParticipant.updateMany({
+        where: { conversationId: conversation.id },
+        data: { lastReadAt: lastMessageAt },
       });
     }
   }

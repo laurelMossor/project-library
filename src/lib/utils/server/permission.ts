@@ -102,6 +102,25 @@ export async function getMemberPageIdsForUsers(userIds: string[]): Promise<Map<s
   return map;
 }
 
+/**
+ * The users who may act as each page (ADMIN/EDITOR), for many pages in one query — e.g. fanning a
+ * message out to every manager of every page in a conversation. Pages with no managers are absent.
+ */
+export async function getActingManagerIdsByPage(pageIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (pageIds.length === 0) return map;
+  const perms = await prisma.permission.findMany({
+    where: { resourceId: { in: pageIds }, resourceType: ResourceType.PAGE, role: { in: [...ACTING_ROLES] } },
+    select: { userId: true, resourceId: true },
+  });
+  for (const p of perms) {
+    const list = map.get(p.resourceId) ?? [];
+    list.push(p.userId);
+    map.set(p.resourceId, list);
+  }
+  return map;
+}
+
 /** Get user's role on a resource */
 export async function getUserPermission(
   userId: string,

@@ -7,11 +7,11 @@
  *   - the "Original source" content line and community-share disclaimer
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+
 import { isSuperAdmin } from "@/lib/utils/server/superadmin";
 import { verifyWebhookSecret, isAllowedSender, parseTelegramMessage } from "@/lib/utils/server/telegram";
 import { parseFutureEventDate } from "@/lib/utils/event-date";
-import { POSTER_CATCHER_DISCLAIMER, withDisclaimer, withSourceLine } from "@/lib/utils/text";
-import { cleanSocialDescription } from "@/lib/utils/server/poster-extract";
+import { POSTER_CATCHER_DISCLAIMER, cleanSocialDescription, withDisclaimer, withSourceLine } from "@/lib/utils/text";
 
 afterEach(() => {
 	vi.unstubAllEnvs();

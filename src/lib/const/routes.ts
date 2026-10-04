@@ -83,8 +83,12 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 export const MESSAGES = "/messages";
 // `asPageId` (optional) makes the link open the conversation under a page identity the viewer
 // manages — a one-shot entry consumed and stripped by the conversation page (see its useEffect).
+// DM entry by the other party (profile "Message" button) — resolves to the DM's conversation page.
 export const MESSAGE_CONVERSATION = ({ id, type, asPageId }: { id: string; type: "user" | "page"; asPageId?: string | null }) =>
 	`/messages/${type === "page" ? "p" : "u"}/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
+// A conversation (DM or group) by id — the canonical thread URL. Same one-shot `asPageId` as above.
+export const MESSAGE_THREAD = (conversationId: string, asPageId?: string | null) =>
+	`/messages/c/${conversationId}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
 
 // ============================================================================
 // API Routes
@@ -156,7 +160,17 @@ export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 
 // Message API Routes
 export const API_MESSAGES = "/api/messages";
-export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;
+export const API_SEARCH_PROFILES = (q: string, type: "user" | "page" | "all" = "all") =>
+	`/api/search/profiles?q=${encodeURIComponent(q)}&type=${type}`;
+export const API_MESSAGES_DIRECT = "/api/messages/direct"; // POST resolve/create the DM with a user/page
+export const API_MESSAGES_SUGGESTIONS = (asPageId?: string | null) =>
+	asPageId ? `/api/messages/suggestions?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/suggestions";
+export const API_CONVERSATIONS = "/api/messages/conversations"; // POST create a group
+/** GET a thread (pass `asPageId` for a page identity), PATCH rename/add members. */
+export const API_CONVERSATION = (id: string, asPageId?: string | null) =>
+	`/api/messages/conversations/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
+export const API_CONVERSATION_MESSAGES = (id: string) => `/api/messages/conversations/${id}/messages`;
+export const API_CONVERSATION_LEAVE = (id: string) => `/api/messages/conversations/${id}/leave`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 
 // Activity notifications

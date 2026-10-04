@@ -120,7 +120,16 @@ enum NotificationCategory {
   RSVPS
 }
 
-// What an EmailOutbox row points at, so the flush can read the source's readAt for read-suppression.
+// DIRECT = a 1:1 thread between two identities (found by its pair); GROUP = an explicitly created,
+// optionally named thread of 2+ identities. Never inferred from participant count: a group that
+// shrinks to two members must not start matching DM lookups. (A future Page chat room would be a
+// third kind.)
+enum ConversationKind {
+  DIRECT
+  GROUP
+}
+
+// What an EmailOutbox row points at, so the flush can read the source's read state for read-suppression.
 enum EmailSourceType {
   NOTIFICATION
   MESSAGE
@@ -716,11 +725,17 @@ model ImageAttachment {
 //   1. Direct user participant: conversation_participants.userId = X
 //   2. Page participant: conversation_participants.pageId = P
 //      AND permissions(userId=X, resourceId=P, role in [ADMIN, EDITOR])
+//
+// Read state is per participant (`lastReadAt`), so in a group one member reading never clears
+// another's unread. A Page participant's marker is shared by all its managers. A participant sees
+// only messages sent at/after it joined (`ConversationParticipant.createdAt`).
 
 model Conversation {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  kind      ConversationKind @default(DIRECT)
+  name      String? // GROUP only; optional display name
 
   participants ConversationParticipant[]
   messages     Message[]
@@ -738,6 +753,9 @@ model ConversationParticipant {
   // 20260706000100_add_invariant_check_constraints).
   userId String?
   pageId String?
+
+  // Messages at/before this are read for this identity. Null = nothing read yet.
+  lastReadAt DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -757,6 +775,8 @@ model Message {
   senderId       String
   asPageId       String?
   createdAt      DateTime  @default(now())
+  // DEPRECATED — superseded by ConversationParticipant.lastReadAt; no longer read or written.
+  // Kept so this release stays additive; dropped by a follow-up migration.
   readAt         DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

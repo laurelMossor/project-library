@@ -1,53 +1,27 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useDebounce } from "@/lib/hooks/useDebounce";
+import { MIN_SEARCH_LENGTH, useProfileSearch } from "@/lib/hooks/useProfileSearch";
 import { useColumnCount } from "@/lib/hooks/useColumnCount";
 import { SearchResultCard } from "./SearchResultCard";
 import type { SearchResultItem } from "@/lib/types/search";
 
 export function ProfileSearchPage() {
 	const [query, setQuery] = useState("");
-	const [results, setResults] = useState<SearchResultItem[]>([]);
-	const [isLoading, setIsLoading] = useState(false);
+	const { results, loading: isLoading, debouncedQuery } = useProfileSearch(query, "all");
 	const inputRef = useRef<HTMLInputElement>(null);
-	const debouncedQuery = useDebounce(query, 300);
 	const columnCount = useColumnCount();
 
 	useEffect(() => {
 		inputRef.current?.focus();
 	}, []);
 
-	useEffect(() => {
-		if (debouncedQuery.length < 2) {
-			setResults([]);
-			return;
-		}
-
-		let cancelled = false;
-		setIsLoading(true);
-
-		fetch(`/api/search/profiles?q=${encodeURIComponent(debouncedQuery)}`)
-			.then((res) => res.json())
-			.then((data) => {
-				if (!cancelled) setResults(data.results ?? []);
-			})
-			.catch(() => {
-				if (!cancelled) setResults([]);
-			})
-			.finally(() => {
-				if (!cancelled) setIsLoading(false);
-			});
-
-		return () => { cancelled = true; };
-	}, [debouncedQuery]);
-
 	// Distribute results into columns (same pattern as FilteredCollection)
 	const columns: SearchResultItem[][] = Array.from({ length: columnCount }, () => []);
 	results.forEach((result, i) => columns[i % columnCount].push(result));
 
-	const showHint = query.length > 0 && query.length < 2;
-	const showEmpty = !isLoading && debouncedQuery.length >= 2 && results.length === 0;
+	const showHint = query.length > 0 && query.length < MIN_SEARCH_LENGTH;
+	const showEmpty = !isLoading && debouncedQuery.length >= MIN_SEARCH_LENGTH && results.length === 0;
 
 	return (
 		<>

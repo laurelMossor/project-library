@@ -13,7 +13,7 @@ import { sendNotificationEmail } from "./email/emails";
 import type { EmailProfileSection, EmailNotificationRow } from "./email/templates/NotificationEmail";
 import { signUnsubscribeToken } from "./unsubscribe-token";
 import { absoluteUrl } from "./url";
-import { PROFILE_SETTINGS, UNSUBSCRIBE_WITH_TOKEN, MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { PROFILE_SETTINGS, UNSUBSCRIBE_WITH_TOKEN, MESSAGE_THREAD } from "@/lib/const/routes";
 import { publicPageEmbedFields } from "./fields";
 import { publicUserEmbedFields } from "./user";
 import { resolveCardIdentity } from "@/lib/types/card";
@@ -21,6 +21,8 @@ import { truncateText } from "@/lib/utils/text";
 import { logAction } from "./log";
 import { getMemberPageIdsForUsers } from "./permission";
 import type { ViewerContext } from "./visibility";
+import { isMessageReadBy, loadReadMarkers, readMarkerKey } from "./message";
+import { participantIdentity } from "@/lib/const/messaging";
 
 // Reclaim a row whose flush crashed mid-run after this long, so nothing is orphaned. This is also what
 // makes delivery at-least-once: if a provider send SUCCEEDS but the process dies before we stamp the
@@ -70,20 +72,33 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 		msgIds.length
 			? prisma.message.findMany({
 					where: { id: { in: msgIds } },
-					select: { id: true, senderId: true, asPageId: true, content: true, readAt: true },
+					select: { id: true, conversationId: true, senderId: true, asPageId: true, content: true, createdAt: true },
 				})
 			: Promise.resolve([]),
 	]);
 	const notifMap = new Map(notifs.map((n) => [n.id, n]));
 	const msgMap = new Map(msgs.map((m) => [m.id, m]));
+	const readMarkers = await loadReadMarkers(msgs.map((m) => m.conversationId));
 
-	// Classify each row: suppressed (source gone or already read) vs candidate.
+	// Classify each row: suppressed (source gone or already read) vs candidate. A message's read state is
+	// per recipient identity: the row's context (page, or the user personally) has its own read marker in
+	// that conversation — and no marker at all once that identity has left.
 	const suppressed: { id: string; outcome: string }[] = [];
 	const candidates: typeof rows = [];
 	for (const row of rows) {
-		const source = row.sourceType === "NOTIFICATION" ? notifMap.get(row.sourceId) : msgMap.get(row.sourceId);
-		if (!source) suppressed.push({ id: row.id, outcome: "SUPPRESSED_MISSING" });
-		else if (source.readAt) suppressed.push({ id: row.id, outcome: "SUPPRESSED_READ" });
+		if (row.sourceType === "NOTIFICATION") {
+			const n = notifMap.get(row.sourceId);
+			if (!n) suppressed.push({ id: row.id, outcome: "SUPPRESSED_MISSING" });
+			else if (n.readAt) suppressed.push({ id: row.id, outcome: "SUPPRESSED_READ" });
+			else candidates.push(row);
+			continue;
+		}
+		const m = msgMap.get(row.sourceId);
+		// The row's recipient identity: the page context, or the user personally.
+		const recipient = participantIdentity({ userId: row.recipientUserId, pageId: row.contextPageId });
+		const marker = m ? readMarkers.get(readMarkerKey(m.conversationId, recipient)) : undefined;
+		if (!m || marker === undefined) suppressed.push({ id: row.id, outcome: "SUPPRESSED_MISSING" });
+		else if (isMessageReadBy(marker, m)) suppressed.push({ id: row.id, outcome: "SUPPRESSED_READ" });
 		else candidates.push(row);
 	}
 
@@ -168,11 +183,9 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 					const senderName = m.asPageId
 						? pageMap.get(m.asPageId) ? resolveCardIdentity(pageMap.get(m.asPageId)! as never).name : "Someone"
 						: senderUserMap.get(m.senderId) ? resolveCardIdentity(senderUserMap.get(m.senderId)! as never).name : "Someone";
-					const other = m.asPageId ? { id: m.asPageId, type: "page" as const } : { id: m.senderId, type: "user" as const };
-					// A page-recipient row carries the page context so the link opens the page-owned
-					// conversation under that identity (the viewer's session default is personal). Personal
-					// rows (contextPageId null) get an unchanged link.
-					return { text: `${senderName}: ${truncateText(m.content, 120)}`, href: absoluteUrl(MESSAGE_CONVERSATION({ ...other, asPageId: contextPageId })) };
+					// A page-recipient row carries the page context so the link opens the conversation under
+					// that identity (the viewer's session default is personal). Personal rows get a plain link.
+					return { text: `${senderName}: ${truncateText(m.content, 120)}`, href: absoluteUrl(MESSAGE_THREAD(m.conversationId, contextPageId)) };
 				});
 
 			const emailRows = [...notifEmailRows, ...msgEmailRows];

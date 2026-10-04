@@ -10,6 +10,14 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
+## v0.5.0 — Meatup part 2: Group Messaging (Unreleased)
+
+Group messaging on top of the existing 1:1 DMs. On `meatup-4-group-messaging`, PR #52, not yet merged.
+
+- **Group messaging** — multi-participant threads alongside DMs; create / rename / add members / leave; pages act as shared inboxes with co-manager-only sender attribution; per-participant read state; restyled thread UI.
+
+---
+
 ## v0.4.3 — Meatup part 1 (9/19/26)
 
 - **Member RSVPs** — logged-in members RSVP with auto-filled identity; closes email spoofing on member RSVPs.
