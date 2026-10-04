@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sun 10/04/2026 11:38 PDT
+Reviewed the group-messaging follow-up and landed the DRY pass. Viewing and sending share one forward-only read marker. A thread fetch is a pure read again. Added a DRY/SOLID step to `/prolib-review` so a review flags a second copy of a rule or component.
+
 #### Entry: Sat 10/03/2026 14:10 PDT
 The post composer is now one dropdown. Your profile starts checked, the pages you can post to are radios, and at least one has to stay selected. A page invite now says the page invited you to be an Admin, an Editor, or a Member on their page. Your own profile no longer offers Follow, and admins and editors can pin that page's posts.
 
