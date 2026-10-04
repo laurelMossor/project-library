@@ -36,7 +36,7 @@ import {
 	findOrCreateDirectConversation,
 	getThread,
 	listInbox,
-	markConversationRead,
+	advanceReadMarker,
 	loadReadMarkers,
 	readMarkerKey,
 	isMessageReadBy,
@@ -201,31 +201,10 @@ describe("getThread", () => {
 		expect((await getThread("g1", guild, "alice"))!.canLeave).toBe(true);
 	});
 
-	// Viewing marks read, inline with the fetch — no second request, and (by construction) no race with
-	// a message arriving between "load" and "mark read": they're the same request.
-	test("fetching the thread marks it read up to its newest message, in the same request", async () => {
-		p.message.findFirst.mockResolvedValue({ createdAt: t(4) }); // "m1"'s own createdAt
-		await getThread("g1", sam, "sam");
-		expect(p.message.findFirst.mock.calls[0][0].where).toEqual({ id: "m1", conversationId: "g1" });
-		expect(p.conversationParticipant.update).toHaveBeenCalledWith(
-			expect.objectContaining({ data: { lastReadAt: t(4) } }),
-		);
-	});
-
-	test("already read as of a later time → the marker never moves backwards", async () => {
-		p.conversationParticipant.findFirst.mockResolvedValue({
-			createdAt: t(3), lastReadAt: t(5), conversation: { id: "g1", kind: "GROUP", name: "Crew" },
-		});
-		p.message.findFirst.mockResolvedValue({ createdAt: t(4) });
+	test("loading a thread does not write the read marker", async () => {
 		await getThread("g1", sam, "sam");
 		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
-	});
-
-	test("an empty thread has nothing to mark read", async () => {
-		p.message.findMany.mockResolvedValue([]);
-		await getThread("g1", sam, "sam");
-		expect(p.message.findFirst).not.toHaveBeenCalled();
-		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
+		expect(p.conversationParticipant.updateMany).not.toHaveBeenCalled();
 	});
 });
 
@@ -294,39 +273,34 @@ describe("group lifecycle", () => {
 	});
 });
 
-describe("markConversationRead", () => {
-	beforeEach(() => {
-		p.conversationParticipant.findFirst.mockResolvedValue({ id: "part1", lastReadAt: t(5) });
+describe("advanceReadMarker", () => {
+	const upTo = t(8);
+	const forwardOnly = [{ lastReadAt: null }, { lastReadAt: { lt: upTo } }];
+
+	test("a user: moves the marker forward only, to the timestamp the caller already has", async () => {
+		await advanceReadMarker("c1", alice, upTo);
+		expect(p.conversationParticipant.updateMany).toHaveBeenCalledWith({
+			where: { conversationId: "c1", userId: "alice", OR: forwardOnly },
+			data: { lastReadAt: upTo },
+		});
 	});
 
-	test("non-participant → false, nothing written", async () => {
-		p.conversationParticipant.findFirst.mockResolvedValue(null);
-		expect(await markConversationRead("c1", alice, "m9")).toBe(false);
-		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
+	test("a page: the page's shared marker, not the human manager's", async () => {
+		await advanceReadMarker("c1", guild, upTo);
+		expect(p.conversationParticipant.updateMany).toHaveBeenCalledWith({
+			where: { conversationId: "c1", pageId: "guild", OR: forwardOnly },
+			data: { lastReadAt: upTo },
+		});
 	});
 
-	test("reads up to the loaded message's time — not 'now' (a later arrival stays unread)", async () => {
-		p.message.findFirst.mockResolvedValue({ createdAt: t(8) });
-		expect(await markConversationRead("c1", alice, "m8")).toBe(true);
-		expect(p.message.findFirst.mock.calls[0][0].where).toEqual({ id: "m8", conversationId: "c1" });
-		expect(p.conversationParticipant.update).toHaveBeenCalledWith({ where: { id: "part1" }, data: { lastReadAt: t(8) } });
-	});
-
-	test("never moves the marker backwards", async () => {
-		p.message.findFirst.mockResolvedValue({ createdAt: t(2) });
-		await markConversationRead("c1", alice, "m2");
-		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
-	});
-
-	test("a message from another conversation is ignored", async () => {
-		p.message.findFirst.mockResolvedValue(null); // scoped lookup misses it
-		expect(await markConversationRead("c1", alice, "other")).toBe(true);
-		expect(p.conversationParticipant.update).not.toHaveBeenCalled();
-	});
-
-	test("no message id (empty thread) is a no-op for a participant", async () => {
-		expect(await markConversationRead("c1", alice)).toBe(true);
-		expect(p.message.findFirst).not.toHaveBeenCalled();
+	test("uses the caller's db client, so a send can advance inside its transaction", async () => {
+		const tx = { conversationParticipant: { updateMany: vi.fn() } };
+		await advanceReadMarker("c1", alice, upTo, tx as never);
+		expect(tx.conversationParticipant.updateMany).toHaveBeenCalledWith({
+			where: { conversationId: "c1", userId: "alice", OR: forwardOnly },
+			data: { lastReadAt: upTo },
+		});
+		expect(p.conversationParticipant.updateMany).not.toHaveBeenCalled();
 	});
 });
 

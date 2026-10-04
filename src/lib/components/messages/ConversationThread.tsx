@@ -55,8 +55,8 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 
 	/**
 	 * Load (or, in the background, refresh) the thread; resolves to the data, or null on failure.
-	 * The server marks the thread read as part of this GET (see `getThread`) — no separate PATCH, and no
-	 * race with a message arriving between "fetch" and "mark read": it's the same request.
+	 * The GET handler marks the thread read up to the newest message it returns. The cursor is that
+	 * message's timestamp, so one that arrives after this response stays unread.
 	 */
 	const fetchThread = useCallback(async (background = false): Promise<ConversationThreadData | null> => {
 		if (!background) { setLoading(true); setError(""); }

@@ -170,7 +170,6 @@ export const API_CONVERSATIONS = "/api/messages/conversations"; // POST create a
 export const API_CONVERSATION = (id: string, asPageId?: string | null) =>
 	`/api/messages/conversations/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
 export const API_CONVERSATION_MESSAGES = (id: string) => `/api/messages/conversations/${id}/messages`;
-export const API_CONVERSATION_READ = (id: string) => `/api/messages/conversations/${id}/read`;
 export const API_CONVERSATION_LEAVE = (id: string) => `/api/messages/conversations/${id}/leave`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 
