@@ -10,6 +10,14 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
+## v0.5.1 — Generated profile avatars (Unreleased)
+
+On `meatup-6-boring-avatars`, not yet merged.
+
+- **Generated avatars** — a profile with no photo shows a Bauhaus mark in the Project Library colors; an uploaded photo still wins; the mark is seeded by the account id, so a handle change leaves it unchanged.
+
+---
+
 ## v0.5.0 — Meatup part 2: Group Messaging (Unreleased)
 
 Group messaging on top of the existing 1:1 DMs. On `meatup-4-group-messaging`, PR #52, not yet merged.
