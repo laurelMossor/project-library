@@ -3,7 +3,7 @@
  *
  * The netwerk-8 fix made changing a page's privacy ADMIN-only while an EDITOR may still
  * edit the rest of the profile. `profile-update.test.ts` covers the util given an explicit
- * `allowVisibilityChange`; THIS test locks the route WIRING — that the route feeds
+ * `allowManageChange`; THIS test locks the route WIRING — that the route feeds
  * `canManagePage` (not `canPostAsPage`) into that flag, and maps the util's `forbidden`
  * result to 403 vs. 400 for validation errors.
  *
@@ -87,7 +87,7 @@ describe("PUT /api/me/page — EDITOR (act-as-page, not admin)", () => {
   beforeEach(() => setStoredRole("EDITOR"));
 
   test("visibility change → 403 and NO write (the regression lock)", async () => {
-    // If the route regressed to feeding canPostAsPage into allowVisibilityChange, the
+    // If the route regressed to feeding canPostAsPage into allowManageChange, the
     // EDITOR would pass and a write would run → 200. The 403 + no-write proves it uses
     // canManagePage (ADMIN-only) for the visibility field.
     const res = await PUT(putReq({ profileVisibility: "PRIVATE" }));

@@ -10,11 +10,14 @@ import { ProfileVisibility, PermissionRole, ResourceType } from "@prisma/client"
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
-    follow: { create: vi.fn() },
-    permission: { findFirst: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), count: vi.fn() },
+    follow: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+    user: { findUnique: vi.fn() },
+    page: { findUnique: vi.fn() },
+    permission: { findFirst: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     accessRequest: {
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
       delete: vi.fn(),
@@ -43,9 +46,12 @@ vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 
 import {
   requestOrCreateFollow,
-  requestOrJoinPage,
+  requestToJoinPage,
+  invitePageMember,
   approveRequest,
   denyRequest,
+  autoApprovePendingOnUnlock,
+  removeMember,
 } from "@/lib/utils/server/requests";
 import { prisma } from "@/lib/utils/server/prisma";
 
@@ -53,6 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default: $transaction runs its callback with the mocked client.
   vi.mocked(prisma.$transaction).mockImplementation(async (cb) => cb(prisma));
+  vi.mocked(prisma.follow.findFirst).mockResolvedValue(null);
 });
 
 // ---------------------------------------------------------------------------
@@ -101,23 +108,44 @@ describe("requestOrCreateFollow", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// requestOrJoinPage
-// ---------------------------------------------------------------------------
-// SKIPPED: self-service Join is flagged off (FEATURES.SELF_SERVICE_MEMBERSHIP). The util
-// still exists for a one-line re-enable — un-skip this block when membership returns.
-describe.skip("requestOrJoinPage", () => {
-  test("PUBLIC page → instant MEMBER grant", async () => {
-    const res = await requestOrJoinPage("u1", { id: "p1", profileVisibility: ProfileVisibility.PUBLIC});
-    expect(res).toEqual({ status: "joined", role: PermissionRole.MEMBER });
-    expect(prisma.permission.upsert).toHaveBeenCalledTimes(1);
+describe("requestToJoinPage", () => {
+  test("REQUEST_TO_JOIN → pending JOIN, no grant", async () => {
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
+    const res = await requestToJoinPage("u1", { id: "p1", membershipPolicy: "REQUEST_TO_JOIN" });
+    expect(res).toEqual({ status: "requested" });
+    expect(prisma.accessRequest.create).toHaveBeenCalledTimes(1);
+    expect(prisma.permission.upsert).not.toHaveBeenCalled();
+  });
+
+  test("CLOSED → unavailable, no request", async () => {
+    const res = await requestToJoinPage("u1", { id: "p1", membershipPolicy: "CLOSED" });
+    expect(res).toEqual({ status: "unavailable" });
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
   });
 
-  test("PRIVATE page → pending request, NO permission grant", async () => {
+  test("INVITE_ONLY → unavailable", async () => {
+    const res = await requestToJoinPage("u1", { id: "p1", membershipPolicy: "INVITE_ONLY" });
+    expect(res).toEqual({ status: "unavailable" });
+    expect(prisma.accessRequest.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("invitePageMember", () => {
+  test("MEMBER on a CLOSED page → invalid_role", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ id: "p1", membershipPolicy: "CLOSED" } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u2" } as never);
+    const res = await invitePageMember("p1", "u2", PermissionRole.MEMBER);
+    expect(res).toEqual({ ok: false, reason: "invalid_role" });
+    expect(prisma.accessRequest.create).not.toHaveBeenCalled();
+  });
+
+  test("MEMBER on INVITE_ONLY → invited", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ id: "p1", membershipPolicy: "INVITE_ONLY" } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u2" } as never);
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
-    const res = await requestOrJoinPage("u1", { id: "p1", profileVisibility: ProfileVisibility.PRIVATE});
-    expect(res).toEqual({ status: "requested" });
+    const res = await invitePageMember("p1", "u2", PermissionRole.MEMBER);
+    expect(res).toEqual({ ok: true, status: "invited" });
     expect(prisma.accessRequest.create).toHaveBeenCalledTimes(1);
     expect(prisma.permission.upsert).not.toHaveBeenCalled();
   });
@@ -173,19 +201,92 @@ describe("approveRequest", () => {
     expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-1" } });
   });
 
-  // SKIPPED: JOIN materialization (grant MEMBER) — self-service membership is flagged off
-  // (FEATURES.SELF_SERVICE_MEMBERSHIP). The FOLLOW-approval path above is the live mechanism.
-  test.skip("JOIN to a page, approved by an admin → grants MEMBER + deletes request", async () => {
+  test("JOIN approved by an admin → MEMBER + follow, request deleted", async () => {
     vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
-      id: "req-2", kind: "JOIN", requesterId: "u1", requesterPageId: null,
+      id: "req-2", kind: "JOIN", role: null, requesterId: "u1", requesterPageId: null,
       targetUserId: null, targetPageId: "p1",
     } as never);
     vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: PermissionRole.ADMIN } as never);
     const res = await approveRequest("admin", "req-2");
     expect(res).toEqual({ ok: true, status: "approved" });
     expect(prisma.permission.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.follow.create).toHaveBeenCalledTimes(1);
     expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-2" } });
+  });
+
+  test("INVITE accepted by the invitee → permission + follow, leftover JOIN dropped", async () => {
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+      id: "req-i", kind: "INVITE", role: PermissionRole.EDITOR,
+      requesterId: null, requesterPageId: "p1", targetUserId: "u2", targetPageId: null,
+    } as never);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ membershipPolicy: "INVITE_ONLY" } as never);
+    const res = await approveRequest("u2", "req-i");
+    expect(res).toEqual({ ok: true, status: "approved" });
+    expect(prisma.permission.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.follow.create).toHaveBeenCalledTimes(1);
+    expect(prisma.accessRequest.deleteMany).toHaveBeenCalledWith({
+      where: { kind: "JOIN", requesterId: "u2", targetPageId: "p1" },
+    });
+  });
+
+  test("JOIN approve leaves an existing higher role in place", async () => {
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+      id: "req-2", kind: "JOIN", role: null, requesterId: "u1", requesterPageId: null,
+      targetUserId: null, targetPageId: "p1",
+    } as never);
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: PermissionRole.ADMIN } as never);
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: PermissionRole.EDITOR } as never);
+    const res = await approveRequest("admin", "req-2");
+    expect(res).toEqual({ ok: true, status: "approved" });
+    expect(prisma.permission.upsert).not.toHaveBeenCalled();
     expect(prisma.follow.create).not.toHaveBeenCalled();
+    expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-2" } });
+  });
+
+  test("INVITE accept after the page is CLOSED → unavailable, nothing granted", async () => {
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+      id: "req-i", kind: "INVITE", role: PermissionRole.MEMBER,
+      requesterId: null, requesterPageId: "p1", targetUserId: "u2", targetPageId: null,
+    } as never);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ membershipPolicy: "CLOSED" } as never);
+    const res = await approveRequest("u2", "req-i");
+    expect(res).toEqual({ ok: false, reason: "unavailable" });
+    expect(prisma.permission.upsert).not.toHaveBeenCalled();
+    expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-i" } });
+  });
+
+  test("an admin can cancel an invite but cannot accept it", async () => {
+    const invite = {
+      id: "req-i", kind: "INVITE", role: PermissionRole.MEMBER,
+      requesterId: null, requesterPageId: "p1", targetUserId: "u2", targetPageId: null,
+    };
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue(invite as never);
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: PermissionRole.ADMIN } as never);
+    expect(await approveRequest("admin", "req-i")).toEqual({ ok: false, reason: "forbidden" });
+    expect(await denyRequest("admin", "req-i")).toEqual({ ok: true, status: "denied" });
+  });
+});
+
+describe("autoApprovePendingOnUnlock", () => {
+  test("only looks at FOLLOW requests", async () => {
+    vi.mocked(prisma.accessRequest.findMany).mockResolvedValue([]);
+    await autoApprovePendingOnUnlock({ type: "PAGE", id: "p1" });
+    expect(prisma.accessRequest.findMany).toHaveBeenCalledWith({
+      where: { targetPageId: "p1", kind: "FOLLOW" },
+    });
+  });
+});
+
+describe("removeMember", () => {
+  test("revokes the role and deletes the follow in one transaction", async () => {
+    await removeMember("u2", "p1");
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.permission.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "u2", resourceId: "p1", resourceType: ResourceType.PAGE },
+    });
+    expect(prisma.follow.deleteMany).toHaveBeenCalledWith({
+      where: { followerId: "u2", followingPageId: "p1" },
+    });
   });
 });
 

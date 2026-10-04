@@ -42,6 +42,12 @@ item's own `contentVisibility` field and is intentionally out of scope for this 
 column is 3-value so a *future* per-item override is a pure UI addition — but today no route accepts a
 client content visibility.
 
+**Where it lives is not who's speaking.** `pageId` is the collection, and therefore the audience:
+a post or event inherits that page's visibility. `asPageId` is the voice. When it is set it equals
+`pageId` (the page is speaking). When it is null the human author is speaking, even if the post
+lives on a page. `showOnAuthorProfile` only changes where an author-voiced, to-page post also
+appears. It never changes who can see it.
+
 ---
 
 ## 1. Invariants (never violate these)
@@ -107,12 +113,19 @@ client content visibility.
 10. **Mutations authorize the specific target**, derived from the session — "logged in" is never
     enough. Guard the id, not just the verb (IDOR is the default failure mode).
 
-11. **Changing a profile's visibility is a manage action, not an edit action.** For a Page, only
-    ADMIN (`canManagePage`) may change `profileVisibility` / `contentVisibility`; an EDITOR
-    (`canPostAsPage`) may edit the rest of the profile but never its privacy. Enforced in
-    `saveMyProfile` via the caller's `allowVisibilityChange` flag (the `/api/me/page` route derives
-    it from `canManagePage`), so a visibility field from a non-admin is rejected (403) before the
+11. **Changing a page's settings is a manage action, not an edit action.** For a Page, only
+    ADMIN (`canManagePage`) may change `profileVisibility`, `contentVisibility`, `membershipPolicy`,
+    or `allowMemberPosts`. An EDITOR (`canPostAsPage`) may edit the rest of the profile. Enforced in
+    `saveMyProfile` via the caller's `allowManageChange` flag (the `/api/me/page` route derives it
+    from `canManagePage`), so one of those fields from a non-admin is rejected (403) before the
     write. A user always controls their own profile's visibility (self is authoritative).
+
+12. **A post is never wider on its author's profile than on its page.** A to-page post inherits the
+    page's audience. Showing it on the author's profile (`showOnAuthorProfile`) adds a place it
+    appears; `authorProfilePlacementWhere` still requires the viewer to be able to see it on that
+    page. Following the author is not enough to see a private page's member post. Placement
+    (`pageId` / `asPageId` / `showOnAuthorProfile`) can change only while the post is a DRAFT, and
+    a reply copies its parent's placement.
 
 ---
 
@@ -121,11 +134,12 @@ client content visibility.
 | You are… | Use |
 |----------|-----|
 | showing ONE profile by id/handle | `requireViewableProfile(kind, id, viewer)` → `{id, profileVisibility}` or `null`→404 |
-| deciding SSR full/stub | `resolveProfileAccess(kind, {id, profileVisibility}, viewer)` → `FULL` / `LOCKED` / `HIDDEN` |
+| deciding SSR full/stub | `resolveProfileAccess(kind, {id, profileVisibility}, viewer)` → `FULL` / `LOCKED` |
 | gating ONE post / event | `canViewPost` / `canViewEvent` (read the content's `visibility`) |
 | a global content feed / search | `postListWhere` / `eventListWhere` (filter `FEED_VISIBILITY`) |
 | a profile search | `profileListWhere` (returns `{}`) + strip stub fields for PRIVATE (see `search.ts`) |
 | one entity's OWN collection | `collectionVisibilityWhere(kind, id, viewer)` (LISTED+UNLISTED, +PRIVATE if edge) |
+| an author's profile, including posts they wrote to a page | `authorProfilePlacementWhere(viewer)` OR'd with the personal-post clause. Never use `collectionVisibilityWhere("USER")` alone for that — it returns `{}` to the author's followers and would leak a private page's posts |
 | a new child's visibility | `resolveParentVisibility(userId, pageId?, eventId?, parentPostId?)` |
 | a page's own collection JSON | gate on `requireViewableProfile("PAGE", id, viewer)` first (LOCKED page → 404) |
 | a profile's contentVisibility changed | `syncDescendantVisibility(type, id, contentVis, tx)` |
@@ -141,7 +155,7 @@ Shared value-sets (`FEED_VISIBILITY`, `PROFILE_COLLECTION_VISIBILITY`) are the s
 
 - [ ] Built `viewer` once via `getViewerContext()`.
 - [ ] **Profile detail:** gated with `requireViewableProfile` / `resolveProfileAccess`. The stub is identity-only.
-- [ ] **Content detail:** gated with `canViewPost` / `canViewEvent`; not-viewable → **404**. DRAFT content only for its owner.
+- [ ] **Content detail:** gated with `canViewPost` / `canViewEvent`; not-viewable → **404**. DRAFT content only for whoever `canEditContent` allows: a current editor when it is spoken as a page, otherwise its author.
 - [ ] **Content list:** the visibility clause is a `*ListWhere` / `collectionVisibilityWhere` fragment and nothing widens it.
 - [ ] **Create/PATCH content:** never accept a client `visibility`; derive via the util. Re-parent re-derives.
 - [ ] **Embeds** use the attribution-only selectors.

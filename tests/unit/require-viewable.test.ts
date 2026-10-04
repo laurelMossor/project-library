@@ -16,11 +16,13 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   },
 }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
-vi.mock("@/lib/utils/server/permission", () => ({ canActAsEntity: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+  canEditContent: vi.fn(async (userId: string, content: { userId: string }) => content.userId === userId),
+}));
 
 import { requireViewableEvent, requireViewablePost } from "@/lib/utils/server/visibility";
 import { prisma } from "@/lib/utils/server/prisma";
-import { canActAsEntity } from "@/lib/utils/server/permission";
+import { canEditContent } from "@/lib/utils/server/permission";
 
 const ANON: ViewerContext = { userId: null, memberPageIds: [] };
 const AUTHOR: ViewerContext = { userId: "owner-1", memberPageIds: [] };
@@ -29,7 +31,7 @@ const STRANGER: ViewerContext = { userId: "viewer-9", memberPageIds: [] };
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never);
-  vi.mocked(canActAsEntity).mockResolvedValue(false);
+  vi.mocked(canEditContent).mockImplementation(async (userId: string, content: { userId: string }) => content.userId === userId);
 });
 
 describe("requireViewableEvent", () => {
@@ -53,11 +55,16 @@ describe("requireViewableEvent", () => {
     expect(await requireViewableEvent("e1", ANON)).toBeNull();
   });
 
-  test("DRAFT page event → a page co-manager (ADMIN/EDITOR) may see it (finding 8)", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue(event({ status: "DRAFT", pageId: "page-1", userId: "someone-else" }) as never);
-    vi.mocked(canActAsEntity).mockResolvedValue(true);
+  test("DRAFT spoken as a page → a page manager may see it", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(event({ status: "DRAFT", pageId: "page-1", asPageId: "page-1", userId: "someone-else" }) as never);
+    vi.mocked(canEditContent).mockResolvedValue(true);
     expect(await requireViewableEvent("e1", STRANGER)).not.toBeNull();
-    expect(canActAsEntity).toHaveBeenCalledWith("viewer-9", { page: { id: "page-1" } });
+    expect(canEditContent).toHaveBeenCalledWith("viewer-9", expect.objectContaining({ asPageId: "page-1" }));
+  });
+
+  test("DRAFT posted to a page (author speaking) → a page manager may not see it", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(event({ status: "DRAFT", pageId: "page-1", asPageId: null, userId: "someone-else" }) as never);
+    expect(await requireViewableEvent("e1", STRANGER)).toBeNull();
   });
 
   test("published PRIVATE → null for a non-edge viewer, event for the owner", async () => {

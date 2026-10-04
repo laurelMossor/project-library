@@ -1,5 +1,5 @@
 import type { ProfileElementItem } from "./profile-element";
-import type { ContentVisibility, ProfileVisibility } from "@prisma/client";
+import type { ContentVisibility, MembershipPolicy, ProfileVisibility } from "@prisma/client";
 
 export interface PublicPage {
   id: string;
@@ -12,6 +12,8 @@ export interface PublicPage {
   location: string | null;
   profileVisibility: ProfileVisibility;
   contentVisibility: ContentVisibility;
+  membershipPolicy: MembershipPolicy;
+  allowMemberPosts: boolean;
   addressLine1: string | null;
   addressLine2: string | null;
   city: string | null;

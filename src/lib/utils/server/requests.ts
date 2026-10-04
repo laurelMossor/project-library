@@ -1,8 +1,8 @@
-// ⚠️ SERVER-ONLY: Request-to-Follow / Request-to-Join choke point
+// ⚠️ SERVER-ONLY: Request-to-Follow / Request-to-Join / role-invite choke point
 //
-// The single place that decides "instant edge vs pending request" and that
-// materializes an approved request into the real grant (Follow / Permission).
-// Routes stay thin and never branch on visibility themselves.
+// The single place that opens a pending request and that materializes an approved
+// one into the real grant (Follow / Permission). Routes stay thin and never branch
+// on visibility or membership policy themselves.
 //
 // Model note: a pending request lives only in `AccessRequest`. Approval creates
 // the edge and deletes the request in one transaction; denial deletes it. The
@@ -10,8 +10,9 @@
 // what the visibility layer reads.
 
 import { prisma } from "./prisma";
-import { AccessRequestKind, PermissionRole, ResourceType, ProfileVisibility } from "@prisma/client";
-import { canManagePage, grantPermission } from "./permission";
+import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility, ResourceType } from "@prisma/client";
+import { canManagePage, getUserPermission, grantPermission, revokePermission } from "./permission";
+import { assignableRoles } from "@/lib/const/roles";
 import { emitActivity, type EntityRef } from "./activity";
 
 type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
@@ -41,6 +42,42 @@ function requestWhere(kind: AccessRequestKind, requester: EntityRef, target: Ent
   };
 }
 
+/**
+ * Idempotent follow. Creating a page and gaining a role both follow the page;
+ * a second call (re-approve, already following) is a no-op.
+ */
+export async function upsertFollow(requester: EntityRef, target: EntityRef, tx: Client = prisma) {
+  const data = followEdgeData(requester, target);
+  const existing = await tx.follow.findFirst({ where: data, select: { id: true } });
+  if (!existing) await tx.follow.create({ data });
+}
+
+/**
+ * The one place a page role is created: the permission row, plus a follow so the
+ * new member sees the page's connections-only content. Voluntary leave does not
+ * unfollow. Admin-remove (`removeMember`) drops both.
+ */
+export async function addMember(userId: string, pageId: string, role: PermissionRole, tx: Client = prisma) {
+  await grantPermission(userId, pageId, ResourceType.PAGE, role, tx);
+  await upsertFollow({ type: "USER", id: userId }, { type: "PAGE", id: pageId }, tx);
+}
+
+/**
+ * Admin-remove: drop the role and the user's follow of the page together.
+ * A follow is enough to keep seeing a private page, so revoking the role alone
+ * would leave that access in place. The follow row is the same whether
+ * membership created it or the person followed first, so both go.
+ * Voluntary leave does not call this.
+ */
+export async function removeMember(userId: string, pageId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
+    await tx.follow.deleteMany({
+      where: { followerId: userId, followingPageId: pageId },
+    });
+  });
+}
+
 /** Does `userId` have a pending FOLLOW request to `target`? (Drives the "Requested" button state.) */
 export async function hasPendingFollowRequest(userId: string, target: EntityRef): Promise<boolean> {
   const where = requestWhere(AccessRequestKind.FOLLOW, { type: "USER", id: userId }, target);
@@ -68,14 +105,25 @@ export async function cancelJoinRequest(userId: string, pageId: string): Promise
 }
 
 /** Create the pending request, or return the existing one (idempotent re-request). */
-async function upsertAccessRequest(kind: AccessRequestKind, requester: EntityRef, target: EntityRef) {
+async function upsertAccessRequest(
+  kind: AccessRequestKind,
+  requester: EntityRef,
+  target: EntityRef,
+  extra?: { role?: PermissionRole },
+) {
   const data = requestWhere(kind, requester, target);
   const existing = await prisma.accessRequest.findFirst({ where: data });
-  return existing ?? prisma.accessRequest.create({ data });
+  if (existing) {
+    if (extra?.role && existing.role !== extra.role) {
+      return prisma.accessRequest.update({ where: { id: existing.id }, data: { role: extra.role } });
+    }
+    return existing;
+  }
+  return prisma.accessRequest.create({ data: { ...data, role: extra?.role } });
 }
 
 // ---------------------------------------------------------------------------
-// Create-or-request — the single visibility branch point.
+// Create-or-request — the single visibility / policy branch point.
 // ---------------------------------------------------------------------------
 
 /**
@@ -88,7 +136,7 @@ export async function requestOrCreateFollow(
 ): Promise<{ status: "followed" | "requested" }> {
   // BLOCK-SEAM: a future isBlocked(requester, target) check goes here.
   if (target.profileVisibility !== ProfileVisibility.PRIVATE) {
-    await prisma.follow.create({ data: followEdgeData(requester, target) });
+    await upsertFollow(requester, target);
     await emitActivity("follow.created", requester, target);
     return { status: "followed" };
   }
@@ -97,25 +145,61 @@ export async function requestOrCreateFollow(
   return { status: "requested" };
 }
 
+export type JoinPageResult = { status: "requested" } | { status: "unavailable" };
+
 /**
- * Grant MEMBER on `page`, or open a pending JOIN request when `page` is PRIVATE.
- * JOIN is user→page only. Caller has confirmed the user holds no privileged role.
+ * Open a pending JOIN request. Only a REQUEST_TO_JOIN page accepts one; every
+ * other policy is "unavailable" so the route can 404 (no existence leak, and no
+ * instant-join — membership is never granted without an admin).
  */
-export async function requestOrJoinPage(
+export async function requestToJoinPage(
   userId: string,
-  page: { id: string; profileVisibility: ProfileVisibility },
-): Promise<{ status: "joined" | "requested"; role?: PermissionRole }> {
+  page: { id: string; membershipPolicy: MembershipPolicy },
+): Promise<JoinPageResult> {
+  if (page.membershipPolicy !== MembershipPolicy.REQUEST_TO_JOIN) {
+    return { status: "unavailable" };
+  }
   const requester: EntityRef = { type: "USER", id: userId };
   const target: EntityRef = { type: "PAGE", id: page.id };
-  // BLOCK-SEAM: a future isBlocked(userId, page) check goes here.
-  if (page.profileVisibility !== ProfileVisibility.PRIVATE) {
-    await grantPermission(userId, page.id, ResourceType.PAGE, PermissionRole.MEMBER);
-    await emitActivity("membership.joined", requester, target);
-    return { status: "joined", role: PermissionRole.MEMBER };
-  }
   await upsertAccessRequest(AccessRequestKind.JOIN, requester, target);
   await emitActivity("membership.requested", requester, target);
   return { status: "requested" };
+}
+
+export type InviteResult =
+  | { ok: true; status: "invited" }
+  | { ok: false; reason: "not_found" | "user_not_found" | "invalid_role" | "already_member" };
+
+/**
+ * Invite `userId` to `role` on `pageId`. The invitee must accept; nothing is
+ * granted here. Re-inviting the same person updates the offered role.
+ * MEMBER is only offered when the page's policy is not CLOSED.
+ */
+export async function invitePageMember(pageId: string, userId: string, role: PermissionRole): Promise<InviteResult> {
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    select: { id: true, membershipPolicy: true },
+  });
+  if (!page) return { ok: false, reason: "not_found" };
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) return { ok: false, reason: "user_not_found" };
+
+  if (!assignableRoles(page.membershipPolicy).includes(role)) {
+    return { ok: false, reason: "invalid_role" };
+  }
+
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  if (existing) return { ok: false, reason: "already_member" };
+
+  await upsertAccessRequest(
+    AccessRequestKind.INVITE,
+    { type: "PAGE", id: pageId },
+    { type: "USER", id: userId },
+    { role },
+  );
+  await emitActivity("membership.invited", { type: "PAGE", id: pageId }, { type: "USER", id: userId }, { role });
+  return { ok: true, status: "invited" };
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +222,7 @@ const requesterPageSelect = {
   avatarImage: { select: { url: true } },
 } as const;
 
-/** Pending requests targeting a page (JOIN + any page-FOLLOW), oldest first. */
+/** Pending requests targeting a page (JOIN + any page-FOLLOW), oldest first. Invites are not here. */
 export function listPageRequests(pageId: string) {
   return prisma.accessRequest.findMany({
     where: { targetPageId: pageId },
@@ -150,10 +234,10 @@ export function listPageRequests(pageId: string) {
   });
 }
 
-/** Pending follow requests targeting a user, oldest first. */
+/** Pending FOLLOW requests targeting a user, oldest first. Invites are a different list. */
 export function listIncomingFollowRequests(userId: string) {
   return prisma.accessRequest.findMany({
-    where: { targetUserId: userId },
+    where: { targetUserId: userId, kind: AccessRequestKind.FOLLOW },
     include: {
       requester: { select: requesterUserSelect },
       requesterPage: { select: requesterPageSelect },
@@ -162,69 +246,148 @@ export function listIncomingFollowRequests(userId: string) {
   });
 }
 
+/** Role invitations waiting on this user, oldest first. */
+export function listMyInvites(userId: string) {
+  return prisma.accessRequest.findMany({
+    where: { targetUserId: userId, kind: AccessRequestKind.INVITE },
+    include: { requesterPage: { select: requesterPageSelect } },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/** Pending invitations this page has sent, oldest first. */
+export function listPageInvites(pageId: string) {
+  return prisma.accessRequest.findMany({
+    where: { requesterPageId: pageId, kind: AccessRequestKind.INVITE },
+    include: { targetUser: { select: requesterUserSelect } },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 // ---------------------------------------------------------------------------
-// Approve / deny — gated to the target's managers.
+// Approve / deny — who may act depends on the kind.
 // ---------------------------------------------------------------------------
 
 export type RequestActResult =
   | { ok: true; status: "approved" | "denied" }
-  | { ok: false; reason: "not_found" | "forbidden" };
+  | { ok: false; reason: "not_found" | "forbidden" | "unavailable" };
+
+type RequestRow = {
+  id: string;
+  kind: AccessRequestKind;
+  role: PermissionRole | null;
+  requesterId: string | null;
+  requesterPageId: string | null;
+  targetUserId: string | null;
+  targetPageId: string | null;
+};
 
 /**
- * Who may approve/deny a request: the targeted user themselves (their own
- * incoming follow request), or a page ADMIN. Page requests are ADMIN-only —
- * matching member management — so EDITORs can't grant or revoke membership.
+ * Who may approve. FOLLOW/JOIN: the target (the user themselves, or a page ADMIN).
+ * INVITE: the invitee only — a page admin can send an invite but cannot accept it.
  */
-async function canActOnRequest(
-  actorUserId: string,
-  req: { targetUserId: string | null; targetPageId: string | null },
-): Promise<boolean> {
+async function canApproveRequest(actorUserId: string, req: RequestRow): Promise<boolean> {
+  if (req.kind === AccessRequestKind.INVITE) return req.targetUserId === actorUserId;
   if (req.targetUserId) return req.targetUserId === actorUserId;
   if (req.targetPageId) return canManagePage(actorUserId, req.targetPageId);
   return false;
 }
 
-/** Materialize an approved request's edge inside a transaction. */
-async function materialize(
-  req: { kind: AccessRequestKind; requesterId: string | null; requesterPageId: string | null; targetUserId: string | null; targetPageId: string | null },
-  tx: Client,
-) {
-  if (req.kind === AccessRequestKind.FOLLOW) {
-    await tx.follow.create({
-      data: {
-        followerId: req.requesterId,
-        followerPageId: req.requesterPageId,
-        followingUserId: req.targetUserId,
-        followingPageId: req.targetPageId,
-      },
-    });
-  } else {
-    // JOIN: requester is a user, target is a page.
-    await grantPermission(req.requesterId!, req.targetPageId!, ResourceType.PAGE, PermissionRole.MEMBER, tx);
+/**
+ * Who may deny. Same as approve, plus a page ADMIN may cancel (deny) the page's
+ * own outgoing INVITE. The invitee declines; the admin cancels.
+ */
+async function canDenyRequest(actorUserId: string, req: RequestRow): Promise<boolean> {
+  if (await canApproveRequest(actorUserId, req)) return true;
+  if (req.kind === AccessRequestKind.INVITE && req.requesterPageId) {
+    return canManagePage(actorUserId, req.requesterPageId);
   }
+  return false;
 }
 
-/** Approve a request: materialize the edge and delete the request, atomically. */
+/** Materialize an approved request's edge inside a transaction. */
+async function materialize(req: RequestRow, tx: Client) {
+  if (req.kind === AccessRequestKind.FOLLOW) {
+    const requester: EntityRef = req.requesterId
+      ? { type: "USER", id: req.requesterId }
+      : { type: "PAGE", id: req.requesterPageId! };
+    const target: EntityRef = req.targetUserId
+      ? { type: "USER", id: req.targetUserId }
+      : { type: "PAGE", id: req.targetPageId! };
+    await upsertFollow(requester, target, tx);
+    return;
+  }
+  if (req.kind === AccessRequestKind.JOIN) {
+    // A higher role already granted (an accepted invite) must not be overwritten with MEMBER.
+    const existing = await getUserPermission(req.requesterId!, req.targetPageId!, ResourceType.PAGE, tx);
+    if (!existing) {
+      await addMember(req.requesterId!, req.targetPageId!, PermissionRole.MEMBER, tx);
+    }
+    return;
+  }
+  // INVITE: the page asked, the user accepted. The caller has re-checked the role
+  // against the page's current policy. Drop a leftover JOIN so it cannot demote later.
+  await addMember(req.targetUserId!, req.requesterPageId!, req.role!, tx);
+  await tx.accessRequest.deleteMany({
+    where: {
+      kind: AccessRequestKind.JOIN,
+      requesterId: req.targetUserId,
+      targetPageId: req.requesterPageId,
+    },
+  });
+}
+
+/**
+ * Approve a request: materialize the edge and delete the request, atomically.
+ * An invite is re-read inside the transaction. If the page's policy no longer
+ * allows that role, the invite is deleted and nothing is granted.
+ */
 export async function approveRequest(actorUserId: string, requestId: string): Promise<RequestActResult> {
   const req = await prisma.accessRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, reason: "not_found" };
-  if (!(await canActOnRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
+  if (!(await canApproveRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
 
-  await prisma.$transaction(async (tx) => {
-    await materialize(req, tx);
-    await tx.accessRequest.delete({ where: { id: req.id } });
+  const granted = await prisma.$transaction(async (tx) => {
+    const current = await tx.accessRequest.findUnique({ where: { id: requestId } });
+    if (!current) return null;
+
+    if (current.kind === AccessRequestKind.INVITE) {
+      const page = await tx.page.findUnique({
+        where: { id: current.requesterPageId! },
+        select: { membershipPolicy: true },
+      });
+      const role = current.role;
+      if (!page || !role || !assignableRoles(page.membershipPolicy).includes(role)) {
+        await tx.accessRequest.delete({ where: { id: current.id } });
+        return "unavailable" as const;
+      }
+    }
+
+    await materialize(current, tx);
+    await tx.accessRequest.delete({ where: { id: current.id } });
+    return current;
   });
 
-  // Tell the requester they're in. Fires AFTER the transaction commits (never inside it): the
-  // actor is the entity that was approved, the recipient is the original requester. Links to the
-  // actor's profile, like NEW_FOLLOWER. emitActivity never throws.
-  const approver: EntityRef = req.targetUserId
-    ? { type: "USER", id: req.targetUserId }
-    : { type: "PAGE", id: req.targetPageId! };
-  const requester: EntityRef = req.requesterId
-    ? { type: "USER", id: req.requesterId }
-    : { type: "PAGE", id: req.requesterPageId! };
-  await emitActivity("request.approved", approver, requester);
+  if (granted === "unavailable") return { ok: false, reason: "unavailable" };
+  if (!granted) return { ok: false, reason: "not_found" };
+
+  // Tell the other side they're in. Fires AFTER the transaction commits. emitActivity never throws.
+  if (granted.kind === AccessRequestKind.INVITE) {
+    // The invitee joined the page — notify the page's managers (NEW_MEMBER).
+    await emitActivity(
+      "membership.joined",
+      { type: "USER", id: granted.targetUserId! },
+      { type: "PAGE", id: granted.requesterPageId! },
+    );
+  } else {
+    const approver: EntityRef = granted.targetUserId
+      ? { type: "USER", id: granted.targetUserId }
+      : { type: "PAGE", id: granted.targetPageId! };
+    const requester: EntityRef = granted.requesterId
+      ? { type: "USER", id: granted.requesterId }
+      : { type: "PAGE", id: granted.requesterPageId! };
+    await emitActivity("request.approved", approver, requester);
+  }
 
   return { ok: true, status: "approved" };
 }
@@ -233,19 +396,22 @@ export async function approveRequest(actorUserId: string, requestId: string): Pr
 export async function denyRequest(actorUserId: string, requestId: string): Promise<RequestActResult> {
   const req = await prisma.accessRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, reason: "not_found" };
-  if (!(await canActOnRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
+  if (!(await canDenyRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
 
   await prisma.accessRequest.delete({ where: { id: req.id } });
   return { ok: true, status: "denied" };
 }
 
 /**
- * When an entity flips PRIVATE → PUBLIC/UNLISTED, the reason to gate is gone:
- * materialize every pending request targeting it, then drop them. Call inside
- * the same transaction as the visibility change.
+ * When an entity flips PRIVATE → PUBLIC, the reason to gate *follows* is gone:
+ * materialize every pending FOLLOW targeting it, then drop those rows.
+ *
+ * JOIN and INVITE are deliberately left alone. Auto-accepting JOINs belongs to a
+ * future flip to membership policy OPEN, not to a visibility unlock.
  */
 export async function autoApprovePendingOnUnlock(entity: EntityRef, tx: Client = prisma): Promise<void> {
-  const where = entity.type === "USER" ? { targetUserId: entity.id } : { targetPageId: entity.id };
+  const target = entity.type === "USER" ? { targetUserId: entity.id } : { targetPageId: entity.id };
+  const where = { ...target, kind: AccessRequestKind.FOLLOW };
   const pending = await tx.accessRequest.findMany({ where });
   for (const req of pending) {
     await materialize(req, tx);
@@ -254,10 +420,3 @@ export async function autoApprovePendingOnUnlock(entity: EntityRef, tx: Client =
     await tx.accessRequest.deleteMany({ where });
   }
 }
-
-/**
- * Out-of-scope seam (documented, not built): a PRIVATE page currently grants the
- * same access to a follow edge and a membership edge. The planned future model
- * splits these — followers see public updates, members see private content — at
- * which point FOLLOW vs JOIN approval would gate different surfaces. Not in beta.
- */

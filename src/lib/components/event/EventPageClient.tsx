@@ -27,7 +27,9 @@ import { AuthError, authFetch } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
-import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { contentIdentity } from "@/lib/utils/content-identity";
+import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
@@ -167,9 +169,26 @@ function EventPageContent({
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
 	};
 
-	const handleAuthorSwitch = async (pageId: string | null) => {
+	const { voice, placedIn } = contentIdentity({
+		user: event.user,
+		page: event.page ?? null,
+		asPageId: event.asPageId ?? null,
+	});
+
+	const handleAuthorSwitch = async (asPageId: string | null) => {
 		try {
-			const updated = await updateEvent(event.id, { pageId });
+			const updated = await updateEvent(event.id, asPageId
+				? { asPageId }
+				: { asPageId: null, pageId: null, showOnAuthorProfile: false });
+			setEvent((prev) => ({ ...prev, ...updated }));
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
+		}
+	};
+
+	const handlePostTo = async (next: { pageId: string | null; showOnAuthorProfile: boolean }) => {
+		try {
+			const updated = await updateEvent(event.id, { asPageId: null, ...next });
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
@@ -250,12 +269,34 @@ function EventPageContent({
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex-1">
 						{isOwner && isDraft ? (
-							<DropdownProfileSelector
-								initialPageId={event.page?.id ?? null}
-								onChange={handleAuthorSwitch}
-							/>
+							<div className="space-y-2">
+								<DropdownProfileSelector
+									label="Posting as"
+									hint="Pages you can manage"
+									initialPageId={event.asPageId ?? null}
+									onChange={handleAuthorSwitch}
+								/>
+								{event.asPageId ? (
+									<p className="text-xs text-dusty-grey">Posts as {event.page?.name ?? "this page"} go on its page.</p>
+								) : (
+									<PostToSelector
+										pageId={event.pageId}
+										showOnProfile={!event.pageId || event.showOnAuthorProfile}
+										onChange={handlePostTo}
+									/>
+								)}
+							</div>
 						) : (
-							<ProfileTag entity={page ?? event.user} size="md" asLink />
+							<ProfileTag
+								entity={voice}
+								size="md"
+								asLink
+								trailing={placedIn ? (
+									<Link href={PUBLIC_PROFILE(placedIn.handle)} className="text-dusty-grey font-normal">
+										{" › "}{placedIn.name}
+									</Link>
+								) : undefined}
+							/>
 						)}
 					</div>
 

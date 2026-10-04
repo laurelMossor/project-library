@@ -22,7 +22,12 @@ vi.mock("@/lib/utils/server/prisma", () => ({
     post: { findUnique: vi.fn(), count: vi.fn().mockResolvedValue(0) },
   },
 }));
-vi.mock("@/lib/utils/server/permission", () => ({ canPostAsPage: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+  canPostAsPage: vi.fn(),
+  canPostToPage: vi.fn().mockResolvedValue(true),
+  canEditContent: vi.fn().mockResolvedValue(true),
+  canModerateContent: vi.fn().mockResolvedValue(true),
+}));
 vi.mock("@/lib/utils/server/user", () => ({ publicUserEmbedFields: {} }));
 vi.mock("@/lib/utils/server/visibility", () => ({
   getViewerContext: vi.fn(),
@@ -42,7 +47,7 @@ vi.mock("@/lib/utils/errors", () => ({
 import { PATCH } from "@/app/api/posts/[id]/route";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getViewerContext, requireViewablePost, syncDescendantVisibility } from "@/lib/utils/server/visibility";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { canEditContent, canPostAsPage } from "@/lib/utils/server/permission";
 
 const patch = (id: string, body: unknown) => {
   const req = new Request(`http://localhost/api/posts/${id}`, {
@@ -59,6 +64,7 @@ beforeEach(() => {
   tx.post.updateMany.mockResolvedValue({ count: 1 });
   vi.mocked(getViewerContext).mockResolvedValue({ userId: "u1" } as never);
   vi.mocked(canPostAsPage).mockResolvedValue(true as never);
+  vi.mocked(canEditContent).mockResolvedValue(true);
 });
 
 describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
@@ -73,20 +79,89 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  test("re-parenting a top-level post cascades pageId to replies AND runs the POST visibility cascade", async () => {
+  test("a published post's placement can't change", async () => {
     vi.mocked(requireViewablePost).mockResolvedValue({
-      id: "post-1", userId: "u1", pageId: "page-A", eventId: null,
+      id: "post-1", userId: "u1", pageId: "page-A", asPageId: "page-A", eventId: null,
       parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { pageId: "page-B" });
+    expect(res.status).toBe(400);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("re-parenting a DRAFT cascades pageId to replies AND runs the POST visibility cascade", async () => {
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: "page-A", asPageId: null, showOnAuthorProfile: false, eventId: null,
+      parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
     } as never);
     const res = await patch("post-1", { pageId: "page-B" });
     expect(res.status).toBe(200);
     // pageId cascade to the post's replies, with the NEW page
     expect(tx.post.updateMany).toHaveBeenCalledWith({
       where: { parentPostId: "post-1" },
-      data: { pageId: "page-B" },
+      data: { pageId: "page-B", asPageId: null, showOnAuthorProfile: false },
     });
     // visibility cascade for replies, using the POST parent type + the tx client
     expect(syncDescendantVisibility).toHaveBeenCalledWith("POST", "post-1", "PRIVATE", tx);
+  });
+
+  test("a page manager can pin a member post without being able to edit it", async () => {
+    vi.mocked(canEditContent).mockResolvedValue(false);
+    vi.mocked(canPostAsPage).mockResolvedValue(true);
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "alice", pageId: "page-A", asPageId: null, eventId: null,
+      parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { pinnedAt: "2026-10-03T00:00:00.000Z" });
+    expect(res.status).toBe(200);
+  });
+
+  test("a page manager cannot edit a member post's words", async () => {
+    vi.mocked(canEditContent).mockResolvedValue(false);
+    vi.mocked(canPostAsPage).mockResolvedValue(true);
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "alice", pageId: "page-A", asPageId: null, eventId: null,
+      parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { content: "rewritten" });
+    expect(res.status).toBe(403);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("switching a draft's voice on the same page updates replies and does not re-derive visibility", async () => {
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: "page-A", asPageId: "page-A", showOnAuthorProfile: false, eventId: null,
+      parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { asPageId: null, showOnAuthorProfile: true });
+    expect(res.status).toBe(200);
+    expect(tx.post.updateMany).toHaveBeenCalledWith({
+      where: { parentPostId: "post-1" },
+      data: { pageId: "page-A", asPageId: null, showOnAuthorProfile: true },
+    });
+    expect(syncDescendantVisibility).not.toHaveBeenCalled();
+  });
+
+  test("an event update's placement cannot change", async () => {
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: null, asPageId: null, eventId: "e1",
+      parentPostId: null, status: "DRAFT", contentVisibility: "PRIVATE",
+    } as never);
+    const res = await patch("post-1", { pageId: "public-page" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/event update/i) });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("the author cannot unpin a page post", async () => {
+    vi.mocked(canPostAsPage).mockResolvedValue(false);
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: "page-A", asPageId: null, eventId: null,
+      parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { pinnedAt: null });
+    expect(res.status).toBe(400);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   test("editing a reply's content (no pageId) is NOT blocked by the reply-page guard", async () => {

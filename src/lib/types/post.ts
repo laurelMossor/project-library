@@ -10,7 +10,9 @@ import { ImageItem } from "./image";
 export interface PostItem {
 	id: string;
 	userId: string; // User that created this post
-	pageId: string | null; // Optional - if set, posted on behalf of a page
+	pageId: string | null; // Where it lives. Null = the author's profile.
+	asPageId: string | null; // Who is speaking. Null = the author; when set, equals pageId.
+	showOnAuthorProfile: boolean;
 	eventId: string | null; // Optional - if set, this is a descendant post of an event
 	parentPostId: string | null; // Optional - if set, this is an update to another post
 	title: string | null; // Optional post title
@@ -36,6 +38,8 @@ export interface PostItem {
  */
 export type PostCreateInput = {
 	pageId?: string | null;
+	asPageId?: string | null;
+	showOnAuthorProfile?: boolean;
 	eventId?: string | null;
 	parentPostId?: string | null;
 	title?: string | null;
@@ -84,6 +88,8 @@ export function toPostCollectionItem(post: PostItem & { images?: ImageItem[]; _c
 		id: post.id,
 		userId: post.userId,
 		pageId: post.pageId,
+		asPageId: post.asPageId ?? null,
+		showOnAuthorProfile: post.showOnAuthorProfile ?? false,
 		title: post.title,
 		content: post.content,
 		status: post.status,

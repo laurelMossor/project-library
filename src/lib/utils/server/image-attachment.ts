@@ -5,7 +5,7 @@ import { prisma } from "./prisma";
 import { ImageItem } from "../../types/image";
 import { AttachmentTarget } from "@prisma/client";
 import { imageFields } from "./fields";
-import { canActAsEntity } from "./permission";
+import { canActAsEntity, canEditContent } from "./permission";
 import { deleteImage } from "./storage";
 
 /**
@@ -46,18 +46,14 @@ export async function canManageAttachmentTarget(
 		case AttachmentTarget.PAGE:
 			return canActAsEntity(userId, { page: { id: targetId } });
 		case AttachmentTarget.EVENT: {
-			const event = await prisma.event.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true } });
+			const event = await prisma.event.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true, asPageId: true } });
 			if (!event) return false;
-			return event.pageId
-				? canActAsEntity(userId, { page: { id: event.pageId } })
-				: canActAsEntity(userId, { user: { id: event.userId } });
+			return canEditContent(userId, event);
 		}
 		case AttachmentTarget.POST: {
-			const post = await prisma.post.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true } });
+			const post = await prisma.post.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true, asPageId: true } });
 			if (!post) return false;
-			return post.pageId
-				? canActAsEntity(userId, { page: { id: post.pageId } })
-				: canActAsEntity(userId, { user: { id: post.userId } });
+			return canEditContent(userId, post);
 		}
 		default:
 			return false;

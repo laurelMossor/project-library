@@ -1,0 +1,18 @@
+import { describe, test, expect } from "vitest";
+import { notificationText } from "@/lib/utils/notification-text";
+
+describe("notificationText MEMBER_INVITE", () => {
+	test("names the page and the offered role with a/an", () => {
+		expect(notificationText({ type: "MEMBER_INVITE", actorName: "North Hall", objectTitle: "Admin" }))
+			.toBe("North Hall invited you to be an Admin on their page");
+		expect(notificationText({ type: "MEMBER_INVITE", actorName: "North Hall", objectTitle: "Editor" }))
+			.toBe("North Hall invited you to be an Editor on their page");
+		expect(notificationText({ type: "MEMBER_INVITE", actorName: "North Hall", objectTitle: "Member" }))
+			.toBe("North Hall invited you to be a Member on their page");
+	});
+
+	test("an invite with no stored role still addresses the recipient", () => {
+		expect(notificationText({ type: "MEMBER_INVITE", actorName: "North Hall" }))
+			.toBe("North Hall invited you to join their page");
+	});
+});

@@ -8,8 +8,7 @@ import {
 	isSelfServiceRole,
 	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
-import { requestOrJoinPage, hasPendingJoinRequest, cancelJoinRequest } from "@/lib/utils/server/requests";
-import { FEATURES } from "@/lib/const/features";
+import { requestToJoinPage, hasPendingJoinRequest, cancelJoinRequest } from "@/lib/utils/server/requests";
 import { ResourceType, PermissionRole } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
@@ -37,28 +36,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 /**
  * POST /api/pages/[pageId]/membership
- * Self-service join: grants MEMBER on a public/unlisted page, or opens a pending
- * JOIN request on a PRIVATE one. Returns 400 if the user already holds ADMIN or
- * EDITOR (no self-downgrade).
- *
- * Gated by the membership flag: while self-service membership is off (beta), this
- * closes both the instant-join and request-to-JOIN paths (both flow through
- * `requestOrJoinPage`). GET and DELETE stay open so existing members can read their
- * state and leave, and pending requesters can still cancel.
+ * Ask to join. Only a REQUEST_TO_JOIN page accepts this; every other policy 404s.
+ * Returns 400 if the user already holds ADMIN or EDITOR (no self-downgrade).
  */
 export async function POST(_request: Request, { params }: RouteParams) {
 	try {
 		const ctx = await getSessionContext();
 		if (!ctx) return unauthorized();
 
-		if (!FEATURES.SELF_SERVICE_MEMBERSHIP) {
-			return notFound("Page not found");
-		}
-
 		const { pageId } = await params;
 		const page = await prisma.page.findUnique({
 			where: { id: pageId },
-			select: { id: true, profileVisibility: true },
+			select: { id: true, membershipPolicy: true },
 		});
 		if (!page) return notFound("Page not found");
 
@@ -73,8 +62,8 @@ export async function POST(_request: Request, { params }: RouteParams) {
 			return NextResponse.json({ role: PermissionRole.MEMBER });
 		}
 
-		// No role yet → join (public/unlisted) or request (private).
-		const result = await requestOrJoinPage(ctx.userId, page);
+		const result = await requestToJoinPage(ctx.userId, page);
+		if (result.status === "unavailable") return notFound("Page not found");
 		return NextResponse.json(result, { status: 201 });
 	} catch (error) {
 		console.error("POST /api/pages/[pageId]/membership error:", error);
@@ -86,6 +75,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
  * DELETE /api/pages/[pageId]/membership
  * Self-service leave for ANY role. The only guard: the last admin can't leave
  * (it would orphan the page) — they must hand off admin first.
+ * Leaving does not unfollow the page.
  */
 export async function DELETE(_request: Request, { params }: RouteParams) {
 	try {
@@ -96,7 +86,6 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 		const existing = await getUserPermission(ctx.userId, pageId, ResourceType.PAGE);
 
 		if (!existing) {
-			// No role — clear a pending join request if there is one (cancel).
 			await cancelJoinRequest(ctx.userId, pageId);
 			return NextResponse.json({ success: true });
 		}

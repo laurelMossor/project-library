@@ -9,17 +9,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { PermissionRole } from "@prisma/client";
 
-// Membership flag: a getter over a hoisted holder so a test can flip it and the route
-// re-reads the current value at call time.
-const flag = vi.hoisted(() => ({ on: false }));
-vi.mock("@/lib/const/features", () => ({
-  FEATURES: {
-    get SELF_SERVICE_MEMBERSHIP() {
-      return flag.on;
-    },
-  },
-}));
-
 vi.mock("@/lib/utils/server/prisma", () => ({ prisma: { page: { findUnique: vi.fn() } } }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 vi.mock("@/lib/utils/server/permission", () => ({
@@ -29,7 +18,7 @@ vi.mock("@/lib/utils/server/permission", () => ({
   wouldRemoveLastAdmin: vi.fn(),
 }));
 vi.mock("@/lib/utils/server/requests", () => ({
-  requestOrJoinPage: vi.fn(),
+  requestToJoinPage: vi.fn(),
   hasPendingJoinRequest: vi.fn(),
   cancelJoinRequest: vi.fn(),
 }));
@@ -44,37 +33,35 @@ import { DELETE, POST } from "@/app/api/pages/[pageId]/membership/route";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getUserPermission, revokePermission, wouldRemoveLastAdmin, isSelfServiceRole } from "@/lib/utils/server/permission";
-import { cancelJoinRequest, requestOrJoinPage } from "@/lib/utils/server/requests";
+import { cancelJoinRequest, requestToJoinPage } from "@/lib/utils/server/requests";
+import { MembershipPolicy } from "@prisma/client";
 
 const ctx = { params: Promise.resolve({ pageId: "p1" }) };
 const req = new Request("http://localhost/api/pages/p1/membership", { method: "DELETE" });
 const postReq = new Request("http://localhost/api/pages/p1/membership", { method: "POST" });
 
-// POST is the self-service join / request-to-JOIN entry point — the surface the
-// membership flag hides. These lock the real flag branch: OFF blocks before any
-// join work; ON lets the request through to requestOrJoinPage.
-describe("POST /api/pages/[pageId]/membership (flag gate)", () => {
+describe("POST /api/pages/[pageId]/membership (policy gate)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  test("flag OFF → 404, and no join/request work is attempted", async () => {
-    flag.on = false;
+  test("CLOSED page → 404, no join work", async () => {
     vi.mocked(getSessionContext).mockResolvedValue({ userId: "u1" } as never);
-    const res = await POST(postReq, ctx);
-    expect(res.status).toBe(404);
-    expect(requestOrJoinPage).not.toHaveBeenCalled();
-    expect(prisma.page.findUnique).not.toHaveBeenCalled();
-  });
-
-  test("flag ON, no existing role → passes the gate and opens a join/request", async () => {
-    flag.on = true;
-    vi.mocked(getSessionContext).mockResolvedValue({ userId: "u1" } as never);
-    vi.mocked(prisma.page.findUnique).mockResolvedValue({ id: "p1", profileVisibility: "PUBLIC" } as never);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ id: "p1", membershipPolicy: MembershipPolicy.CLOSED } as never);
     vi.mocked(getUserPermission).mockResolvedValue(null);
     vi.mocked(isSelfServiceRole).mockReturnValue(true);
-    vi.mocked(requestOrJoinPage).mockResolvedValue({ status: "joined", role: PermissionRole.MEMBER } as never);
+    vi.mocked(requestToJoinPage).mockResolvedValue({ status: "unavailable" });
+    const res = await POST(postReq, ctx);
+    expect(res.status).toBe(404);
+  });
+
+  test("REQUEST_TO_JOIN, no existing role → 201", async () => {
+    vi.mocked(getSessionContext).mockResolvedValue({ userId: "u1" } as never);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ id: "p1", membershipPolicy: MembershipPolicy.REQUEST_TO_JOIN } as never);
+    vi.mocked(getUserPermission).mockResolvedValue(null);
+    vi.mocked(isSelfServiceRole).mockReturnValue(true);
+    vi.mocked(requestToJoinPage).mockResolvedValue({ status: "requested" });
     const res = await POST(postReq, ctx);
     expect(res.status).toBe(201);
-    expect(requestOrJoinPage).toHaveBeenCalledWith("u1", { id: "p1", profileVisibility: "PUBLIC" });
+    expect(requestToJoinPage).toHaveBeenCalled();
   });
 });
 

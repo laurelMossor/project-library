@@ -31,6 +31,45 @@ export async function canPostAsPage(userId: string, pageId: string): Promise<boo
   return hasPermission(userId, pageId, ResourceType.PAGE, [...ACTING_ROLES]);
 }
 
+/**
+ * May this user post TO the page (their words, the page's collection)?
+ * The page must allow member posts, and the user must hold any role on it.
+ */
+export async function canPostToPage(userId: string, pageId: string): Promise<boolean> {
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    select: { allowMemberPosts: true },
+  });
+  if (!page?.allowMemberPosts) return false;
+  const role = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  return role !== null;
+}
+
+type ContentAuthority = { userId: string; asPageId?: string | null; pageId?: string | null };
+
+/**
+ * May this user edit the content's words?
+ * Page-spoken content (`asPageId` set) requires a current ADMIN/EDITOR of that page.
+ * The human who clicked publish is not enough — losing the role loses the voice.
+ * Personal posts and posts to a page (`asPageId` null) stay with the author.
+ * A page editor cannot edit a member's post to the page.
+ */
+export async function canEditContent(userId: string, content: ContentAuthority): Promise<boolean> {
+  if (content.asPageId) return canPostAsPage(userId, content.asPageId);
+  return content.userId === userId;
+}
+
+/**
+ * May this user delete the content or its comments? Editors, plus a manager of
+ * the page the content lives on — so a page can remove a member's post without
+ * being able to rewrite it.
+ */
+export async function canModerateContent(userId: string, content: ContentAuthority): Promise<boolean> {
+  if (await canEditContent(userId, content)) return true;
+  if (content.pageId) return canPostAsPage(userId, content.pageId);
+  return false;
+}
+
 /** Check if user can manage a page (ADMIN only — page config / destructive actions). */
 export async function canManagePage(userId: string, pageId: string): Promise<boolean> {
   return hasPermission(userId, pageId, ResourceType.PAGE, [PermissionRole.ADMIN]);
@@ -125,9 +164,10 @@ export async function getActingManagerIdsByPage(pageIds: string[]): Promise<Map<
 export async function getUserPermission(
   userId: string,
   resourceId: string,
-  resourceType: ResourceType
+  resourceType: ResourceType,
+  tx: PermissionWriteClient = prisma,
 ): Promise<PermissionRole | null> {
-  const permission = await prisma.permission.findUnique({
+  const permission = await tx.permission.findUnique({
     where: { userId_resourceId_resourceType: { userId, resourceId, resourceType } },
   });
   return permission?.role ?? null;
@@ -169,6 +209,8 @@ export async function getPagesForUser(userId: string) {
       zip: true,
       category: true,
       tags: true,
+      membershipPolicy: true,
+      allowMemberPosts: true,
     },
   });
 
@@ -213,13 +255,14 @@ export async function grantPermission(
   });
 }
 
-/** Revoke a permission */
+/** Revoke a permission. Pass `tx` to run inside the caller's transaction. */
 export async function revokePermission(
   userId: string,
   resourceId: string,
-  resourceType: ResourceType
+  resourceType: ResourceType,
+  tx: PermissionWriteClient = prisma,
 ) {
-  return prisma.permission.deleteMany({
+  return tx.permission.deleteMany({
     where: { userId, resourceId, resourceType },
   });
 }

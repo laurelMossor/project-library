@@ -12,7 +12,6 @@
 //   ADMIN/EDITOR → act as the page: author, message, comment      (canPostAsPage)
 
 import type { PermissionRole } from "@prisma/client";
-import { FEATURES } from "./features";
 
 /** Roles that can act as a page — author content, message, comment. (ADMIN or EDITOR.) */
 export const ACTING_ROLES = ["ADMIN", "EDITOR"] as const satisfies readonly PermissionRole[];
@@ -36,12 +35,18 @@ export function isAdminRole(role: string | null | undefined): boolean {
 	return role === "ADMIN";
 }
 
+/** "ADMIN" → "Admin". Shared by role tags and the pending-invite line. */
+export function formatRole(role: string | null | undefined): string {
+	if (!role) return "";
+	return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+}
+
 /**
- * Roles an admin may assign from the membership UI, gated by the membership flag.
- * Flag ON → ADMIN/EDITOR/MEMBER; OFF (beta) → ADMIN/EDITOR only, so MEMBER can't be
- * granted while self-service membership is hidden. The one flag-driven role policy —
- * consumed by both the client `RoleSelector` and the server members-route validation.
+ * Roles an admin may invite, given the page's membership policy.
+ * CLOSED → ADMIN/EDITOR only (the page has no members). Any other policy → all three.
+ * OPEN is in the enum but the server rejects saving it; if it were stored, MEMBER
+ * would be assignable. Consumed by the client RoleSelector and invite validation.
  */
-export function assignableRoles(): readonly PermissionRole[] {
-	return FEATURES.SELF_SERVICE_MEMBERSHIP ? ALL_ROLES : ACTING_ROLES;
+export function assignableRoles(policy: string | null | undefined): readonly PermissionRole[] {
+	return policy && policy !== "CLOSED" ? ALL_ROLES : ACTING_ROLES;
 }

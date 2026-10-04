@@ -25,7 +25,9 @@ import { updatePost, deletePost } from "@/lib/utils/post-client";
 import { postHasContent } from "@/lib/utils/content";
 import { AuthError } from "@/lib/utils/auth-client";
 import { PencilIcon } from "@/lib/components/icons/icons";
-import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION } from "@/lib/const/routes";
+import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { contentIdentity } from "@/lib/utils/content-identity";
+import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
@@ -61,7 +63,11 @@ function PostPageContent({
 	const isDraft = post.status === "DRAFT";
 	const isPublished = post.status === "PUBLISHED";
 	const [isEditing, setIsEditing] = useState(isDraft);
-	const entity = post.page ?? post.user!;
+	const { voice, placedIn } = contentIdentity({
+		user: post.user!,
+		page: post.page ?? null,
+		asPageId: post.asPageId ?? null,
+	});
 
 	// Page carousel position + the photo-manager modal (opens at a given photo, or empty to add).
 	const [carouselIndex, setCarouselIndex] = useState(0);
@@ -77,9 +83,22 @@ function PostPageContent({
 		router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
 	};
 
-	const handleAuthorSwitch = async (pageId: string | null) => {
+	const handleAuthorSwitch = async (asPageId: string | null) => {
 		try {
-			const updated = await updatePost(post.id, { pageId });
+			// Speaking as a page puts the post on that page. Speaking as yourself
+			// starts on your profile; "Post to" can add a page after that.
+			const updated = await updatePost(post.id, asPageId
+				? { asPageId }
+				: { asPageId: null, pageId: null, showOnAuthorProfile: false });
+			setPost((prev) => ({ ...prev, ...updated }));
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
+		}
+	};
+
+	const handlePostTo = async (next: { pageId: string | null; showOnAuthorProfile: boolean }) => {
+		try {
+			const updated = await updatePost(post.id, { asPageId: null, ...next });
 			setPost((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
@@ -197,12 +216,34 @@ function PostPageContent({
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex-1">
 						{isOwner && isDraft ? (
-							<DropdownProfileSelector
-								initialPageId={post.page?.id ?? null}
-								onChange={handleAuthorSwitch}
-							/>
+							<div className="space-y-2">
+								<DropdownProfileSelector
+									label="Posting as"
+									hint="Pages you can manage"
+									initialPageId={post.asPageId ?? null}
+									onChange={handleAuthorSwitch}
+								/>
+								{post.asPageId ? (
+									<p className="text-xs text-dusty-grey">Posts as {post.page?.name ?? "this page"} go on its page.</p>
+								) : (
+									<PostToSelector
+										pageId={post.asPageId ? null : post.pageId}
+										showOnProfile={post.pageId ? post.showOnAuthorProfile : true}
+										onChange={handlePostTo}
+									/>
+								)}
+							</div>
 						) : (
-							<ProfileTag entity={entity} size="md" asLink />
+							<ProfileTag
+								entity={voice}
+								size="md"
+								asLink
+								trailing={placedIn ? (
+									<Link href={PUBLIC_PROFILE(placedIn.handle)} className="text-dusty-grey font-normal">
+										{" › "}{placedIn.name}
+									</Link>
+								) : undefined}
+							/>
 						)}
 					</div>
 					<div className="flex flex-wrap gap-3 items-center">

@@ -1,26 +1,9 @@
 /**
- * Role vocabulary tests — the shared client-safe role policy (`@/lib/const/roles`).
- *
- * Locks: the role-value sets stay in step with the Prisma enum; the predicates
- * classify correctly; and `assignableRoles()` is flag-driven (MEMBER is only
- * assignable while self-service membership is ON).
- *
- * The membership flag is a compile-time const, so we mock the features module with a
- * getter over a hoisted holder — flipping `flag.on` between tests changes what
- * `assignableRoles()` reads at call time.
+ * Role vocabulary. assignableRoles follows the page's membership policy:
+ * CLOSED offers ADMIN/EDITOR; any other policy offers all three.
  */
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect } from "vitest";
 import { PermissionRole } from "@prisma/client";
-
-const flag = vi.hoisted(() => ({ on: false }));
-vi.mock("@/lib/const/features", () => ({
-  FEATURES: {
-    get SELF_SERVICE_MEMBERSHIP() {
-      return flag.on;
-    },
-  },
-}));
-
 import {
   ACTING_ROLES,
   ADMIN_ONLY,
@@ -58,17 +41,16 @@ describe("role vocabulary", () => {
   });
 });
 
-describe("assignableRoles (flag-driven)", () => {
-  test("flag OFF (beta) → ADMIN/EDITOR only, MEMBER not assignable", () => {
-    flag.on = false;
-    const roles = assignableRoles();
+describe("assignableRoles (policy)", () => {
+  test("CLOSED → ADMIN/EDITOR only", () => {
+    const roles = assignableRoles("CLOSED");
     expect(roles).toContain("ADMIN");
     expect(roles).toContain("EDITOR");
     expect(roles).not.toContain("MEMBER");
   });
 
-  test("flag ON → all three roles assignable", () => {
-    flag.on = true;
-    expect([...assignableRoles()].sort()).toEqual(["ADMIN", "EDITOR", "MEMBER"]);
+  test("INVITE_ONLY and REQUEST_TO_JOIN → all three", () => {
+    expect([...assignableRoles("INVITE_ONLY")].sort()).toEqual(["ADMIN", "EDITOR", "MEMBER"]);
+    expect([...assignableRoles("REQUEST_TO_JOIN")].sort()).toEqual(["ADMIN", "EDITOR", "MEMBER"]);
   });
 });

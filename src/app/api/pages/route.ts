@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { createPage } from "@/lib/utils/server/page";
-import { validateHandle } from "@/lib/validations";
+import { validateHandle, validateMembershipFields } from "@/lib/validations";
+import { MembershipPolicy } from "@prisma/client";
 import { isReservedHandle } from "@/lib/const/reserved-handles";
 import { isHandleTaken } from "@/lib/utils/server/handle";
 import { logAction } from "@/lib/utils/server/log";
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { name, handle, headline, bio, interests, location } = data;
+		const { name, handle, headline, bio, interests, location, membershipPolicy, allowMemberPosts } = data;
 
 		if (!name || !handle) {
 			return badRequest("Name and handle are required");
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
 			return badRequest("That handle is already taken");
 		}
 
+		const membership = validateMembershipFields({ membershipPolicy, allowMemberPosts });
+		if (!membership.valid) return badRequest(membership.error || "Invalid membership settings");
+
 		try {
 			const page = await createPage(ctx.userId, {
 				name,
@@ -66,6 +70,8 @@ export async function POST(request: Request) {
 				bio,
 				interests,
 				location,
+				membershipPolicy: membershipPolicy as MembershipPolicy | undefined,
+				allowMemberPosts,
 			});
 
 			logAction("page.created", ctx.userId, { pageId: page.id });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { VisibilityField } from "@/lib/components/visibility/VisibilityField";
+import { PageMembershipSettings } from "@/lib/components/profile/PageMembershipSettings";
 import { SettingsSection } from "@/lib/components/profile/profile-settings/SettingsSection";
 import { NotificationSettingsForm } from "./NotificationSettingsForm";
 import { authFetch } from "@/lib/utils/auth-client";
@@ -98,6 +99,12 @@ export function ProfileSettingsClient() {
 						initialProfileVisibility={entityData.data.profileVisibility ?? "PUBLIC"}
 						initialContentVisibility={entityData.data.contentVisibility ?? "LISTED"}
 					/>
+					{entityData.type === "page" && (
+						<PageMembershipSettings
+							initialPolicy={entityData.data.membershipPolicy ?? "CLOSED"}
+							initialAllowMemberPosts={entityData.data.allowMemberPosts ?? false}
+						/>
+					)}
 				</InlineEditSession>
 			)}
 

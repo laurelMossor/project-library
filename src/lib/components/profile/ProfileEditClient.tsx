@@ -11,7 +11,6 @@ import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { FollowStats } from "@/lib/components/profile/FollowStats";
 import { ClickableProfilePicture } from "@/lib/components/profile/ClickableProfilePicture";
 import { Tag } from "@/lib/components/tag/Tag";
-import { ProfileButtons } from "@/lib/components/profile/ProfileButtons";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { EyeIcon, PencilIcon } from "@/lib/components/icons/icons";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
@@ -176,8 +175,7 @@ function ProfileOwnerContent({
 
 				{/* Right side */}
 				<div className="flex flex-col gap-2 w-36 shrink-0">
-					<ProfileButtons entityId={entityId} entityType={entityType} profileVisibility={entity.data.profileVisibility} />
-					{entity.type === "page" && <JoinButton pageId={entity.data.id} profileVisibility={entity.data.profileVisibility} />}
+					{entity.type === "page" && <JoinButton pageId={entity.data.id} membershipPolicy={entity.data.membershipPolicy} />}
 					<TransparentCTAButton
 						label={previewMode ? "Edit" : "Preview"}
 						icon={previewMode ? <PencilIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
