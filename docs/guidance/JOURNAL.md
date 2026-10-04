@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sun 10/04/2026 12:15 PDT
+Reviewed the membership and post-to-page branch and landed the review fixes. Only a current admin or editor can edit content spoken as a page, and removing a member also drops their follow. Event updates and member drafts stay with their real audience, and a leftover join or closed-page invite can no longer change a role. Drafted unchecked acceptance criteria for these onto both QA tickets.
+
 #### Entry: Sun 10/04/2026 11:38 PDT
 Reviewed the group-messaging follow-up and landed the DRY pass. Viewing and sending share one forward-only read marker. A thread fetch is a pure read again. Added a DRY/SOLID step to `/prolib-review` so a review flags a second copy of a rule or component.
 

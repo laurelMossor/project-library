@@ -7,7 +7,7 @@ import { postCollectionFields, postWithUserFields, toCollectionMeta } from "./fi
 import { getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
-import { authorProfilePlacementWhere, collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
 import { canEditContent } from "./permission";
 import { PlacementError, resolveContentPlacement } from "./content-placement";
 import { ContentVisibility } from "@prisma/client";
@@ -89,7 +89,7 @@ export async function getPostsByUser(
 
 /**
  * Fetch a page's top-level published posts for public views.
- * Pass `includeDrafts: true` to also return drafts (for page admins/editors).
+ * Pass `includeDrafts: true` to also return page-spoken drafts and the viewer's own.
  * Pass `viewer` to apply visibility filtering (omit only when caller already knows viewer is a member).
  */
 export async function getPostsByPage(
@@ -101,7 +101,7 @@ export async function getPostsByPage(
 			pageId,
 			parentPostId: null,
 			eventId: null,
-			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...draftsOnPageWhere(includeDrafts, viewer),
 			...(await collectionVisibilityWhere("PAGE", pageId, viewer)),
 		},
 		select: postCollectionFields,
@@ -149,8 +149,9 @@ export async function createPost(
 		throw new PostInputError("Content is required and cannot be empty");
 	}
 
-	// A reply inherits placement from its parent (INV-3). Otherwise the caller chooses
-	// who's speaking (asPageId) and, when speaking as themselves, where it lives (pageId).
+	// A reply inherits placement from its parent (INV-3). An event update copies the
+	// event and ignores the client. Otherwise the caller chooses who's speaking
+	// (asPageId) and, when speaking as themselves, where it lives (pageId).
 	let placement: { pageId: string | null; asPageId: string | null; showOnAuthorProfile: boolean } = {
 		pageId: null,
 		asPageId: null,
@@ -172,6 +173,24 @@ export async function createPost(
 			throw new PostInputError("You can only add updates to your own posts");
 		}
 		placement = await resolveContentPlacement(userId, { parent: parentPost });
+	} else if (data.eventId) {
+		// Event update: placement and voice come from the event. A client pageId must
+		// not widen a private event onto a public page.
+		const event = await prisma.event.findUnique({
+			where: { id: data.eventId },
+			select: { userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true },
+		});
+		if (!event) {
+			throw new PostInputError("Event not found");
+		}
+		if (!(await canEditContent(userId, event))) {
+			throw new PostInputError("You can only add updates to your own events");
+		}
+		placement = {
+			pageId: event.pageId,
+			asPageId: event.asPageId,
+			showOnAuthorProfile: event.showOnAuthorProfile,
+		};
 	} else {
 		try {
 			placement = await resolveContentPlacement(userId, {
@@ -185,27 +204,14 @@ export async function createPost(
 		}
 	}
 
-	if (data.eventId) {
-		// Event update: event must exist and be owned by the caller.
-		const event = await prisma.event.findUnique({
-			where: { id: data.eventId },
-			select: { userId: true },
-		});
-		if (!event) {
-			throw new PostInputError("Event not found");
-		}
-		if (event.userId !== userId) {
-			throw new PostInputError("Cannot create post for an event you don't own");
-		}
-	}
-
-	// A reply inherits its PARENT POST's visibility, not the page's — this matches what
-	// syncDescendantVisibility("POST", ...) writes on a re-parent, and stays correct if a
-	// future per-item override ever lets a post's visibility diverge from its page. For
-	// non-replies, derive from the (effective) page → event → user chain as usual.
+	// A reply inherits its PARENT POST's visibility. An event update inherits the
+	// EVENT's visibility (page argument null, so a public page cannot widen it).
+	// Everything else derives from the page → user chain.
 	const contentVisibility = data.parentPostId
 		? await resolveParentVisibility(userId, null, null, data.parentPostId)
-		: await resolveParentVisibility(userId, placement.pageId, data.eventId, null);
+		: data.eventId
+			? await resolveParentVisibility(userId, null, data.eventId, null)
+			: await resolveParentVisibility(userId, placement.pageId, null, null);
 
 	const post = await prisma.post.create({
 		data: {

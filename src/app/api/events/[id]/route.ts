@@ -205,17 +205,16 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (status !== undefined) updateData.status = status;
 		const pinPageId = placement?.pageId ?? existing.pageId;
 		if (pinnedAt !== undefined) {
-			if (pinnedAt !== null && pinPageId && !(await canPostAsPage(viewer.userId, pinPageId))) {
+			if (pinPageId && !(await canPostAsPage(viewer.userId, pinPageId))) {
 				return badRequest("Only page editors can pin events on this page");
 			}
 			if (pinnedAt !== null) {
-				// Enforce 3-pin limit before pinning
+				// Same cap and scope as posts: this page's pins, or the author's personal pins.
 				const pinnedEventCount = await prisma.event.count({
 					where: {
-						OR: [
-							{ userId: existing.userId },
-							...(existing.pageId ? [{ pageId: existing.pageId }] : []),
-						],
+						...(pinPageId
+							? { pageId: pinPageId }
+							: { userId: existing.userId, pageId: null }),
 						pinnedAt: { not: null },
 						id: { not: id },
 					},

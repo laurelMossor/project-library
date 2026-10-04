@@ -10,10 +10,10 @@ import { ProfileVisibility, PermissionRole, ResourceType } from "@prisma/client"
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
-    follow: { findFirst: vi.fn(), create: vi.fn() },
+    follow: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
     user: { findUnique: vi.fn() },
     page: { findUnique: vi.fn() },
-    permission: { findFirst: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), count: vi.fn() },
+    permission: { findFirst: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), count: vi.fn(), deleteMany: vi.fn() },
     accessRequest: {
       findFirst: vi.fn(),
       create: vi.fn(),
@@ -51,6 +51,7 @@ import {
   approveRequest,
   denyRequest,
   autoApprovePendingOnUnlock,
+  removeMember,
 } from "@/lib/utils/server/requests";
 import { prisma } from "@/lib/utils/server/prisma";
 
@@ -213,15 +214,45 @@ describe("approveRequest", () => {
     expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-2" } });
   });
 
-  test("INVITE accepted by the invitee → permission + follow", async () => {
+  test("INVITE accepted by the invitee → permission + follow, leftover JOIN dropped", async () => {
     vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
       id: "req-i", kind: "INVITE", role: PermissionRole.EDITOR,
       requesterId: null, requesterPageId: "p1", targetUserId: "u2", targetPageId: null,
     } as never);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ membershipPolicy: "INVITE_ONLY" } as never);
     const res = await approveRequest("u2", "req-i");
     expect(res).toEqual({ ok: true, status: "approved" });
     expect(prisma.permission.upsert).toHaveBeenCalledTimes(1);
     expect(prisma.follow.create).toHaveBeenCalledTimes(1);
+    expect(prisma.accessRequest.deleteMany).toHaveBeenCalledWith({
+      where: { kind: "JOIN", requesterId: "u2", targetPageId: "p1" },
+    });
+  });
+
+  test("JOIN approve leaves an existing higher role in place", async () => {
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+      id: "req-2", kind: "JOIN", role: null, requesterId: "u1", requesterPageId: null,
+      targetUserId: null, targetPageId: "p1",
+    } as never);
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: PermissionRole.ADMIN } as never);
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: PermissionRole.EDITOR } as never);
+    const res = await approveRequest("admin", "req-2");
+    expect(res).toEqual({ ok: true, status: "approved" });
+    expect(prisma.permission.upsert).not.toHaveBeenCalled();
+    expect(prisma.follow.create).not.toHaveBeenCalled();
+    expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-2" } });
+  });
+
+  test("INVITE accept after the page is CLOSED → unavailable, nothing granted", async () => {
+    vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+      id: "req-i", kind: "INVITE", role: PermissionRole.MEMBER,
+      requesterId: null, requesterPageId: "p1", targetUserId: "u2", targetPageId: null,
+    } as never);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ membershipPolicy: "CLOSED" } as never);
+    const res = await approveRequest("u2", "req-i");
+    expect(res).toEqual({ ok: false, reason: "unavailable" });
+    expect(prisma.permission.upsert).not.toHaveBeenCalled();
+    expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "req-i" } });
   });
 
   test("an admin can cancel an invite but cannot accept it", async () => {
@@ -242,6 +273,19 @@ describe("autoApprovePendingOnUnlock", () => {
     await autoApprovePendingOnUnlock({ type: "PAGE", id: "p1" });
     expect(prisma.accessRequest.findMany).toHaveBeenCalledWith({
       where: { targetPageId: "p1", kind: "FOLLOW" },
+    });
+  });
+});
+
+describe("removeMember", () => {
+  test("revokes the role and deletes the follow in one transaction", async () => {
+    await removeMember("u2", "p1");
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.permission.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "u2", resourceId: "p1", resourceType: ResourceType.PAGE },
+    });
+    expect(prisma.follow.deleteMany).toHaveBeenCalledWith({
+      where: { followerId: "u2", followingPageId: "p1" },
     });
   });
 });

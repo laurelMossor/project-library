@@ -21,6 +21,7 @@ vi.mock("@/lib/utils/server/permission", () => ({
 vi.mock("@/lib/utils/server/requests", () => ({
   invitePageMember: vi.fn(),
   listPageInvites: vi.fn(),
+  removeMember: vi.fn(),
 }));
 vi.mock("@/lib/utils/server/visibility", () => ({
   getViewerContext: vi.fn(),
@@ -34,11 +35,11 @@ vi.mock("@/lib/utils/errors", () => ({
 }));
 
 import { POST } from "@/app/api/pages/[pageId]/members/route";
-import { PUT } from "@/app/api/pages/[pageId]/members/[userId]/route";
+import { PUT, DELETE } from "@/app/api/pages/[pageId]/members/[userId]/route";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { prisma } from "@/lib/utils/server/prisma";
 import { canManagePage, getUserPermission, grantPermission, wouldRemoveLastAdmin } from "@/lib/utils/server/permission";
-import { invitePageMember } from "@/lib/utils/server/requests";
+import { invitePageMember, removeMember } from "@/lib/utils/server/requests";
 
 const addReq = (role: string) =>
   new Request("http://localhost/api/pages/p1/members", {
@@ -114,5 +115,20 @@ describe("PUT /members/[userId] — change role", () => {
     const res = await PUT(putReq(PermissionRole.EDITOR), putCtx);
     expect(res.status).toBe(400);
     expect(grantPermission).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /members/[userId] — admin remove", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getSessionContext).mockResolvedValue({ userId: "admin" } as never);
+    vi.mocked(canManagePage).mockResolvedValue(true);
+    vi.mocked(wouldRemoveLastAdmin).mockResolvedValue(false);
+  });
+
+  test("drops the role and the follow together", async () => {
+    const res = await DELETE(new Request("http://localhost/api/pages/p1/members/u2"), putCtx);
+    expect(res.status).toBe(200);
+    expect(removeMember).toHaveBeenCalledWith("u2", "p1");
   });
 });

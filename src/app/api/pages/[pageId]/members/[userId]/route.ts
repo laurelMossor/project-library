@@ -5,9 +5,9 @@ import {
 	canManagePage,
 	getUserPermission,
 	grantPermission,
-	revokePermission,
 	wouldRemoveLastAdmin,
 } from "@/lib/utils/server/permission";
+import { removeMember } from "@/lib/utils/server/requests";
 import { assignableRoles } from "@/lib/const/roles";
 import { prisma } from "@/lib/utils/server/prisma";
 import { emitActivity } from "@/lib/utils/server/activity";
@@ -94,7 +94,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 			return badRequest("Cannot remove the last admin from a page");
 		}
 
-		await revokePermission(userId, pageId, ResourceType.PAGE);
+		await removeMember(userId, pageId);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

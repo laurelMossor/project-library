@@ -48,13 +48,15 @@ export async function canPostToPage(userId: string, pageId: string): Promise<boo
 type ContentAuthority = { userId: string; asPageId?: string | null; pageId?: string | null };
 
 /**
- * May this user edit the content's words? The author, or a manager of the page
- * it is spoken AS. A page editor cannot edit a member's post to the page.
+ * May this user edit the content's words?
+ * Page-spoken content (`asPageId` set) requires a current ADMIN/EDITOR of that page.
+ * The human who clicked publish is not enough — losing the role loses the voice.
+ * Personal posts and posts to a page (`asPageId` null) stay with the author.
+ * A page editor cannot edit a member's post to the page.
  */
 export async function canEditContent(userId: string, content: ContentAuthority): Promise<boolean> {
-  if (content.userId === userId) return true;
   if (content.asPageId) return canPostAsPage(userId, content.asPageId);
-  return false;
+  return content.userId === userId;
 }
 
 /**
@@ -162,9 +164,10 @@ export async function getActingManagerIdsByPage(pageIds: string[]): Promise<Map<
 export async function getUserPermission(
   userId: string,
   resourceId: string,
-  resourceType: ResourceType
+  resourceType: ResourceType,
+  tx: PermissionWriteClient = prisma,
 ): Promise<PermissionRole | null> {
-  const permission = await prisma.permission.findUnique({
+  const permission = await tx.permission.findUnique({
     where: { userId_resourceId_resourceType: { userId, resourceId, resourceType } },
   });
   return permission?.role ?? null;
@@ -252,13 +255,14 @@ export async function grantPermission(
   });
 }
 
-/** Revoke a permission */
+/** Revoke a permission. Pass `tx` to run inside the caller's transaction. */
 export async function revokePermission(
   userId: string,
   resourceId: string,
-  resourceType: ResourceType
+  resourceType: ResourceType,
+  tx: PermissionWriteClient = prisma,
 ) {
-  return prisma.permission.deleteMany({
+  return tx.permission.deleteMany({
     where: { userId, resourceId, resourceType },
   });
 }

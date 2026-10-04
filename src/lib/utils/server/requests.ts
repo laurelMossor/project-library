@@ -11,7 +11,7 @@
 
 import { prisma } from "./prisma";
 import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility, ResourceType } from "@prisma/client";
-import { canManagePage, getUserPermission, grantPermission } from "./permission";
+import { canManagePage, getUserPermission, grantPermission, revokePermission } from "./permission";
 import { assignableRoles } from "@/lib/const/roles";
 import { emitActivity, type EntityRef } from "./activity";
 
@@ -54,11 +54,28 @@ export async function upsertFollow(requester: EntityRef, target: EntityRef, tx: 
 
 /**
  * The one place a page role is created: the permission row, plus a follow so the
- * new member sees the page's connections-only content. Leaving does not unfollow.
+ * new member sees the page's connections-only content. Voluntary leave does not
+ * unfollow. Admin-remove (`removeMember`) drops both.
  */
 export async function addMember(userId: string, pageId: string, role: PermissionRole, tx: Client = prisma) {
   await grantPermission(userId, pageId, ResourceType.PAGE, role, tx);
   await upsertFollow({ type: "USER", id: userId }, { type: "PAGE", id: pageId }, tx);
+}
+
+/**
+ * Admin-remove: drop the role and the user's follow of the page together.
+ * A follow is enough to keep seeing a private page, so revoking the role alone
+ * would leave that access in place. The follow row is the same whether
+ * membership created it or the person followed first, so both go.
+ * Voluntary leave does not call this.
+ */
+export async function removeMember(userId: string, pageId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
+    await tx.follow.deleteMany({
+      where: { followerId: userId, followingPageId: pageId },
+    });
+  });
 }
 
 /** Does `userId` have a pending FOLLOW request to `target`? (Drives the "Requested" button state.) */
@@ -253,7 +270,7 @@ export function listPageInvites(pageId: string) {
 
 export type RequestActResult =
   | { ok: true; status: "approved" | "denied" }
-  | { ok: false; reason: "not_found" | "forbidden" };
+  | { ok: false; reason: "not_found" | "forbidden" | "unavailable" };
 
 type RequestRow = {
   id: string;
@@ -301,39 +318,74 @@ async function materialize(req: RequestRow, tx: Client) {
     return;
   }
   if (req.kind === AccessRequestKind.JOIN) {
-    await addMember(req.requesterId!, req.targetPageId!, PermissionRole.MEMBER, tx);
+    // A higher role already granted (an accepted invite) must not be overwritten with MEMBER.
+    const existing = await getUserPermission(req.requesterId!, req.targetPageId!, ResourceType.PAGE, tx);
+    if (!existing) {
+      await addMember(req.requesterId!, req.targetPageId!, PermissionRole.MEMBER, tx);
+    }
     return;
   }
-  // INVITE: the page asked, the user accepted. Role was stored on the request.
-  await addMember(req.targetUserId!, req.requesterPageId!, req.role ?? PermissionRole.MEMBER, tx);
+  // INVITE: the page asked, the user accepted. The caller has re-checked the role
+  // against the page's current policy. Drop a leftover JOIN so it cannot demote later.
+  await addMember(req.targetUserId!, req.requesterPageId!, req.role!, tx);
+  await tx.accessRequest.deleteMany({
+    where: {
+      kind: AccessRequestKind.JOIN,
+      requesterId: req.targetUserId,
+      targetPageId: req.requesterPageId,
+    },
+  });
 }
 
-/** Approve a request: materialize the edge and delete the request, atomically. */
+/**
+ * Approve a request: materialize the edge and delete the request, atomically.
+ * An invite is re-read inside the transaction. If the page's policy no longer
+ * allows that role, the invite is deleted and nothing is granted.
+ */
 export async function approveRequest(actorUserId: string, requestId: string): Promise<RequestActResult> {
   const req = await prisma.accessRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, reason: "not_found" };
   if (!(await canApproveRequest(actorUserId, req))) return { ok: false, reason: "forbidden" };
 
-  await prisma.$transaction(async (tx) => {
-    await materialize(req, tx);
-    await tx.accessRequest.delete({ where: { id: req.id } });
+  const granted = await prisma.$transaction(async (tx) => {
+    const current = await tx.accessRequest.findUnique({ where: { id: requestId } });
+    if (!current) return null;
+
+    if (current.kind === AccessRequestKind.INVITE) {
+      const page = await tx.page.findUnique({
+        where: { id: current.requesterPageId! },
+        select: { membershipPolicy: true },
+      });
+      const role = current.role;
+      if (!page || !role || !assignableRoles(page.membershipPolicy).includes(role)) {
+        await tx.accessRequest.delete({ where: { id: current.id } });
+        return "unavailable" as const;
+      }
+    }
+
+    await materialize(current, tx);
+    await tx.accessRequest.delete({ where: { id: current.id } });
+    return current;
   });
 
+  if (granted === "unavailable") return { ok: false, reason: "unavailable" };
+  if (!granted) return { ok: false, reason: "not_found" };
+
   // Tell the other side they're in. Fires AFTER the transaction commits. emitActivity never throws.
-  if (req.kind === AccessRequestKind.INVITE) {
+  if (granted.kind === AccessRequestKind.INVITE) {
     // The invitee joined the page — notify the page's managers (NEW_MEMBER).
     await emitActivity(
       "membership.joined",
-      { type: "USER", id: req.targetUserId! },
-      { type: "PAGE", id: req.requesterPageId! },
+      { type: "USER", id: granted.targetUserId! },
+      { type: "PAGE", id: granted.requesterPageId! },
     );
   } else {
-    const approver: EntityRef = req.targetUserId
-      ? { type: "USER", id: req.targetUserId }
-      : { type: "PAGE", id: req.targetPageId! };
-    const requester: EntityRef = req.requesterId
-      ? { type: "USER", id: req.requesterId }
-      : { type: "PAGE", id: req.requesterPageId! };
+    const approver: EntityRef = granted.targetUserId
+      ? { type: "USER", id: granted.targetUserId }
+      : { type: "PAGE", id: granted.targetPageId! };
+    const requester: EntityRef = granted.requesterId
+      ? { type: "USER", id: granted.requesterId }
+      : { type: "PAGE", id: granted.requesterPageId! };
     await emitActivity("request.approved", approver, requester);
   }
 

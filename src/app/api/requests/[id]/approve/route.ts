@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { approveRequest } from "@/lib/utils/server/requests";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -19,6 +19,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
 		const result = await approveRequest(ctx.userId, id);
 		if (!result.ok) {
 			if (result.reason === "not_found") return notFound("Request not found");
+			if (result.reason === "unavailable") return badRequest("That invite is no longer available");
 			return unauthorized("You cannot act on this request");
 		}
 		return NextResponse.json(result);
