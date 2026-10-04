@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ConversationKind } from "@prisma/client";
 import { badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateGroupMemberRefs, validateGroupName } from "@/lib/validations";
-import { addGroupMembers, getThread, renameGroup } from "@/lib/utils/server/message";
+import { addGroupMembers, advanceReadMarker, getThread, renameGroup } from "@/lib/utils/server/message";
 import {
 	asPageIdFromQuery,
 	failureResponse,
@@ -18,7 +18,7 @@ type Params = { params: Promise<{ conversationId: string }> };
 /**
  * GET /api/messages/conversations/:conversationId?asPageId=<id>
  * The conversation as the acting identity sees it: kind, name, members, and messages since it joined.
- * Non-participants get 404.
+ * Viewing marks it read up to the newest message returned. Non-participants get 404.
  */
 export async function GET(request: Request, { params }: Params) {
 	try {
@@ -28,6 +28,10 @@ export async function GET(request: Request, { params }: Params) {
 
 		const thread = await getThread(conversationId, req.identity, req.userId);
 		if (!thread) return notFound("Conversation not found");
+		// Viewing is reading. The cursor is the newest message this response actually contains, so a
+		// message that lands after the load stays unread.
+		const latest = thread.messages.at(-1);
+		if (latest) await advanceReadMarker(conversationId, req.identity, latest.createdAt);
 		return NextResponse.json(thread);
 	} catch (error) {
 		console.error("GET /api/messages/conversations/:id error:", error);

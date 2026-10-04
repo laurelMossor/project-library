@@ -12,7 +12,7 @@ import { sendMessage } from "./telegram";
 import { storeImageBytes, type ImageBytes } from "./storage";
 import { createImage } from "./image-attachment";
 import { safeFetch } from "./safe-fetch";
-import { withDisclaimer, withSourceLine } from "../text";
+import { cleanSocialDescription, withDisclaimer, withSourceLine } from "../text";
 import { parseFutureEventDate } from "../event-date";
 import { absoluteUrl } from "./url";
 import { ADMIN_SUBMISSIONS } from "../../const/routes";
@@ -83,23 +83,6 @@ function absolutize(url: string, base: string): string | null {
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Strip social-preview chrome from an og:description to recover the raw caption. Instagram wraps
- * captions as `"1,234 likes, 56 comments - username on Instagram: \"<caption>\""`; other sites
- * usually return the description as-is (no match → returned unchanged, only trimmed).
- */
-export function cleanSocialDescription(desc: string): string {
-	let d = desc.trim();
-	// Drop leading engagement counts: "1,234 likes, 56 comments - "
-	d = d.replace(/^[\d,.]+\s+likes?,\s*[\d,.]+\s+comments?\s*[-–—:]\s*/i, "");
-	// Prefer the quoted caption after "... on Instagram:"
-	const quoted = d.match(/on instagram:\s*["“”']([\s\S]+)["“”']\s*$/i);
-	if (quoted) return quoted[1].trim();
-	// Otherwise drop everything up to and including "on Instagram:" if present.
-	d = d.replace(/^[\s\S]*?\bon instagram:\s*/i, "");
-	return d.trim();
 }
 
 /** Decode the handful of HTML entities that commonly appear in og:description caption text. */
