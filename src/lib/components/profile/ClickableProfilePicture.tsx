@@ -8,7 +8,7 @@ import { ImageEditModal } from "@/lib/components/images/ImageEditModal";
 import { ImageLightbox } from "@/lib/components/images/ImageLightbox";
 import { uploadImageOnly } from "@/lib/utils/image-client";
 import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
-import { getUserInitials, getPageInitials } from "@/lib/utils/text";
+import { GeneratedAvatar } from "./GeneratedAvatar";
 
 type ClickableProfilePictureProps = {
 	entity: CardEntity;
@@ -22,7 +22,6 @@ export function ClickableProfilePicture({ entity, canEdit = false }: ClickablePr
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 
 	const avatarUrl = entity.avatarImage?.url ?? null;
-	const initials = isCardPage(entity) ? getPageInitials(entity.name) : getUserInitials(entity);
 
 	// Avatar persists via a direct FK (not ImageAttachment): PUT the profile route
 	// with { fields: { avatarImageId } }. Both user and page routes take the same wrapper.
@@ -90,7 +89,7 @@ export function ClickableProfilePicture({ entity, canEdit = false }: ClickablePr
 					title="Profile Photo"
 					previewShape="round"
 					existingImageUrl={avatarUrl}
-					fallback={initials}
+					fallback={<GeneratedAvatar seed={entity.id} />}
 					onSave={async ({ file }) => {
 						if (!file) return;
 						const image = await uploadImageOnly({ file, folder: "avatars" });

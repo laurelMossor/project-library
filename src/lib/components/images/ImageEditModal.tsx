@@ -95,7 +95,7 @@ export function ImageEditModal({
 					previewUrl ? (
 						<img src={previewUrl} alt="Preview" className="w-32 h-32 rounded-full object-cover ring-4 ring-rich-brown" />
 					) : (
-						<div className="w-32 h-32 rounded-full bg-soft-grey flex items-center justify-center text-3xl font-medium text-gray-600 ring-4 ring-rich-brown">
+						<div className="w-32 h-32 rounded-full bg-soft-grey flex items-center justify-center text-3xl font-medium text-gray-600 ring-4 ring-rich-brown overflow-hidden">
 							{fallback}
 						</div>
 					)
