@@ -10,7 +10,7 @@
 //   ADMIN/EDITOR  → act as the page: author content, message, comment         → canPostAsPage
 //                   (canActAsEntity = that same tier, plus "be the user" for a User entity)
 import { prisma } from "./prisma";
-import { PermissionRole, ResourceType, type Page, type User } from "@prisma/client";
+import { PermissionRole, ResourceType, type Page, type Prisma, type User } from "@prisma/client";
 import { ACTING_ROLES } from "@/lib/const/roles";
 
 /** Check if a user has a specific permission on a resource */
@@ -312,4 +312,76 @@ export async function canActAsEntity(
     return hasPermission(userId, entity.page.id, ResourceType.PAGE, [...ACTING_ROLES]);
   }
   return false;
+}
+
+type PermissionDb = Prisma.TransactionClient | typeof prisma;
+
+/**
+ * Pages this user is the only ADMIN of, plus pages they created that have no admin left.
+ * One groupBy finds the single-admin pages; the preview and the deletion both call this
+ * so the confirm modal and the delete agree on what goes away.
+ */
+export async function getSoleAdminPages(userId: string, tx: PermissionDb = prisma) {
+  const grouped = await tx.permission.groupBy({
+    by: ["resourceId"],
+    where: { resourceType: ResourceType.PAGE, role: PermissionRole.ADMIN },
+    _max: { userId: true },
+    having: { userId: { _count: { equals: 1 } } },
+  });
+  const soleIds = grouped.filter((g) => g._max.userId === userId).map((g) => g.resourceId);
+
+  const created = await tx.page.findMany({
+    where: { createdByUserId: userId, ...(soleIds.length ? { id: { notIn: soleIds } } : {}) },
+    select: { id: true },
+  });
+  let zeroAdminIds: string[] = [];
+  if (created.length > 0) {
+    const withAdmins = await tx.permission.groupBy({
+      by: ["resourceId"],
+      where: {
+        resourceId: { in: created.map((p) => p.id) },
+        resourceType: ResourceType.PAGE,
+        role: PermissionRole.ADMIN,
+      },
+    });
+    const adminned = new Set(withAdmins.map((g) => g.resourceId));
+    zeroAdminIds = created.filter((p) => !adminned.has(p.id)).map((p) => p.id);
+  }
+
+  const ids = [...soleIds, ...zeroAdminIds];
+  if (ids.length === 0) return [];
+  return tx.page.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true, handle: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+/** Earliest-granted remaining ADMIN on each page (Permission.createdAt, which promotion keeps). */
+export async function getSuccessorAdminIds(
+  pageIds: string[],
+  excludeUserId: string,
+  tx: PermissionDb,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (pageIds.length === 0) return map;
+  const rows = await tx.permission.findMany({
+    where: {
+      resourceId: { in: pageIds },
+      resourceType: ResourceType.PAGE,
+      role: PermissionRole.ADMIN,
+      userId: { not: excludeUserId },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { resourceId: true, userId: true },
+  });
+  for (const row of rows) {
+    if (!map.has(row.resourceId)) map.set(row.resourceId, row.userId);
+  }
+  return map;
+}
+
+/** Permission.resourceId has no FK, so a page delete must drop its rows explicitly. */
+export async function revokeAllForResource(pageId: string, tx: PermissionDb) {
+  await tx.permission.deleteMany({ where: { resourceId: pageId } });
 }

@@ -20,7 +20,7 @@ import {
 	participantIdentity,
 	type MessagingIdentityRef,
 } from "@/lib/const/messaging";
-import type { ConversationMember, ConversationSummary, ConversationThreadData, MessageAuthor } from "@/lib/types/message";
+import type { ConversationMember, ConversationSummary, ConversationThreadData, DeletedSpeaker, MessageAuthor } from "@/lib/types/message";
 import type { CardPage } from "@/lib/types/card";
 
 export type MessagingIdentity = MessagingIdentityRef;
@@ -57,10 +57,10 @@ export function ownMessageWhere(identity: MessagingIdentity): Prisma.MessageWher
 	return identity.type === "page" ? { asPageId: identity.id } : { senderId: identity.id, asPageId: null };
 }
 
-export function isOwnMessage(message: { senderId: string; asPageId: string | null }, identity: MessagingIdentity): boolean {
+export function isOwnMessage(message: { senderId: string | null; asPageId: string | null }, identity: MessagingIdentity): boolean {
 	return identity.type === "page"
 		? message.asPageId === identity.id
-		: message.senderId === identity.id && message.asPageId === null;
+		: message.senderId != null && message.senderId === identity.id && message.asPageId === null;
 }
 
 // ─── Read state ──────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ export async function getUnreadCountsByConversation(
 	if (parts.length === 0) return new Map();
 	const rows = await prisma.message.groupBy({
 		by: ["conversationId"],
-		where: { OR: parts.map(unreadWindow), NOT: ownMessageWhere(identity) },
+		where: { OR: parts.map(unreadWindow), NOT: ownMessageWhere(identity), deletedAs: null },
 		_count: { _all: true },
 	});
 	return new Map(rows.map((r) => [r.conversationId, r._count._all]));
@@ -201,6 +201,51 @@ function authorOf(
 	return m.asPageId ? { type: "page", page: pages.get(m.asPageId) ?? null } : { type: "user", user: m.sender };
 }
 
+const messageSelect = {
+	id: true,
+	content: true,
+	createdAt: true,
+	senderId: true,
+	asPageId: true,
+	deletedAs: true,
+	sender: { select: publicUserEmbedFields },
+} as const;
+
+type LoadedMessage = {
+	id: string;
+	content: string;
+	createdAt: Date;
+	senderId: string | null;
+	asPageId: string | null;
+	deletedAs: DeletedSpeaker | null;
+	sender: UserEmbed | null;
+};
+
+function toMessageBody(m: LoadedMessage, identity: MessagingIdentity, pages: Map<string, CardPage | null>) {
+	return {
+		id: m.id,
+		content: m.deletedAs ? "" : m.content,
+		createdAt: m.createdAt,
+		isOwn: isOwnMessage(m, identity),
+		author: authorOf(m, pages),
+		deleted: m.deletedAs,
+	};
+}
+
+/** DIRECT threads whose other party is gone: the participant row cascaded, so the tombstone messages say who. */
+async function deletedCounterparts(conversationIds: string[]): Promise<Map<string, DeletedSpeaker>> {
+	const map = new Map<string, DeletedSpeaker>();
+	if (conversationIds.length === 0) return map;
+	const rows = await prisma.message.groupBy({
+		by: ["conversationId", "deletedAs"],
+		where: { conversationId: { in: conversationIds }, deletedAs: { not: null } },
+	});
+	for (const row of rows) {
+		if (row.deletedAs && !map.has(row.conversationId)) map.set(row.conversationId, row.deletedAs);
+	}
+	return map;
+}
+
 // ─── Inbox ───────────────────────────────────────────────────────────────────
 
 /**
@@ -227,7 +272,7 @@ export async function listInbox(identity: MessagingIdentity, limit = 50): Promis
 				messages: {
 					orderBy: { createdAt: "desc" },
 					take: 1,
-					select: { id: true, content: true, createdAt: true, senderId: true, asPageId: true, sender: { select: publicUserEmbedFields } },
+					select: messageSelect,
 				},
 			},
 			orderBy: { updatedAt: "desc" },
@@ -237,6 +282,10 @@ export async function listInbox(identity: MessagingIdentity, limit = 50): Promis
 	]);
 
 	const members = new Map(conversations.map((c) => [c.id, toMembers(c.participants, identity)]));
+	const lonelyDirect = conversations
+		.filter((c) => c.kind === ConversationKind.DIRECT && members.get(c.id)!.every((m) => m.isYou))
+		.map((c) => c.id);
+	const gone = await deletedCounterparts(lonelyDirect);
 	const pages = await pagesById(
 		conversations.flatMap((c) => c.messages.map((m) => m.asPageId).filter((id): id is string => !!id)),
 		[...members.values()].flat(),
@@ -252,9 +301,8 @@ export async function listInbox(identity: MessagingIdentity, limit = 50): Promis
 			updatedAt: c.updatedAt,
 			members: members.get(c.id)!,
 			unreadCount: unread.get(c.id) ?? 0,
-			lastMessage: visible
-				? { id: last.id, content: last.content, createdAt: last.createdAt, isOwn: isOwnMessage(last, identity), author: authorOf(last, pages) }
-				: null,
+			deletedCounterpart: gone.get(c.id) ?? null,
+			lastMessage: visible ? toMessageBody(last, identity, pages) : null,
 		};
 	});
 }
@@ -284,13 +332,15 @@ export async function getThread(
 		prisma.message.findMany({
 			where: { conversationId, createdAt: { gte: participation.joinedAt } },
 			orderBy: { createdAt: "asc" },
-			select: { id: true, content: true, createdAt: true, senderId: true, asPageId: true, sender: { select: publicUserEmbedFields } },
+			select: messageSelect,
 		}),
 	]);
 
 	const members = toMembers(participants, identity);
 	const pages = await pagesById(messages.map((m) => m.asPageId).filter((id): id is string => !!id), members);
 	const { conversation } = participation;
+	const lonely = conversation.kind === ConversationKind.DIRECT && members.every((m) => m.isYou);
+	const gone = lonely ? await deletedCounterparts([conversation.id]) : new Map<string, DeletedSpeaker>();
 
 	return {
 		id: conversation.id,
@@ -300,13 +350,10 @@ export async function getThread(
 		// Leaving on a page's behalf removes it for every manager, so it's a manage (ADMIN) action.
 		canLeave: conversation.kind === ConversationKind.GROUP
 			&& (identity.type === "user" || await canManagePage(sessionUserId, identity.id)),
+		deletedCounterpart: gone.get(conversation.id) ?? null,
 		messages: messages.map((m) => ({
-			id: m.id,
-			content: m.content,
-			createdAt: m.createdAt,
-			isOwn: isOwnMessage(m, identity),
-			author: authorOf(m, pages),
-			sentBy: m.asPageId && identity.type === "page" && identity.id === m.asPageId ? m.sender : null,
+			...toMessageBody(m, identity, pages),
+			sentBy: !m.deletedAs && m.asPageId && identity.type === "page" && identity.id === m.asPageId ? m.sender : null,
 		})),
 	};
 }
@@ -348,7 +395,7 @@ export async function sendConversationMessage(params: {
  * sent it are never emailed. The flush applies preferences + per-recipient read-suppression.
  */
 export async function enqueueMessageEmails(
-	message: { id: string; conversationId: string; senderId: string },
+	message: { id: string; conversationId: string; senderId: string | null },
 	sender: MessagingIdentity,
 ): Promise<void> {
 	const participants = await prisma.conversationParticipant.findMany({

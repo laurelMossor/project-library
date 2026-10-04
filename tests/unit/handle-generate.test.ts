@@ -51,6 +51,13 @@ describe("generateUniqueHandle", () => {
 		expect(validateHandle(handle)).toBe(true);
 	});
 
+	test("sanitizes a page name into a hyphenated handle", async () => {
+		findUnique.mockResolvedValue(null);
+		const handle = await generateUniqueHandle("Portland Makers Guild");
+		expect(handle).toBe("portland-makers-guild");
+		expect(validateHandle(handle)).toBe(true);
+	});
+
 	test("falls back to a neutral base for a too-short/empty local-part", async () => {
 		findUnique.mockResolvedValue(null);
 		const handle = await generateUniqueHandle("a@example.com");

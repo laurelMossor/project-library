@@ -107,9 +107,9 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 						<CommentRow
 							key={comment.id}
 							comment={comment}
-							isFromOwner={isFromOwner(comment, ownerUserId, ownerPageId)}
-							canEdit={comment.authorId === currentUser?.id}
-							canDelete={isContentOwner || comment.authorId === currentUser?.id}
+							isFromOwner={!comment.deleted && isFromOwner(comment, ownerUserId, ownerPageId)}
+							canEdit={!comment.deleted && comment.authorId === currentUser?.id}
+							canDelete={!comment.deleted && (isContentOwner || comment.authorId === currentUser?.id)}
 							onEdit={handleEdit}
 							onDelete={handleDelete}
 						/>

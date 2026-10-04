@@ -1,9 +1,7 @@
 /**
  * Unit tests for the reference-guarded delete helpers in image-attachment.ts.
- * The invariant under test: an Image row + its storage blob are hard-deleted ONLY when
- * nothing else references the image — no other ImageAttachment, and no User/Page avatar.
- * A still-referenced image is left intact (deleting it would cascade away another
- * attachment or null an avatar). Prisma + deleteImage are mocked — no DB/storage needed.
+ * An Image row is hard-deleted only when nothing else references it — no other
+ * ImageAttachment, and no User/Page avatar. Prisma + storage removal are mocked.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { AttachmentTarget } from "@prisma/client";
@@ -15,69 +13,81 @@ vi.mock("@/lib/utils/server/prisma", () => ({
       findMany: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
-      count: vi.fn(),
     },
-    image: { delete: vi.fn() },
-    user: { count: vi.fn() },
-    page: { count: vi.fn() },
+    image: { findMany: vi.fn(), deleteMany: vi.fn() },
+    user: { findMany: vi.fn() },
+    page: { findMany: vi.fn() },
   },
 }));
-vi.mock("@/lib/utils/server/storage", () => ({ deleteImage: vi.fn() }));
+vi.mock("@/lib/utils/server/storage", () => ({ removeStoragePaths: vi.fn() }));
 
-import { deleteAttachment, deleteAllAttachmentsForTarget } from "@/lib/utils/server/image-attachment";
+import { collectOrphanedImages, deleteAttachment, deleteAllAttachmentsForTarget } from "@/lib/utils/server/image-attachment";
 import { prisma } from "@/lib/utils/server/prisma";
-import { deleteImage } from "@/lib/utils/server/storage";
-
-const att = (id: string, imageId: string, url: string) => ({ id, image: { id: imageId, url } });
+import { removeStoragePaths } from "@/lib/utils/server/storage";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(deleteImage).mockResolvedValue({ success: true, error: null });
-  // Default: image is orphaned after detach (no remaining refs anywhere).
-  vi.mocked(prisma.imageAttachment.count).mockResolvedValue(0 as never);
-  vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
-  vi.mocked(prisma.page.count).mockResolvedValue(0 as never);
+  vi.mocked(removeStoragePaths).mockResolvedValue(undefined);
+  vi.mocked(prisma.imageAttachment.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.page.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.image.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.image.deleteMany).mockResolvedValue({ count: 0 } as never);
+});
+
+describe("collectOrphanedImages", () => {
+  test("keeps an image that is still attached or used as an avatar", async () => {
+    vi.mocked(prisma.imageAttachment.findMany).mockResolvedValue([{ imageId: "still-attached" }] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ avatarImageId: "user-avatar" }] as never);
+    vi.mocked(prisma.page.findMany).mockResolvedValue([{ avatarImageId: "page-avatar" }] as never);
+    vi.mocked(prisma.image.findMany).mockResolvedValue([{ path: "uploads/orphan.jpg" }] as never);
+
+    const paths = await collectOrphanedImages(["still-attached", "user-avatar", "page-avatar", "orphan"]);
+
+    expect(paths).toEqual(["uploads/orphan.jpg"]);
+    expect(prisma.image.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["orphan"] } } });
+  });
 });
 
 describe("deleteAttachment", () => {
-  test("orphaned image → deletes attachment, Image row, and storage blob", async () => {
-    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue(att("a1", "img-1", "http://x/y.jpg") as never);
+  test("orphaned image → deletes attachment, Image row, and returns its path to storage", async () => {
+    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue({ imageId: "img-1" } as never);
+    vi.mocked(prisma.image.findMany).mockResolvedValue([{ path: "uploads/y.jpg" }] as never);
 
     await deleteAttachment("a1");
 
     expect(prisma.imageAttachment.delete).toHaveBeenCalledWith({ where: { id: "a1" } });
-    expect(prisma.image.delete).toHaveBeenCalledWith({ where: { id: "img-1" } });
-    expect(deleteImage).toHaveBeenCalledWith("http://x/y.jpg");
+    expect(prisma.image.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["img-1"] } } });
+    expect(removeStoragePaths).toHaveBeenCalledWith(["uploads/y.jpg"]);
   });
 
-  test("image still attached elsewhere → detaches only, keeps Image + blob", async () => {
-    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue(att("a1", "img-1", "http://x/y.jpg") as never);
-    vi.mocked(prisma.imageAttachment.count).mockResolvedValue(1 as never); // another attachment remains
+  test("image still attached elsewhere → detaches only", async () => {
+    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue({ imageId: "img-1" } as never);
+    vi.mocked(prisma.imageAttachment.findMany).mockResolvedValue([{ imageId: "img-1" }] as never);
 
     await deleteAttachment("a1");
 
     expect(prisma.imageAttachment.delete).toHaveBeenCalledWith({ where: { id: "a1" } });
-    expect(prisma.image.delete).not.toHaveBeenCalled();
-    expect(deleteImage).not.toHaveBeenCalled();
+    expect(prisma.image.deleteMany).not.toHaveBeenCalled();
+    expect(removeStoragePaths).toHaveBeenCalledWith([]);
   });
 
-  test("image used as a User avatar → keeps Image + blob (no silent avatar loss)", async () => {
-    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue(att("a1", "img-1", "http://x/y.jpg") as never);
-    vi.mocked(prisma.user.count).mockResolvedValue(1 as never);
+  test("image used as a User avatar → keeps the Image", async () => {
+    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue({ imageId: "img-1" } as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ avatarImageId: "img-1" }] as never);
 
     await deleteAttachment("a1");
 
-    expect(prisma.image.delete).not.toHaveBeenCalled();
-    expect(deleteImage).not.toHaveBeenCalled();
+    expect(prisma.image.deleteMany).not.toHaveBeenCalled();
   });
 
-  test("image used as a Page avatar → keeps Image + blob", async () => {
-    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue(att("a1", "img-1", "http://x/y.jpg") as never);
-    vi.mocked(prisma.page.count).mockResolvedValue(1 as never);
+  test("image used as a Page avatar → keeps the Image", async () => {
+    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue({ imageId: "img-1" } as never);
+    vi.mocked(prisma.page.findMany).mockResolvedValue([{ avatarImageId: "img-1" }] as never);
 
     await deleteAttachment("a1");
 
-    expect(prisma.image.delete).not.toHaveBeenCalled();
+    expect(prisma.image.deleteMany).not.toHaveBeenCalled();
   });
 
   test("missing attachment → no-op", async () => {
@@ -86,17 +96,7 @@ describe("deleteAttachment", () => {
     await deleteAttachment("gone");
 
     expect(prisma.imageAttachment.delete).not.toHaveBeenCalled();
-    expect(prisma.image.delete).not.toHaveBeenCalled();
-  });
-
-  test("storage failure is swallowed (Image row still deleted)", async () => {
-    vi.mocked(prisma.imageAttachment.findUnique).mockResolvedValue(att("a1", "img-1", "/uploads/local.jpg") as never);
-    vi.mocked(deleteImage).mockResolvedValue({ success: false, error: "Invalid image URL" });
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await expect(deleteAttachment("a1")).resolves.toBeUndefined();
-    expect(prisma.image.delete).toHaveBeenCalled();
-    err.mockRestore();
+    expect(prisma.image.deleteMany).not.toHaveBeenCalled();
   });
 });
 
@@ -111,38 +111,39 @@ describe("deleteAllAttachmentsForTarget", () => {
         where: { type: "EVENT", targetId: "e1", image: { uploadedByUserId: "u1" } },
       })
     );
-    expect(prisma.imageAttachment.deleteMany).not.toHaveBeenCalled(); // nothing matched
+    expect(prisma.imageAttachment.deleteMany).not.toHaveBeenCalled();
   });
 
   test("without onlyUploadedBy → cleans up every attached image on the target", async () => {
-    vi.mocked(prisma.imageAttachment.findMany).mockResolvedValue([
-      att("a1", "img-1", "http://x/1.jpg"),
-      att("a2", "img-2", "http://x/2.jpg"),
+    vi.mocked(prisma.imageAttachment.findMany)
+      .mockResolvedValueOnce([
+        { id: "a1", imageId: "img-1" },
+        { id: "a2", imageId: "img-2" },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.image.findMany).mockResolvedValue([
+      { path: "uploads/1.jpg" },
+      { path: "uploads/2.jpg" },
     ] as never);
 
     await deleteAllAttachmentsForTarget(AttachmentTarget.POST, "p1");
 
-    expect(prisma.imageAttachment.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { type: "POST", targetId: "p1" } })
-    );
     expect(prisma.imageAttachment.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["a1", "a2"] } } });
-    expect(prisma.image.delete).toHaveBeenCalledTimes(2);
-    expect(deleteImage).toHaveBeenCalledTimes(2);
+    expect(prisma.image.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["img-1", "img-2"] } } });
+    expect(removeStoragePaths).toHaveBeenCalledWith(["uploads/1.jpg", "uploads/2.jpg"]);
   });
 
   test("keeps a shared image while deleting the orphaned one", async () => {
-    vi.mocked(prisma.imageAttachment.findMany).mockResolvedValue([
-      att("a1", "img-1", "http://x/1.jpg"), // orphaned
-      att("a2", "img-2", "http://x/2.jpg"), // still referenced
-    ] as never);
-    // img-1 → 0 remaining, img-2 → 1 remaining
-    vi.mocked(prisma.imageAttachment.count)
-      .mockResolvedValueOnce(0 as never)
-      .mockResolvedValueOnce(1 as never);
+    vi.mocked(prisma.imageAttachment.findMany)
+      .mockResolvedValueOnce([
+        { id: "a1", imageId: "img-1" },
+        { id: "a2", imageId: "img-2" },
+      ] as never)
+      .mockResolvedValueOnce([{ imageId: "img-2" }] as never);
+    vi.mocked(prisma.image.findMany).mockResolvedValue([{ path: "uploads/1.jpg" }] as never);
 
     await deleteAllAttachmentsForTarget(AttachmentTarget.POST, "p1");
 
-    expect(prisma.image.delete).toHaveBeenCalledTimes(1);
-    expect(prisma.image.delete).toHaveBeenCalledWith({ where: { id: "img-1" } });
+    expect(prisma.image.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["img-1"] } } });
   });
 });

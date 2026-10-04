@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { API_MESSAGES_DIRECT, MESSAGES } from "@/lib/const/routes";
 import { ConversationThread } from "./ConversationThread";
@@ -49,9 +49,7 @@ export function StandaloneThreadPage({ target }: { target: Target }) {
 		<PageLayout>
 			<div className="max-w-4xl mx-auto w-full flex flex-col h-[calc(100vh-200px)]">
 				<div className="mb-4">
-					<Link href={MESSAGES} className="text-sm underline mb-2 inline-block">
-						← Back to Messages
-					</Link>
+					<Breadcrumb href={MESSAGES} label="Back to Messages" />
 				</div>
 				<div className="flex-1 border border-soft-grey rounded-xl overflow-hidden flex flex-col bg-grey-white min-h-0">
 					{preparing || conversationId === undefined ? (

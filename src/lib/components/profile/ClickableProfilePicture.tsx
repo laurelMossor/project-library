@@ -14,9 +14,11 @@ type ClickableProfilePictureProps = {
 	entity: CardEntity;
 	/** Owner can open the photo editor. Defaults false (public profiles). */
 	canEdit?: boolean;
+	/** Called after the avatar FK is saved, so a client-loaded profile can merge it. */
+	onSaved?: (avatar: { id: string; url: string } | null) => void;
 };
 
-export function ClickableProfilePicture({ entity, canEdit = false }: ClickableProfilePictureProps) {
+export function ClickableProfilePicture({ entity, canEdit = false, onSaved }: ClickableProfilePictureProps) {
 	const router = useRouter();
 	const [editOpen, setEditOpen] = useState(false);
 	const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -94,10 +96,12 @@ export function ClickableProfilePicture({ entity, canEdit = false }: ClickablePr
 						if (!file) return;
 						const image = await uploadImageOnly({ file, folder: "avatars" });
 						await saveAvatarImageId(image.id);
+						onSaved?.({ id: image.id, url: image.url });
 						router.refresh();
 					}}
 					onRemove={async () => {
 						await saveAvatarImageId(null);
+						onSaved?.(null);
 						router.refresh();
 					}}
 				/>

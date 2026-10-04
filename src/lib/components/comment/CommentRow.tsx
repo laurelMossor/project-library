@@ -27,6 +27,21 @@ type CommentRowProps = {
  */
 export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, onDelete }: CommentRowProps) {
 	const entity = commentIdentity(comment);
+	if (comment.deleted || !entity) {
+		const who = comment.deleted === "PAGE" ? "[page deleted]" : "[user deleted]";
+		return (
+			<div className="flex gap-3">
+				<div className="h-8 w-8 shrink-0 rounded-full bg-soft-grey" aria-hidden />
+				<div className="min-w-0 flex-1">
+					<p className="text-sm font-medium text-dusty-grey">{who}</p>
+					<p className="mt-1 text-sm leading-relaxed text-dusty-grey">[comment deleted]</p>
+					<div className="mt-1.5 text-xs text-dusty-grey">
+						<LocalDate value={comment.createdAt} mode="relative" />
+					</div>
+				</div>
+			</div>
+		);
+	}
 	const { name, href } = resolveCardIdentity(entity);
 
 	const [editing, setEditing] = useState(false);

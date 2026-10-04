@@ -14,7 +14,9 @@ vi.mock("@/lib/utils/server/prisma", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
+      groupBy: vi.fn(),
     },
+    page: { findMany: vi.fn() },
   },
 }));
 
@@ -26,6 +28,8 @@ import {
   wouldRemoveLastAdmin,
   getMemberPageIds,
   getMemberPageIdsForUsers,
+  getSoleAdminPages,
+  getSuccessorAdminIds,
 } from "@/lib/utils/server/permission";
 import { prisma } from "@/lib/utils/server/prisma";
 
@@ -274,5 +278,55 @@ describe("getMemberPageIdsForUsers", () => {
     const map = await getMemberPageIdsForUsers([]);
     expect(map.size).toBe(0);
     expect(vi.mocked(prisma.permission.findMany)).not.toHaveBeenCalled();
+  });
+});
+
+describe("getSoleAdminPages", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("returns the page whose only admin is this user", async () => {
+    vi.mocked(prisma.permission.groupBy).mockResolvedValue([
+      { resourceId: "p1", _max: { userId: "user-1" } },
+      { resourceId: "p2", _max: { userId: "someone-else" } },
+    ] as never);
+    vi.mocked(prisma.page.findMany)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: "p1", name: "Guild", handle: "guild" }] as never);
+
+    await expect(getSoleAdminPages("user-1")).resolves.toEqual([
+      { id: "p1", name: "Guild", handle: "guild" },
+    ]);
+  });
+
+  test("includes a page the user created that has no admin left", async () => {
+    vi.mocked(prisma.permission.groupBy)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.page.findMany)
+      .mockResolvedValueOnce([{ id: "orphan" }] as never)
+      .mockResolvedValueOnce([{ id: "orphan", name: "Empty", handle: "empty" }] as never);
+
+    await expect(getSoleAdminPages("user-1")).resolves.toEqual([
+      { id: "orphan", name: "Empty", handle: "empty" },
+    ]);
+  });
+});
+
+describe("getSuccessorAdminIds", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("keeps the earliest remaining admin per page", async () => {
+    vi.mocked(prisma.permission.findMany).mockResolvedValue([
+      { resourceId: "p1", userId: "early" },
+      { resourceId: "p1", userId: "later" },
+      { resourceId: "p2", userId: "only" },
+    ] as never);
+
+    const map = await getSuccessorAdminIds(["p1", "p2"], "user-1", prisma);
+    expect(map.get("p1")).toBe("early");
+    expect(map.get("p2")).toBe("only");
+    expect(prisma.permission.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: { createdAt: "asc" },
+    }));
   });
 });

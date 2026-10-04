@@ -5,7 +5,7 @@ import { createPage } from "@/lib/utils/server/page";
 import { validateHandle, validateMembershipFields } from "@/lib/validations";
 import { MembershipPolicy } from "@prisma/client";
 import { isReservedHandle } from "@/lib/const/reserved-handles";
-import { isHandleTaken } from "@/lib/utils/server/handle";
+import { generateUniqueHandle, isHandleTaken } from "@/lib/utils/server/handle";
 import { logAction } from "@/lib/utils/server/log";
 
 /**
@@ -38,56 +38,58 @@ export async function POST(request: Request) {
 		const data = await request.json();
 		const { name, handle, headline, bio, interests, location, membershipPolicy, allowMemberPosts } = data;
 
-		if (!name || !handle) {
-			return badRequest("Name and handle are required");
+		if (!name || typeof name !== "string" || !name.trim()) {
+			return badRequest("Name is required");
 		}
 
-		const normalizedHandle =
-			typeof handle === "string" ? handle.toLowerCase().trim() : "";
-
-		if (!validateHandle(normalizedHandle)) {
-			return badRequest(
-				"Handle must be 3–30 characters and contain only lowercase letters, numbers, periods, underscores, and hyphens",
-			);
-		}
-
-		if (isReservedHandle(normalizedHandle)) {
-			return badRequest("That handle is reserved. Please choose another.");
-		}
-
-		if (await isHandleTaken(normalizedHandle)) {
-			return badRequest("That handle is already taken");
-		}
+		const suppliedHandle = typeof handle === "string" && handle.trim()
+			? handle.toLowerCase().trim()
+			: null;
 
 		const membership = validateMembershipFields({ membershipPolicy, allowMemberPosts });
 		if (!membership.valid) return badRequest(membership.error || "Invalid membership settings");
 
-		try {
-			const page = await createPage(ctx.userId, {
-				name,
-				handle: normalizedHandle,
-				headline,
-				bio,
-				interests,
-				location,
-				membershipPolicy: membershipPolicy as MembershipPolicy | undefined,
-				allowMemberPosts,
-			});
+		// A caller-chosen handle fails loudly. An omitted one is regenerated on a race (P2002).
+		const attempts = suppliedHandle ? 1 : 3;
+		let lastTaken = false;
+		for (let attempt = 0; attempt < attempts; attempt++) {
+			const normalizedHandle = suppliedHandle ?? await generateUniqueHandle(name.trim());
 
-			logAction("page.created", ctx.userId, { pageId: page.id });
-
-			return NextResponse.json(page, { status: 201 });
-		} catch (err) {
-			if (
-				typeof err === "object" &&
-				err !== null &&
-				"code" in err &&
-				(err as { code?: string }).code === "P2002"
-			) {
+			if (!validateHandle(normalizedHandle)) {
+				return badRequest(
+					"Handle must be 3–30 characters and contain only lowercase letters, numbers, periods, underscores, and hyphens",
+				);
+			}
+			if (isReservedHandle(normalizedHandle)) {
+				return badRequest("That handle is reserved. Please choose another.");
+			}
+			if (suppliedHandle && await isHandleTaken(normalizedHandle)) {
 				return badRequest("That handle is already taken");
 			}
-			throw err;
+
+			try {
+				const page = await createPage(ctx.userId, {
+					name: name.trim(),
+					handle: normalizedHandle,
+					headline,
+					bio,
+					interests,
+					location,
+					membershipPolicy: membershipPolicy as MembershipPolicy | undefined,
+					allowMemberPosts,
+				});
+
+				logAction("page.created", ctx.userId, { pageId: page.id });
+				return NextResponse.json(page, { status: 201 });
+			} catch (err) {
+				const taken = typeof err === "object" && err !== null && "code" in err
+					&& (err as { code?: string }).code === "P2002";
+				if (!taken) throw err;
+				lastTaken = true;
+			}
 		}
+		if (lastTaken) return badRequest("That handle is already taken");
+		return serverError("Failed to create page");
 	} catch (error) {
 		console.error("POST /api/pages error:", error);
 		return serverError("Failed to create page");

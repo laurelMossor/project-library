@@ -138,7 +138,7 @@ export function PostImagesModal({ isOpen, onClose, postId, images, setImages, in
 	}
 
 	return (
-		<ModalShell title={images.length > 0 ? "Edit photos" : "Add photos"} onClose={handleClose} widthClassName="max-w-lg">
+		<ModalShell title={images.length > 0 ? "Edit photos" : "Add photos"} onClose={handleClose} widthClassName="max-w-lg" dismissible={!busy}>
 				{current ? (
 					<>
 						{/* Carousel preview with an editable caption banner */}

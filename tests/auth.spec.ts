@@ -100,6 +100,7 @@ test.describe("Email verification + password reset", () => {
       email,
       handle: unique,
       passwordHash: await bcrypt.hash("password123", 10),
+      setupCompletedAt: new Date(),
     });
 
     try {
@@ -134,6 +135,7 @@ test.describe("Email verification + password reset", () => {
       handle: unique,
       passwordHash: await bcrypt.hash("oldpassword123", 10),
       emailVerified: new Date(), // verified, so login isn't gated
+      setupCompletedAt: new Date(),
     });
 
     try {

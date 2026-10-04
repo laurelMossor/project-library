@@ -12,6 +12,7 @@ declare module "next-auth" {
 			id: string;
 			email: string;
 			activePageId?: string; // ID of Page user is currently working on
+			needsSetup?: boolean; // true until the user finishes /setup
 		};
 	}
 }

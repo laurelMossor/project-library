@@ -8,6 +8,9 @@ export type MessageUser = CardUser & { firstName: string | null; lastName: strin
 
 export type ConversationKind = "DIRECT" | "GROUP";
 
+/** A tombstone: the person or page who was speaking is gone, and the words went with them. */
+export type DeletedSpeaker = "USER" | "PAGE";
+
 /** Who a message is from, as other members see it. A page message never names its human sender. */
 export type MessageAuthor =
 	| { type: "user"; user: MessageUser | null }
@@ -30,7 +33,10 @@ export type ConversationSummary<D = string> = {
 		createdAt: D;
 		isOwn: boolean;
 		author: MessageAuthor;
+		deleted: DeletedSpeaker | null;
 	} | null;
+	/** Set on a DM whose other party is gone. Worked out from their messages, since the participant row is gone too. */
+	deletedCounterpart: DeletedSpeaker | null;
 };
 
 export type ThreadMessage<D = string> = {
@@ -39,6 +45,7 @@ export type ThreadMessage<D = string> = {
 	createdAt: D;
 	isOwn: boolean;
 	author: MessageAuthor;
+	deleted: DeletedSpeaker | null;
 	/** The human behind a page message — present only when the viewer is that same page. */
 	sentBy: MessageUser | null;
 };
@@ -50,5 +57,7 @@ export type ConversationThreadData<D = string> = {
 	members: ConversationMember[];
 	/** A group the acting identity may leave (a page needs its ADMIN). */
 	canLeave: boolean;
+	/** Set on a DM whose other party is gone. */
+	deletedCounterpart: DeletedSpeaker | null;
 	messages: ThreadMessage<D>[];
 };

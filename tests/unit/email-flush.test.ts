@@ -142,6 +142,22 @@ describe("flushEmailOutbox", () => {
 		]);
 	});
 
+	test("a tombstoned message is suppressed and never emailed", async () => {
+		outboxFindMany.mockResolvedValue([
+			outboxRow({ id: "o1", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES" }),
+		] as never);
+		vi.mocked(prisma.message.findMany).mockResolvedValue([
+			{ id: "m1", conversationId: "c1", senderId: null, asPageId: null, deletedAs: "USER", content: "", createdAt: new Date() },
+		] as never);
+		vi.mocked(prisma.conversationParticipant.findMany).mockResolvedValue([
+			{ conversationId: "c1", userId: "alice", pageId: null, lastReadAt: null },
+		] as never);
+
+		await flushEmailOutbox();
+		expect(send).not.toHaveBeenCalled();
+		expect(stampedOutcomes()).toContain("SUPPRESSED_MISSING");
+	});
+
 	test("a page-context message row deep-links to the conversation under the page identity", async () => {
 		outboxFindMany.mockResolvedValue([
 			outboxRow({ id: "o1", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES", contextPageId: "pageX" }),

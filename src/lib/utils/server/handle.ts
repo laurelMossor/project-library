@@ -45,8 +45,10 @@ export async function isHandleTaken(handle: string): Promise<boolean> {
  * never chose the value.
  */
 export async function generateUniqueHandle(seed: string): Promise<string> {
-	// Local-part, lowercased, stripped to the valid charset; trimmed to leave room for a suffix.
-	const local = (seed.split("@")[0] ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+	// Email seeds use the local-part; any other base (a page name) is sanitized whole.
+	// Spaces become hyphens, then everything outside the handle charset is dropped.
+	const source = seed.includes("@") ? (seed.split("@")[0] ?? "") : seed;
+	const local = source.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_-]/g, "");
 	let base = local.slice(0, 24);
 	// validateHandle requires ≥3 chars — pad a too-short/empty base with a neutral prefix.
 	if (base.length < 3) base = `member${base}`.slice(0, 24);

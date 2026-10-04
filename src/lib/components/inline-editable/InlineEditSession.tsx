@@ -67,6 +67,8 @@ type InlineEditSessionProps<T extends Record<string, unknown>> = {
 	canPublish?: (current: T) => boolean;
 	/** Message shown next to the disabled Publish button when canPublish returns false. */
 	publishHint?: string;
+	/** `none` hides the save bar so a parent (setup) can call `saveAll()` from its own button. */
+	footer?: "bar" | "none";
 	children: ReactNode;
 };
 
@@ -78,6 +80,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	publishable = false,
 	canPublish,
 	publishHint,
+	footer = "bar",
 	children,
 }: InlineEditSessionProps<T>) {
 	const [dirtyFields, setDirtyFields] = useState<Record<string, unknown>>({});
@@ -297,7 +300,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	return (
 		<InlineEditSessionContext.Provider value={ctx}>
 			{children}
-			{!overlayOpen && (
+			{footer === "bar" && !overlayOpen && (
 				<InlineEditSessionBar
 					changeCount={changeCount}
 					pendingDeleteCount={pendingDeletes.length}

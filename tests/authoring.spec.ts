@@ -58,19 +58,21 @@ test.describe("Authoring — create content", () => {
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-  test("create a page redirects to its public profile", async ({ page }) => {
-    const handle = `playwright-test-${Date.now()}`;
+  test("create a page reviews settings, then opens its public profile", async ({ page }) => {
+    const name = `Playwright Test Page ${Date.now()}`;
     await page.goto("/pages/new");
     await expect(page).toHaveURL(/\/pages\/new/);
 
-    await page.locator("#name").fill("Playwright Test Page");
-    await page.locator("#handle").fill(handle);
+    await page.locator("#name").fill(name);
     await page.getByRole("button", { name: "Create Page" }).click();
 
-    await page.waitForURL(new RegExp(`/${handle}`), { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Playwright Test Page", level: 1, exact: true }),
-    ).toBeVisible();
+    await page.waitForURL(/\/setup/, { timeout: 10_000 });
+    await page.getByRole("button", { name: "Looks good" }).click();
+
+    await page.waitForURL((url) => !url.pathname.startsWith("/setup") && !url.pathname.startsWith("/pages"), {
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("heading", { name, level: 1, exact: true })).toBeVisible();
   });
 
   // ─── Profile inline editing ──────────────────────────────────────────────

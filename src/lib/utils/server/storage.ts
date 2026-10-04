@@ -183,6 +183,23 @@ export async function uploadImageBuffer(
 }
 
 /**
+ * Best-effort batched blob delete. `paths` are `Image.path` values. Failures are logged,
+ * never thrown — a committed row delete must not roll back because storage was unreachable.
+ * Called after the database transaction commits.
+ */
+export async function removeStoragePaths(paths: string[]): Promise<void> {
+	const unique = [...new Set(paths.filter(Boolean))];
+	if (unique.length === 0) return;
+	try {
+		const supabase = getSupabaseClient();
+		const { error } = await supabase.storage.from(BUCKET_NAME).remove(unique);
+		if (error) console.error("Failed to remove storage paths:", error);
+	} catch (error) {
+		console.error("Failed to remove storage paths:", error);
+	}
+}
+
+/**
  * Delete an image from Supabase storage
  * @param imageUrl - The public URL of the image to delete
  * @returns Success status and error if any

@@ -36,7 +36,7 @@ const MAX_OPEN_THREADS_MOBILE = 1;
 function previewText(c: ConversationSummary): string | null {
 	const m = c.lastMessage;
 	if (!m) return c.kind === "GROUP" ? "No messages yet" : null;
-	const body = truncateText(m.content);
+	const body = m.deleted ? "[message deleted]" : truncateText(m.content);
 	if (m.isOwn) return `You: ${body}`;
 	return c.kind === "GROUP" ? `${shortName(m.author)}: ${body}` : body;
 }

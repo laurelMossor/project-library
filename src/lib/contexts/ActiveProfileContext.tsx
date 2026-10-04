@@ -19,7 +19,7 @@ interface ActiveProfileContextValue {
 	 * Switch active profile. Pass null for personal identity, a pageId for a page.
 	 * Internally calls PUT /api/session/active-page (page) or DELETE (personal).
 	 */
-	switchProfile: (pageId: string | null) => Promise<void>;
+	switchProfile: (pageId: string | null) => Promise<boolean>;
 	/** Explicitly load the pages list. Call this when opening a profile switcher. */
 	fetchPages: () => Promise<void>;
 	loading: boolean;
@@ -140,7 +140,7 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 				if (!res.ok) {
 					const data = await res.json().catch(() => ({}));
 					setError((data as { error?: string }).error || "Failed to switch profile");
-					return;
+					return false;
 				}
 				await updateSession({ activePageId: pageId });
 				// Optimistically set the new active page entity for an instant switch. This also
@@ -156,13 +156,15 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 				const res = await fetch(API_SESSION_ACTIVE_PAGE, { method: "DELETE" });
 				if (!res.ok) {
 					setError("Failed to switch profile");
-					return;
+					return false;
 				}
 				await updateSession({ activePageId: null });
 				setActiveEntity(currentUser);
 			}
+			return true;
 		} catch {
 			setError("Failed to switch profile");
+			return false;
 		} finally {
 			setLoading(false);
 		}
