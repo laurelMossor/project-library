@@ -99,31 +99,25 @@ export async function countUnreadForIdentity(identity: MessagingIdentity): Promi
 }
 
 /**
- * Mark the conversation read for this identity up to `upToMessageId` — the newest message the viewer
- * actually loaded — never "up to now", which would swallow a message that arrived after the viewer's
- * fetch (and suppress its email). The marker only moves forward. No id (an empty thread) is a no-op.
- * Returns false when the identity isn't a participant.
+ * Move this identity's read marker forward to `upTo` — a timestamp the caller already holds (the newest
+ * message it loaded, or the one it just sent). The `lt` filter is the whole rule: a marker already at or
+ * past `upTo` stays put, so a message that arrives after the view stays unread and can still email.
+ * `db` is the open transaction when the caller is already inside one (sending); otherwise the shared client.
  */
-export async function markConversationRead(
+export async function advanceReadMarker(
 	conversationId: string,
 	identity: MessagingIdentity,
-	upToMessageId?: string | null,
-): Promise<boolean> {
-	const participant = await prisma.conversationParticipant.findFirst({
-		where: { conversationId, ...identityWhere(identity) },
-		select: { id: true, lastReadAt: true },
+	upTo: Date,
+	db: Prisma.TransactionClient = prisma,
+): Promise<void> {
+	await db.conversationParticipant.updateMany({
+		where: {
+			conversationId,
+			...identityWhere(identity),
+			OR: [{ lastReadAt: null }, { lastReadAt: { lt: upTo } }],
+		},
+		data: { lastReadAt: upTo },
 	});
-	if (!participant) return false;
-	if (!upToMessageId) return true;
-
-	const message = await prisma.message.findFirst({
-		where: { id: upToMessageId, conversationId },
-		select: { createdAt: true },
-	});
-	if (message && (!participant.lastReadAt || message.createdAt > participant.lastReadAt)) {
-		await prisma.conversationParticipant.update({ where: { id: participant.id }, data: { lastReadAt: message.createdAt } });
-	}
-	return true;
 }
 
 /**
@@ -270,12 +264,8 @@ export async function listInbox(identity: MessagingIdentity, limit = 50): Promis
 /**
  * A conversation as the acting identity sees it: members, and messages since it joined. Each page
  * message carries `sentBy` (the human who sent it) ONLY when the viewer is that same page — co-managers
- * coordinate internally, while every other member sees only the page's one voice.
- *
- * Fetching a thread also marks it read (up to its newest message) as a side effect — "viewing" IS
- * "reading" here, and doing it inline avoids both a second request and any race with a separate PATCH.
- * `PATCH .../read` / `markConversationRead` still exist for a caller that wants to mark read without a
- * full fetch.
+ * coordinate internally, while every other member sees only the page's one voice. A pure read — the GET
+ * route advances the read marker after this returns, using the newest message's timestamp.
  */
 export async function getThread(
 	conversationId: string,
@@ -299,14 +289,7 @@ export async function getThread(
 	]);
 
 	const members = toMembers(participants, identity);
-	const latest = messages.at(-1);
-	const [pages] = await Promise.all([
-		pagesById(messages.map((m) => m.asPageId).filter((id): id is string => !!id), members),
-		// Viewing a thread marks it read, atomically with the fetch, in parallel with the work above —
-		// no separate round trip from the client, and no race window: we mark exactly what we're about
-		// to return, never "now" (which could swallow a message that arrives a moment later).
-		latest ? markConversationRead(conversationId, identity, latest.id) : Promise.resolve(true),
-	]);
+	const pages = await pagesById(messages.map((m) => m.asPageId).filter((id): id is string => !!id), members);
 	const { conversation } = participation;
 
 	return {
@@ -347,10 +330,7 @@ export async function sendConversationMessage(params: {
 			data: { conversationId, senderId: senderUserId, content, asPageId: asPageIdOf(identity) ?? null },
 		});
 		await tx.conversation.update({ where: { id: conversationId }, data: { updatedAt: created.createdAt } });
-		await tx.conversationParticipant.updateMany({
-			where: { conversationId, ...identityWhere(identity) },
-			data: { lastReadAt: created.createdAt },
-		});
+		await advanceReadMarker(conversationId, identity, created.createdAt, tx);
 		return created;
 	});
 

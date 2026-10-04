@@ -155,7 +155,7 @@ Shared value-sets (`FEED_VISIBILITY`, `PROFILE_COLLECTION_VISIBILITY`) are the s
 
 - [ ] Built `viewer` once via `getViewerContext()`.
 - [ ] **Profile detail:** gated with `requireViewableProfile` / `resolveProfileAccess`. The stub is identity-only.
-- [ ] **Content detail:** gated with `canViewPost` / `canViewEvent`; not-viewable → **404**. DRAFT content only for its owner.
+- [ ] **Content detail:** gated with `canViewPost` / `canViewEvent`; not-viewable → **404**. DRAFT content only for whoever `canEditContent` allows: a current editor when it is spoken as a page, otherwise its author.
 - [ ] **Content list:** the visibility clause is a `*ListWhere` / `collectionVisibilityWhere` fragment and nothing widens it.
 - [ ] **Create/PATCH content:** never accept a client `visibility`; derive via the util. Re-parent re-derives.
 - [ ] **Embeds** use the attribution-only selectors.

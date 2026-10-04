@@ -214,9 +214,10 @@ export async function requireViewableProfile(
 }
 
 /**
- * Is the viewer allowed to see this content while it is still a DRAFT? The author, or a
- * manager of the page it is spoken AS. A page editor does not see a member's draft posted
- * to the page. `asPageId` must be loaded — without it, only the author matches.
+ * Is the viewer allowed to see this content while it is still a DRAFT? Same rule as
+ * `canEditContent`: a current editor when it is spoken as a page, otherwise the author.
+ * A page editor does not see a member's draft posted to the page. `asPageId` must be
+ * loaded — without it, only the author matches.
  */
 export async function isContentOwner(
   viewer: ViewerContext,
@@ -224,6 +225,22 @@ export async function isContentOwner(
 ): Promise<boolean> {
   if (!viewer.userId) return false;
   return canEditContent(viewer.userId, content);
+}
+
+/**
+ * Page-collection draft filter. Published rows always stay. When drafts are
+ * included, a draft is kept only if the page is speaking (`asPageId` set) or
+ * the viewer wrote it. Another member's unpublished post stays out of the payload.
+ */
+export function draftsOnPageWhere(includeDrafts: boolean, viewer?: ViewerContext): object {
+  if (!includeDrafts) return { status: "PUBLISHED" };
+  return {
+    OR: [
+      { status: "PUBLISHED" },
+      { asPageId: { not: null } },
+      ...(viewer?.userId ? [{ userId: viewer.userId }] : []),
+    ],
+  };
 }
 
 type ViewableEvent = {

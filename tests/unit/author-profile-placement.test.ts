@@ -9,7 +9,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 
-import { authorProfilePlacementWhere } from "@/lib/utils/server/visibility";
+import { authorProfilePlacementWhere, draftsOnPageWhere } from "@/lib/utils/server/visibility";
 import { prisma } from "@/lib/utils/server/prisma";
 import type { ViewerContext } from "@/lib/utils/server/visibility";
 
@@ -43,5 +43,24 @@ describe("authorProfilePlacementWhere", () => {
     const viewer: ViewerContext = { userId: "member", memberPageIds: ["secret"] };
     const where = await authorProfilePlacementWhere(viewer) as { OR: Array<Record<string, unknown>> };
     expect(where.OR).toContainEqual({ pageId: { in: ["secret"] } });
+  });
+});
+
+describe("draftsOnPageWhere", () => {
+  test("a page admin's draft query keeps page-spoken drafts and their own, not another member's", () => {
+    const viewer: ViewerContext = { userId: "admin", memberPageIds: ["page-1"] };
+    expect(draftsOnPageWhere(true, viewer)).toEqual({
+      OR: [
+        { status: "PUBLISHED" },
+        { asPageId: { not: null } },
+        { userId: "admin" },
+      ],
+    });
+  });
+
+  test("without drafts, only published rows", () => {
+    expect(draftsOnPageWhere(false, { userId: "admin", memberPageIds: [] })).toEqual({
+      status: "PUBLISHED",
+    });
   });
 });

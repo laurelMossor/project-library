@@ -14,6 +14,12 @@
 #### Entry: Sun 10/04/2026 12:46 PDT
 Profiles without a photo now get a generated Bauhaus avatar in the Project Library colors. An uploaded photo still shows instead. The picture is seeded by the account id, so renaming a handle leaves it unchanged.
 
+#### Entry: Sun 10/04/2026 12:15 PDT
+Reviewed the membership and post-to-page branch and landed the review fixes. Only a current admin or editor can edit content spoken as a page, and removing a member also drops their follow. Event updates and member drafts stay with their real audience, and a leftover join or closed-page invite can no longer change a role. Drafted unchecked acceptance criteria for these onto both QA tickets.
+
+#### Entry: Sun 10/04/2026 11:38 PDT
+Reviewed the group-messaging follow-up and landed the DRY pass. Viewing and sending share one forward-only read marker. A thread fetch is a pure read again. Added a DRY/SOLID step to `/prolib-review` so a review flags a second copy of a rule or component.
+
 #### Entry: Sat 10/03/2026 14:10 PDT
 The post composer is now one dropdown. Your profile starts checked, the pages you can post to are radios, and at least one has to stay selected. A page invite now says the page invited you to be an Admin, an Editor, or a Member on their page. Your own profile no longer offers Follow, and admins and editors can pin that page's posts.
 

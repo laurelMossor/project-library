@@ -111,8 +111,8 @@ export async function GET(request: Request, { params }: Params) {
 		const viewer = await getViewerContext();
 
 		// Gate viewability first: a viewer who can't see the event 404s (no existence oracle) before
-		// the manage check. The attendee list (names + emails) is then restricted to whoever can
-		// manage the event — the creator, or any ADMIN/EDITOR of the hosting page.
+		// the manage check. The attendee list (names + emails) follows canEditContent: the author
+		// of a personal or to-page event, or a current ADMIN/EDITOR when the event is spoken as the page.
 		const event = await requireViewableEvent(id, viewer);
 		if (!event) {
 			return notFound("Event not found");

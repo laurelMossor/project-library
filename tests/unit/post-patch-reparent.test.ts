@@ -128,6 +128,42 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  test("switching a draft's voice on the same page updates replies and does not re-derive visibility", async () => {
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: "page-A", asPageId: "page-A", showOnAuthorProfile: false, eventId: null,
+      parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { asPageId: null, showOnAuthorProfile: true });
+    expect(res.status).toBe(200);
+    expect(tx.post.updateMany).toHaveBeenCalledWith({
+      where: { parentPostId: "post-1" },
+      data: { pageId: "page-A", asPageId: null, showOnAuthorProfile: true },
+    });
+    expect(syncDescendantVisibility).not.toHaveBeenCalled();
+  });
+
+  test("an event update's placement cannot change", async () => {
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: null, asPageId: null, eventId: "e1",
+      parentPostId: null, status: "DRAFT", contentVisibility: "PRIVATE",
+    } as never);
+    const res = await patch("post-1", { pageId: "public-page" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/event update/i) });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  test("the author cannot unpin a page post", async () => {
+    vi.mocked(canPostAsPage).mockResolvedValue(false);
+    vi.mocked(requireViewablePost).mockResolvedValue({
+      id: "post-1", userId: "u1", pageId: "page-A", asPageId: null, eventId: null,
+      parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
+    } as never);
+    const res = await patch("post-1", { pinnedAt: null });
+    expect(res.status).toBe(400);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   test("editing a reply's content (no pageId) is NOT blocked by the reply-page guard", async () => {
     vi.mocked(requireViewablePost).mockResolvedValue({
       id: "reply-1", userId: "u1", pageId: "page-A", eventId: null,

@@ -33,7 +33,6 @@ vi.mock("@/lib/utils/server/prisma", () => {
 
 import { GET as getThread, PATCH as editGroup } from "@/app/api/messages/conversations/[conversationId]/route";
 import { POST as send } from "@/app/api/messages/conversations/[conversationId]/messages/route";
-import { PATCH as markRead } from "@/app/api/messages/conversations/[conversationId]/read/route";
 import { POST as leave } from "@/app/api/messages/conversations/[conversationId]/leave/route";
 import { POST as createGroup } from "@/app/api/messages/conversations/route";
 import { getSessionContext } from "@/lib/utils/server/session";
@@ -69,7 +68,6 @@ describe("non-participant → 404 on every method", () => {
 		expect((await send(body({ content: "hi" }), params)).status).toBe(404);
 		expect(p.message.create).not.toHaveBeenCalled();
 	});
-	test("PATCH read", async () => expect((await markRead(body({}, "PATCH"), params)).status).toBe(404));
 	test("PATCH rename/add", async () => expect((await editGroup(body({ name: "x" }, "PATCH"), params)).status).toBe(404));
 	test("POST leave", async () => expect((await leave(body({}), params)).status).toBe(404));
 });
@@ -81,7 +79,6 @@ describe("acting as a page the caller can't act as (plain MEMBER) → 400 before
 		expect(p.conversationParticipant.findFirst).not.toHaveBeenCalled();
 	});
 	test("POST message", async () => expect((await send(body({ content: "hi", asPageId: "guild" }), params)).status).toBe(400));
-	test("PATCH read", async () => expect((await markRead(body({ asPageId: "guild" }, "PATCH"), params)).status).toBe(400));
 	test("POST leave", async () => expect((await leave(body({ asPageId: "guild" }), params)).status).toBe(400));
 	test("POST create group", async () => {
 		const res = await createGroup(new Request("http://test", { method: "POST", body: JSON.stringify({ asPageId: "guild", members: [{ type: "user", id: "pat" }] }) }));
@@ -132,11 +129,39 @@ describe("group edits", () => {
 	});
 });
 
+describe("GET thread marks read for the acting identity", () => {
+	const seenAt = new Date("2026-01-01T00:04:00.000Z");
+	const forwardOnly = (upTo: Date) => [{ lastReadAt: null }, { lastReadAt: { lt: upTo } }];
+
+	test("one message → the marker advances to that message's createdAt", async () => {
+		p.message.findMany.mockResolvedValue([
+			{ id: "m1", content: "hi", createdAt: seenAt, senderId: "alice", asPageId: null, sender: { id: "alice" } },
+		]);
+		const res = await getThread(new Request(url), params);
+		expect(res.status).toBe(200);
+		expect(p.conversationParticipant.updateMany).toHaveBeenCalledWith({
+			where: { conversationId: "g1", userId: "sam", OR: forwardOnly(seenAt) },
+			data: { lastReadAt: seenAt },
+		});
+	});
+
+	test("an empty thread has nothing to mark", async () => {
+		const res = await getThread(new Request(url), params);
+		expect(res.status).toBe(200);
+		expect(p.conversationParticipant.updateMany).not.toHaveBeenCalled();
+	});
+});
+
 describe("participant send", () => {
 	test("advances only the sending identity's read marker", async () => {
 		const res = await send(body({ content: "hi", asPageId: "guild" }), params);
 		expect(res.status).toBe(201);
-		expect(p.conversationParticipant.updateMany.mock.calls[0][0].where).toEqual({ conversationId: "g1", pageId: "guild" });
+		const createdAt = (await p.message.create.mock.results[0].value).createdAt;
+		expect(p.conversationParticipant.updateMany.mock.calls[0][0].where).toEqual({
+			conversationId: "g1",
+			pageId: "guild",
+			OR: [{ lastReadAt: null }, { lastReadAt: { lt: createdAt } }],
+		});
 		expect(p.message.create.mock.calls[0][0].data).toMatchObject({ senderId: "sam", asPageId: "guild" });
 	});
 });

@@ -26,6 +26,13 @@ describe("content authority", () => {
     expect(await canEditContent("editor", memberPost)).toBe(false);
   });
 
+  test("page-spoken content requires a current editor, not the original author", async () => {
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue(null);
+    expect(await canEditContent("alice", asPagePost)).toBe(false);
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: "EDITOR" } as never);
+    expect(await canEditContent("alice", asPagePost)).toBe(true);
+  });
+
   test("a page editor can edit a post spoken as the page, and can delete a member post", async () => {
     vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: "EDITOR" } as never);
     expect(await canEditContent("editor", asPagePost)).toBe(true);

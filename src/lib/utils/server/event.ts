@@ -8,7 +8,7 @@ import { getImagesForTarget, getImagesForTargetsBatch, deleteAllAttachmentsForTa
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 import type { ViewerContext } from "./visibility";
-import { authorProfilePlacementWhere, collectionVisibilityWhere } from "./visibility";
+import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere } from "./visibility";
 
 /** Transform Prisma query result to EventItem */
 function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
@@ -65,7 +65,7 @@ export async function getEventsByPage(
 	const events = await prisma.event.findMany({
 		where: {
 			pageId,
-			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...draftsOnPageWhere(includeDrafts, viewer),
 			...(await collectionVisibilityWhere("PAGE", pageId, viewer)),
 		},
 		select: eventCollectionFields,

@@ -94,7 +94,12 @@ describe("POST /api/messages (DM by recipient)", () => {
 	test("sends into the DM, advances the sender's read marker, and emails the recipient", async () => {
 		const res = await POST(req({ recipientUserId: "bob", content: "Hi" }));
 		expect(res.status).toBe(201);
-		expect(p.conversationParticipant.updateMany.mock.calls[0][0].where).toEqual({ conversationId: "c1", userId: "alice" });
+		const createdAt = (await p.message.create.mock.results[0].value).createdAt;
+		expect(p.conversationParticipant.updateMany.mock.calls[0][0].where).toEqual({
+			conversationId: "c1",
+			userId: "alice",
+			OR: [{ lastReadAt: null }, { lastReadAt: { lt: createdAt } }],
+		});
 		expect(recipients()).toEqual(["bob@personal"]);
 	});
 

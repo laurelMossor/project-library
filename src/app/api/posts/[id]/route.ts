@@ -160,6 +160,9 @@ export async function PATCH(request: Request, { params }: Params) {
 			if (existing.parentPostId) {
 				return badRequest("A reply inherits its page from its parent post and cannot be moved");
 			}
+			if (existing.eventId) {
+				return badRequest("An event update stays on its event and cannot be moved");
+			}
 			if (existing.status !== "DRAFT") {
 				return badRequest("A published post's placement can't change");
 			}
@@ -205,7 +208,7 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Handle pinnedAt toggle — enforce 3-pin limit per user/page scope
 		const pinPageId = placement?.pageId ?? existing.pageId;
 		if (pinnedAt !== undefined) {
-			if (pinnedAt !== null && pinPageId && !(await canPostAsPage(viewer.userId, pinPageId))) {
+			if (pinPageId && !(await canPostAsPage(viewer.userId, pinPageId))) {
 				return badRequest("Only page editors can pin posts on this page");
 			}
 			if (pinnedAt !== null) {
@@ -265,18 +268,21 @@ export async function PATCH(request: Request, { params }: Params) {
 				data: updateData,
 				select: postFields,
 			});
-			if (reparentedVisibility !== undefined) {
-				// Replies live in the parent's page context (INV-3) and inherit its visibility —
-				// keep both in sync when the parent is re-parented.
+			if (placement) {
+				// Replies copy the parent's placement even when the page stays put, so a
+				// draft that switches from "as the page" to "to the page" does not leave
+				// replies speaking as the page. Visibility changes only with the audience.
 				await tx.post.updateMany({
 					where: { parentPostId: id },
 					data: {
-						pageId: placement?.pageId ?? null,
-						asPageId: placement?.asPageId ?? null,
-						showOnAuthorProfile: placement?.showOnAuthorProfile ?? false,
+						pageId: placement.pageId,
+						asPageId: placement.asPageId,
+						showOnAuthorProfile: placement.showOnAuthorProfile,
 					},
 				});
-				await syncDescendantVisibility("POST", id, reparentedVisibility, tx);
+				if (reparentedVisibility !== undefined) {
+					await syncDescendantVisibility("POST", id, reparentedVisibility, tx);
+				}
 			}
 			return updated;
 		});
