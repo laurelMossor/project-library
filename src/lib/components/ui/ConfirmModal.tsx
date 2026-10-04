@@ -23,7 +23,7 @@ export function ConfirmModal({ title, children, confirmLabel, busy, error, onCon
 				{error && <p role="alert" className="text-sm text-novel-red">{error}</p>}
 				<div className="flex justify-end gap-2 pt-1">
 					<Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-					<Button variant="danger" loading={busy} onClick={onConfirm}>{confirmLabel}</Button>
+					<Button variant="danger-outline" loading={busy} onClick={onConfirm}>{confirmLabel}</Button>
 				</div>
 			</div>
 		</ModalShell>

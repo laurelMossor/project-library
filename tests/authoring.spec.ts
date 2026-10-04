@@ -58,21 +58,21 @@ test.describe("Authoring — create content", () => {
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-  test("create a page reviews settings, then opens its public profile", async ({ page }) => {
-    const name = `Playwright Test Page ${Date.now()}`;
+  test("create a page opens the one setup page, then its public profile", async ({ page }) => {
     await page.goto("/pages/new");
-    await expect(page).toHaveURL(/\/pages\/new/);
+    await page.waitForURL(/\/setup/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Set up your account", level: 1 })).toBeVisible();
 
-    await page.locator("#name").fill(name);
-    await page.getByRole("button", { name: "Create Page" }).click();
+    // The handle is the URL. Left alone, the page name is that handle.
+    const handleLine = page.getByText(/^\/[a-z0-9_-]+$/).first();
+    await expect(handleLine).toBeVisible();
+    const handle = ((await handleLine.textContent()) ?? "").replace(/^\//, "");
 
-    await page.waitForURL(/\/setup/, { timeout: 10_000 });
     await page.getByRole("button", { name: "Looks good" }).click();
-
     await page.waitForURL((url) => !url.pathname.startsWith("/setup") && !url.pathname.startsWith("/pages"), {
       timeout: 10_000,
     });
-    await expect(page.getByRole("heading", { name, level: 1, exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: handle, level: 1, exact: true })).toBeVisible();
   });
 
   // ─── Profile inline editing ──────────────────────────────────────────────

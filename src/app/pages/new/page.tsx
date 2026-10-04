@@ -1,84 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FormLayout } from "@/lib/components/layout/FormLayout";
-import { FormField } from "@/lib/components/forms/FormField";
-import { FormInput } from "@/lib/components/forms/FormInput";
-import { FormError } from "@/lib/components/forms/FormError";
-import { FormActions } from "@/lib/components/forms/FormActions";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { FormError } from "@/lib/components/forms/FormError";
 import { API_PAGES, LOGIN_WITH_CALLBACK, PAGE_NEW, SETUP } from "@/lib/const/routes";
 
+// React strict mode runs the effect twice. A second real visit is much later.
+let lastCreateAt = 0;
+
 /**
- * Create a page by name only. The handle is generated on the server, and
- * membership, visibility, and the rest are reviewed on /setup.
+ * There is no name form here. A page is created with a generated handle and
+ * the person lands on /setup, the same long page a new user gets.
  */
 export default function NewPagePage() {
 	const router = useRouter();
 	const { switchProfile } = useActiveProfile();
-	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
-	const [name, setName] = useState("");
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setSaving(true);
-		setError("");
+	useEffect(() => {
+		const now = Date.now();
+		if (now - lastCreateAt < 1000) return;
+		lastCreateAt = now;
 
-		const res = await fetch(API_PAGES, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name: name.trim() }),
-		});
-
-		if (!res.ok) {
-			const data = await res.json().catch(() => ({}));
-			if (res.status === 401) {
-				router.push(LOGIN_WITH_CALLBACK(PAGE_NEW));
+		(async () => {
+			const res = await fetch(API_PAGES, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: `page-${Math.random().toString(36).slice(2, 8)}` }),
+			});
+			if (!res.ok) {
+				if (res.status === 401) {
+					router.replace(LOGIN_WITH_CALLBACK(PAGE_NEW));
+					return;
+				}
+				const data = await res.json().catch(() => ({}));
+				setError(data.error || "Failed to create page");
 				return;
 			}
-			setError(data.error || "Failed to create page");
-			setSaving(false);
-			return;
-		}
-
-		const page = await res.json();
-		const switched = await switchProfile(page.id);
-		if (!switched) {
-			setError("The page was created, but switching into it failed. Open it from your pages list.");
-			setSaving(false);
-			return;
-		}
-		router.push(SETUP);
-	};
+			const page = await res.json();
+			const switched = await switchProfile(page.id);
+			if (!switched) {
+				setError("The page was created, but switching into it failed. Open it from your pages list.");
+				return;
+			}
+			router.replace(SETUP);
+		})();
+		// switchProfile's identity changes as soon as it starts, which would cancel this.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
-		<FormLayout maxWidth="sm">
-			<form onSubmit={handleSubmit} className="space-y-4">
-				<h1 className="text-2xl font-bold">Create Page</h1>
-				<p className="text-sm text-gray-500">You'll review the handle and settings on the next screen.</p>
-
-				<FormError error={error} />
-
-				<FormField label="Page Name" htmlFor="name" required>
-					<FormInput
-						id="name"
-						type="text"
-						value={name}
-						onChange={(e) => setName(e.target.value)}
-						placeholder="e.g. Portland Makers Guild"
-						required
-					/>
-				</FormField>
-
-				<FormActions
-					submitLabel="Create Page"
-					onCancel={() => router.back()}
-					loading={saving}
-					disabled={saving || !name.trim()}
-				/>
-			</form>
-		</FormLayout>
+		<div className="mx-auto w-full max-w-lg px-4 py-16 text-center">
+			{error ? <FormError error={error} /> : <p className="text-sm text-dusty-grey">Setting up your page…</p>}
+		</div>
 	);
 }

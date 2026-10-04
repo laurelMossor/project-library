@@ -62,7 +62,7 @@ export function DeleteAccountButton() {
 
 	return (
 		<>
-			<Button variant="danger" fullWidth onClick={openModal}>Delete Account</Button>
+			<Button variant="danger-outline" fullWidth onClick={openModal}>Delete Account</Button>
 			{open && (
 				<ConfirmModal
 					title="Delete account"

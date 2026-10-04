@@ -34,7 +34,7 @@ export function DeletePageButton({ pageId, pageName }: { pageId: string; pageNam
 
 	return (
 		<>
-			<Button variant="danger" fullWidth onClick={() => { setError(null); setOpen(true); }}>Delete Page</Button>
+			<Button variant="danger-outline" fullWidth onClick={() => { setError(null); setOpen(true); }}>Delete Page</Button>
 			{open && (
 				<ConfirmModal
 					title={`Delete ${pageName}`}

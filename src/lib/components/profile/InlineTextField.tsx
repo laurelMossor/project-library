@@ -20,6 +20,7 @@ export function InlineTextField({
 	placeholder,
 	maxLength = 100,
 	isPublic = false,
+	highlight = false,
 }: {
 	name: string;
 	label: string;
@@ -27,6 +28,8 @@ export function InlineTextField({
 	placeholder: string;
 	maxLength?: number;
 	isPublic?: boolean;
+	/** Accent outline, used on setup for a field the person can change or leave. */
+	highlight?: boolean;
 }) {
 	const session = useInlineEditSession();
 	const { value, setValue } = useInlineField<string | null>(name, original);
@@ -42,36 +45,38 @@ export function InlineTextField({
 	}, [cancelRevision, original]);
 
 	return (
-		<InlineEditable
-			canEdit={canEdit}
-			isEditing={editing}
-			onEditStart={() => { setDraft(value ?? ""); setEditing(true); }}
-			onCancel={() => setEditing(false)}
-			displayContent={
-				<div>
-					<FieldLabel label={label} isPublic={isPublic} />
-					<InlinePlaceholder value={value} placeholder={placeholder}>
-						<p className="text-base mt-1">{value}</p>
-					</InlinePlaceholder>
-				</div>
-			}
-			editContent={
-				<div>
-					<FieldLabel label={label} isPublic={isPublic} />
-					<input
-						type="text"
-						value={draft}
-						onChange={(e) => {
-							setDraft(e.target.value);
-							setValue(e.target.value.trim() || null);
-						}}
-						placeholder={placeholder}
-						maxLength={maxLength}
-						className={inputClasses}
-						autoFocus
-					/>
-				</div>
-			}
-		/>
+		<div className={highlight ? "rounded-md ring-2 ring-rich-brown p-3" : undefined}>
+			<InlineEditable
+				canEdit={canEdit}
+				isEditing={editing}
+				onEditStart={() => { setDraft(value ?? ""); setEditing(true); }}
+				onCancel={() => setEditing(false)}
+				displayContent={
+					<div>
+						<FieldLabel label={label} isPublic={isPublic} />
+						<InlinePlaceholder value={value} placeholder={placeholder}>
+							<p className="text-base mt-1">{value}</p>
+						</InlinePlaceholder>
+					</div>
+				}
+				editContent={
+					<div>
+						<FieldLabel label={label} isPublic={isPublic} />
+						<input
+							type="text"
+							value={draft}
+							onChange={(e) => {
+								setDraft(e.target.value);
+								setValue(e.target.value.trim() || null);
+							}}
+							placeholder={placeholder}
+							maxLength={maxLength}
+							className={inputClasses}
+							autoFocus
+						/>
+					</div>
+				}
+			/>
+		</div>
 	);
 }
