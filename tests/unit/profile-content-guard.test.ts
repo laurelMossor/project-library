@@ -10,7 +10,12 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: { user: { findUnique: vi.fn() }, page: { findUnique: vi.fn() } },
 }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
-vi.mock("@/lib/utils/server/user", () => ({ updateUserProfile: vi.fn(), personalProfileFields: {} }));
+vi.mock("@/lib/utils/server/user", () => ({
+  updateUserProfile: vi.fn(),
+  personalProfileFields: {},
+  // profile-update pulls image-attachment, which pulls fields.ts, which reads this at load.
+  publicUserEmbedFields: {},
+}));
 vi.mock("@/lib/utils/server/page", () => ({ updatePageProfile: vi.fn(), publicPageFields: {} }));
 vi.mock("@/lib/utils/server/profile-element", () => ({ processElementsPayload: vi.fn() }));
 vi.mock("@/lib/utils/server/requests", () => ({ autoApprovePendingOnUnlock: vi.fn() }));

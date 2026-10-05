@@ -246,7 +246,8 @@ type PermissionDb = Prisma.TransactionClient | typeof prisma;
  * makes two unrelated pages wait on each other.
  */
 export async function lockPageAdminChanges(pageId: string, tx: PermissionDb = prisma) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('page-admins'), hashtext(${pageId}))`;
+  // $executeRaw, not $queryRaw: the lock function returns `void`, which $queryRaw can't deserialize.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('page-admins'), hashtext(${pageId}))`;
 }
 
 /** Grant a permission. Pass `tx` to run inside an existing transaction. */
