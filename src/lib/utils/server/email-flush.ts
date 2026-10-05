@@ -72,7 +72,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 		msgIds.length
 			? prisma.message.findMany({
 					where: { id: { in: msgIds } },
-					select: { id: true, conversationId: true, senderId: true, asPageId: true, content: true, createdAt: true },
+					select: { id: true, conversationId: true, senderId: true, asPageId: true, deletedAs: true, content: true, createdAt: true },
 				})
 			: Promise.resolve([]),
 	]);
@@ -97,7 +97,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 		// The row's recipient identity: the page context, or the user personally.
 		const recipient = participantIdentity({ userId: row.recipientUserId, pageId: row.contextPageId });
 		const marker = m ? readMarkers.get(readMarkerKey(m.conversationId, recipient)) : undefined;
-		if (!m || marker === undefined) suppressed.push({ id: row.id, outcome: "SUPPRESSED_MISSING" });
+		if (!m || m.deletedAs || !m.senderId || marker === undefined) suppressed.push({ id: row.id, outcome: "SUPPRESSED_MISSING" });
 		else if (isMessageReadBy(marker, m)) suppressed.push({ id: row.id, outcome: "SUPPRESSED_READ" });
 		else candidates.push(row);
 	}
@@ -120,7 +120,9 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 	const recipientUserIds = [...new Set(kept.map((r) => r.recipientUserId))];
 	const sectionPageIds = [...new Set(kept.map((r) => r.contextPageId).filter((id): id is string => !!id))];
 	const senderUserIds = [...new Set(
-		kept.map((r) => (r.sourceType === "MESSAGE" ? msgMap.get(r.sourceId) : null)).filter(Boolean).filter((m) => !m!.asPageId).map((m) => m!.senderId),
+		kept.map((r) => (r.sourceType === "MESSAGE" ? msgMap.get(r.sourceId) : null))
+			.filter((m): m is NonNullable<typeof m> => !!m && !m.asPageId && !!m.senderId)
+			.map((m) => m.senderId!),
 	)];
 	const senderPageIds = [...new Set(
 		kept.map((r) => (r.sourceType === "MESSAGE" ? msgMap.get(r.sourceId)?.asPageId : null)).filter((id): id is string => !!id),
@@ -178,7 +180,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 			const msgEmailRows: EmailNotificationRow[] = sectionRows
 				.filter((r) => r.sourceType === "MESSAGE")
 				.map((r) => msgMap.get(r.sourceId))
-				.filter((m): m is NonNullable<typeof m> => !!m)
+				.filter((m): m is NonNullable<typeof m> & { senderId: string } => !!m && !!m.senderId && !m.deletedAs)
 				.map((m) => {
 					const senderName = m.asPageId
 						? pageMap.get(m.asPageId) ? resolveCardIdentity(pageMap.get(m.asPageId)! as never).name : "Someone"

@@ -88,7 +88,7 @@ export function ImageEditModal({
 	}
 
 	return (
-		<ModalShell title={title} onClose={onClose} widthClassName="max-w-sm">
+		<ModalShell title={title} onClose={onClose} widthClassName="max-w-sm" dismissible={!saving}>
 			{/* Preview */}
 			<div className="flex justify-center mb-6">
 				{previewShape === "round" ? (

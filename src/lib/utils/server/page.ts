@@ -1,10 +1,11 @@
 // ⚠️ SERVER-ONLY: Page utility functions
 import { prisma } from "./prisma";
-import { MembershipPolicy, PermissionRole, ResourceType } from "@prisma/client";
+import { AttachmentTarget, MembershipPolicy, PermissionRole, ResourceType, type ContentVisibility, type ProfileVisibility, type Prisma } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
-import { grantPermission } from "./permission";
+import { grantPermission, lockPageAdminChanges, revokeAllForResource } from "./permission";
 import { upsertFollow } from "./requests";
+import { collectOrphanedImages, detachAllForTargets, avatarAssignmentError, AvatarNotAllowed } from "./image-attachment";
 
 export const publicPageFields = {
   id: true,
@@ -117,6 +118,14 @@ export async function createPage(
     location?: string;
     membershipPolicy?: MembershipPolicy;
     allowMemberPosts?: boolean;
+    profileVisibility?: ProfileVisibility;
+    contentVisibility?: ContentVisibility;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    avatarImageId?: string | null;
   }
 ) {
   // Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
@@ -125,6 +134,10 @@ export async function createPage(
   const membershipPolicy = data.membershipPolicy ?? MembershipPolicy.CLOSED;
   const allowMemberPosts = membershipPolicy === MembershipPolicy.CLOSED ? false : (data.allowMemberPosts ?? false);
   return prisma.$transaction(async (tx) => {
+    if (data.avatarImageId) {
+      const avatarError = await avatarAssignmentError(userId, data.avatarImageId, null, tx);
+      if (avatarError) throw new AvatarNotAllowed();
+    }
     const page = await tx.page.create({
       data: {
         createdByUserId: userId,
@@ -138,7 +151,14 @@ export async function createPage(
         allowMemberPosts,
         // New pages default to open distribution; explicit since the column no longer
         // carries a DB default.
-        contentVisibility: "LISTED",
+        contentVisibility: data.contentVisibility ?? "LISTED",
+        ...(data.profileVisibility ? { profileVisibility: data.profileVisibility } : {}),
+        addressLine1: data.addressLine1?.trim() || null,
+        addressLine2: data.addressLine2?.trim() || null,
+        city: data.city?.trim() || null,
+        state: data.state?.trim() || null,
+        zip: data.zip?.trim() || null,
+        avatarImageId: data.avatarImageId ?? null,
         handleRecord: { create: { handle } },
       },
       select: publicPageFields,
@@ -150,4 +170,59 @@ export async function createPage(
 
     return page;
   });
+}
+
+/** Drop conversations that lost their last participant. `conversationIds` were captured before the cascade. */
+export async function deleteConversationsIfEmpty(conversationIds: string[], tx: Prisma.TransactionClient) {
+	if (conversationIds.length === 0) return;
+	const remaining = await tx.conversationParticipant.groupBy({
+		by: ["conversationId"],
+		where: { conversationId: { in: conversationIds } },
+		_count: { _all: true },
+	});
+	const stillHave = new Set(remaining.map((row) => row.conversationId));
+	const empty = conversationIds.filter((id) => !stillHave.has(id));
+	if (empty.length > 0) await tx.conversation.deleteMany({ where: { id: { in: empty } } });
+}
+
+/**
+ * Delete a page and return storage paths to remove after commit.
+ * Tombstones page-voiced messages and comments before the delete, because the
+ * comment FK would otherwise null `asPageId` and leave the human author visible.
+ */
+export async function deletePage(pageId: string, tx: Prisma.TransactionClient): Promise<string[]> {
+	await lockPageAdminChanges(pageId, tx);
+	const page = await tx.page.findUnique({ where: { id: pageId }, select: { id: true, avatarImageId: true } });
+	if (!page) return [];
+
+	const [posts, events, participations] = await Promise.all([
+		tx.post.findMany({ where: { pageId }, select: { id: true } }),
+		tx.event.findMany({ where: { pageId }, select: { id: true } }),
+		tx.conversationParticipant.findMany({ where: { pageId }, select: { conversationId: true } }),
+	]);
+
+	const paths = await detachAllForTargets(
+		[
+			{ type: AttachmentTarget.PAGE, targetId: pageId },
+			...posts.map((post) => ({ type: AttachmentTarget.POST, targetId: post.id })),
+			...events.map((event) => ({ type: AttachmentTarget.EVENT, targetId: event.id })),
+		],
+		tx,
+	);
+
+	await tx.message.updateMany({
+		where: { asPageId: pageId },
+		data: { content: "", deletedAs: "PAGE", senderId: null },
+	});
+	await tx.comment.updateMany({
+		where: { asPageId: pageId },
+		data: { content: "", deletedAs: "PAGE", authorId: null },
+	});
+
+	await revokeAllForResource(pageId, tx);
+	await tx.page.delete({ where: { id: pageId } });
+
+	if (page.avatarImageId) paths.push(...await collectOrphanedImages([page.avatarImageId], tx));
+	await deleteConversationsIfEmpty(participations.map((row) => row.conversationId), tx);
+	return paths;
 }

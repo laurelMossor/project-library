@@ -172,6 +172,7 @@ export const commentWithAuthorFields = {
   postId: true,
   eventId: true,
   content: true,
+  deletedAs: true,
   createdAt: true,
   updatedAt: true,
   author: {

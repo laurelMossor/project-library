@@ -2,7 +2,7 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import { commentWithAuthorFields } from "./fields";
+import { commentWithAuthorFields, type CommentFromQuery } from "./fields";
 import { canModerateContent, canPostAsPage } from "./permission";
 import type { ViewerContext } from "./visibility";
 import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
@@ -80,7 +80,7 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 		await emitActivity("comment.created", actor, target, object);
 	}
 
-	return comment as CommentItem;
+	return toCommentItem(comment);
 }
 
 /** List a post's comments, newest first. Comments inherit the parent's viewability (gated by the route). */
@@ -90,7 +90,7 @@ export async function getPostComments(postId: string): Promise<CommentItem[]> {
 		orderBy: { createdAt: "desc" },
 		select: commentWithAuthorFields,
 	});
-	return comments as CommentItem[];
+	return comments.map(toCommentItem);
 }
 
 /** List an event's comments, newest first. */
@@ -100,7 +100,7 @@ export async function getEventComments(eventId: string): Promise<CommentItem[]> 
 		orderBy: { createdAt: "desc" },
 		select: commentWithAuthorFields,
 	});
-	return comments as CommentItem[];
+	return comments.map(toCommentItem);
 }
 
 /** Minimal comment shape for gating a mutation: its parent target + its author. */
@@ -117,7 +117,7 @@ export async function getCommentForModeration(id: string) {
  * post/event (its userId/pageId) returned by requireViewable*.
  */
 export async function canModerateComment(
-	comment: { authorId: string },
+	comment: { authorId: string | null },
 	parent: { userId: string; pageId: string | null; asPageId?: string | null },
 	viewer: ViewerContext,
 ): Promise<boolean> {
@@ -130,8 +130,8 @@ export async function canModerateComment(
  * May `viewer` edit this comment? Author-only — a content owner may *delete* a comment
  * (moderation) but not rewrite someone else's words. Distinct from canModerateComment on purpose.
  */
-export function canEditComment(comment: { authorId: string }, viewer: ViewerContext): boolean {
-	return viewer.userId !== null && viewer.userId === comment.authorId;
+export function canEditComment(comment: { authorId: string | null }, viewer: ViewerContext): boolean {
+	return viewer.userId !== null && comment.authorId !== null && viewer.userId === comment.authorId;
 }
 
 /** Delete a comment. Authorization (canModerateComment) is the route's responsibility. */
@@ -149,5 +149,10 @@ export async function updateComment(id: string, content: string): Promise<Commen
 		data: { content: content.trim() },
 		select: commentWithAuthorFields,
 	});
-	return comment as CommentItem;
+	return toCommentItem(comment);
+}
+
+function toCommentItem(row: CommentFromQuery): CommentItem {
+	const { deletedAs, ...rest } = row;
+	return { ...rest, deleted: deletedAs };
 }

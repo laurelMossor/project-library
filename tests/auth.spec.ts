@@ -29,15 +29,15 @@ test.describe("Authentication flows", () => {
   });
 
   test("signup with a valid invite redirects to the check-inbox page", async ({ page }) => {
-    // "tst" prefix matches the teardown; the auto-generated handle derives from the
-    // email local-part, so it also starts with "tst" and is cleaned up.
+    // "tst" prefix matches the teardown; the handle picked below starts with it too.
     const unique = `tst${Date.now() % 1e7}`;
     const email = `${unique}@example.com`;
     const { rawToken } = await createSignupInvite(email);
 
     await page.goto(SIGNUP_WITH_INVITE(rawToken));
     await page.getByPlaceholder("Email").fill(email);
-    // Signup no longer collects a handle — one is auto-generated from the email server-side.
+    await page.getByLabel("Handle").fill(unique);
+    await expect(page.getByText("Available")).toBeVisible();
     await page.getByPlaceholder("Password", { exact: true }).fill("password123");
     await page.getByPlaceholder("Confirm password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();
@@ -100,6 +100,7 @@ test.describe("Email verification + password reset", () => {
       email,
       handle: unique,
       passwordHash: await bcrypt.hash("password123", 10),
+      setupCompletedAt: new Date(),
     });
 
     try {
@@ -134,6 +135,7 @@ test.describe("Email verification + password reset", () => {
       handle: unique,
       passwordHash: await bcrypt.hash("oldpassword123", 10),
       emailVerified: new Date(), // verified, so login isn't gated
+      setupCompletedAt: new Date(),
     });
 
     try {

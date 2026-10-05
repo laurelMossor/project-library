@@ -58,19 +58,38 @@ test.describe("Authoring — create content", () => {
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-  test("create a page redirects to its public profile", async ({ page }) => {
-    const handle = `playwright-test-${Date.now()}`;
+  test("a new page is only created once the draft is confirmed", async ({ page }) => {
+    const handle = `playwright-test-${Date.now() % 1e7}`;
     await page.goto("/pages/new");
-    await expect(page).toHaveURL(/\/pages\/new/);
+    await expect(page.getByRole("heading", { name: "Create a page", level: 1 })).toBeVisible();
 
-    await page.locator("#name").fill("Playwright Test Page");
-    await page.locator("#handle").fill(handle);
-    await page.getByRole("button", { name: "Create Page" }).click();
+    // The draft exists only in the form: nothing is created yet, and it can't be confirmed
+    // until the handle checks out.
+    await expect(page.getByRole("button", { name: "Looks good" })).toBeDisabled();
+    await page.getByLabel("Handle").fill(handle);
+    await expect(page.getByText("Available")).toBeVisible();
+    const free = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await free.json()).available).toBe(true);
 
-    await page.waitForURL(new RegExp(`/${handle}`), { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Playwright Test Page", level: 1, exact: true }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Looks good" }).click();
+    await page.waitForURL(new RegExp(`/${handle}$`), { timeout: 15_000 });
+    // Left alone, the page name is the handle.
+    await expect(page.getByRole("heading", { name: handle, level: 1, exact: true })).toBeVisible();
+    const taken = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await taken.json()).available).toBe(false);
+  });
+
+  test("leaving the new-page form discards the draft", async ({ page }) => {
+    const handle = `playwright-test-${Date.now() % 1e7}x`;
+    await page.goto("/pages/new");
+    await page.getByLabel("Handle").fill(handle);
+    await expect(page.getByText("Available")).toBeVisible();
+    // The unsaved-changes prompt is the browser's; accept it so the navigation goes through.
+    page.on("dialog", (dialog) => dialog.accept());
+    await page.getByRole("link", { name: "Cancel" }).click();
+    await page.waitForURL(/\/settings/);
+    const res = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await res.json()).available).toBe(true);
   });
 
   // ─── Profile inline editing ──────────────────────────────────────────────

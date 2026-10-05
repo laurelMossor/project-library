@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { isReservedHandle } from "@/lib/const/reserved-handles";
+import { isReservedHandle, RESERVED_HANDLES } from "@/lib/const/reserved-handles";
 
 describe("isReservedHandle", () => {
 	test("rejects existing top-level route names", () => {
@@ -34,6 +34,12 @@ describe("isReservedHandle", () => {
 		expect(isReservedHandle("me")).toBe(true);
 	});
 
+	test("rejects every handle in the reserved list", () => {
+		for (const handle of RESERVED_HANDLES) {
+			expect(isReservedHandle(handle)).toBe(true);
+		}
+	});
+
 	test("rejects anti-impersonation names", () => {
 		expect(isReservedHandle("projectlibrary")).toBe(true);
 		expect(isReservedHandle("official")).toBe(true);
@@ -51,5 +57,6 @@ describe("isReservedHandle", () => {
 		expect(isReservedHandle("spats-improv")).toBe(false);
 		expect(isReservedHandle("portland-makers")).toBe(false);
 		expect(isReservedHandle("user_123")).toBe(false);
+		expect(isReservedHandle("waitlist")).toBe(false);
 	});
 });

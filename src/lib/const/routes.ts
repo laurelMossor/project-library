@@ -38,6 +38,7 @@ export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
 export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 
 // Session-scoped — active profile resolved from session, no handle in URL
+export const SETUP = "/setup";
 export const SETTINGS = "/settings";
 export const PERSONAL_INFO = "/settings/personal-info";
 export const PROFILE_SETTINGS = "/settings/profile";
@@ -96,13 +97,16 @@ export const MESSAGE_THREAD = (conversationId: string, asPageId?: string | null)
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
+export const API_HANDLE_AVAILABLE = "/api/handles/available"; // GET ?handle= — public, rate-limited
 export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
 export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
 export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
 export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
-export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
+export const API_ME_USER = "/api/me/user"; // GET/PUT/DELETE current user profile
+export const API_ME_USER_DELETE_PREVIEW = "/api/me/user/delete-preview"; // GET pages deleted with the account
+export const API_ME_SETUP_COMPLETE = "/api/me/setup-complete"; // POST mark the settings review done
 export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle

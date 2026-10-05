@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ConnectionsPageClient } from "@/lib/components/profile/ConnectionsPageClient";
-import { LOGIN_WITH_CALLBACK, CONNECTIONS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, CONNECTIONS, SETTINGS } from "@/lib/const/routes";
 
 export default async function ConnectionsPage({
 	searchParams,
@@ -20,7 +21,7 @@ export default async function ConnectionsPage({
 	const initialTab = typeof sp.tab === "string" ? sp.tab : undefined;
 
 	return (
-		<CenteredLayout maxWidth="4xl">
+		<CenteredLayout maxWidth="4xl" breadcrumb={<Breadcrumb href={SETTINGS} label="Back to Settings" />}>
 			<ConnectionsPageClient initialTab={initialTab} />
 		</CenteredLayout>
 	);

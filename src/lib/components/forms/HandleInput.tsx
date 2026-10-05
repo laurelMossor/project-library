@@ -1,0 +1,102 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { API_HANDLE_AVAILABLE } from "@/lib/const/routes";
+import { validateHandle } from "@/lib/validations";
+
+type Status = { state: "idle" } | { state: "checking" } | { state: "ok" } | { state: "bad"; reason: string };
+
+/**
+ * A handle field for forms where nothing exists yet (signup, new page). It checks the handle
+ * against the server as you type, so the person finds out before submitting. The check is a
+ * convenience; the create call re-checks and is the real gate.
+ */
+export function HandleInput({
+	value,
+	onChange,
+	onAvailable,
+	highlight = false,
+	autoFocus = false,
+	currentHandle,
+}: {
+	value: string;
+	onChange: (handle: string) => void;
+	/** True only when the current value is a free, valid handle. */
+	onAvailable: (available: boolean) => void;
+	highlight?: boolean;
+	autoFocus?: boolean;
+	/** The handle this person already owns. Keeping it is always fine, with no check. */
+	currentHandle?: string;
+}) {
+	const [status, setStatus] = useState<Status>({ state: "idle" });
+	const handle = value.trim().toLowerCase();
+
+	useEffect(() => {
+		if (!handle) {
+			setStatus({ state: "idle" });
+			onAvailable(false);
+			return;
+		}
+		if (currentHandle && handle === currentHandle) {
+			setStatus({ state: "idle" });
+			onAvailable(true);
+			return;
+		}
+		if (!validateHandle(handle)) {
+			setStatus({ state: "bad", reason: "3–30 characters: lowercase letters, numbers, periods, underscores, hyphens." });
+			onAvailable(false);
+			return;
+		}
+		setStatus({ state: "checking" });
+		onAvailable(false);
+		let stale = false;
+		const timer = setTimeout(async () => {
+			try {
+				const res = await fetch(`${API_HANDLE_AVAILABLE}?handle=${encodeURIComponent(handle)}`);
+				const body = await res.json().catch(() => ({}));
+				if (stale) return;
+				if (res.ok && body.available) {
+					setStatus({ state: "ok" });
+					onAvailable(true);
+				} else {
+					setStatus({ state: "bad", reason: body.reason || body.error || "Couldn't check that handle." });
+				}
+			} catch {
+				if (!stale) setStatus({ state: "bad", reason: "Couldn't check that handle." });
+			}
+		}, 400);
+		return () => {
+			stale = true;
+			clearTimeout(timer);
+		};
+		// onAvailable is a state setter in every caller; re-running on its identity would loop.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [handle]);
+
+	return (
+		<div className={highlight ? "rounded-md ring-2 ring-rich-brown p-3" : undefined}>
+			<label htmlFor="handle-input" className="block text-sm font-medium">Handle</label>
+			<div className="mt-1 flex items-center gap-1">
+				<span className="text-base text-dusty-grey">@</span>
+				<input
+					id="handle-input"
+					type="text"
+					value={value}
+					onChange={(e) => onChange(e.target.value)}
+					maxLength={30}
+					autoFocus={autoFocus}
+					autoCapitalize="none"
+					autoCorrect="off"
+					spellCheck={false}
+					className="flex-1 text-base border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent"
+				/>
+			</div>
+			<p className="text-xs text-dusty-grey mt-1">Your URL: /{handle || "handle"}</p>
+			<p className="text-xs mt-1 min-h-4" aria-live="polite">
+				{status.state === "checking" && <span className="text-dusty-grey">Checking…</span>}
+				{status.state === "ok" && <span className="text-moss-green">✓ Available</span>}
+				{status.state === "bad" && <span className="text-novel-red">{status.reason}</span>}
+			</p>
+		</div>
+	);
+}

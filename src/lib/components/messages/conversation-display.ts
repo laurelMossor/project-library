@@ -29,8 +29,10 @@ export const otherMembers = (c: { members: ConversationMember[] }) => c.members.
  * Tab / row title. A DM is the other party's full name; a group is its name, or its members' short
  * names ("Sam, Pat & Portland Makers Guild", then "+N") when unnamed.
  */
-export function conversationTitle(c: Pick<ConversationSummary | ConversationThreadData, "kind" | "name" | "members">): string {
+export function conversationTitle(c: Pick<ConversationSummary | ConversationThreadData, "kind" | "name" | "members" | "deletedCounterpart">): string {
 	const others = otherMembers(c);
+	if (c.kind === "DIRECT" && c.deletedCounterpart === "PAGE") return "[page deleted]";
+	if (c.kind === "DIRECT" && c.deletedCounterpart === "USER") return "[user deleted]";
 	if (c.kind === "DIRECT") return others[0] ? fullName(others[0]) : "Conversation";
 	if (c.name) return c.name;
 	if (others.length === 0) return "Just you";

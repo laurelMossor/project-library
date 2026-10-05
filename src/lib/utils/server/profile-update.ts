@@ -13,6 +13,7 @@ import { processElementsPayload } from "./profile-element";
 import { syncDescendantVisibility } from "./visibility";
 import { autoApprovePendingOnUnlock } from "./requests";
 import { validateProfileData, validatePageUpdateData } from "@/lib/validations";
+import { avatarAssignmentError } from "./image-attachment";
 import type { SavePayload } from "@/lib/types/inline-edit";
 
 type ProfileKind = "USER" | "PAGE";
@@ -140,9 +141,9 @@ export async function saveMyProfile(
   kind: ProfileKind,
   id: string,
   body: SavePayload,
-  opts: { allowManageChange?: boolean } = {},
+  opts: { allowManageChange?: boolean; actorUserId?: string } = {},
 ): Promise<SaveMyProfileResult> {
-  const { allowManageChange = true } = opts;
+  const { allowManageChange = true, actorUserId } = opts;
   const { fields = {}, elements } = body;
   const picked = pickProfileFields(kind, fields);
 
@@ -162,6 +163,19 @@ export async function saveMyProfile(
   // on the post/event's own field and is intentionally NOT gated here.
   const guardError = await assertProfileContentPairing(kind, id, picked);
   if (guardError) return { ok: false, error: guardError };
+
+  if (typeof picked.avatarImageId === "string") {
+    if (!actorUserId) return { ok: false, error: "That photo can't be used as a profile picture." };
+    const current = kind === "USER"
+      ? await prisma.user.findUnique({ where: { id }, select: { avatarImageId: true } })
+      : await prisma.page.findUnique({ where: { id }, select: { avatarImageId: true } });
+    const avatarError = await avatarAssignmentError(
+      actorUserId,
+      picked.avatarImageId,
+      current?.avatarImageId ?? null,
+    );
+    if (avatarError) return { ok: false, error: avatarError };
+  }
 
   if (kind === "PAGE") {
     const membershipError = await normalizeMembershipFields(id, picked);

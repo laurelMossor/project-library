@@ -13,6 +13,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 	prisma: {
 		page: { findUnique: vi.fn() },
 		user: { findUnique: vi.fn() },
+		image: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	},
 }));
@@ -165,5 +166,33 @@ describe("saveMyProfile visibility gate", () => {
 	test("defaults to allowed (a user editing their own profile is always permitted)", async () => {
 		const res = await saveMyProfile("USER", "u1", { fields: { contentVisibility: "UNLISTED" } });
 		expect(res.ok).toBe(true);
+	});
+
+	test("a page avatar is judged by the session user, not the page id", async () => {
+		vi.mocked(prisma.page.findUnique).mockResolvedValue({ avatarImageId: null } as never);
+		vi.mocked(prisma.image.findUnique).mockResolvedValue({
+			uploadedByUserId: "editor-1",
+			_count: { attachments: 0 },
+		} as never);
+
+		const ok = await saveMyProfile(
+			"PAGE",
+			"p1",
+			{ fields: { avatarImageId: "img-new" } },
+			{ actorUserId: "editor-1" },
+		);
+		expect(ok.ok).toBe(true);
+
+		vi.mocked(prisma.image.findUnique).mockResolvedValue({
+			uploadedByUserId: "p1",
+			_count: { attachments: 0 },
+		} as never);
+		const rejected = await saveMyProfile(
+			"PAGE",
+			"p1",
+			{ fields: { avatarImageId: "img-new" } },
+			{ actorUserId: "editor-1" },
+		);
+		expect(rejected).toEqual({ ok: false, error: expect.stringMatching(/profile picture/i) });
 	});
 });

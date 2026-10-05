@@ -24,6 +24,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
       deleteMany: vi.fn(),
     },
     $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
   },
 }));
 vi.mock("@/lib/utils/server/log", () => ({ logAction: vi.fn() }));

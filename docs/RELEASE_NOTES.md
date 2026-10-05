@@ -12,13 +12,19 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ## v0.5.0 — Meatup part 2: Groups & Messaging (Unreleased)
 
-Group messaging, page membership, and member posting. Group messaging is on `meatup-4-group-messaging` (PR #52) and generated avatars on `meatup-6-boring-avatars`; neither is merged yet.
+Group messaging, page membership, member posting, account setup, and deletion. Group messaging is on `meatup-4-group-messaging` (PR #52), generated avatars on `meatup-6-boring-avatars`, and setup plus deletion on `meatup-7-odds-and-ends`; none are merged yet.
 
 - **Group messaging** — multi-person threads alongside DMs; pages act as shared inboxes; per-person read state.
 - **Page membership settings** — Closed / Invite only / Request to join, set per page; members auto-follow the page.
 - **Role invitations** — page roles are invites the person accepts; pending invitees show in the member list.
 - **Members post to a page** — members post and create events on a page, credited as "alice › Page".
 - **Generated avatars** — profiles without a photo get a Bauhaus mark in Project Library colors.
+- **Account and page setup** — one "Set up your account" page for a new person and a new page; the handle is the URL and the name starts as that handle.
+- **Delete account and page** — any page admin can delete that page; deleting an account or a page leaves a tombstone so other people's messages and comments remain.
+
+### Bug Fixes
+
+- **Event images** — deleting an event removes its stored images.
 
 ---
 

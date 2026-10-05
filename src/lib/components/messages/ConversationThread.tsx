@@ -32,9 +32,18 @@ interface ConversationThreadProps {
 
 const POLL_MS = 60_000;
 
-/** Same author as the previous message → collapse the name/avatar into one run. */
-const authorKey = (m: ThreadMessage) =>
-	m.author.type === "page" ? `page:${m.author.page?.id}` : `user:${m.author.user?.id}`;
+/** Same author as the previous message → collapse the name/avatar into one run.
+ * Tombstones key on `deleted` plus the message id, so two deleted speakers never merge. */
+const authorKey = (m: ThreadMessage) => {
+	if (m.deleted) return `deleted:${m.deleted}:${m.id}`;
+	return m.author.type === "page" ? `page:${m.author.page?.id}` : `user:${m.author.user?.id}`;
+};
+
+function deletedLabel(deleted: ThreadMessage["deleted"], kind: "author" | "message") {
+	if (!deleted) return null;
+	if (kind === "message") return "[message deleted]";
+	return deleted === "PAGE" ? "[page deleted]" : "[user deleted]";
+}
 
 export function ConversationThread({ conversationId, asPageId, onRead, onLeft, onChanged }: ConversationThreadProps) {
 	const router = useRouter();
@@ -180,6 +189,11 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 
 			{error && <p className="text-novel-red text-sm px-4 pb-1">{error}</p>}
 
+			{thread.deletedCounterpart ? (
+				<p className="border-t border-soft-grey px-4 py-3 text-sm text-dusty-grey">
+					This conversation is closed.
+				</p>
+			) : (
 			<form onSubmit={handleSubmit} className="border-t border-soft-grey px-3 pt-2 pb-3 sm:px-4">
 				<div className="flex items-center gap-1.5 text-xs text-dusty-grey mb-1.5">
 					{activeEntity && <ProfilePicture entity={activeEntity} size="sm" asLink={false} className="!w-5 !h-5 !text-[9px]" />}
@@ -208,6 +222,7 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 				</div>
 				<p className="hidden sm:block text-[11px] text-dusty-grey mt-1">Enter to send · Shift+Enter for a new line</p>
 			</form>
+			)}
 
 			{membersOpen && (
 				<MembersModal
@@ -232,7 +247,9 @@ function MessageBubble({ message, startsRun, showAuthor, sentBy }: {
 	sentBy: string | null;
 }) {
 	const own = message.isOwn;
-	const author = memberEntity(message.author);
+	const author = message.deleted ? null : memberEntity(message.author);
+	const authorName = deletedLabel(message.deleted, "author") ?? fullName(message.author);
+	const body = deletedLabel(message.deleted, "message") ?? message.content;
 	return (
 		<li className={`msg-in flex items-end gap-2 ${own ? "justify-end" : "justify-start"} ${startsRun ? "mt-3 first:mt-0" : "mt-1"}`}>
 			{showAuthor && (
@@ -243,7 +260,7 @@ function MessageBubble({ message, startsRun, showAuthor, sentBy }: {
 			<div className={`flex flex-col max-w-[80%] sm:max-w-[70%] ${own ? "items-end" : "items-start"}`}>
 				{showAuthor && startsRun && (
 					<span className="text-xs font-medium text-misty-forest mb-0.5 px-1">
-						{fullName(message.author)}
+						{authorName}
 					</span>
 				)}
 				<div
@@ -253,7 +270,7 @@ function MessageBubble({ message, startsRun, showAuthor, sentBy }: {
 							: "bg-rich-brown text-soft-grey rounded-bl-md"
 					}`}
 				>
-					<p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+					<p className="whitespace-pre-wrap break-words text-sm">{body}</p>
 					<p className={`text-[11px] mt-1 ${own ? "text-rich-brown/60" : "text-soft-grey/60"}`}>
 						<LocalDate value={message.createdAt} mode="relative" />
 						{own && sentBy && <> · sent by {sentBy}</>}

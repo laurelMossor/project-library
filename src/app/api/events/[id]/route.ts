@@ -7,6 +7,8 @@ import { eventWithUserFields } from "@/lib/utils/server/fields";
 import { canEditContent, canModerateContent, canPostAsPage } from "@/lib/utils/server/permission";
 import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
+import { deleteEvent } from "@/lib/utils/server/event";
+import { removeStoragePaths } from "@/lib/utils/server/storage";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { getViewerContext, canViewEvent, isContentOwner, requireViewableEvent, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
 
@@ -281,7 +283,8 @@ export async function DELETE(request: Request, { params }: Params) {
 			);
 		}
 
-		await prisma.event.delete({ where: { id } });
+		const paths = await deleteEvent(id);
+		await removeStoragePaths(paths);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

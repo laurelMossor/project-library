@@ -21,12 +21,13 @@ export async function resolveSession(session: Session, token: JWT | null): Promi
 			// One indexed lookup per authenticated request; callers then trust the session.
 			const user = await prisma.user.findUnique({
 				where: { id: token.sub },
-				select: { tokenVersion: true },
+				select: { tokenVersion: true, setupCompletedAt: true },
 			});
 			if (!user || (token.tokenVersion ?? 0) !== user.tokenVersion) {
 				return { ...session, user: undefined as unknown as typeof session.user };
 			}
 			session.user.id = token.sub;
+			session.user.needsSetup = user.setupCompletedAt == null;
 			if (token.activePageId) {
 				session.user.activePageId = token.activePageId as string;
 			}

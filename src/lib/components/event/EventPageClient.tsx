@@ -32,6 +32,7 @@ import { contentIdentity } from "@/lib/utils/content-identity";
 import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
@@ -498,11 +499,7 @@ export function EventPageClient({
 	const isPublished = event.status === "PUBLISHED";
 
 	return (
-		<PostPageShell breadcrumb={
-			<Link href={exploreHref} className="text-sm text-misty-forest hover:text-rich-brown hover:underline">
-				&larr; Back to Explore
-			</Link>
-		}>
+		<PostPageShell breadcrumb={<Breadcrumb href={exploreHref} label="Back to Explore" />}>
 			<ContentCard>
 				<InlineEditSession
 					resource={event as unknown as Record<string, unknown>}
