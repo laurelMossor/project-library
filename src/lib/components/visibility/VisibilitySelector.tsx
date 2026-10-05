@@ -3,7 +3,7 @@
 export type SelectorOption<T extends string> = {
 	value: T;
 	label: string;
-	description: string;
+	description?: string;
 };
 
 type Props<T extends string> = {
@@ -16,6 +16,8 @@ type Props<T extends string> = {
 	/** If true, renders as a compact select; otherwise renders as a radio group. */
 	compact?: boolean;
 	disabled?: boolean;
+	/** Keep the legend for screen readers only, when a heading above already says it. */
+	hideLegend?: boolean;
 };
 
 export function VisibilitySelector<T extends string>({
@@ -26,6 +28,7 @@ export function VisibilitySelector<T extends string>({
 	legend = "Visibility",
 	compact = false,
 	disabled = false,
+	hideLegend = false,
 }: Props<T>) {
 	if (compact) {
 		return (
@@ -46,7 +49,7 @@ export function VisibilitySelector<T extends string>({
 
 	return (
 		<fieldset className="space-y-2">
-			<legend className="text-sm font-medium mb-2">{legend}</legend>
+			<legend className={hideLegend ? "sr-only" : "text-sm font-medium mb-2"}>{legend}</legend>
 			{options.map((opt) => (
 				<label
 					key={opt.value}
@@ -67,7 +70,7 @@ export function VisibilitySelector<T extends string>({
 					/>
 					<div>
 						<div className="text-sm font-medium">{opt.label}</div>
-						<div className="text-xs text-gray-500">{opt.description}</div>
+						{opt.description && <div className="text-xs text-gray-500">{opt.description}</div>}
 					</div>
 				</label>
 			))}

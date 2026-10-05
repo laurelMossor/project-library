@@ -15,7 +15,7 @@ const PROFILE_OPTIONS: SelectorOption<ProfileVisibility>[] = [
 	{
 		value: "PRIVATE",
 		label: "Private",
-		description: "Still discoverable, but people see only your name and can request to connect.",
+		description: "People only see your name and can request to follow you.",
 	},
 ];
 
@@ -33,7 +33,7 @@ const CONTENT_OPTIONS: SelectorOption<ContentVisibility>[] = [
 	{
 		value: "PRIVATE",
 		label: "Private",
-		description: "Your posts are visible only to your connections.",
+		description: "Your posts are only visible to those who follow you.",
 	},
 ];
 

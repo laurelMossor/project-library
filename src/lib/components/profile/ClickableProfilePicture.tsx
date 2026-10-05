@@ -16,9 +16,11 @@ type ClickableProfilePictureProps = {
 	canEdit?: boolean;
 	/** Called after the avatar FK is saved, so a client-loaded profile can merge it. */
 	onSaved?: (avatar: { id: string; url: string } | null) => void;
+	/** Replaces the direct save, for an entity that doesn't exist yet (a draft page). */
+	persistAvatar?: (avatarImageId: string | null) => Promise<void>;
 };
 
-export function ClickableProfilePicture({ entity, canEdit = false, onSaved }: ClickableProfilePictureProps) {
+export function ClickableProfilePicture({ entity, canEdit = false, onSaved, persistAvatar }: ClickableProfilePictureProps) {
 	const router = useRouter();
 	const [editOpen, setEditOpen] = useState(false);
 	const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -28,6 +30,7 @@ export function ClickableProfilePicture({ entity, canEdit = false, onSaved }: Cl
 	// Avatar persists via a direct FK (not ImageAttachment): PUT the profile route
 	// with { fields: { avatarImageId } }. Both user and page routes take the same wrapper.
 	async function saveAvatarImageId(avatarImageId: string | null) {
+		if (persistAvatar) return persistAvatar(avatarImageId);
 		const endpoint = isCardPage(entity) ? API_PAGE(entity.id) : API_ME_USER;
 		const res = await fetch(endpoint, {
 			method: "PUT",

@@ -4,6 +4,7 @@ import { PublicUser } from "@/lib/types/user";
 import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/ProfileSettingsBase";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
+import { FEATURES } from "@/lib/const/features";
 import { CONNECTIONS, FORGOT_PASSWORD, PROFILE_SETTINGS, PERSONAL_INFO } from "@/lib/const/routes";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 
@@ -28,9 +29,11 @@ export function UserSettingsContent({
 			viewPublicProfileLabel="Edit Public Profile"
 			additionalSettingsButtons={
 				<>
-					<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
-						Edit Personal Information
-					</ButtonLink>
+					{FEATURES.privateDetails && (
+						<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
+							Edit Personal Information
+						</ButtonLink>
+					)}
 					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
 						Manage Connections
 					</ButtonLink>

@@ -5,9 +5,9 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
-import { FieldLabel } from "./FieldLabel";
+import { FieldLabel, type FieldVisibility } from "./FieldLabel";
 
-const inputClasses = "w-full text-base border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent";
+const inputClasses = "w-full border-b border-gray-300 py-1 focus:outline-none focus:border-rich-brown bg-transparent";
 
 /**
  * One single-line profile field. The session owns the dirty value; this only
@@ -19,21 +19,26 @@ export function InlineTextField({
 	original,
 	placeholder,
 	maxLength = 100,
-	isPublic = false,
-	highlight = false,
+	visibility,
+	optional = false,
+	valueClassName = "text-base",
+	startEditing = false,
 }: {
 	name: string;
 	label: string;
 	original: string | null;
 	placeholder: string;
 	maxLength?: number;
-	isPublic?: boolean;
-	/** Accent outline, used on setup for a field the person can change or leave. */
-	highlight?: boolean;
+	visibility?: FieldVisibility;
+	optional?: boolean;
+	/** Text style for the shown value and the input, e.g. a heading size. */
+	valueClassName?: string;
+	/** Open for typing straight away, for a field the person is expected to fill in. */
+	startEditing?: boolean;
 }) {
 	const session = useInlineEditSession();
 	const { value, setValue } = useInlineField<string | null>(name, original);
-	const [editing, setEditing] = useState(false);
+	const [editing, setEditing] = useState(startEditing);
 	const [draft, setDraft] = useState(original ?? "");
 	const canEdit = session?.canEdit ?? false;
 	const cancelRevision = session?.cancelRevision ?? 0;
@@ -45,7 +50,7 @@ export function InlineTextField({
 	}, [cancelRevision, original]);
 
 	return (
-		<div className={highlight ? "rounded-md ring-2 ring-rich-brown p-3" : undefined}>
+		<div>
 			<InlineEditable
 				canEdit={canEdit}
 				isEditing={editing}
@@ -53,15 +58,17 @@ export function InlineTextField({
 				onCancel={() => setEditing(false)}
 				displayContent={
 					<div>
-						<FieldLabel label={label} isPublic={isPublic} />
-						<InlinePlaceholder value={value} placeholder={placeholder}>
-							<p className="text-base mt-1">{value}</p>
-						</InlinePlaceholder>
+						<FieldLabel label={label} visibility={visibility} optional={optional} />
+						<div className="mt-1">
+							<InlinePlaceholder value={value} placeholder={placeholder}>
+								<p className={valueClassName}>{value}</p>
+							</InlinePlaceholder>
+						</div>
 					</div>
 				}
 				editContent={
 					<div>
-						<FieldLabel label={label} isPublic={isPublic} />
+						<FieldLabel label={label} visibility={visibility} optional={optional} />
 						<input
 							type="text"
 							value={draft}
@@ -71,7 +78,7 @@ export function InlineTextField({
 							}}
 							placeholder={placeholder}
 							maxLength={maxLength}
-							className={inputClasses}
+							className={`${inputClasses} ${valueClassName}`}
 							autoFocus
 						/>
 					</div>

@@ -9,6 +9,9 @@
 // `membershipPolicy` (see roles.ts `assignableRoles`). This object stays so the
 // next flag has a home.
 
-export const FEATURES = {} as const;
+export const FEATURES = {
+	/** Personal information (email, real name) and a page's address. Nothing uses them yet, so the sections stay hidden. */
+	privateDetails: false,
+} as const;
 
 export type FeatureFlag = keyof typeof FEATURES;

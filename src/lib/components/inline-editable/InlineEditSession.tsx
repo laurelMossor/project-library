@@ -38,8 +38,9 @@ export type InlineEditSessionContextType = {
 	updateCreate: (tempId: string, field: string, value: unknown) => void;
 	markDeleted: (elementId: string) => void;
 	unmarkDeleted: (elementId: string) => void;
-	saveAll: () => Promise<void>;
-	publish: () => Promise<void>;
+	/** Resolves true when everything saved (or there was nothing to save), false on failure. */
+	saveAll: () => Promise<boolean>;
+	publish: () => Promise<boolean>;
 	cancelAll: () => void;
 };
 
@@ -189,10 +190,10 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	 * When publish=true, injects status:"PUBLISHED" into the fields payload.
 	 * A publish with zero field/element changes still goes through (no early-return).
 	 */
-	const commit = useCallback(async ({ publish = false }: { publish?: boolean } = {}) => {
-		if (savingRef.current) return; // re-entrancy guard (synchronous)
+	const commit = useCallback(async ({ publish = false }: { publish?: boolean } = {}): Promise<boolean> => {
+		if (savingRef.current) return false; // re-entrancy guard (synchronous)
 		// For plain saves, skip if nothing is dirty
-		if (!publish && changeCount === 0) return;
+		if (!publish && changeCount === 0) return true;
 		savingRef.current = true;
 		setSaving(true);
 		setError(null);
@@ -243,8 +244,10 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 			originalValuesRef.current = {};
 			setPendingCreates([]);
 			setPendingDeletes([]);
+			return true;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save");
+			return false;
 		} finally {
 			savingRef.current = false;
 			setSaving(false);

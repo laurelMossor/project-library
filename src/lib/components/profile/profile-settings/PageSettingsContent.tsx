@@ -4,6 +4,7 @@ import { ProfileSettingsBase } from "@/lib/components/profile/profile-settings/P
 import { PublicPage } from "@/lib/types/page";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import type { PageItem } from "@/lib/components/profile/profile-settings/PageSwitcher";
+import { FEATURES } from "@/lib/const/features";
 import { CONNECTIONS, PROFILE_SETTINGS, PERSONAL_INFO } from "@/lib/const/routes";
 import { isAdminRole } from "@/lib/const/roles";
 import { DeletePageButton } from "./DeletePageButton";
@@ -29,9 +30,11 @@ export function PageSettingsContent({
 			viewPublicProfileLabel="Edit Public Profile"
 			additionalSettingsButtons={
 				<>
-					<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
-						Edit Personal Information
-					</ButtonLink>
+					{FEATURES.privateDetails && (
+						<ButtonLink href={PERSONAL_INFO} variant="secondary" fullWidth>
+							Edit Personal Information
+						</ButtonLink>
+					)}
 					{/* Members & admins are managed in the Connections view (Membership tab). */}
 					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
 						Manage Members

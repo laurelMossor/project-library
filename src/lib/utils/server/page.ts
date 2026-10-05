@@ -1,6 +1,6 @@
 // ⚠️ SERVER-ONLY: Page utility functions
 import { prisma } from "./prisma";
-import { AttachmentTarget, MembershipPolicy, PermissionRole, ResourceType, type Prisma } from "@prisma/client";
+import { AttachmentTarget, MembershipPolicy, PermissionRole, ResourceType, type ContentVisibility, type ProfileVisibility, type Prisma } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
 import { grantPermission, revokeAllForResource } from "./permission";
@@ -118,6 +118,14 @@ export async function createPage(
     location?: string;
     membershipPolicy?: MembershipPolicy;
     allowMemberPosts?: boolean;
+    profileVisibility?: ProfileVisibility;
+    contentVisibility?: ContentVisibility;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    avatarImageId?: string | null;
   }
 ) {
   // Handles are always stored lowercase (INV-7) — canonicalize here, not at the caller.
@@ -139,7 +147,14 @@ export async function createPage(
         allowMemberPosts,
         // New pages default to open distribution; explicit since the column no longer
         // carries a DB default.
-        contentVisibility: "LISTED",
+        contentVisibility: data.contentVisibility ?? "LISTED",
+        ...(data.profileVisibility ? { profileVisibility: data.profileVisibility } : {}),
+        addressLine1: data.addressLine1?.trim() || null,
+        addressLine2: data.addressLine2?.trim() || null,
+        city: data.city?.trim() || null,
+        state: data.state?.trim() || null,
+        zip: data.zip?.trim() || null,
+        avatarImageId: data.avatarImageId ?? null,
         handleRecord: { create: { handle } },
       },
       select: publicPageFields,

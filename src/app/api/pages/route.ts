@@ -3,7 +3,8 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { createPage } from "@/lib/utils/server/page";
 import { validateHandle, validateMembershipFields } from "@/lib/validations";
-import { MembershipPolicy } from "@prisma/client";
+import { ContentVisibility, MembershipPolicy, ProfileVisibility } from "@prisma/client";
+import { pickProfileFields, validateProfileFields } from "@/lib/utils/server/profile-update";
 import { isReservedHandle } from "@/lib/const/reserved-handles";
 import { generateUniqueHandle, isHandleTaken } from "@/lib/utils/server/handle";
 import { logAction } from "@/lib/utils/server/log";
@@ -46,6 +47,17 @@ export async function POST(request: Request) {
 			? handle.toLowerCase().trim()
 			: null;
 
+		// The rest of the profile (visibility, address, photo) goes through the same whitelist and
+		// validation as editing an existing page, so creating can't accept what editing would refuse.
+		const picked = pickProfileFields("PAGE", data);
+		const fieldError = validateProfileFields("PAGE", picked);
+		if (fieldError) return badRequest(fieldError);
+		const profileVisibility = picked.profileVisibility as ProfileVisibility | undefined;
+		const contentVisibility = picked.contentVisibility as ContentVisibility | undefined;
+		if (profileVisibility === "PRIVATE" && (contentVisibility ?? "LISTED") === "LISTED") {
+			return badRequest("A private profile can't have listed content — choose Unlisted or Private for your posts.");
+		}
+
 		const membership = validateMembershipFields({ membershipPolicy, allowMemberPosts });
 		if (!membership.valid) return badRequest(membership.error || "Invalid membership settings");
 
@@ -77,6 +89,14 @@ export async function POST(request: Request) {
 					location,
 					membershipPolicy: membershipPolicy as MembershipPolicy | undefined,
 					allowMemberPosts,
+					profileVisibility,
+					contentVisibility,
+					addressLine1: picked.addressLine1 as string | null | undefined,
+					addressLine2: picked.addressLine2 as string | null | undefined,
+					city: picked.city as string | null | undefined,
+					state: picked.state as string | null | undefined,
+					zip: picked.zip as string | null | undefined,
+					avatarImageId: picked.avatarImageId as string | null | undefined,
 				});
 
 				logAction("page.created", ctx.userId, { pageId: page.id });
