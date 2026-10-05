@@ -6,13 +6,14 @@ description: >-
   the QA column — in the ProLib Tickets Notion DB. Triggers include "/prolib-qa",
   "QA this ticket", "verify the inline-edit fix", "does this bug still repro?",
   "what's in the QA queue?", "is this ready to mark Done?", or pasting a ProLib
-  ticket URL and asking to check it. The skill pulls the ticket, drafts acceptance
-  criteria when the ticket has none (the normal case), gets your approval, drives
-  the running local dev app to reproduce/verify, reports pass/fail with evidence,
-  then writes Status + acceptance criteria + a QA note back to the ticket immediately
-  after each result (no separate confirmation needed). Use it even when the user doesn't
-  say the word "QA" but is clearly asking to confirm a finished piece of work behaves
-  correctly in the app.
+  ticket URL and asking to check it. Two tracks: a CRITERIA track that drafts
+  acceptance criteria and writes them straight to the tickets ("write AC for the QA
+  column", "add criteria to these tickets"), and a QA track that drives the running
+  local dev app, reports pass/fail with evidence plus every bug noticed and everything
+  left untested, then writes Status + checked criteria back to the ticket immediately
+  (no separate confirmation needed). Use it even when the user doesn't say the word
+  "QA" but is clearly asking to confirm a finished piece of work behaves correctly in
+  the app.
 ---
 
 # ProLib QA
@@ -24,8 +25,32 @@ you exercise the real flow, *read* what happens, and decide whether it matches i
 The reason this skill exists: tickets pile up in the **QA** column because most of
 them have no written acceptance criteria, so there's no definition of "pass" to check
 against. This skill's core move is to **draft that definition from the ticket itself,
-get the user to bless it, then verify against it** — which both unblocks the ticket
-now and leaves criteria behind for next time.
+write it to the ticket, then verify against it** — which both unblocks the ticket now
+and leaves criteria behind for next time.
+
+## Two tracks — pick one at the start
+
+| Track | When | Steps | Output |
+|---|---|---|---|
+| **Criteria** | "write AC for these", "prep the QA column", tickets with no criteria and no time to drive them | 1 → 2 → write criteria to Notion | Criteria on each ticket, labeled not-yet-driven. Status untouched. |
+| **QA** | "QA this", "does this still repro?", "is this ready for Done?" | 1 → 2 → 3 → 4 → 5 → 6 (→ 7) | Verdict, evidence, **Noticed** and **Not tested** lists, Status + checked boxes in Notion |
+
+If the request is ambiguous, default to **QA** (it includes drafting criteria). Neither
+track waits for the user to approve criteria — drafts go straight onto the ticket, where
+the user can edit them in Notion.
+
+## The one rule about evidence
+
+**Every criterion is exercised in the app, the way a user would.** Some *evidence* for
+it may be collected programmatically: click Save in the UI, then query the DB to prove
+it persisted; render a PRIVATE profile's locked stub, then `curl` the page logged-out
+to prove no fields leak; click Join, then read the network log for the request it sent.
+The programmatic check **corroborates** the in-app drive — it never replaces it. "The
+API returned 200" with no click is not a pass.
+
+Two narrow carve-outs: **setup** (seeding, granting a role, adding a banner) may use any
+tool, and an assertion with **no UI surface at all** (a raw 403/404 on a gate, a DB
+invariant) may be checked directly — say so in the evidence column.
 
 ## Ticket types are flexible
 
@@ -59,7 +84,7 @@ set). Follow **`docs/PULL_TICKETS.md`** for the query pattern. Note: `QA` is a r
 body (where the repro steps live), fetch its block children — see
 [references/notion.md](references/notion.md).
 
-### 2. Draft acceptance criteria → get approval (the normal path)
+### 2. Draft acceptance criteria (the normal path)
 
 Most tickets arrive with **no** criteria, so this step is the rule, not the exception.
 
@@ -109,10 +134,16 @@ scenario "verified" because a *sibling* scenario shares its code path — each r
 own live drive. When the author of the code is the one QA'ing, this is the exact trap:
 high confidence in the diff is not evidence from the running app.
 
-**Show the drafted criteria to the user and wait for approval/edits before testing.**
-This 10-second gate is what keeps QA honest — you're testing against *their* definition
-of done, not one you made up. The approved criteria are also what gets written back in
-step 6, so the next person inherits them.
+**Write the criteria to the ticket — no approval gate.** Append them under an
+"Acceptance Criteria" heading as unchecked `to_do` blocks, with a one-line note above:
+*"Drafted by QA agent — not yet driven in the app."* That label is what makes skipping
+approval safe: nobody mistakes a draft for a verified result, and the user edits in
+Notion if a criterion is wrong. If the ticket already had criteria, add your reframed
+and edge-case rows beneath the originals rather than deleting theirs. Recipe in
+[references/notion.md](references/notion.md).
+
+Show the drafted criteria in chat too (a short list per ticket), then keep going.
+**Criteria track stops here.** QA track continues to step 3.
 
 ### 3. Bring up the app
 
@@ -147,17 +178,12 @@ soft-refresh-vs-hard-reload** check for "updates without a reload" criteria). Th
 
 ### 4. Reproduce & verify
 
-**Test the app, not the API.** Every user-facing acceptance criterion must be driven through
-the **UI a real user exercises** — the composer, the Join button, the RSVP form — because a
-`fetch`/DB "pass" hides broken client wiring (a button on the wrong handler, a form that never
-submits, a link with the right `href` that lands on the wrong screen). `fetch()` and direct DB
-reads are legitimate **only** for assertions with *no* UI surface: a raw status code
-(403/404/400), a DB invariant, an embed's field shape. If a human would click it, you click it.
-
-**Setup ≠ the feature under test.** Arranging preconditions via DB/script — make pat an editor,
-add an event banner, remove a membership, reseed — is fine and expected. The line: *setup* may
-use any tool; the *behavior being accepted* goes through the UI. "I inserted the row" is setup;
-"the button creates the row" is the test.
+**Test the app, not the API** — see "The one rule about evidence" above. Drive the composer,
+the Join button, the RSVP form, because a `fetch`/DB-only "pass" hides broken client wiring (a
+button on the wrong handler, a form that never submits, a link with the right `href` that lands
+on the wrong screen). Then collect whatever programmatic evidence proves the effect. If a human
+would click it, you click it. "I inserted the row" is setup; "the button creates the row" is
+the test.
 
 **Follow deep-links to their destination — don't trust the `href`.** A link/notification can
 carry the correct URL and still land on the wrong screen (a tab that defaults elsewhere, a race,
@@ -205,8 +231,18 @@ Verdict: PASS / FAIL / NEEDS REVIEW
 | <criterion 1> | ✅ pass | <screenshot / note> |
 | <criterion 2> | ❌ fail | <what happened + console/network excerpt> |
 
-Notes: <anything ambiguous, out-of-scope observations, flaky behavior>
+### Noticed (bugs & oddities outside the criteria)
+- <what you saw, where, how to repro> — or "Nothing noticed."
+
+### Not tested
+- <criterion or edge case not driven> — <why: upload dialog, rate limit, out of time, blocked by bug above> — or "Everything above was driven."
 ```
+
+**Noticed** and **Not tested** are required in every report, even when empty — write
+the "nothing" line explicitly. They're often the most valuable part: a stale badge, a
+console error on an unrelated page, a confusing label, an edge case the ticket never
+considered. An empty "Not tested" is a claim that every row was driven live; only make
+it when true. Offer to file Noticed items as tickets.
 
 If the verdict is **NEEDS REVIEW** or the result is ambiguous, pause and ask the user
 before writing anything. Otherwise proceed directly to step 6.
@@ -221,7 +257,9 @@ or wait for a separate user confirmation. Do **both**:
    true` **only for scenarios you actually drove live and that passed**. Leave un-driven
    or failed scenarios unchecked — an unchecked box is honest signal, not a gap to paper
    over. If the criteria weren't written yet, append them now, checking only the driven-
-   and-passed ones. Never label the section "verified live" unless every checked row was.
+   and-passed ones. Update the "Drafted by QA agent — not yet driven" note to
+   *"QA'd <date>: checked rows were driven live."* Never label the section "verified
+   live" unless every checked row was.
 2. **Move Status** — `Done` on pass, `In progress` (or as directed) on fail.
 
 **Do NOT post a QA-result comment.** This integration lacks comment-insert, so

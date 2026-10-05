@@ -39,8 +39,13 @@ trace by hand.
 
 ### 1. Run the standard review
 
-Invoke the built-in **`/code-review`** on the current diff.
+Invoke the built-in **`/code-review`** on the diff against the base branch.
 
+- **Base: `develop`, unless the user names another** base, branch, or PR. Review
+  `git diff develop...HEAD` plus uncommitted changes. When you're *on* `develop`
+  (so that range is empty), review uncommitted changes plus commits not yet on
+  `origin/develop`. If that's empty too, ask what to review — don't guess. Name the base
+  in the report header.
 - **Default effort: `high`.**
 - **Escalate to `xhigh`** when the diff touches any of: auth (`src/lib/auth.ts`,
   NextAuth), **permissions** (`src/lib/utils/server/permission.ts`, role checks),
@@ -239,7 +244,7 @@ Library fit, then DRY/SOLID, then test coverage. For each finding give file:line
 what's wrong, and the fix.
 
 ```
-## Review: <branch / PR / diff>
+## Review: <branch / PR / diff>  (base: <develop | named base>)
 
 ### Correctness & security
 - <finding> — file:line — <why + fix>
@@ -292,7 +297,13 @@ now") as authorization and jumping straight to edits — don't. Scope answers te
 *which* findings to plan; the plan + `ExitPlanMode` is what unlocks editing.
 
 The plan covers only what was agreed, names the files/helpers to reuse, and includes a
-verification section. Verify with **targeted checks** (the affected unit/E2E tests, a
+verification section.
+
+**Antagonist pass before `ExitPlanMode` — required.** Run the antagonist pass from
+CLAUDE.md on the drafted plan (skeptical staff engineer: hidden coupling, a simpler
+route or existing abstraction, DRY/SOLID, edge cases, cuttable scope). Revise the plan
+from it and present the hardened version with a short "Tradeoffs weighed" note — never
+the first draft. Verify with **targeted checks** (the affected unit/E2E tests, a
 typecheck of touched files). Don't run `npm run validate` and don't ask the user to run
 it either — it's the CI merge gate and runs automatically on every PR. Don't silently
 auto-apply `/code-review --fix`.

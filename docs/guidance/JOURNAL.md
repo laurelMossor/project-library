@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Mon 10/05/2026 10:40 PDT
+Reworked the three prolib skills. The PM skill now has planning, ideating, and organizing tracks. Its briefs read as a handoff to a colleague, with only real decisions marked settled and no line numbers. QA can write criteria straight to tickets, and every report lists bugs noticed and anything left untested. Reviews default to develop, and every plan gets an antagonist pass first.
+
 #### Entry: Mon 10/05/2026 09:56 PDT
 Reviewed and updated meatup-7. Took a local backup of the production database. The dump is read-only, so production itself was not changed. Wrote the steps into the deployment guide, including the session-pooler connection and restoring only the public schema onto a local database.
 
