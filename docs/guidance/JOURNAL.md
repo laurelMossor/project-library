@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Mon 10/05/2026 09:56 PDT
+Took a local backup of the production database. The dump is read-only, so production itself was not changed. Wrote the steps into the deployment guide, including the session-pooler connection and restoring only the public schema onto a local database.
+
 #### Entry: Sun 10/04/2026 17:23 PDT
 Nothing is created until someone confirms. Signup now asks for the handle and display name, and a new page is a draft form that only exists once you say it looks good. Setup and the new-page form share one set of sections, with a logo-only header during setup. Fields show Public or Private plus an Optional tag, and Personal information and Address sit behind a false flag for now.
 
