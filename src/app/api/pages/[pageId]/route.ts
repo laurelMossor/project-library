@@ -62,7 +62,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
 		// Shared executor: whitelist (mass-assignment guard) + validate + cascade,
 		// the same path used by /api/me/page so the two page-update routes can't drift.
-		const result = await saveMyProfile("PAGE", pageId, body);
+		const result = await saveMyProfile("PAGE", pageId, body, { actorUserId: ctx.userId });
 		if (!result.ok) {
 			return badRequest(result.error);
 		}

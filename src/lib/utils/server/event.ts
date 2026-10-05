@@ -1,10 +1,11 @@
 // ⚠️ SERVER-ONLY: This file uses prisma (database client)
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
+import { AttachmentTarget } from "@prisma/client";
 import { prisma } from "./prisma";
 import { EventItem } from "../../types/event";
 import { eventWithUserFields, eventCollectionFields, EventFromQuery, toCollectionMeta } from "./fields";
-import { getImagesForTarget, getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
+import { getImagesForTarget, getImagesForTargetsBatch, detachAllForTargets } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 import type { ViewerContext } from "./visibility";
@@ -87,27 +88,25 @@ export async function getEventsByPage(
 // `createEvent`/`updateEvent` server utils here were unused (the client `event-client.ts` has its
 // own same-named fetch wrappers) and were removed to avoid a second, divergent write path.
 
-export async function deleteEvent(id: string): Promise<EventItem> {
-	// Fetch event to verify it exists
-	const event = await prisma.event.findUnique({
-		where: { id },
-		select: { id: true },
-	});
-
-	if (!event) {
-		throw new Error("Event not found");
-	}
-
-	// Remove every attached image (attachment row + Image row + storage blob). The event
-	// is going away, so no uploader scoping — all images attached to it are cleaned up.
-	await deleteAllAttachmentsForTarget("EVENT", id);
-
-	// Delete the event (cascade will delete posts)
-	const deletedEvent = await prisma.event.delete({
-		where: { id },
-		select: eventWithUserFields,
-	});
-
-	// Images already deleted above
-	return toEventItem(deletedEvent, []);
+/**
+ * Delete an event and return storage paths to remove after commit.
+ * Update posts cascade with the event, but their photos are POST attachments
+ * with no foreign key, so they are detached here too. Blobs stay until the caller
+ * removes the returned paths, so a failed delete does not drop the photos.
+ */
+export async function deleteEvent(id: string): Promise<string[]> {
+	return prisma.$transaction(async (tx) => {
+		// A new update's eventId foreign key share-locks this row, so it waits.
+		await tx.$queryRaw`SELECT id FROM "events" WHERE id = ${id} FOR UPDATE`;
+		const posts = await tx.post.findMany({ where: { eventId: id }, select: { id: true } });
+		const paths = await detachAllForTargets(
+			[
+				{ type: AttachmentTarget.EVENT, targetId: id },
+				...posts.map((post) => ({ type: AttachmentTarget.POST, targetId: post.id })),
+			],
+			tx,
+		);
+		await tx.event.delete({ where: { id } });
+		return paths;
+	}, { timeout: 30_000, maxWait: 10_000 });
 }

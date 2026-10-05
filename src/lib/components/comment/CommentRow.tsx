@@ -27,6 +27,11 @@ type CommentRowProps = {
  */
 export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, onDelete }: CommentRowProps) {
 	const entity = commentIdentity(comment);
+	const [editing, setEditing] = useState(false);
+	const [draft, setDraft] = useState(comment.content);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState("");
+
 	if (comment.deleted || !entity) {
 		const who = comment.deleted === "PAGE" ? "[page deleted]" : "[user deleted]";
 		return (
@@ -43,11 +48,6 @@ export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, o
 		);
 	}
 	const { name, href } = resolveCardIdentity(entity);
-
-	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(comment.content);
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState("");
 
 	function startEdit() {
 		setDraft(comment.content);

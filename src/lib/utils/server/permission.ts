@@ -165,7 +165,7 @@ export async function getUserPermission(
   userId: string,
   resourceId: string,
   resourceType: ResourceType,
-  tx: PermissionWriteClient = prisma,
+  tx: PermissionDb = prisma,
 ): Promise<PermissionRole | null> {
   const permission = await tx.permission.findUnique({
     where: { userId_resourceId_resourceType: { userId, resourceId, resourceType } },
@@ -238,7 +238,16 @@ export async function getUserMemberships(userId: string) {
 }
 
 /** Minimal Prisma client surface needed by the write helpers — the global client or a $transaction tx. */
-type PermissionWriteClient = Pick<typeof prisma, "permission">;
+type PermissionDb = Prisma.TransactionClient | typeof prisma;
+
+/**
+ * Serialize admin grants, revokes, and page deletion for one page.
+ * Reentrant inside the transaction that already holds it. A hash collision only
+ * makes two unrelated pages wait on each other.
+ */
+export async function lockPageAdminChanges(pageId: string, tx: PermissionDb = prisma) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('page-admins'), hashtext(${pageId}))`;
+}
 
 /** Grant a permission. Pass `tx` to run inside an existing transaction. */
 export async function grantPermission(
@@ -246,8 +255,9 @@ export async function grantPermission(
   resourceId: string,
   resourceType: ResourceType,
   role: PermissionRole,
-  tx: PermissionWriteClient = prisma,
+  tx: PermissionDb = prisma,
 ) {
+  if (resourceType === ResourceType.PAGE) await lockPageAdminChanges(resourceId, tx);
   return tx.permission.upsert({
     where: { userId_resourceId_resourceType: { userId, resourceId, resourceType } },
     update: { role },
@@ -260,8 +270,9 @@ export async function revokePermission(
   userId: string,
   resourceId: string,
   resourceType: ResourceType,
-  tx: PermissionWriteClient = prisma,
+  tx: PermissionDb = prisma,
 ) {
+  if (resourceType === ResourceType.PAGE) await lockPageAdminChanges(resourceId, tx);
   return tx.permission.deleteMany({
     where: { userId, resourceId, resourceType },
   });
@@ -313,8 +324,6 @@ export async function canActAsEntity(
   }
   return false;
 }
-
-type PermissionDb = Prisma.TransactionClient | typeof prisma;
 
 /**
  * Pages this user is the only ADMIN of, plus pages they created that have no admin left.

@@ -4,7 +4,7 @@
 import { AttachmentTarget } from "@prisma/client";
 import { prisma } from "./prisma";
 import { profileElementFields } from "./profile-element";
-import { getSoleAdminPages, getSuccessorAdminIds } from "./permission";
+import { getSoleAdminPages, getSuccessorAdminIds, lockPageAdminChanges } from "./permission";
 // page.ts and image-attachment.ts reach back here through fields.ts → publicUserEmbedFields.
 // Import them inside deleteAccount so this module can finish loading first.
 
@@ -218,46 +218,70 @@ export async function deleteAccount(userId: string, expectedPageIds: string[]): 
 	const { deleteConversationsIfEmpty, deletePage } = await import("./page");
 	const { collectOrphanedImages, detachAllForTargets } = await import("./image-attachment");
 	return prisma.$transaction(async (tx) => {
-		await tx.$queryRaw`
-			SELECT id FROM "permissions"
-			WHERE "userId" = ${userId} AND role = 'ADMIN'::"PermissionRole" AND "resourceType" = 'PAGE'::"ResourceType"
-			FOR UPDATE
-		`;
+		// Blocks a new page or post by this user until the transaction ends. Their
+		// foreign keys need a share lock on this row.
+		await tx.$queryRaw`SELECT id FROM "users" WHERE id = ${userId} FOR UPDATE`;
 
-		const solePages = await getSoleAdminPages(userId, tx);
-		const soleIds = solePages.map((page) => page.id);
-		if (!sameIdSet(soleIds, expectedPageIds)) throw new AccountDeleteConflict();
-
-		const paths: string[] = [];
-		for (const pageId of soleIds) paths.push(...await deletePage(pageId, tx));
-		const deleted = new Set(soleIds);
-
+		const initialSole = await getSoleAdminPages(userId, tx);
 		const [created, voicedPosts, voicedEvents] = await Promise.all([
 			tx.page.findMany({ where: { createdByUserId: userId }, select: { id: true } }),
 			tx.post.findMany({ where: { userId, asPageId: { not: null } }, select: { asPageId: true } }),
 			tx.event.findMany({ where: { userId, asPageId: { not: null } }, select: { asPageId: true } }),
 		]);
-		const related = new Set<string>([
-			...created.map((page) => page.id),
+		const createdIds = new Set(created.map((page) => page.id));
+		const voicedIds = new Set<string>([
 			...voicedPosts.map((post) => post.asPageId!),
 			...voicedEvents.map((event) => event.asPageId!),
 		]);
+		const candidateIds = [...new Set([
+			...initialSole.map((page) => page.id),
+			...createdIds,
+			...voicedIds,
+		])];
+		for (const pageId of candidateIds) await lockPageAdminChanges(pageId, tx);
+
+		const soleIds = (await getSoleAdminPages(userId, tx)).map((page) => page.id);
+		if (!sameIdSet(soleIds, expectedPageIds)) throw new AccountDeleteConflict();
+
+		const paths: string[] = [];
+		const deleted = new Set<string>();
+		for (const pageId of soleIds) {
+			paths.push(...await deletePage(pageId, tx));
+			deleted.add(pageId);
+		}
+
+		const related = new Set<string>([...createdIds, ...voicedIds]);
 		for (const pageId of deleted) related.delete(pageId);
 
 		const successors = await getSuccessorAdminIds([...related], userId, tx);
+		const reassigned = new Set<string>();
 		for (const pageId of related) {
 			const successor = successors.get(pageId);
+			const ownsPage = createdIds.has(pageId);
 			if (!successor) {
-				paths.push(...await deletePage(pageId, tx));
-				deleted.add(pageId);
+				// A created page with nobody to hand it to would cascade away without
+				// tombstones. The retry lists it, because it is now a sole-admin page.
+				// A page this user only spoke as stays; their posts cascade with the user.
+				if (ownsPage) throw new AccountDeleteConflict();
 				continue;
 			}
-			await tx.page.updateMany({
-				where: { id: pageId, createdByUserId: userId },
-				data: { createdByUserId: successor },
-			});
+			if (ownsPage) {
+				await tx.page.updateMany({
+					where: { id: pageId, createdByUserId: userId },
+					data: { createdByUserId: successor },
+				});
+				reassigned.add(pageId);
+			}
 			await tx.post.updateMany({ where: { userId, asPageId: pageId }, data: { userId: successor } });
 			await tx.event.updateMany({ where: { userId, asPageId: pageId }, data: { userId: successor } });
+		}
+
+		const stillOwned = await tx.page.findMany({
+			where: { createdByUserId: userId },
+			select: { id: true },
+		});
+		if (stillOwned.some((page) => !deleted.has(page.id) && !reassigned.has(page.id))) {
+			throw new AccountDeleteConflict();
 		}
 
 		await tx.message.updateMany({

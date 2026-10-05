@@ -74,6 +74,7 @@ export async function PUT(request: Request) {
 
 		const result = await saveMyProfile("PAGE", ctx.activePageId, body, {
 			allowManageChange: isAdmin,
+			actorUserId: ctx.userId,
 		});
 		if (!result.ok) {
 			// A non-admin attempting a visibility change is a permission failure (403),

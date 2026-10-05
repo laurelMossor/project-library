@@ -45,7 +45,7 @@ export async function PUT(request: Request) {
 	const body = (await request.json()) as SavePayload;
 
 	try {
-		const result = await saveMyProfile("USER", userId, body);
+		const result = await saveMyProfile("USER", userId, body, { actorUserId: userId });
 		if (!result.ok) {
 			return badRequest(result.error);
 		}

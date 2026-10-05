@@ -3,9 +3,9 @@ import { prisma } from "./prisma";
 import { AttachmentTarget, MembershipPolicy, PermissionRole, ResourceType, type ContentVisibility, type ProfileVisibility, type Prisma } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
-import { grantPermission, revokeAllForResource } from "./permission";
+import { grantPermission, lockPageAdminChanges, revokeAllForResource } from "./permission";
 import { upsertFollow } from "./requests";
-import { collectOrphanedImages, detachAllForTargets } from "./image-attachment";
+import { collectOrphanedImages, detachAllForTargets, avatarAssignmentError, AvatarNotAllowed } from "./image-attachment";
 
 export const publicPageFields = {
   id: true,
@@ -134,6 +134,10 @@ export async function createPage(
   const membershipPolicy = data.membershipPolicy ?? MembershipPolicy.CLOSED;
   const allowMemberPosts = membershipPolicy === MembershipPolicy.CLOSED ? false : (data.allowMemberPosts ?? false);
   return prisma.$transaction(async (tx) => {
+    if (data.avatarImageId) {
+      const avatarError = await avatarAssignmentError(userId, data.avatarImageId, null, tx);
+      if (avatarError) throw new AvatarNotAllowed();
+    }
     const page = await tx.page.create({
       data: {
         createdByUserId: userId,
@@ -187,6 +191,7 @@ export async function deleteConversationsIfEmpty(conversationIds: string[], tx: 
  * comment FK would otherwise null `asPageId` and leave the human author visible.
  */
 export async function deletePage(pageId: string, tx: Prisma.TransactionClient): Promise<string[]> {
+	await lockPageAdminChanges(pageId, tx);
 	const page = await tx.page.findUnique({ where: { id: pageId }, select: { id: true, avatarImageId: true } });
 	if (!page) return [];
 

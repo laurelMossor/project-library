@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { createPage } from "@/lib/utils/server/page";
+import { AvatarNotAllowed } from "@/lib/utils/server/image-attachment";
 import { validateHandle, validateMembershipFields } from "@/lib/validations";
 import { ContentVisibility, MembershipPolicy, ProfileVisibility } from "@prisma/client";
 import { pickProfileFields, validateProfileFields } from "@/lib/utils/server/profile-update";
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
 				logAction("page.created", ctx.userId, { pageId: page.id });
 				return NextResponse.json(page, { status: 201 });
 			} catch (err) {
+				if (err instanceof AvatarNotAllowed) return badRequest(err.message);
 				const taken = typeof err === "object" && err !== null && "code" in err
 					&& (err as { code?: string }).code === "P2002";
 				if (!taken) throw err;

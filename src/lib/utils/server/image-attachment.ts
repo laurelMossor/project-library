@@ -178,6 +178,38 @@ export async function collectOrphanedImages(imageIds: string[], tx: Db = prisma)
 	return orphans.map((image) => image.path);
 }
 
+const AVATAR_REJECTED = "That photo can't be used as a profile picture.";
+
+export class AvatarNotAllowed extends Error {
+	constructor() {
+		super(AVATAR_REJECTED);
+		this.name = "AvatarNotAllowed";
+	}
+}
+
+/**
+ * A profile photo is either the one this profile already uses, or an unattached
+ * image this person uploaded. Anything else would republish someone else's photo.
+ * Returns an error string, or null when the id may be saved. `null` image ids
+ * (clearing the avatar) are the caller's job and are not passed here.
+ */
+export async function avatarAssignmentError(
+	actorUserId: string,
+	imageId: string,
+	currentAvatarId: string | null,
+	tx: Db = prisma,
+): Promise<string | null> {
+	if (imageId === currentAvatarId) return null;
+	const image = await tx.image.findUnique({
+		where: { id: imageId },
+		select: { uploadedByUserId: true, _count: { select: { attachments: true } } },
+	});
+	if (!image || image.uploadedByUserId !== actorUserId || image._count.attachments > 0) {
+		return AVATAR_REJECTED;
+	}
+	return null;
+}
+
 /** Detach every attachment on the given targets. Returns storage paths of images that became orphaned. */
 export async function detachAllForTargets(
 	targets: { type: AttachmentTarget; targetId: string }[],
