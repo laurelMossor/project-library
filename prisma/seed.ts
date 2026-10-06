@@ -694,6 +694,9 @@ async function main() {
         data: {
           userId: page.creatorUserId,
           pageId: page.id,
+          // Historical page content speaks as the page. The membership migration
+          // backfills the same way; seed runs after that, so it has to say it here.
+          asPageId: page.id,
           title: postData.title ?? null,
           content: postData.content,
           tags: postData.tags ?? [],
@@ -728,6 +731,7 @@ async function main() {
         data: {
           userId: page.creatorUserId,
           pageId: page.id,
+          asPageId: page.id,
           title: eventData.title ?? null,
           content: eventData.content,
           eventDateTime,

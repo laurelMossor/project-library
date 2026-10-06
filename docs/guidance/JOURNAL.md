@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Mon 10/05/2026 17:43 PDT
+QA'd the open column live in the app. Delete Page passed and is Done. Profile and page setup, members posting, page membership, and group messaging failed and went back to In progress. Settings page issues stayed in QA.
+
 #### Entry: Mon 10/05/2026 10:40 PDT
 Reworked the three prolib skills. The PM skill now has planning, ideating, and organizing tracks. Its briefs read as a handoff to a colleague, with only real decisions marked settled and no line numbers. QA can write criteria straight to tickets, and every report lists bugs noticed and anything left untested. Reviews default to develop, and every plan gets an antagonist pass first.
 

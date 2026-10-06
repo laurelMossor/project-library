@@ -9,9 +9,9 @@ description: >-
   ticket URL and asking to check it. Two tracks: a CRITERIA track that drafts
   acceptance criteria and writes them straight to the tickets ("write AC for the QA
   column", "add criteria to these tickets"), and a QA track that drives the running
-  local dev app, reports pass/fail with evidence plus every bug noticed and everything
-  left untested, then writes Status + checked criteria back to the ticket immediately
-  (no separate confirmation needed). Use it even when the user doesn't say the word
+  local dev app, finishes every acceptance criterion, then reports pass/fail with
+  evidence plus every observation and everything left untested. After that report it
+  asks before writing the ticket. Use it even when the user doesn't say the word
   "QA" but is clearly asking to confirm a finished piece of work behaves correctly in
   the app.
 ---
@@ -33,7 +33,7 @@ and leaves criteria behind for next time.
 | Track | When | Steps | Output |
 |---|---|---|---|
 | **Criteria** | "write AC for these", "prep the QA column", tickets with no criteria and no time to drive them | 1 → 2 → write criteria to Notion | Criteria on each ticket, labeled not-yet-driven. Status untouched. |
-| **QA** | "QA this", "does this still repro?", "is this ready for Done?" | 1 → 2 → 3 → 4 → 5 → 6 (→ 7) | Verdict, evidence, **Noticed** and **Not tested** lists, Status + checked boxes in Notion |
+| **QA** | "QA this", "does this still repro?", "is this ready for Done?" | 1 → 2 → 3 → 4 → 5, then ask → 6 (→ 7) | Verdict only after every criterion is driven. Notion write waits for a yes. |
 
 If the request is ambiguous, default to **QA** (it includes drafting criteria). Neither
 track waits for the user to approve criteria — drafts go straight onto the ticket, where
@@ -211,15 +211,20 @@ Walk each acceptance criterion in the running app:
 - Mark each criterion **pass / fail / blocked**, capturing evidence: a screenshot for visual
   results, a network/console excerpt for errors, a DB-query result for "the effect persisted."
 - **Surface design/UX/scope issues, not just functional bugs.** The highest-value QA output is
-  often *not* a checkmark — it's noticing that two features overlap confusingly, a label reads
+  often *not* a checkmark — it's an observation that two features overlap confusingly, a label reads
   wrong, or a shipped behavior contradicts an unwritten product decision. Name it and (with the
   user) file it, even though no AC covers it.
 - If something is **ambiguous** (criterion underspecified, behavior arguably-correct,
   needs design judgment) — flag it for the user, don't guess a verdict.
 
-### 5. Report to the user
+### 5. Report to the user — only after every criterion is driven
 
-Report the result in chat. Use this shape:
+Finish **all** acceptance criteria before sending any report. Do not stop mid-ticket to
+summarize progress, ask permission to continue, or report a partial table. A row you
+could not drive still counts as finished for this step: mark it not tested, with the
+reason, and keep going until every row has a result.
+
+Then report in chat. Use this shape:
 
 ```
 ## QA: <ticket title>  (<priority> · <epic>)
@@ -231,26 +236,36 @@ Verdict: PASS / FAIL / NEEDS REVIEW
 | <criterion 1> | ✅ pass | <screenshot / note> |
 | <criterion 2> | ❌ fail | <what happened + console/network excerpt> |
 
-### Noticed (bugs & oddities outside the criteria)
-- <what you saw, where, how to repro> — or "Nothing noticed."
+### Observed
+- <what you saw, where, how to repro> — or "Nothing observed."
 
 ### Not tested
 - <criterion or edge case not driven> — <why: upload dialog, rate limit, out of time, blocked by bug above> — or "Everything above was driven."
 ```
 
-**Noticed** and **Not tested** are required in every report, even when empty — write
+**Observed** and **Not tested** are required in every report, even when empty — write
 the "nothing" line explicitly. They're often the most valuable part: a stale badge, a
 console error on an unrelated page, a confusing label, an edge case the ticket never
 considered. An empty "Not tested" is a claim that every row was driven live; only make
-it when true. Offer to file Noticed items as tickets.
+it when true. Offer to file observations as tickets.
 
 If the verdict is **NEEDS REVIEW** or the result is ambiguous, pause and ask the user
-before writing anything. Otherwise proceed directly to step 6.
+before writing anything.
 
-### 6. Write back to Notion — immediately after each ticket
+After the report, ask exactly:
 
-Write to Notion right after reporting each ticket's result. Don't batch across tickets
-or wait for a separate user confirmation. Do **both**:
+> Want me to check these off in the ticket, and add the failures, observations, and not tested at the very top of the ticket?
+
+Do not write the ticket until they say yes. Step 6 is that write.
+
+If every criterion passed, nothing was left untested, and Observed has nothing
+concerning, say **"I'll move this ticket to Done"** and move Status to `Done`. A
+failure, an untested row, or a concerning observation means you do not say that and you
+do not move it to Done.
+
+### 6. Write back to Notion — only after they say yes
+
+On a yes, write this ticket before starting the next one. Do all three:
 
 1. **Check off the scenarios you drove and passed.** Fetch the ticket's block children,
    find the `to_do` blocks under the "Acceptance Criteria" heading, and PATCH `checked:
@@ -260,7 +275,11 @@ or wait for a separate user confirmation. Do **both**:
    and-passed ones. Update the "Drafted by QA agent — not yet driven" note to
    *"QA'd <date>: checked rows were driven live."* Never label the section "verified
    live" unless every checked row was.
-2. **Move Status** — `Done` on pass, `In progress` (or as directed) on fail.
+2. **Put the result at the very top of the ticket.** A short heading, then the failures,
+   the observations, and the Not tested items, in that order. On a clean pass, say
+   there were no failures and nothing concerning was observed.
+3. **Move Status** — `Done` only for the clean pass in step 5. Otherwise leave it, or
+   move it to `In progress` when a criterion failed.
 
 **Do NOT post a QA-result comment.** This integration lacks comment-insert, so
 `POST /v1/comments` returns 403 **every time** — it's a guaranteed-failing call, not a

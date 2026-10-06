@@ -57,7 +57,12 @@ curl -s -X PATCH "https://api.notion.com/v1/blocks/$PAGE_ID/children" \
 After a QA run, PATCH that paragraph block's text to *"QA'd <date>: checked rows were
 driven live."* (`PATCH /v1/blocks/<paragraph id>` with a `paragraph.rich_text` body).
 
-## Writing back (step 6 — immediately after each ticket)
+## Writing back (step 6 — after the user says yes)
+
+Drive every acceptance criterion, report, then ask before writing. The question is in
+SKILL.md step 5. On a yes, do the writes below. A clean pass (every row passed, nothing
+untested, nothing concerning observed) also moves Status to `Done`, announced as
+"I'll move this ticket to Done".
 
 Do **both** on a pass; on a fail, skip checking off criteria if the user prefers, and
 set Status as directed. (There is no third step — do **not** post a comment; see below.)

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ActiveIdentityEditor, type IdentityEntity } from "@/lib/components/profile/ActiveIdentityEditor";
 import { AboutFields } from "@/lib/components/profile/AboutFields";
 import { EditableIdentityBlock } from "@/lib/components/profile/EditableIdentityBlock";
@@ -46,7 +45,6 @@ function SetupFields({
 }) {
 	const user = entity.data;
 	const session = useInlineEditSession();
-	const router = useRouter();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -61,8 +59,9 @@ function SetupFields({
 			}
 			const res = await fetch(API_ME_SETUP_COMPLETE, { method: "POST" });
 			if (!res.ok) throw new Error("Couldn't finish setup");
-			router.refresh();
-			router.replace(next || EXPLORE_PAGE);
+			// Full load, same reason as LeaveSetup: a client navigation would keep the
+			// layout that still has needsSetup and bounce right back to this page.
+			window.location.assign(next || EXPLORE_PAGE);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Couldn't finish setup");
 			setBusy(false);
