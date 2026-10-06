@@ -30,6 +30,7 @@ type CollectionPageProps = {
 	itemsPerPage?: number;
 	showCreateLinks?: boolean;
 	pinConfig?: PinConfig;
+	emptyMessage?: string;
 };
 
 export function CollectionPage({
@@ -53,6 +54,7 @@ export function CollectionPage({
 	itemsPerPage = 12,
 	showCreateLinks = true,
 	pinConfig,
+	emptyMessage,
 }: CollectionPageProps) {
 	// Use pagination hook to slice items for current page
 	const {
@@ -100,16 +102,17 @@ export function CollectionPage({
 			)}
 
 			{/* Empty state — only after we've finished loading */}
-			{!loading && !error && filteredItems.length === 0 && (
+			{!loading && !error && filteredItems.length === 0 && prependItems.length === 0 && (
 				<EmptyState
 					collectionTypeFilter={collectionTypeFilter}
 					search={search}
 					showCreateLinks={showCreateLinks}
+					message={emptyMessage}
 				/>
 			)}
 
 			{/* Content display — show even during re-fetch to avoid flash */}
-			{!error && filteredItems.length > 0 && (
+			{!error && (filteredItems.length > 0 || prependItems.length > 0) && (
 				<>
 					<div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
 						<FilteredCollection items={paginatedItems} prependItems={prependItems} view={view} pinConfig={pinConfig} />

@@ -21,6 +21,8 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 }));
 
 import {
+  canEditContent,
+  canModerateContent,
   canPostAsPage,
   canManagePage,
   canActAsEntity,
@@ -328,5 +330,28 @@ describe("getSuccessorAdminIds", () => {
     expect(prisma.permission.findMany).toHaveBeenCalledWith(expect.objectContaining({
       orderBy: { createdAt: "asc" },
     }));
+  });
+});
+
+describe("canEditContent and canModerateContent", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("the author edits a member post; a page editor can delete it and cannot rewrite it", async () => {
+    const post = { userId: "author", asPageId: null, pageId: "page-1" };
+    expect(await canEditContent("author", post)).toBe(true);
+    expect(await canEditContent("editor", post)).toBe(false);
+
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue(makePermission(PermissionRole.EDITOR));
+    expect(await canModerateContent("editor", post)).toBe(true);
+  });
+
+  test("a current editor edits page-spoken content; losing the role removes that", async () => {
+    const event = { userId: "author", asPageId: "page-1", pageId: "page-1" };
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue(makePermission(PermissionRole.EDITOR));
+    expect(await canEditContent("editor", event)).toBe(true);
+
+    vi.mocked(prisma.permission.findFirst).mockResolvedValue(null);
+    expect(await canEditContent("author", event)).toBe(false);
+    expect(await canModerateContent("author", event)).toBe(false);
   });
 });

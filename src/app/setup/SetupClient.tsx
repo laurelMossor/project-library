@@ -10,7 +10,8 @@ import { SettingsSection } from "@/lib/components/profile/profile-settings/Setti
 import { NotificationSettingsForm } from "@/app/settings/profile/NotificationSettingsForm";
 import { Button } from "@/lib/components/ui/Button";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
-import { API_ME_SETUP_COMPLETE, EXPLORE_PAGE } from "@/lib/const/routes";
+import { useInlineField } from "@/lib/hooks/useInlineField";
+import { API_ME_SETUP_COMPLETE, EXPLORE_PAGE, PUBLIC_PROFILE, WELCOME_PAGE } from "@/lib/const/routes";
 import type { PublicUser } from "@/lib/types/user";
 
 /**
@@ -45,6 +46,7 @@ function SetupFields({
 }) {
 	const user = entity.data;
 	const session = useInlineEditSession();
+	const { value: handle } = useInlineField<string>("handle", user.handle);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +63,8 @@ function SetupFields({
 			if (!res.ok) throw new Error("Couldn't finish setup");
 			// Full load, same reason as LeaveSetup: a client navigation would keep the
 			// layout that still has needsSetup and bounce right back to this page.
-			window.location.assign(next || EXPLORE_PAGE);
+			const generic = !next || next === "/" || next === WELCOME_PAGE || next === EXPLORE_PAGE;
+			window.location.assign(generic ? PUBLIC_PROFILE(handle || user.handle) : next);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Couldn't finish setup");
 			setBusy(false);

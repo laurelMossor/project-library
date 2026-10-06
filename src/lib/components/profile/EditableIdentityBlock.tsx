@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { ClickableProfilePicture } from "./ClickableProfilePicture";
 import { InlineHandleField } from "./InlineHandleField";
 import { InlineNameField } from "./InlineNameField";
+import { OptionalTitle, handleFromName } from "@/lib/components/inline-editable/OptionalTitle";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { IdentityEntity } from "./ActiveIdentityEditor";
@@ -28,6 +30,7 @@ export function EditableIdentityBlock({
 	const session = useInlineEditSession();
 	const isPage = entity.type === "page";
 	const { value: handle } = useInlineField<string>("handle", entity.data.handle);
+	const [suggestedHandle, setSuggestedHandle] = useState<string | null>(null);
 	const card: CardEntity = isPage
 		? {
 			id: entity.data.id,
@@ -56,19 +59,48 @@ export function EditableIdentityBlock({
 				})}
 			/>
 			<div className="min-w-0 flex-1 space-y-3">
-				<InlineNameField
-					name={isPage ? "name" : "displayName"}
-					label={isPage ? "Page Name" : "Display Name"}
-					stored={isPage ? entity.data.name : entity.data.displayName}
-					handle={handle}
-					// A page being created has no handle-derived name; it opens ready for one.
-					followHandle={followHandle && !(draft && isPage)}
-					placeholder={draft && isPage ? "Think of a name for your page" : undefined}
-					startEditing={draft && isPage}
-					valueClassName="text-2xl font-bold"
+				{draft && isPage ? (
+					<PageDraftName stored={entity.data.name} onSlug={setSuggestedHandle} />
+				) : (
+					<InlineNameField
+						name={isPage ? "name" : "displayName"}
+						label={isPage ? "Page Name" : "Display Name"}
+						stored={isPage ? entity.data.name : entity.data.displayName}
+						handle={handle}
+						followHandle={followHandle}
+						valueClassName="text-2xl font-bold"
+					/>
+				)}
+				<InlineHandleField
+					original={entity.data.handle}
+					startEditing={draft || followHandle}
+					highlight={draft || followHandle}
+					suggested={draft && isPage ? suggestedHandle : null}
 				/>
-				<InlineHandleField original={entity.data.handle} startEditing={draft} />
 			</div>
 		</div>
+	);
+}
+
+function PageDraftName({ stored, onSlug }: { stored: string; onSlug: (slug: string) => void }) {
+	const session = useInlineEditSession();
+	const { value, setValue } = useInlineField<string>("name", stored);
+	const [editing, setEditing] = useState(true);
+
+	return (
+		<OptionalTitle
+			value={value || ""}
+			onChange={(next) => {
+				setValue(next);
+				onSlug(handleFromName(next));
+			}}
+			canEdit={session?.canEdit ?? false}
+			isEditing={editing}
+			onEditStart={() => setEditing(true)}
+			onCancel={() => setEditing(false)}
+			placeholder="Think of a name for your page"
+			textClassName="text-2xl leading-tight font-bold text-rich-brown"
+			showPlaceholder
+		/>
 	);
 }

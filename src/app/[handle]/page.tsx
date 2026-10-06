@@ -107,7 +107,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						items={collectionItems}
 						prependCards={aboutCard ? [aboutCard] : []}
 						title="History"
-						emptyMessage={`${handle} hasn't created anything yet.`}
+						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
 						currentUserId={user.id}
 						activePageId={acting?.activePageId ?? null}
@@ -127,7 +127,7 @@ export default async function HandleProfilePage({ params }: Props) {
 					items={collectionItems}
 					prependCards={aboutCard ? [aboutCard] : []}
 					title="History"
-					emptyMessage={`${handle} hasn't created anything yet.`}
+					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>
 			</CenteredLayout>
@@ -185,7 +185,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						items={collectionItems}
 						prependCards={pageAboutCard ? [pageAboutCard] : []}
 						title={`${displayName}'s Collection`}
-						emptyMessage={`${displayName} hasn't created anything yet.`}
+						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
 						currentUserId={canPinAsPage ? viewerId ?? undefined : undefined}
 						activePageId={canPinAsPage ? page.id : undefined}
@@ -205,7 +205,7 @@ export default async function HandleProfilePage({ params }: Props) {
 					items={collectionItems}
 					prependCards={pageAboutCard ? [pageAboutCard] : []}
 					title={`${displayName}'s Collection`}
-					emptyMessage={`${displayName} hasn't created anything yet.`}
+					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 					currentUserId={canPinAsPage ? viewerId ?? undefined : undefined}
 					activePageId={canPinAsPage ? page.id : undefined}

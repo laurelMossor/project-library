@@ -9,8 +9,8 @@ import type { MembershipPolicy } from "@prisma/client";
 export const MEMBERSHIP_POLICY_OPTIONS: SelectorOption<MembershipPolicy>[] = [
 	{
 		value: "CLOSED",
-		label: "Closed — no members",
-		description: "This page has no members. You can still invite editors and admins.",
+		label: "No Membership",
+		description: "Approved followers see what this page posts, including private posts. There are no members, so nobody posts to this page.",
 	},
 	{
 		value: "INVITE_ONLY",

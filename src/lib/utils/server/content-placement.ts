@@ -11,6 +11,9 @@ import { canPostAsPage, canPostToPage } from "./permission";
 /** Caller/client-fixable placement problem. Routes map this to a 400. */
 export class PlacementError extends Error {}
 
+/** The caller is not allowed to post to or as this page. Routes map this to a 403. */
+export class PlacementForbiddenError extends PlacementError {}
+
 export type ContentPlacement = {
 	pageId: string | null;
 	asPageId: string | null;
@@ -43,7 +46,7 @@ export async function resolveContentPlacement(userId: string, input: PlacementIn
 	const asPageId = input.asPageId || null;
 	if (asPageId) {
 		if (!(await canPostAsPage(userId, asPageId))) {
-			throw new PlacementError("You don't have permission to post as this page");
+			throw new PlacementForbiddenError("You don't have permission to post as this page");
 		}
 		return { pageId: asPageId, asPageId, showOnAuthorProfile: false };
 	}
@@ -51,7 +54,7 @@ export async function resolveContentPlacement(userId: string, input: PlacementIn
 	const pageId = input.pageId || null;
 	if (pageId) {
 		if (!(await canPostToPage(userId, pageId))) {
-			throw new PlacementError("You don't have permission to post to this page");
+			throw new PlacementForbiddenError("You don't have permission to post to this page");
 		}
 		return {
 			pageId,

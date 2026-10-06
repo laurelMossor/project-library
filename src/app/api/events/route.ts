@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, forbidden, serverError } from "@/lib/utils/errors";
 import { validateEventData, isValidCoordinate } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
-import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
+import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { logAction } from "@/lib/utils/server/log";
 import { getViewerContext, eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
@@ -112,6 +112,7 @@ export async function POST(request: Request) {
 		try {
 			placement = await resolveContentPlacement(ctx.userId, { asPageId, pageId, showOnAuthorProfile });
 		} catch (err) {
+			if (err instanceof PlacementForbiddenError) return forbidden(err.message);
 			if (err instanceof PlacementError) return badRequest(err.message);
 			throw err;
 		}

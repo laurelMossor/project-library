@@ -41,6 +41,8 @@ export function DropdownProfileSelector({ label, hint, onChange, initialPageId }
 		setOpen(false);
 	}
 
+	if (pages.length === 0) return null;
+
 	const trigger = selectedEntity ? (
 		<ProfileTag entity={selectedEntity} size="sm" asLink={false} className="w-full" />
 	) : (

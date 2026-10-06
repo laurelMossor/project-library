@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
-import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, forbidden, serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { createPost, PostInputError } from "@/lib/utils/server/post";
+import { createPost, PostForbiddenError, PostInputError } from "@/lib/utils/server/post";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { postCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -198,6 +198,9 @@ export async function POST(request: Request) {
 				isDraft: !!isDraft,
 			});
 		} catch (err) {
+			if (err instanceof PostForbiddenError) {
+				return forbidden(err.message);
+			}
 			if (err instanceof PostInputError) {
 				return badRequest(err.message);
 			}

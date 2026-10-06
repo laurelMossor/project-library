@@ -60,6 +60,8 @@ export function PostToSelector({ pageId, showOnProfile, onChange }: Props) {
 		if (!nextOpen) setDraft(null);
 	}
 
+	if (pages.length === 0) return null;
+
 	return (
 		<DropdownShell
 			label="Post to a page?"
@@ -89,7 +91,7 @@ export function PostToSelector({ pageId, showOnProfile, onChange }: Props) {
 						name={`${groupId}-page`}
 						checked={selection.pageId === page.id}
 						label={page.name}
-						onSelect={() => apply({ profile: selection.profile, pageId: page.id })}
+						onSelect={() => apply({ profile: false, pageId: page.id })}
 						onClear={() => apply({ profile: selection.profile, pageId: null })}
 					/>
 					<ProfileTag entity={page} size="sm" asLink={false} className="w-full flex-1 min-w-0" />
