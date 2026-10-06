@@ -16,23 +16,26 @@ export const MIN_SEARCH_LENGTH = 2;
 export function useProfileSearch(query: string, type: "user" | "page" | "all" = "all", delay = 300) {
 	const debouncedQuery = useDebounce(query.trim(), delay);
 	const [results, setResults] = useState<SearchResultItem[]>([]);
-	const [loading, setLoading] = useState(false);
+	// The query the current `results` belong to. Compared during render so a just-debounced
+	// query is already "loading" before the fetch effect runs — otherwise one frame paints
+	// the previous empty list as "no matches."
+	const [settledQuery, setSettledQuery] = useState("");
 
 	useEffect(() => {
 		if (debouncedQuery.length < MIN_SEARCH_LENGTH) {
 			setResults([]);
-			setLoading(false);
+			setSettledQuery(debouncedQuery);
 			return;
 		}
 		let cancelled = false;
-		setLoading(true);
 		fetch(API_SEARCH_PROFILES(debouncedQuery, type))
 			.then((res) => (res.ok ? res.json() : { results: [] }))
 			.then((data) => { if (!cancelled) setResults(data.results ?? []); })
 			.catch(() => { if (!cancelled) setResults([]); })
-			.finally(() => { if (!cancelled) setLoading(false); });
+			.finally(() => { if (!cancelled) setSettledQuery(debouncedQuery); });
 		return () => { cancelled = true; };
 	}, [debouncedQuery, type]);
 
+	const loading = debouncedQuery.length >= MIN_SEARCH_LENGTH && settledQuery !== debouncedQuery;
 	return { results, loading, debouncedQuery };
 }
