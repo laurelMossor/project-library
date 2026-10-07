@@ -8,8 +8,7 @@ import { canEditContent, canModerateContent, canPostAsPage } from "@/lib/utils/s
 import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { deletePost } from "@/lib/utils/server/post";
 import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
-
-const MAX_PINNED_POSTS = 3;
+import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE, otherPinnedCount } from "@/lib/utils/server/pin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -212,13 +211,12 @@ export async function PATCH(request: Request, { params }: Params) {
 				return badRequest("Only page editors can pin posts on this page");
 			}
 			if (pinnedAt !== null) {
-				// Pinning: count existing pinned posts in the same scope
-				const scopeWhere = pinPageId
-					? { pageId: pinPageId, pinnedAt: { not: null } }
-					: { userId: existing.userId, pageId: null, pinnedAt: { not: null } };
-				const pinnedCount = await prisma.post.count({ where: scopeWhere });
-				if (pinnedCount >= MAX_PINNED_POSTS) {
-					return badRequest(`You can only pin up to ${MAX_PINNED_POSTS} posts at a time`);
+				const pinnedCount = await otherPinnedCount(
+					pinPageId ? { pageId: pinPageId } : { userId: existing.userId },
+					{ postId: id },
+				);
+				if (pinnedCount >= MAX_PINNED_PER_PROFILE) {
+					return badRequest(PIN_CAP_MESSAGE);
 				}
 			}
 		}

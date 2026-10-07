@@ -9,7 +9,7 @@ import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
 import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
 import { canEditContent } from "./permission";
-import { PlacementError, resolveContentPlacement } from "./content-placement";
+import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "./content-placement";
 import { ContentVisibility } from "@prisma/client";
 
 /**
@@ -123,6 +123,9 @@ export async function getPostsByPage(
  */
 export class PostInputError extends Error {}
 
+/** Placement was refused because the caller may not post there. Routes map this to a 403. */
+export class PostForbiddenError extends PostInputError {}
+
 type CreatePostData = PostCreateInput & {
 	topics?: string[];
 	/** Draft creation (from /posts/new) allows empty content. */
@@ -199,6 +202,7 @@ export async function createPost(
 				showOnAuthorProfile: data.showOnAuthorProfile,
 			});
 		} catch (err) {
+			if (err instanceof PlacementForbiddenError) throw new PostForbiddenError(err.message);
 			if (err instanceof PlacementError) throw new PostInputError(err.message);
 			throw err;
 		}

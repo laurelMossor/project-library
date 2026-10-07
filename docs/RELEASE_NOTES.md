@@ -10,7 +10,7 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
-## v0.5.0 — Meatup part 2: Groups & Messaging (Unreleased)
+## v0.5.0 — Meatup part 2: Groups & Messaging (10/6/26)
 
 Group messaging, page membership, member posting, account setup, and deletion. Group messaging is on `meatup-4-group-messaging` (PR #52), generated avatars on `meatup-6-boring-avatars`, and setup plus deletion on `meatup-7-odds-and-ends`; none are merged yet.
 

@@ -12,6 +12,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
     $transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)),
     event: { findUnique: vi.fn(), count: vi.fn().mockResolvedValue(0) },
+    post: { count: vi.fn().mockResolvedValue(0) },
   },
 }));
 vi.mock("@/lib/utils/server/permission", () => ({

@@ -158,7 +158,7 @@ function ExpandableActions({
 		return (
 			<button
 				onClick={onToggle}
-				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
+				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
 				aria-label="More actions"
 			>
 				<EllipsisIcon className="w-4 h-4" />
@@ -177,7 +177,7 @@ function ExpandableActions({
 						key={action.label}
 						onClick={() => run(action)}
 						disabled={loadingLabel !== null}
-						className={`text-xs px-3 py-1 rounded-md font-medium transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap ${
+						className={`text-xs px-3 py-1 rounded-md font-medium transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 ${
 							danger
 								? "bg-white border border-red-300 text-red-600 hover:bg-red-50"
 								: "bg-moss-green text-white hover:opacity-90"
@@ -189,7 +189,7 @@ function ExpandableActions({
 			})}
 			<button
 				onClick={onToggle}
-				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
+				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
 				aria-label="Close"
 			>
 				<XCircleIcon className="w-4 h-4" />
@@ -199,7 +199,7 @@ function ExpandableActions({
 }
 
 const ROLE_CHIP =
-	"text-xs px-2 py-0.5 rounded-full border border-soft-grey/60 bg-white text-dusty-grey";
+	"text-xs px-2 py-0.5 rounded border border-soft-grey/60 bg-white text-dusty-grey";
 
 // Role selector rendered as the same chip the row's role badge uses, so changing a
 // role doesn't look like one of the action buttons next to it.
@@ -230,7 +230,7 @@ function RoleSelector({
 						setOpen(false);
 						if (role !== current) await onChange(role);
 					}}
-					className="w-full text-left px-3 py-1.5 hover:bg-soft-grey/20 transition-colors cursor-pointer"
+					className="w-full text-left px-3 py-1.5 hover:bg-soft-grey/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20"
 				>
 					<span className={`${ROLE_CHIP} ${role === current ? "border-moss-green text-rich-brown" : ""}`}>
 						{formatRole(role)}
@@ -459,6 +459,23 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		}
 	}
 
+	async function changeInviteRole(item: MemberItem, role: string) {
+		const res = await fetch(API_PAGE_MEMBERS(entity.id), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ userId: item.user.id, role }),
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			throw new Error(body.error ?? "Failed to change invite role");
+		}
+		setData((prev) =>
+			prev
+				? { ...prev, membership: prev.membership.map((m) => (m.id === item.id ? { ...m, role } : m)) }
+				: prev,
+		);
+	}
+
 	async function changeMemberRole(item: MemberItem, role: string) {
 		const res = await fetch(API_PAGE_MEMBER(entity.id, item.user.id), {
 			method: "PUT",
@@ -679,11 +696,21 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 				{!items.length && <EmptyMessage label="Members" />}
 				{items.map((item) => {
 					if (item.pending) {
+						const canChange = isAdmin;
 						return (
 							<ProfileTag
 								key={item.id}
 								entity={item.user}
-								badge={`Pending · invited as ${formatRole(item.role)}`}
+								badge={canChange ? (
+									<span className="inline-flex items-center gap-1.5">
+										<span className="text-xs text-dusty-grey">Pending</span>
+										<RoleSelector
+											current={item.role}
+											roles={roleChoices}
+											onChange={(role) => changeInviteRole(item, role)}
+										/>
+									</span>
+								) : `Pending · invited as ${formatRole(item.role)}`}
 								actions={
 									isAdmin ? (
 										<ExpandableActions
@@ -714,19 +741,20 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					<ProfileTag
 						key={item.id}
 						entity={item.user}
-						badge={item.role.toLowerCase()}
+						badge={
+							isAdmin && item.user.id !== currentUserId ? (
+								<RoleSelector
+									current={item.role}
+									roles={roleChoices}
+									onChange={(role) => changeMemberRole(item, role)}
+								/>
+							) : formatRole(item.role)
+						}
 						actions={
 							isAdmin && item.user.id !== currentUserId ? (
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-									extra={
-										<RoleSelector
-											current={item.role}
-											roles={roleChoices}
-											onChange={(role) => changeMemberRole(item, role)}
-										/>
-									}
 									actions={[{
 										label: "Remove from group",
 										onAction: async () => {

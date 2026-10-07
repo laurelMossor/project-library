@@ -11,6 +11,7 @@ import { deleteEvent } from "@/lib/utils/server/event";
 import { removeStoragePaths } from "@/lib/utils/server/storage";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { getViewerContext, canViewEvent, isContentOwner, requireViewableEvent, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
+import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE, otherPinnedCount } from "@/lib/utils/server/pin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -211,18 +212,12 @@ export async function PATCH(request: Request, { params }: Params) {
 				return badRequest("Only page editors can pin events on this page");
 			}
 			if (pinnedAt !== null) {
-				// Same cap and scope as posts: this page's pins, or the author's personal pins.
-				const pinnedEventCount = await prisma.event.count({
-					where: {
-						...(pinPageId
-							? { pageId: pinPageId }
-							: { userId: existing.userId, pageId: null }),
-						pinnedAt: { not: null },
-						id: { not: id },
-					},
-				});
-				if (pinnedEventCount >= 3) {
-					return badRequest("You can only pin up to 3 events.");
+				const pinnedCount = await otherPinnedCount(
+					pinPageId ? { pageId: pinPageId } : { userId: existing.userId },
+					{ eventId: id },
+				);
+				if (pinnedCount >= MAX_PINNED_PER_PROFILE) {
+					return badRequest(PIN_CAP_MESSAGE);
 				}
 				updateData.pinnedAt = new Date(pinnedAt);
 			} else {

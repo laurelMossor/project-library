@@ -349,11 +349,14 @@ export function postListWhere(viewer: ViewerContext) {
 
 // ---------------------------------------------------------------------------
 // Own-collection mode — a single entity's own profile/page collection.
-// Anyone who reached the entity sees its LISTED + UNLISTED content; owner / follower (user) /
-// member-or-follower (page) also see PRIVATE.
+// Anyone who reached the entity sees its LISTED + UNLISTED content.
+// PRIVATE content is also visible to the owner, to an approved follower of a user,
+// and to an approved follower or member of a page. On a page, followers and members
+// see the same private content. The difference is that a member can post to the page
+// and a follower cannot.
 // ---------------------------------------------------------------------------
 
-/** True if the viewer may see PRIVATE content belonging to this profile. */
+/** Approved followers and members both see a page's private content. Posting to the page is members only. */
 async function maySeePrivateOf(
   kind: ProfileKind,
   id: string,

@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useMemo } from "react";
 import { CollectionItem, AboutCollectionItem } from "@/lib/types/collection";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
-import { EVENT_NEW } from "@/lib/const/routes";
 
 type ProfileCollectionSectionProps = {
 	items: CollectionItem[];
@@ -27,7 +25,7 @@ export function ProfileCollectionSection({
 	items,
 	prependCards = [],
 	title = "Collection",
-	emptyMessage = "Nothing here yet.",
+	emptyMessage = "There's nothing here yet.",
 	showCreateLinks = true,
 	currentUserId,
 	activePageId,
@@ -89,20 +87,6 @@ export function ProfileCollectionSection({
 		[items]
 	);
 
-	if (items.length === 0 && prependCards.length === 0) {
-		return (
-			<div className="mt-8 pt-8 border-t">
-				<h2 className="text-xl font-semibold mb-4">{title}</h2>
-				<p className="text-gray-500">{emptyMessage}</p>
-				{showCreateLinks && (
-					<div className="mt-4 flex gap-4">
-						<Link href={EVENT_NEW} className="underline">Create Event</Link>
-					</div>
-				)}
-			</div>
-		);
-	}
-
 	return (
 		<div className="mt-8 pt-8 border-t">
 			<CollectionPage
@@ -123,6 +107,8 @@ export function ProfileCollectionSection({
 				onTagsChange={setSelectedTags}
 				availableTags={availableTags}
 				title={title}
+				emptyMessage={emptyMessage}
+				showCreateLinks={showCreateLinks}
 				pinConfig={pinConfig}
 			/>
 		</div>

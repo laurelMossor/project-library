@@ -8,6 +8,7 @@ import { getUserDisplayName } from "@/lib/types/user";
 import type { RsvpStatus } from "@/lib/types/rsvp";
 import type { CardUser } from "@/lib/types/card";
 import { getViewerContext, canViewEvent } from "@/lib/utils/server/visibility";
+import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -21,10 +22,17 @@ export default async function EventDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	const isOwner = session?.user?.id === event.userId;
+	const authority = { userId: event.userId, asPageId: event.asPageId, pageId: event.pageId };
+	const [canEdit, canModerate] = session?.user?.id
+		? await Promise.all([
+			canEditContent(session.user.id, authority),
+			canModerateContent(session.user.id, authority),
+		])
+		: [false, false];
 
-	// Draft events are only visible to the owner
-	if (event.status === "DRAFT" && !isOwner) {
+	// Drafts are visible to whoever may edit the words. Losing the page role
+	// hides a page-spoken draft even from the person who created it.
+	if (event.status === "DRAFT" && !canEdit) {
 		notFound();
 	}
 
@@ -65,7 +73,8 @@ export default async function EventDetailPage({ params }: Props) {
 	return (
 		<EventPageClient
 			event={event}
-			isOwner={isOwner}
+			canEdit={canEdit}
+			canModerate={canModerate}
 			isLoggedIn={!!session?.user}
 			initialName={initialName}
 			initialEmail={initialEmail}

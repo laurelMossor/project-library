@@ -27,8 +27,12 @@ export const toRef = (r: SearchResultItem): MessagingIdentityRef => ({ type: r.t
 export function MemberPicker({ asPageId, selected, onChange, excludeKeys, remaining }: Props) {
 	const [suggestions, setSuggestions] = useState<SearchResultItem[]>([]);
 	const [query, setQuery] = useState("");
-	const { results } = useProfileSearch(query, "all");
-	const searching = query.trim().length >= MIN_SEARCH_LENGTH;
+	const { results, loading, debouncedQuery } = useProfileSearch(query, "all");
+	const trimmed = query.trim();
+	const searching = trimmed.length >= MIN_SEARCH_LENGTH;
+	// The query is ahead of the debounced request, or that request hasn't settled.
+	// An empty list in either window is "still looking," not "no matches."
+	const pending = searching && (loading || trimmed !== debouncedQuery);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -75,7 +79,9 @@ export function MemberPicker({ asPageId, selected, onChange, excludeKeys, remain
 					{searching ? "Results" : "People you're connected with"}
 				</p>
 				{full && <p className="text-xs text-novel-red mb-1">This group is full.</p>}
-				{list.length === 0 ? (
+				{pending ? (
+					<p className="text-sm text-dusty-grey py-2">Searching...</p>
+				) : list.length === 0 ? (
 					<p className="text-sm text-dusty-grey py-2">
 						{searching ? "No matches." : "No suggestions yet — search above."}
 					</p>

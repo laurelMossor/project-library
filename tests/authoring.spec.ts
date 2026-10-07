@@ -58,38 +58,64 @@ test.describe("Authoring — create content", () => {
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-  test("a new page is only created once the draft is confirmed", async ({ page }) => {
+  test("a new page is created on open and kept once confirmed", async ({ page }) => {
     const handle = `playwright-test-${Date.now() % 1e7}`;
     await page.goto("/pages/new");
     await expect(page.getByRole("heading", { name: "Create a page", level: 1 })).toBeVisible();
 
-    // The draft exists only in the form: nothing is created yet, and it can't be confirmed
-    // until the handle checks out.
-    await expect(page.getByRole("button", { name: "Looks good" })).toBeDisabled();
-    await page.getByLabel("Handle").fill(handle);
+    const handleField = page.getByLabel("Handle");
+    await expect(handleField).not.toHaveValue("");
+    const staged = await handleField.inputValue();
+    // The staged handle is already taken. The one typed below is not, until confirm.
+    const stagedRes = await page.request.get(`/api/handles/available?handle=${staged}`);
+    expect((await stagedRes.json()).available).toBe(false);
+
+    await handleField.fill(handle);
     await expect(page.getByText("Available")).toBeVisible();
     const free = await page.request.get(`/api/handles/available?handle=${handle}`);
     expect((await free.json()).available).toBe(true);
 
     await page.getByRole("button", { name: "Looks good" }).click();
     await page.waitForURL(new RegExp(`/${handle}$`), { timeout: 15_000 });
-    // Left alone, the page name is the handle.
+    // Left alone, the page name is the handle, and the staged handle is released.
     await expect(page.getByRole("heading", { name: handle, level: 1, exact: true })).toBeVisible();
     const taken = await page.request.get(`/api/handles/available?handle=${handle}`);
     expect((await taken.json()).available).toBe(false);
+    const released = await page.request.get(`/api/handles/available?handle=${staged}`);
+    expect((await released.json()).available).toBe(true);
   });
 
-  test("leaving the new-page form discards the draft", async ({ page }) => {
+  test("leaving the new-page form deletes the staged page", async ({ page }) => {
     const handle = `playwright-test-${Date.now() % 1e7}x`;
     await page.goto("/pages/new");
-    await page.getByLabel("Handle").fill(handle);
+    const handleField = page.getByLabel("Handle");
+    await expect(handleField).not.toHaveValue("");
+    const staged = await handleField.inputValue();
+    await handleField.fill(handle);
     await expect(page.getByText("Available")).toBeVisible();
-    // The unsaved-changes prompt is the browser's; accept it so the navigation goes through.
-    page.on("dialog", (dialog) => dialog.accept());
-    await page.getByRole("link", { name: "Cancel" }).click();
+
+    await page.getByRole("link", { name: "Project Library" }).click();
+    await page.waitForURL(/\/explore/);
+    await expect.poll(async () => {
+      const res = await page.request.get(`/api/handles/available?handle=${staged}`);
+      return (await res.json()).available;
+    }).toBe(true);
+    const typed = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await typed.json()).available).toBe(true);
+  });
+
+  test("cancel deletes the staged page", async ({ page }) => {
+    await page.goto("/pages/new");
+    const handleField = page.getByLabel("Handle");
+    await expect(handleField).not.toHaveValue("");
+    const staged = await handleField.inputValue();
+
+    await page.getByRole("button", { name: "Cancel" }).click();
     await page.waitForURL(/\/settings/);
-    const res = await page.request.get(`/api/handles/available?handle=${handle}`);
-    expect((await res.json()).available).toBe(true);
+    await expect.poll(async () => {
+      const res = await page.request.get(`/api/handles/available?handle=${staged}`);
+      return (await res.json()).available;
+    }).toBe(true);
   });
 
   // ─── Profile inline editing ──────────────────────────────────────────────

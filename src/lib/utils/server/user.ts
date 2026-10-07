@@ -274,6 +274,34 @@ export async function deleteAccount(userId: string, expectedPageIds: string[]): 
 			}
 			await tx.post.updateMany({ where: { userId, asPageId: pageId }, data: { userId: successor } });
 			await tx.event.updateMany({ where: { userId, asPageId: pageId }, data: { userId: successor } });
+			// Images the surviving page still uses need an uploader, or deleting this user
+			// nulls uploadedByUserId (onDelete: SetNull) and the avatar can be collected as an orphan.
+			const [keptPosts, keptEvents, page] = await Promise.all([
+				tx.post.findMany({ where: { asPageId: pageId, userId: successor }, select: { id: true } }),
+				tx.event.findMany({ where: { asPageId: pageId, userId: successor }, select: { id: true } }),
+				tx.page.findUnique({ where: { id: pageId }, select: { avatarImageId: true } }),
+			]);
+			const attachmentOr = [
+				...(keptPosts.length > 0
+					? [{ type: AttachmentTarget.POST, targetId: { in: keptPosts.map((post) => post.id) } }]
+					: []),
+				...(keptEvents.length > 0
+					? [{ type: AttachmentTarget.EVENT, targetId: { in: keptEvents.map((event) => event.id) } }]
+					: []),
+			];
+			const attachments = attachmentOr.length > 0
+				? await tx.imageAttachment.findMany({ where: { OR: attachmentOr }, select: { imageId: true } })
+				: [];
+			const imageIds = [
+				...attachments.map((row) => row.imageId),
+				...(page?.avatarImageId ? [page.avatarImageId] : []),
+			];
+			if (imageIds.length > 0) {
+				await tx.image.updateMany({
+					where: { id: { in: imageIds }, uploadedByUserId: userId },
+					data: { uploadedByUserId: successor },
+				});
+			}
 		}
 
 		const stillOwned = await tx.page.findMany({

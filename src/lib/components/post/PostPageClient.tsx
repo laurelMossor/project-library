@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PostItem } from "@/lib/types/post";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
+import { OptionalTitle } from "@/lib/components/inline-editable/OptionalTitle";
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { TagsField } from "@/lib/components/tag/TagsField";
 import { PostsList } from "@/lib/components/post/PostsList";
@@ -37,7 +38,8 @@ import type { ImageItem } from "@/lib/types/image";
 type PostPageClientProps = {
 	post: PostItem;
 	images: ImageItem[];
-	isOwner: boolean;
+	canEdit: boolean;
+	canModerate: boolean;
 	isLoggedIn: boolean;
 };
 
@@ -47,14 +49,16 @@ function PostPageContent({
 	setPost,
 	images,
 	setImages,
-	isOwner,
+	canEdit,
+	canModerate,
 	isLoggedIn,
 }: {
 	post: PostItem;
 	setPost: React.Dispatch<React.SetStateAction<PostItem>>;
 	images: ImageItem[];
 	setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
-	isOwner: boolean;
+	canEdit: boolean;
+	canModerate: boolean;
 	isLoggedIn: boolean;
 }) {
 	const router = useRouter();
@@ -124,10 +128,10 @@ function PostPageContent({
 
 	// Tracks whether this post is still a draft so the unmount cleanup always
 	// has the latest value (avoids stale closure over `isDraft`).
-	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
+	const shouldDiscardOnLeaveRef = useRef(isDraft && canEdit);
 	useEffect(() => {
-		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && isOwner;
-	}, [post.status, isOwner]);
+		shouldDiscardOnLeaveRef.current = post.status === "DRAFT" && canEdit;
+	}, [post.status, canEdit]);
 
 	// True once any content has been added — prevents silent deletion of non-empty drafts.
 	// A title, body, OR photo all count (postHasContent), so an image-only draft survives.
@@ -160,7 +164,7 @@ function PostPageContent({
 	return (
 		<>
 			{/* Draft banner */}
-			{isDraft && isOwner && (
+			{isDraft && canEdit && (
 				<div className="bg-alice-blue px-6 py-3 text-center text-sm font-medium text-whale-blue">
 					Draft — only you can see this
 				</div>
@@ -178,45 +182,21 @@ function PostPageContent({
 				)}
 
 				{/* Title */}
-				<InlineEditable
-					canEdit={isOwner && isEditing}
+				<OptionalTitle
+					value={(title as string) || ""}
+					onChange={(next) => setTitle(next)}
+					canEdit={canEdit && isEditing}
 					isEditing={editingField === "title"}
 					onEditStart={() => setEditingField("title")}
 					onCancel={() => setEditingField(null)}
-					displayContent={
-						title ? (
-							<h1 className="text-4xl font-bold text-rich-brown leading-tight">{title as string}</h1>
-						) : isDraft && isOwner ? (
-							<h1 className="text-4xl leading-tight font-normal italic text-misty-forest/50">
-								Title (optional)
-							</h1>
-						) : null
-					}
-					editContent={
-						<input
-							type="text"
-							value={(title as string) || ""}
-							onChange={(e) => setTitle(e.target.value)}
-							onBlur={() => setEditingField(null)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									e.preventDefault();
-									setEditingField(null);
-									session?.saveAll();
-								}
-							}}
-							placeholder="Title (optional)"
-							maxLength={150}
-							className="w-full text-4xl leading-tight border-none outline-none bg-transparent font-bold text-rich-brown"
-							autoFocus
-						/>
-					}
+					onCommit={() => { session?.saveAll(); }}
+					showPlaceholder={isDraft && canEdit}
 				/>
 
 				{/* Author + actions row */}
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex-1">
-						{isOwner && isDraft ? (
+						{canEdit && isDraft ? (
 							<div className="space-y-2">
 								<DropdownProfileSelector
 									label="Posting as"
@@ -249,7 +229,7 @@ function PostPageContent({
 					</div>
 					<div className="flex flex-wrap gap-3 items-center">
 						{isPublished && <ShareButton />}
-						{isLoggedIn && !isOwner && (
+						{isLoggedIn && !canEdit && (
 							<Link
 								href={MESSAGE_CONVERSATION({ id: post.userId, type: "user" })}
 								className="px-3 py-1 text-sm font-medium border border-soft-grey rounded-full hover:bg-grey-white transition-colors"
@@ -257,7 +237,7 @@ function PostPageContent({
 								Message
 							</Link>
 						)}
-						{isOwner && isPublished && (
+						{canEdit && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
 								Live
 							</span>
@@ -276,7 +256,7 @@ function PostPageContent({
 
 				{/* Content */}
 				<InlineEditable
-					canEdit={isOwner && isEditing}
+					canEdit={canEdit && isEditing}
 					isEditing={editingField === "content"}
 					onEditStart={() => setEditingField("content")}
 					onCancel={() => setEditingField(null)}
@@ -310,10 +290,10 @@ function PostPageContent({
 						currentIndex={carouselIndex}
 						onIndexChange={setCarouselIndex}
 						showCaptions
-						onEditImage={isOwner && isEditing ? (i) => setPhotosModal({ open: true, index: i }) : undefined}
+						onEditImage={canEdit && isEditing ? (i) => setPhotosModal({ open: true, index: i }) : undefined}
 					/>
 				) : (
-					isOwner && isEditing && (
+					canEdit && isEditing && (
 						<DashedPlaceholder className="p-6 flex justify-center">
 							<button
 								type="button"
@@ -327,7 +307,7 @@ function PostPageContent({
 				)}
 
 				{/* Photo manager modal — owner only. Manages the whole set (preview + caption + add + remove). */}
-				{isOwner && photosModal.open && (
+				{canEdit && photosModal.open && (
 					<PostImagesModal
 						isOpen
 						onClose={() => setPhotosModal({ open: false, index: 0 })}
@@ -342,7 +322,7 @@ function PostPageContent({
 				<TagsField
 					value={tags as string[]}
 					onChange={(newTags) => setTags(newTags)}
-					isOwner={isOwner}
+					isOwner={canEdit}
 					isEditing={isEditing}
 					editingField={editingField}
 					onEditStart={() => setEditingField("tags")}
@@ -355,22 +335,24 @@ function PostPageContent({
 				)}
 
 				{/* Footer actions */}
-				{isOwner && (
+				{(canEdit || canModerate) && (
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-soft-grey">
-						<DeleteConfirmButton
-							label="Delete Post"
-							itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
-							onDelete={async () => {
-								try {
-									await deletePost(post.id);
-									router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
-								} catch (err) {
-									if (err instanceof AuthError) { handleAuthError(); return; }
-									throw err;
-								}
-							}}
-						/>
-						{isPublished && !isEditing && (
+						{canModerate && (
+							<DeleteConfirmButton
+								label="Delete Post"
+								itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
+								onDelete={async () => {
+									try {
+										await deletePost(post.id);
+										router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+									} catch (err) {
+										if (err instanceof AuthError) { handleAuthError(); return; }
+										throw err;
+									}
+								}}
+							/>
+						)}
+						{canEdit && isPublished && !isEditing && (
 							<button
 								type="button"
 								onClick={() => setIsEditing(true)}
@@ -380,7 +362,7 @@ function PostPageContent({
 								Edit
 							</button>
 						)}
-						{isPublished && isEditing && (
+						{canEdit && isPublished && isEditing && (
 							<button
 								type="button"
 								onClick={async () => {
@@ -399,7 +381,7 @@ function PostPageContent({
 	);
 }
 
-export function PostPageClient({ post: initialPost, images: initialImages, isOwner, isLoggedIn }: PostPageClientProps) {
+export function PostPageClient({ post: initialPost, images: initialImages, canEdit, canModerate, isLoggedIn }: PostPageClientProps) {
 	const [post, setPost] = useState(initialPost);
 	// Images live here (not in the carousel) so the publish gate below can see them live.
 	const [images, setImages] = useState(initialImages);
@@ -422,8 +404,8 @@ export function PostPageClient({ post: initialPost, images: initialImages, isOwn
 					onSaved={(updated) => {
 						setPost((prev) => ({ ...prev, ...(updated as Partial<PostItem>) }));
 					}}
-					canEdit={isOwner}
-					publishable={isOwner && isDraft}
+					canEdit={canEdit}
+					publishable={canEdit && isDraft}
 					canPublish={(current) => postHasContent({ title: current.title as string | null, content: current.content as string | null, imageCount: images.length })}
 					publishHint="Add a title, some content, or a photo to publish"
 				>
@@ -432,7 +414,8 @@ export function PostPageClient({ post: initialPost, images: initialImages, isOwn
 						setPost={setPost}
 						images={images}
 						setImages={setImages}
-						isOwner={isOwner}
+						canEdit={canEdit}
+						canModerate={canModerate}
 						isLoggedIn={isLoggedIn}
 					/>
 				</InlineEditSession>
@@ -445,7 +428,7 @@ export function PostPageClient({ post: initialPost, images: initialImages, isOwn
 					target={{ kind: "post", id: post.id }}
 					ownerUserId={post.userId}
 					ownerPageId={post.pageId}
-					isContentOwner={isOwner}
+					isContentOwner={canModerate}
 					isLoggedIn={isLoggedIn}
 				/>
 			)}

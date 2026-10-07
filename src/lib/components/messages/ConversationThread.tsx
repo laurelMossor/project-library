@@ -178,7 +178,7 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 									key={m.id}
 									message={m}
 									startsRun={startsRun}
-									showAuthor={isGroup && !m.isOwn}
+									showAuthor={(isGroup && !m.isOwn) || Boolean(m.deleted)}
 									sentBy={sentBy}
 								/>
 							);
