@@ -65,6 +65,53 @@ test.describe("Authentication flows", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
+  test("leaving setup before confirming deletes the account", async ({ page }) => {
+    const unique = `tst${Date.now() % 1e7}`;
+    const email = `${unique}@example.com`;
+    await createUser({
+      email,
+      handle: unique,
+      passwordHash: await bcrypt.hash("password123", 10),
+      emailVerified: new Date(),
+    });
+
+    try {
+      await page.goto("/login");
+      await submitLogin(page, email, "password123");
+      await page.waitForURL(/\/setup/, { timeout: 15_000 });
+      await expect(page.getByRole("heading", { name: "Set up your account" })).toBeVisible();
+
+      await page.getByRole("link", { name: "Project Library" }).click();
+      await page.waitForURL(/\/explore/, { timeout: 15_000 });
+      await expect.poll(async () => prisma.user.findUnique({ where: { email } })).toBeNull();
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+
+  test("cancel on setup deletes the account", async ({ page }) => {
+    const unique = `tst${Date.now() % 1e7}c`;
+    const email = `${unique}@example.com`;
+    await createUser({
+      email,
+      handle: unique,
+      passwordHash: await bcrypt.hash("password123", 10),
+      emailVerified: new Date(),
+    });
+
+    try {
+      await page.goto("/login");
+      await submitLogin(page, email, "password123");
+      await page.waitForURL(/\/setup/, { timeout: 15_000 });
+
+      await page.getByRole("button", { name: "Cancel" }).click();
+      await page.waitForURL(/\/welcome/, { timeout: 15_000 });
+      await expect.poll(async () => prisma.user.findUnique({ where: { email } })).toBeNull();
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+
   test("session persists across a page refresh", async ({ page }) => {
     await loginAs(page, "alice");
     await page.reload();
