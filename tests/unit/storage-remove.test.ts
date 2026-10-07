@@ -16,6 +16,7 @@ afterEach(() => {
 describe("local storage removal", () => {
 	test("finds a dev upload and a seed fixture, and refuses a path that escapes", () => {
 		fs.mkdirSync(path.dirname(uploadProbe), { recursive: true });
+		fs.mkdirSync(path.dirname(exampleProbe), { recursive: true });
 		fs.writeFileSync(uploadProbe, "upload");
 		fs.writeFileSync(exampleProbe, "example");
 
