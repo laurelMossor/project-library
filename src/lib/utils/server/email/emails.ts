@@ -5,10 +5,11 @@
 // templates or sendEmail directly. Each takes a fully-built absolute action URL
 // (callers build it from routes.ts + absoluteUrl()).
 
-import { sendEmail, type SendEmailResult } from "./send";
+import { sendEmail, sendEmailBatch, type SendEmailResult } from "./send";
 import { VerifyEmail } from "./templates/VerifyEmail";
 import { PasswordReset } from "./templates/PasswordReset";
 import { NotificationEmail, type NotificationEmailProps } from "./templates/NotificationEmail";
+import { PageInviteEmail, pageInviteSubject, type PageInviteEmailProps } from "./templates/PageInviteEmail";
 
 export function sendVerificationEmail(to: string, verifyUrl: string): Promise<SendEmailResult> {
 	return sendEmail({
@@ -36,4 +37,17 @@ function notificationSubject(props: NotificationEmailProps): string {
 /** The grouped activity/message notification email (built + sent by the flush). */
 export function sendNotificationEmail(to: string, props: NotificationEmailProps): Promise<SendEmailResult> {
 	return sendEmail({ to, subject: notificationSubject(props), react: NotificationEmail(props) });
+}
+
+/** A page admin's invite-by-email: one personal email per address, sent as a single batch. */
+export function sendPageInviteEmails(
+	invites: (PageInviteEmailProps & { to: string })[],
+): Promise<SendEmailResult> {
+	return sendEmailBatch(
+		invites.map(({ to, ...props }) => ({
+			to,
+			subject: pageInviteSubject(props.inviterName, props.pageName),
+			react: PageInviteEmail(props),
+		})),
+	);
 }

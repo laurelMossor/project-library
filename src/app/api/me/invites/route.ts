@@ -17,6 +17,7 @@ export async function GET() {
 			invites: invites.map((inv) => ({
 				id: inv.id,
 				role: inv.role,
+				note: inv.note,
 				page: inv.requesterPage,
 				createdAt: inv.createdAt,
 			})),

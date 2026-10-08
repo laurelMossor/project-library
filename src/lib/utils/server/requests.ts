@@ -14,6 +14,9 @@ import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility,
 import { canManagePage, getUserPermission, grantPermission, revokePermission } from "./permission";
 import { assignableRoles } from "@/lib/const/roles";
 import { emitActivity, type EntityRef } from "./activity";
+import { createSignupInvite } from "./signup-invite";
+import { normalizeEmail, validateEmail } from "@/lib/validations";
+import { EMAIL_INVITE_DAILY_CAP, EMAIL_INVITE_NOTE_MAX } from "@/lib/const/email-invites";
 
 type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
 
@@ -109,17 +112,23 @@ async function upsertAccessRequest(
   kind: AccessRequestKind,
   requester: EntityRef,
   target: EntityRef,
-  extra?: { role?: PermissionRole },
+  extra?: { role?: PermissionRole; note?: string | null },
 ) {
   const data = requestWhere(kind, requester, target);
   const existing = await prisma.accessRequest.findFirst({ where: data });
   if (existing) {
-    if (extra?.role && existing.role !== extra.role) {
-      return prisma.accessRequest.update({ where: { id: existing.id }, data: { role: extra.role } });
+    // A re-invite refreshes the offered role, and the note when one is sent.
+    const roleChanged = !!extra?.role && existing.role !== extra.role;
+    const noteChanged = !!extra?.note && existing.note !== extra.note;
+    if (roleChanged || noteChanged) {
+      return prisma.accessRequest.update({
+        where: { id: existing.id },
+        data: { ...(roleChanged && { role: extra!.role }), ...(noteChanged && { note: extra!.note }) },
+      });
     }
     return existing;
   }
-  return prisma.accessRequest.create({ data: { ...data, role: extra?.role } });
+  return prisma.accessRequest.create({ data: { ...data, role: extra?.role, note: extra?.note ?? null } });
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +184,12 @@ export type InviteResult =
  * granted here. Re-inviting the same person updates the offered role.
  * MEMBER is only offered when the page's policy is not CLOSED.
  */
-export async function invitePageMember(pageId: string, userId: string, role: PermissionRole): Promise<InviteResult> {
+export async function invitePageMember(
+  pageId: string,
+  userId: string,
+  role: PermissionRole,
+  note?: string | null,
+): Promise<InviteResult> {
   const page = await prisma.page.findUnique({
     where: { id: pageId },
     select: { id: true, membershipPolicy: true },
@@ -196,10 +210,179 @@ export async function invitePageMember(pageId: string, userId: string, role: Per
     AccessRequestKind.INVITE,
     { type: "PAGE", id: pageId },
     { type: "USER", id: userId },
-    { role },
+    { role, note },
   );
   await emitActivity("membership.invited", { type: "PAGE", id: pageId }, { type: "USER", id: userId }, { role });
   return { ok: true, status: "invited" };
+}
+
+// ---------------------------------------------------------------------------
+// Invite by email — reaches people who may not have an account yet.
+//
+// Every address becomes a PageEmailInvite row (the durable send log + daily cap). An address that
+// already has an account is claimed at once into the normal AccessRequest INVITE above; any other
+// address gets a signup token and stays pending until an account with that email is created
+// (claimPageEmailInvites, called from signup). The result never says which addresses had accounts.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type EmailInviteResult =
+  | {
+      ok: true;
+      /** Addresses accepted (all of them — no per-address outcome, so nothing leaks). */
+      sent: number;
+      /** Addresses without an account: the caller emails each a signup link. */
+      signupInvites: { email: string; rawToken: string }[];
+      page: { id: string; name: string };
+    }
+  | { ok: false; reason: "not_found" | "invalid_role" | "no_emails" | "invalid_emails" }
+  | { ok: false; reason: "over_cap"; remaining: number };
+
+export async function invitePageMembersByEmail(args: {
+  pageId: string;
+  inviterId: string;
+  emails: string[];
+  role: PermissionRole;
+  note?: string | null;
+}): Promise<EmailInviteResult> {
+  const page = await prisma.page.findUnique({
+    where: { id: args.pageId },
+    select: { id: true, name: true, membershipPolicy: true },
+  });
+  if (!page) return { ok: false, reason: "not_found" };
+  if (!assignableRoles(page.membershipPolicy).includes(args.role)) {
+    return { ok: false, reason: "invalid_role" };
+  }
+
+  const emails = [...new Set(args.emails.map(normalizeEmail))].filter(Boolean);
+  if (emails.length === 0) return { ok: false, reason: "no_emails" };
+  if (!emails.every(validateEmail)) return { ok: false, reason: "invalid_emails" };
+  const note = args.note?.trim().slice(0, EMAIL_INVITE_NOTE_MAX) || null;
+
+  // Cap check + rows in one transaction (DB writes only — no notifications in here, so a
+  // rollback can't leave a stray bell). Two concurrent batches can overshoot slightly under
+  // READ COMMITTED; acceptable for an anti-spam cap.
+  const rows = await prisma.$transaction(async (tx) => {
+    const used = await tx.pageEmailInvite.count({
+      where: { invitedById: args.inviterId, createdAt: { gte: new Date(Date.now() - DAY_MS) } },
+    });
+    if (used + emails.length > EMAIL_INVITE_DAILY_CAP) {
+      return { remaining: Math.max(0, EMAIL_INVITE_DAILY_CAP - used) };
+    }
+    // A newer send to the same address supersedes the older row (one email row per page+address).
+    await tx.pageEmailInvite.updateMany({
+      where: { pageId: page.id, email: { in: emails }, cancelledAt: null },
+      data: { cancelledAt: new Date() },
+    });
+    return tx.pageEmailInvite.createManyAndReturn({
+      data: emails.map((email) => ({
+        pageId: page.id,
+        invitedById: args.inviterId,
+        email,
+        role: args.role,
+        note,
+      })),
+      select: { id: true, pageId: true, email: true, role: true, note: true },
+    });
+  });
+  if (!Array.isArray(rows)) return { ok: false, reason: "over_cap", remaining: rows.remaining };
+
+  const users = await prisma.user.findMany({
+    where: { email: { in: emails } },
+    select: { id: true, email: true },
+  });
+  const userIdByEmail = new Map(users.map((u) => [u.email, u.id]));
+
+  const signupInvites: { email: string; rawToken: string }[] = [];
+  for (const row of rows) {
+    const userId = userIdByEmail.get(row.email);
+    if (userId) {
+      await claimEmailInvite(row, userId);
+    } else {
+      const { rawToken } = await createSignupInvite(row.email);
+      signupInvites.push({ email: row.email, rawToken });
+    }
+  }
+
+  return { ok: true, sent: emails.length, signupInvites, page: { id: page.id, name: page.name } };
+}
+
+type EmailInviteRow = { id: string; pageId: string; role: PermissionRole; note: string | null };
+
+/**
+ * Turn a pending email invite into the real AccessRequest INVITE for `userId` (which notifies them).
+ * If the page can no longer offer the role, the row is cancelled instead.
+ */
+async function claimEmailInvite(row: EmailInviteRow, userId: string): Promise<void> {
+  const result = await invitePageMember(row.pageId, userId, row.role, row.note);
+  // Already a member: leave the row pending, exactly like an address that never signs up, so the
+  // admin's list can't reveal that this address belongs to a member. It stays until cancelled.
+  if (!result.ok && result.reason === "already_member") return;
+  await prisma.pageEmailInvite.update({
+    where: { id: row.id },
+    data: result.ok ? { claimedAt: new Date(), claimedUserId: userId } : { cancelledAt: new Date() },
+  });
+}
+
+/**
+ * A new account was created for `email`: open every page invite waiting on that address.
+ * Idempotent (claimed rows are skipped; invitePageMember upserts). Safe to key on email because
+ * signup requires a token that was mailed to that address.
+ */
+export async function claimPageEmailInvites(userId: string, email: string): Promise<void> {
+  const rows = await prisma.pageEmailInvite.findMany({
+    where: { email: normalizeEmail(email), claimedAt: null, cancelledAt: null },
+    select: { id: true, pageId: true, role: true, note: true },
+    orderBy: { createdAt: "asc" },
+  });
+  for (const row of rows) {
+    await claimEmailInvite(row, userId);
+  }
+}
+
+/**
+ * Pending email invites a page has sent, oldest first. An invite sent by email stays an email row
+ * until it's accepted — even once claimed for an account (at send time or at signup) — so the
+ * admin's list never reveals which addresses have accounts. `claimedUserId` is for the members
+ * route to hide the matching profile invite; never send it to the client.
+ */
+export async function listPageEmailInvites(pageId: string) {
+  const pendingInvites = await prisma.accessRequest.findMany({
+    where: { requesterPageId: pageId, kind: AccessRequestKind.INVITE },
+    select: { targetUserId: true },
+  });
+  const pendingUserIds = pendingInvites.map((r) => r.targetUserId).filter((id): id is string => !!id);
+  return prisma.pageEmailInvite.findMany({
+    where: {
+      pageId,
+      cancelledAt: null,
+      OR: [{ claimedAt: null }, { claimedUserId: { in: pendingUserIds } }],
+    },
+    select: { id: true, email: true, role: true, createdAt: true, claimedUserId: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Cancel a page's pending email invite. If it was already claimed for an account, the open
+ * AccessRequest INVITE is withdrawn too. The caller has checked canManagePage.
+ */
+export async function cancelPageEmailInvite(pageId: string, inviteId: string): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.pageEmailInvite.findFirst({
+      where: { id: inviteId, pageId, cancelledAt: null },
+      select: { id: true, claimedUserId: true },
+    });
+    if (!row) return false;
+    await tx.pageEmailInvite.update({ where: { id: row.id }, data: { cancelledAt: new Date() } });
+    if (row.claimedUserId) {
+      await tx.accessRequest.deleteMany({
+        where: { kind: AccessRequestKind.INVITE, requesterPageId: pageId, targetUserId: row.claimedUserId },
+      });
+    }
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------

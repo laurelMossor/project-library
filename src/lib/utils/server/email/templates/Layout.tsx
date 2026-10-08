@@ -28,21 +28,32 @@ interface LayoutProps {
 	preview: string;
 	/** When set, the footer shows a "Manage email preferences" link (notification emails). */
 	managePrefsUrl?: string;
+	/**
+	 * Letter style: no grey canvas, wordmark header, or card — just text on white, so the
+	 * email reads like a note from a person (keeps invites out of Gmail's Promotions tab).
+	 */
+	plain?: boolean;
 	children: ReactNode;
 }
 
 /** Shared shell for all transactional emails — wordmark header + footer. */
-export function Layout({ preview, managePrefsUrl, children }: LayoutProps) {
+export function Layout({ preview, managePrefsUrl, plain = false, children }: LayoutProps) {
 	return (
 		<Html>
 			<Head />
 			<Preview>{preview}</Preview>
-			<Body style={body}>
+			<Body style={plain ? plainBody : body}>
 				<Container style={container}>
-					<Section style={header}>
-						<Text style={wordmark}>The Project Library</Text>
-					</Section>
-					<Section style={card}>{children}</Section>
+					{plain ? (
+						<Section>{children}</Section>
+					) : (
+						<>
+							<Section style={header}>
+								<Text style={wordmark}>The Project Library</Text>
+							</Section>
+							<Section style={card}>{children}</Section>
+						</>
+					)}
 					<Hr style={hr} />
 					<Text style={footer}>
 						The Project Library ~ creativity, mutuality, and lifelong learning ~
@@ -66,6 +77,12 @@ const body: React.CSSProperties = {
 		"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
 	margin: 0,
 	padding: "32px 0",
+};
+
+const plainBody: React.CSSProperties = {
+	...body,
+	backgroundColor: brand.white,
+	padding: "16px 0",
 };
 
 const container: React.CSSProperties = {

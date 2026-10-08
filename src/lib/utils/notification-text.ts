@@ -23,7 +23,7 @@ function titled(title?: string | null): string {
 }
 
 /** "Admin" → "an", "Member" → "a". */
-function articleFor(word: string): "a" | "an" {
+export function articleFor(word: string): "a" | "an" {
 	return /^[aeiou]/i.test(word) ? "an" : "a";
 }
 

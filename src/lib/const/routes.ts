@@ -157,6 +157,9 @@ export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
 export const API_PAGE_MEMBERS = (pageId: string) => `/api/pages/${pageId}/members`;
 export const API_PAGE_MEMBER = (pageId: string, userId: string) => `/api/pages/${pageId}/members/${userId}`;
+export const API_PAGE_EMAIL_INVITES = (pageId: string) => `/api/pages/${pageId}/email-invites`;
+export const API_PAGE_EMAIL_INVITE = (pageId: string, inviteId: string) =>
+	`/api/pages/${pageId}/email-invites/${inviteId}`;
 
 // Access-request API Routes (Request-to-Follow / Request-to-Join)
 export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;

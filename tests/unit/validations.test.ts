@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
 import {
   validateEmail,
+  parseEmailList,
   validateHandle,
   validatePassword,
   validatePasswordPair,
@@ -17,6 +18,26 @@ import {
 } from "@/lib/validations";
 import { generateHandle, handleFromName, nameFromHandle, sanitizeHandleTyping } from "@/lib/utils/handle";
 import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS } from "@/lib/const/messaging";
+
+// ---------------------------------------------------------------------------
+// parseEmailList (the invite-by-email field)
+// ---------------------------------------------------------------------------
+describe("parseEmailList", () => {
+  test("splits on commas, spaces, semicolons, and newlines; normalizes and dedupes", () => {
+    expect(parseEmailList(" A@x.com, b@x.com;c@x.com\nd@x.com  a@X.com,, ")).toEqual({
+      valid: ["a@x.com", "b@x.com", "c@x.com", "d@x.com"],
+      invalid: [],
+    });
+  });
+
+  test("collects invalid entries separately", () => {
+    expect(parseEmailList("a@x.com, nope, also@bad")).toEqual({ valid: ["a@x.com"], invalid: ["nope", "also@bad"] });
+  });
+
+  test("empty input → nothing", () => {
+    expect(parseEmailList("  ,  ")).toEqual({ valid: [], invalid: [] });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // validateEmail

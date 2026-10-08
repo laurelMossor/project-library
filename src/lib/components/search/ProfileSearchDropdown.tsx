@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { CardUser } from "@/lib/types/card";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { getCardUserDisplayName } from "@/lib/types/card";
 import { MIN_SEARCH_LENGTH, useProfileSearch } from "@/lib/hooks/useProfileSearch";
 import { searchResultUser } from "@/lib/types/search";
+import { AtAvatar } from "@/lib/components/profile/EmailInviteTag";
 
 export type SearchResultUser = CardUser;
 
@@ -14,6 +15,11 @@ type ProfileSearchDropdownProps = {
 	placeholder?: string;
 	excludeUserIds?: string[];
 	className?: string;
+	/**
+	 * An extra row pinned to the bottom of the list (e.g. "Invite via email"). With it set, the
+	 * list opens as soon as the field is focused, before any search. Gets the current query.
+	 */
+	extraOption?: { label: ReactNode; onSelect: (query: string) => void };
 };
 
 export function ProfileSearchDropdown({
@@ -21,9 +27,12 @@ export function ProfileSearchDropdown({
 	placeholder = "Search by name or handle...",
 	excludeUserIds = [],
 	className = "",
+	extraOption,
 }: ProfileSearchDropdownProps) {
 	const [query, setQuery] = useState("");
 	const [isOpen, setIsOpen] = useState(false);
+	// Only tracked for `extraOption`, which shows while the field is focused even with no query.
+	const [inputFocused, setInputFocused] = useState(false);
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -45,6 +54,7 @@ export function ProfileSearchDropdown({
 		function handleClickOutside(e: MouseEvent) {
 			if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
 				setIsOpen(false);
+				setInputFocused(false);
 			}
 		}
 		document.addEventListener("mousedown", handleClickOutside);
@@ -58,29 +68,41 @@ export function ProfileSearchDropdown({
 		setFocusedIndex(-1);
 	}
 
+	function handleSelectExtra() {
+		extraOption?.onSelect(query.trim());
+		setIsOpen(false);
+		setInputFocused(false);
+		setFocusedIndex(-1);
+	}
+
+	const showExtra = !!extraOption && (isOpen || inputFocused);
+	const showHint = !showExtra && query.length > 0 && query.length < MIN_SEARCH_LENGTH;
+	const showEmpty = isOpen && !isLoading && debouncedQuery.length >= MIN_SEARCH_LENGTH && results.length === 0;
+	const showResults = isOpen && results.length > 0;
+	// The extra row sits after the results, at index results.length.
+	const visibleRows = (showResults ? results.length : 0) + (showExtra ? 1 : 0);
+
 	function handleKeyDown(e: React.KeyboardEvent) {
 		if (e.key === "Escape") {
 			setIsOpen(false);
+			setInputFocused(false);
 			inputRef.current?.blur();
 			return;
 		}
-		if (!isOpen || results.length === 0) return;
+		if (visibleRows === 0) return;
 
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setFocusedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+			setFocusedIndex((prev) => (prev < visibleRows - 1 ? prev + 1 : 0));
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
-			setFocusedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+			setFocusedIndex((prev) => (prev > 0 ? prev - 1 : visibleRows - 1));
 		} else if (e.key === "Enter" && focusedIndex >= 0) {
 			e.preventDefault();
-			handleSelect(results[focusedIndex]);
+			if (showResults && focusedIndex < results.length) handleSelect(results[focusedIndex]);
+			else if (showExtra) handleSelectExtra();
 		}
 	}
-
-	const showHint = query.length > 0 && query.length < MIN_SEARCH_LENGTH;
-	const showEmpty = isOpen && !isLoading && debouncedQuery.length >= MIN_SEARCH_LENGTH && results.length === 0;
-	const showResults = isOpen && results.length > 0;
 
 	return (
 		<div ref={containerRef} className={`relative ${className}`}>
@@ -94,6 +116,7 @@ export function ProfileSearchDropdown({
 						setFocusedIndex(-1);
 					}}
 					onFocus={() => {
+						setInputFocused(true);
 						if (results.length > 0 && debouncedQuery.length >= MIN_SEARCH_LENGTH) setIsOpen(true);
 					}}
 					onKeyDown={handleKeyDown}
@@ -115,7 +138,7 @@ export function ProfileSearchDropdown({
 				</div>
 			)}
 
-			{(showResults || showEmpty) && (
+			{(showResults || showEmpty || showExtra) && (
 				<div className="absolute z-50 left-0 right-0 mt-1 border border-soft-grey rounded-lg bg-white shadow-lg overflow-hidden">
 					{showEmpty && (
 						<div className="px-3 py-4 text-sm text-dusty-grey text-center">
@@ -150,6 +173,23 @@ export function ProfileSearchDropdown({
 								</li>
 							))}
 						</ul>
+					)}
+					{showExtra && (
+						<div
+							role="option"
+							aria-selected={focusedIndex === (showResults ? results.length : 0)}
+							onMouseDown={(e) => e.preventDefault()}
+							onClick={handleSelectExtra}
+							onMouseEnter={() => setFocusedIndex(showResults ? results.length : 0)}
+							className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${showResults || showEmpty ? "border-t border-soft-grey/60" : ""} ${
+								focusedIndex === (showResults ? results.length : 0)
+									? "bg-grey-white"
+									: "hover:bg-grey-white/60"
+							}`}
+						>
+							<AtAvatar />
+							<p className="text-sm font-medium text-rich-brown leading-tight">{extraOption!.label}</p>
+						</div>
 					)}
 				</div>
 			)}
