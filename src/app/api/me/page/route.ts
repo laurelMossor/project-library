@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getPageById } from "@/lib/utils/server/page";
-import { ResourceType } from "@prisma/client";
-import { canPostAsPage, canManagePage, getUserPermission } from "@/lib/utils/server/permission";
+import { canPostAsPage, canManagePage, getActingRole } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { saveMyProfile } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
@@ -25,16 +24,14 @@ export async function GET() {
 
 		// Re-verify the caller may act as this page — activePageId comes from the JWT, which
 		// can be set client-side via updateSession without going through the validated route.
-		const allowed = await canPostAsPage(ctx.userId, ctx.activePageId);
-		if (!allowed) {
+		// One permission read. A member, or a missing row, is the same 404 as a missing page.
+		const role = await getActingRole(ctx.userId, ctx.activePageId);
+		if (!role) {
 			return notFound("Active page not found");
 		}
 
-		const [page, role] = await Promise.all([
-			getPageById(ctx.activePageId),
-			getUserPermission(ctx.userId, ctx.activePageId, ResourceType.PAGE),
-		]);
-		if (!page || !role) {
+		const page = await getPageById(ctx.activePageId);
+		if (!page) {
 			return notFound("Active page not found");
 		}
 

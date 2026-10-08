@@ -26,6 +26,7 @@ import {
   canPostAsPage,
   canManagePage,
   canActAsEntity,
+  getActingRole,
   isSelfServiceRole,
   wouldRemoveLastAdmin,
   getMemberPageIds,
@@ -88,6 +89,40 @@ describe("canPostAsPage", () => {
         role: { in: [PermissionRole.ADMIN, PermissionRole.EDITOR] },
       },
     });
+  });
+});
+
+describe("getActingRole", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("ADMIN → the role, from one findUnique", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(makePermission(PermissionRole.ADMIN));
+    expect(await getActingRole("user-1", "page-1")).toBe(PermissionRole.ADMIN);
+    expect(prisma.permission.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_resourceId_resourceType: {
+          userId: "user-1",
+          resourceId: "page-1",
+          resourceType: ResourceType.PAGE,
+        },
+      },
+    });
+    expect(prisma.permission.findFirst).not.toHaveBeenCalled();
+  });
+
+  test("EDITOR → the role", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(makePermission(PermissionRole.EDITOR));
+    expect(await getActingRole("user-1", "page-1")).toBe(PermissionRole.EDITOR);
+  });
+
+  test("MEMBER → null", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(makePermission(PermissionRole.MEMBER));
+    expect(await getActingRole("user-1", "page-1")).toBeNull();
+  });
+
+  test("no row → null", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(null);
+    expect(await getActingRole("user-1", "page-1")).toBeNull();
   });
 });
 

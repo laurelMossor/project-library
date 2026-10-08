@@ -10,6 +10,7 @@ import {
   ALL_ROLES,
   isActingRole,
   isAdminRole,
+  mayPostToPage,
   assignableRoles,
 } from "@/lib/const/roles";
 
@@ -38,6 +39,24 @@ describe("role vocabulary", () => {
     expect(isAdminRole("EDITOR")).toBe(false);
     expect(isAdminRole("MEMBER")).toBe(false);
     expect(isAdminRole(null)).toBe(false);
+  });
+});
+
+describe("mayPostToPage", () => {
+  test("no role → false, even when member posts are allowed", () => {
+    expect(mayPostToPage(null, true)).toBe(false);
+    expect(mayPostToPage(undefined, true)).toBe(false);
+    expect(mayPostToPage("", true)).toBe(false);
+  });
+
+  test("acting role is true even when member posts are off", () => {
+    expect(mayPostToPage("ADMIN", false)).toBe(true);
+    expect(mayPostToPage("EDITOR", false)).toBe(true);
+  });
+
+  test("a member follows the page flag", () => {
+    expect(mayPostToPage("MEMBER", false)).toBe(false);
+    expect(mayPostToPage("MEMBER", true)).toBe(true);
   });
 });
 

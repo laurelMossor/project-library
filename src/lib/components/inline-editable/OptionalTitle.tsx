@@ -75,13 +75,3 @@ export function OptionalTitle({
 		/>
 	);
 }
-
-/** A page name becomes a handle: lowercase, and anything outside the handle alphabet becomes a hyphen. */
-export function handleFromName(name: string): string {
-	return name
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9._-]+/g, "-")
-		.replace(/^-+|-+$/g, "")
-		.slice(0, 30);
-}

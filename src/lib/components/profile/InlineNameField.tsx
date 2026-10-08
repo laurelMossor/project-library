@@ -5,6 +5,7 @@ import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable"
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { FieldLabel } from "./FieldLabel";
 import { InlineTextField } from "./InlineTextField";
+import { followedName } from "@/lib/utils/identity-name";
 
 type Props = {
 	name: "name" | "displayName";
@@ -50,7 +51,7 @@ function FollowingNameField({ name, label, stored, handle, valueClassName = "tex
 	const [custom, setCustom] = useState<string | null>(stored && stored !== handle ? stored : null);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(handle);
-	const shown = custom ?? handle;
+	const shown = followedName(custom, handle);
 	const setDirty = session?.setDirty;
 
 	useEffect(() => {

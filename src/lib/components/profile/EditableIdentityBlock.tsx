@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { ClickableProfilePicture } from "./ClickableProfilePicture";
 import { InlineHandleField } from "./InlineHandleField";
 import { InlineNameField } from "./InlineNameField";
-import { OptionalTitle, handleFromName } from "@/lib/components/inline-editable/OptionalTitle";
+import { OptionalTitle } from "@/lib/components/inline-editable/OptionalTitle";
+import { handleFromName, nameFromHandle } from "@/lib/utils/handle";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { IdentityEntity } from "./ActiveIdentityEditor";
@@ -99,7 +100,9 @@ export function EditableIdentityBlock({
 					handEdited={handleTouched}
 					onHandTyped={draft && isPage ? (next) => {
 						setHandleTouched(true);
-						if (!nameTouched) setSuggestedName(next);
+						if (nameTouched) return;
+						const suggested = nameFromHandle(next);
+						if (suggested) setSuggestedName(suggested);
 					} : undefined}
 				/>
 			</div>

@@ -17,6 +17,7 @@ import { API_ME_PAGE_HANDLE, API_PAGES, API_PAGE, PUBLIC_PROFILE, SETTINGS } fro
 import { NotificationSettingsForm } from "@/app/settings/profile/NotificationSettingsForm";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { PublicPage } from "@/lib/types/page";
+import { nameOrHandle } from "@/lib/utils/identity-name";
 
 const BLANK_PAGE = {
 	id: "",
@@ -97,7 +98,7 @@ export function PageCreateClient() {
 		// A page left unnamed takes its handle as the name. The handle may already
 		// be on the staged page, so it isn't always a dirty field.
 		const nextHandle = typeof fields.handle === "string" && fields.handle ? fields.handle : entity.data.handle;
-		if (!fields.name) fields.name = nextHandle;
+		fields.name = nameOrHandle(typeof fields.name === "string" ? fields.name : null, nextHandle);
 		let handle = entity.data.handle;
 		// The profile save drops handle; it has to move the Handle row through its own route.
 		if (typeof fields.handle === "string" && fields.handle && fields.handle !== entity.data.handle) {
