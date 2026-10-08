@@ -110,6 +110,8 @@ export async function updatePageProfile(
 export async function createPage(
   userId: string,
   data: {
+    /** Caller-chosen id, so a draft form can preview the avatar this page will keep. */
+    id?: string;
     name: string;
     handle: string;
     headline?: string;
@@ -140,6 +142,7 @@ export async function createPage(
     }
     const page = await tx.page.create({
       data: {
+        ...(data.id ? { id: data.id } : {}),
         createdByUserId: userId,
         name: data.name.trim(),
         handle,

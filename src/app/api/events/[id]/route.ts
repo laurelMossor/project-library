@@ -4,14 +4,15 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { validateEventUpdateData, validateEventPublishable } from "@/lib/validations";
 import { eventWithUserFields } from "@/lib/utils/server/fields";
-import { canEditContent, canModerateContent, canPostAsPage } from "@/lib/utils/server/permission";
+import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
 import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { deleteEvent } from "@/lib/utils/server/event";
 import { removeStoragePaths } from "@/lib/utils/server/storage";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { getViewerContext, canViewEvent, isContentOwner, requireViewableEvent, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
-import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE, otherPinnedCount } from "@/lib/utils/server/pin";
+import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE } from "@/lib/const/pin";
+import { canPinContent, otherPinnedCount } from "@/lib/utils/server/pin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -90,10 +91,9 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		const data = await request.json();
-		const pinOnly = Boolean(existing.pageId)
-			&& data.pinnedAt !== undefined
+		const pinOnly = data.pinnedAt !== undefined
 			&& Object.keys(data).every((key) => key === "pinnedAt")
-			&& (await canPostAsPage(viewer.userId, existing.pageId!));
+			&& (await canPinContent(viewer.userId, { userId: existing.userId, pageId: existing.pageId }));
 		if (!pinOnly && !(await canEditContent(viewer.userId, existing))) {
 			return NextResponse.json(
 				{ error: "You can only edit your own events" },
@@ -208,8 +208,10 @@ export async function PATCH(request: Request, { params }: Params) {
 		if (status !== undefined) updateData.status = status;
 		const pinPageId = placement?.pageId ?? existing.pageId;
 		if (pinnedAt !== undefined) {
-			if (pinPageId && !(await canPostAsPage(viewer.userId, pinPageId))) {
-				return badRequest("Only page editors can pin events on this page");
+			if (!(await canPinContent(viewer.userId, { userId: existing.userId, pageId: pinPageId }))) {
+				return badRequest(pinPageId
+					? "Only page editors can pin events on this page"
+					: "You can only pin your own events");
 			}
 			if (pinnedAt !== null) {
 				const pinnedCount = await otherPinnedCount(

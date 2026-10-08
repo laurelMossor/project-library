@@ -211,14 +211,12 @@ describe("profileListWhere — all profiles discoverable", () => {
   });
 });
 
-describe("eventListWhere / postListWhere — only LISTED content, plus own", () => {
-  test("anon → LISTED-only", () => {
-    expect(eventListWhere(ANON)).toEqual({ contentVisibility: { in: [ContentVisibility.LISTED] } });
-    expect(postListWhere(ANON)).toEqual({ contentVisibility: { in: [ContentVisibility.LISTED] } });
-  });
-  test("member → LISTED plus own user + member pages", () => {
-    expect((eventListWhere(MEMBER) as { OR: unknown[] }).OR).toHaveLength(3);
-    expect((postListWhere(MEMBER) as { OR: unknown[] }).OR).toHaveLength(3);
+describe("eventListWhere / postListWhere — LISTED only, for every viewer", () => {
+  const listed = { contentVisibility: { in: [ContentVisibility.LISTED] } };
+
+  test("returns LISTED-only (the viewer is no longer an input)", () => {
+    expect(eventListWhere()).toEqual(listed);
+    expect(postListWhere()).toEqual(listed);
   });
 });
 

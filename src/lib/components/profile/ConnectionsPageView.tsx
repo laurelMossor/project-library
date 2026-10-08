@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/layout/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
+import { RoleSelector } from "./RoleSelector";
+import { EmailInviteTag } from "./EmailInviteTag";
+import { EmailInviteModal } from "./EmailInviteModal";
 import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
-import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
 import {
@@ -12,6 +14,7 @@ import {
 	API_PAGE_REQUESTS,
 	API_PAGE_MEMBERS,
 	API_PAGE_MEMBER,
+	API_PAGE_EMAIL_INVITE,
 	API_PAGE_MEMBERSHIP,
 	API_ME_REQUESTS,
 	API_ME_INVITES,
@@ -77,9 +80,19 @@ type MemberItem = {
 	};
 };
 
+/** A page's pending invite sent by email: shown by address only (never a profile). */
+type EmailInviteItem = {
+	id: string;
+	kind: "email";
+	email: string;
+	role: string;
+};
+
 type InviteItem = {
 	id: string;
 	role: string | null;
+	/** The inviting admin's optional note. */
+	note?: string | null;
 	page: {
 		id: string;
 		handle: string;
@@ -103,10 +116,21 @@ type ConnectionsData = {
 	followers: ConnectionItem[];
 	following: ConnectionItem[];
 	membership: MemberItem[];
+	/** Page only, admin only: pending invites sent by email. */
+	emailInvites: EmailInviteItem[];
 	memberOf: PageMembershipItem[];
 	requests: RequestItem[];
 	invites: InviteItem[];
 };
+
+/** GET members returns members, profile invites, and email invites in one list — split them. */
+function splitMemberRows(rows: (MemberItem | EmailInviteItem)[]) {
+	const isEmail = (r: MemberItem | EmailInviteItem): r is EmailInviteItem => "kind" in r && r.kind === "email";
+	return {
+		membership: rows.filter((r): r is MemberItem => !isEmail(r)),
+		emailInvites: rows.filter(isEmail),
+	};
+}
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -198,49 +222,6 @@ function ExpandableActions({
 	);
 }
 
-const ROLE_CHIP =
-	"text-xs px-2 py-0.5 rounded border border-soft-grey/60 bg-white text-dusty-grey";
-
-// Role selector rendered as the same chip the row's role badge uses, so changing a
-// role doesn't look like one of the action buttons next to it.
-function RoleSelector({
-	current,
-	roles,
-	onChange,
-}: {
-	current: string;
-	roles: readonly string[];
-	onChange: (role: string) => Promise<void>;
-}) {
-	const [open, setOpen] = useState(false);
-	return (
-		<DropdownMenu
-			isOpen={open}
-			onClose={() => setOpen(!open)}
-			triggerAriaLabel="Change role"
-			triggerClassName={`${ROLE_CHIP} hover:border-misty-forest transition-colors cursor-pointer whitespace-nowrap`}
-			trigger={<span>{formatRole(current)} ▾</span>}
-			containerClassName="min-w-[140px]"
-		>
-			{roles.map((role) => (
-				<button
-					key={role}
-					role="menuitem"
-					onClick={async () => {
-						setOpen(false);
-						if (role !== current) await onChange(role);
-					}}
-					className="w-full text-left px-3 py-1.5 hover:bg-soft-grey/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20"
-				>
-					<span className={`${ROLE_CHIP} ${role === current ? "border-moss-green text-rich-brown" : ""}`}>
-						{formatRole(role)}
-					</span>
-				</button>
-			))}
-		</DropdownMenu>
-	);
-}
-
 function EmptyMessage({ label }: { label: string }) {
 	return <p className="text-sm text-dusty-grey text-center py-12">No {label.toLowerCase()} yet.</p>;
 }
@@ -324,6 +305,9 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	const [pendingUser, setPendingUser] = useState<SearchResultUser | null>(null);
 	const [pendingRole, setPendingRole] = useState<PermissionRole>("EDITOR");
 	const [pagePolicy, setPagePolicy] = useState<string>("CLOSED");
+	// Invite-via-email modal: null = closed, else the address field's prefill.
+	const [emailInvitePrefill, setEmailInvitePrefill] = useState<string | null>(null);
+	const [inviteNotice, setInviteNotice] = useState<string | null>(null);
 	const roleChoices = assignableRoles(pagePolicy);
 
 	// Load every connections slice in one pass. `silent` skips the loading/error toggles so a
@@ -353,10 +337,11 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 				const followers = followersRes.ok ? (await followersRes.json()).followers ?? [] : [];
 				const following = followingRes.ok ? (await followingRes.json()).following ?? [] : [];
 				let membership: MemberItem[] = [];
+				let emailInvites: EmailInviteItem[] = [];
 				let memberOf: PageMembershipItem[] = [];
 
 				if (entityType === "page" && membershipRes.ok) {
-					membership = (await membershipRes.json()) as MemberItem[];
+					({ membership, emailInvites } = splitMemberRows(await membershipRes.json()));
 				} else if (entityType === "user" && membershipRes.ok) {
 					memberOf = (await membershipRes.json()).memberships ?? [];
 				}
@@ -379,7 +364,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					if (typeof page.membershipPolicy === "string") setPagePolicy(page.membershipPolicy);
 				}
 
-				setData({ followers, following, membership, memberOf, requests, invites });
+				setData({ followers, following, membership, emailInvites, memberOf, requests, invites });
 			} catch {
 				// Keep the already-loaded panel intact on a silent refresh failure; only the
 				// initial load surfaces the error.
@@ -434,6 +419,37 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		setAddMemberError(null);
 	}
 
+	async function refreshMembers() {
+		const updated = await fetch(API_PAGE_MEMBERS(entity.id));
+		if (updated.ok) {
+			const split = splitMemberRows(await updated.json());
+			setData((prev) => (prev ? { ...prev, ...split } : prev));
+		}
+	}
+
+	function openEmailInvite(query: string) {
+		setAddMemberError(null);
+		setInviteNotice(null);
+		// Carry over an address typed into the search; anything else isn't worth prefilling.
+		setEmailInvitePrefill(query.includes("@") ? query : "");
+	}
+
+	async function onEmailInvitesSent(result: { sent: number; alreadyMembers: string[] }) {
+		setEmailInvitePrefill(null);
+		setShowAddMember(false);
+		const parts: string[] = [];
+		if (result.sent > 0) {
+			parts.push(`Invites sent to ${result.sent} ${result.sent === 1 ? "address" : "addresses"}.`);
+		}
+		if (result.alreadyMembers.length === 1) {
+			parts.push(`${result.alreadyMembers[0]} already has a role on this page.`);
+		} else if (result.alreadyMembers.length > 1) {
+			parts.push(`${result.alreadyMembers.join(", ")} already have a role on this page.`);
+		}
+		setInviteNotice(parts.join(" "));
+		await refreshMembers();
+	}
+
 	async function confirmAddMember() {
 		if (!pendingUser) return;
 		setAddMemberError(null);
@@ -447,11 +463,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 				const body = await res.json().catch(() => ({}));
 				throw new Error(body.error ?? "Failed to add member");
 			}
-			const updated = await fetch(API_PAGE_MEMBERS(entity.id));
-			if (updated.ok) {
-				const members = await updated.json();
-				setData((prev) => (prev ? { ...prev, membership: members } : prev));
-			}
+			await refreshMembers();
 			setShowAddMember(false);
 			setPendingUser(null);
 		} catch (e) {
@@ -556,7 +568,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		if (top === "Requests") return data.requests.length;
 		return entityType === "user"
 			? data.memberOf.length + data.invites.length
-			: data.membership.length;
+			: data.membership.length + data.emailInvites.length;
 	}
 
 	function renderContent(_leftId: string, top: TopTab) {
@@ -630,29 +642,35 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 						<p className="text-xs font-medium text-dusty-grey pt-1">Pending invitations</p>
 					)}
 					{invites.map((inv) => (
-						<ProfileTag
-							key={inv.id}
-							entity={inv.page!}
-							badge={`Pending · invited as ${formatRole(inv.role)}`}
-							actions={
-								<ExpandableActions
-									expanded={expandedId === inv.id}
-									onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
-									actions={[
-										{ label: "Accept", tone: "default", onAction: () => actOnRequest(inv.id, "approve") },
-										{
-											label: "Decline",
-											onAction: async () => {
-												await actOnRequest(inv.id, "deny");
-												setData((prev) =>
-													prev ? { ...prev, invites: prev.invites.filter((i) => i.id !== inv.id) } : prev,
-												);
+						<div key={inv.id} className="space-y-1">
+							<ProfileTag
+								entity={inv.page!}
+								badge={`Pending · invited as ${formatRole(inv.role)}`}
+								actions={
+									<ExpandableActions
+										expanded={expandedId === inv.id}
+										onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+										actions={[
+											{ label: "Accept", tone: "default", onAction: () => actOnRequest(inv.id, "approve") },
+											{
+												label: "Decline",
+												onAction: async () => {
+													await actOnRequest(inv.id, "deny");
+													setData((prev) =>
+														prev ? { ...prev, invites: prev.invites.filter((i) => i.id !== inv.id) } : prev,
+													);
+												},
 											},
-										},
-									]}
-								/>
-							}
-						/>
+										]}
+									/>
+								}
+							/>
+							{inv.note && (
+								<p className="px-3 text-xs text-dusty-grey whitespace-pre-wrap">
+									&ldquo;{inv.note}&rdquo;
+								</p>
+							)}
+						</div>
 					))}
 					{items.map((item) => (
 						<ProfileTag
@@ -690,10 +708,11 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 
 		// Membership tab — page profile. `isAdmin` is hoisted to component scope.
 		const items = data.membership;
+		const emailInvites = data.emailInvites;
 
 		return (
 			<div className="p-5 space-y-2">
-				{!items.length && <EmptyMessage label="Members" />}
+				{!items.length && !emailInvites.length && <EmptyMessage label="Members" />}
 				{items.map((item) => {
 					if (item.pending) {
 						const canChange = isAdmin;
@@ -779,6 +798,35 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					/>
 					);
 				})}
+				{/* Sent by email: listed by address until accepted, never by profile (admin-only rows). */}
+				{emailInvites.map((inv) => (
+					<EmailInviteTag
+						key={inv.id}
+						email={inv.email}
+						badge={`Pending · invited as ${formatRole(inv.role)}`}
+						actions={
+							<ExpandableActions
+								expanded={expandedId === inv.id}
+								onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+								actions={[{
+									label: "Cancel",
+									onAction: async () => {
+										const res = await fetch(API_PAGE_EMAIL_INVITE(entity.id, inv.id), { method: "DELETE" });
+										if (!res.ok) {
+											const body = await res.json().catch(() => ({}));
+											throw new Error(body.error ?? "Failed to cancel invite");
+										}
+										setData((prev) =>
+											prev
+												? { ...prev, emailInvites: prev.emailInvites.filter((e) => e.id !== inv.id) }
+												: prev,
+										);
+									},
+								}]}
+							/>
+						}
+					/>
+				))}
 				{isAdmin && (
 					<div className="pt-3">
 						{showAddMember ? (
@@ -815,6 +863,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 										excludeUserIds={data.membership.map((m) => m.user.id)}
 										onSelect={selectPendingUser}
 										placeholder="Search by name or handle..."
+										extraOption={{ label: "Invite via email", onSelect: openEmailInvite }}
 									/>
 								)}
 								{addMemberError && (
@@ -830,14 +879,28 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 								</div>
 							</div>
 						) : (
-							<div className="flex justify-center">
+							<div className="flex flex-col items-center gap-2">
+								{inviteNotice && <p role="status" className="text-xs text-misty-forest">{inviteNotice}</p>}
 								<button
-									onClick={() => setShowAddMember(true)}
+									onClick={() => {
+										setInviteNotice(null);
+										setShowAddMember(true);
+									}}
 									className="text-xs px-4 py-1.5 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer"
 								>
 									Invite
 								</button>
 							</div>
+						)}
+						{emailInvitePrefill !== null && isPage && (
+							<EmailInviteModal
+								pageId={entity.id}
+								pageName={entity.name}
+								roleChoices={roleChoices}
+								initialEmails={emailInvitePrefill}
+								onClose={() => setEmailInvitePrefill(null)}
+								onSent={onEmailInvitesSent}
+							/>
 						)}
 					</div>
 				)}

@@ -24,6 +24,22 @@ export function normalizeEmail(input: unknown): string {
 }
 
 /**
+ * Parse a comma/whitespace/semicolon-separated list of addresses (the email-invite field).
+ * Normalized and de-duplicated, in input order; anything that fails validateEmail lands in `invalid`.
+ */
+export function parseEmailList(input: string): { valid: string[]; invalid: string[] } {
+	const valid: string[] = [];
+	const invalid: string[] = [];
+	for (const part of input.split(/[\s,;]+/)) {
+		const email = normalizeEmail(part);
+		if (!email) continue;
+		const bucket = validateEmail(email) ? valid : invalid;
+		if (!bucket.includes(email)) bucket.push(email);
+	}
+	return { valid, invalid };
+}
+
+/**
  * Strict handle validator: lowercase letters, numbers, periods, underscores, and hyphens, 3–30 chars.
  *
  * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)
@@ -34,6 +50,11 @@ export function normalizeEmail(input: unknown): string {
  * Pairs with `generateHandle` in `lib/utils/handle.ts` (the forgiving
  * normalizer used to suggest a handle from free-text input).
  */
+/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
+export function isCuid(value: string): boolean {
+	return /^c[0-9a-z]{24}$/.test(value);
+}
+
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
 	return /^[a-z0-9._-]{3,30}$/.test(handle);

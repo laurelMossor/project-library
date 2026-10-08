@@ -3,12 +3,22 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
 import { createPage } from "@/lib/utils/server/page";
 import { AvatarNotAllowed } from "@/lib/utils/server/image-attachment";
-import { validateHandle, validateMembershipFields } from "@/lib/validations";
+import { isCuid, validateHandle, validateMembershipFields } from "@/lib/validations";
 import { ContentVisibility, MembershipPolicy, ProfileVisibility } from "@prisma/client";
 import { pickProfileFields, validateProfileFields } from "@/lib/utils/server/profile-update";
 import { isReservedHandle } from "@/lib/const/reserved-handles";
 import { generateUniqueHandle, isHandleTaken } from "@/lib/utils/server/handle";
 import { logAction } from "@/lib/utils/server/log";
+
+/** Prisma P2002 `meta.target`, or null when this error is not a unique violation. */
+function uniqueTarget(err: unknown): string[] | null {
+	if (typeof err !== "object" || err === null || !("code" in err)) return null;
+	if ((err as { code?: string }).code !== "P2002") return null;
+	const target = (err as { meta?: { target?: unknown } }).meta?.target;
+	if (Array.isArray(target)) return target.map(String);
+	if (typeof target === "string") return [target];
+	return [];
+}
 
 /**
  * POST /api/pages
@@ -39,6 +49,14 @@ export async function POST(request: Request) {
 
 		const data = await request.json();
 		const { name, handle, headline, bio, interests, location, membershipPolicy, allowMemberPosts } = data;
+
+		let id: string | undefined;
+		if (data.id !== undefined && data.id !== null) {
+			if (typeof data.id !== "string" || !isCuid(data.id)) {
+				return badRequest("Invalid page id");
+			}
+			id = data.id;
+		}
 
 		if (!name || typeof name !== "string" || !name.trim()) {
 			return badRequest("Name is required");
@@ -82,6 +100,7 @@ export async function POST(request: Request) {
 
 			try {
 				const page = await createPage(ctx.userId, {
+					id,
 					name: name.trim(),
 					handle: normalizedHandle,
 					headline,
@@ -104,9 +123,11 @@ export async function POST(request: Request) {
 				return NextResponse.json(page, { status: 201 });
 			} catch (err) {
 				if (err instanceof AvatarNotAllowed) return badRequest(err.message);
-				const taken = typeof err === "object" && err !== null && "code" in err
-					&& (err as { code?: string }).code === "P2002";
-				if (!taken) throw err;
+				const target = uniqueTarget(err);
+				if (!target) throw err;
+				if (target.some((field) => field === "id" || field.endsWith("_pkey"))) {
+					return badRequest("Couldn't create the page. Try again.");
+				}
 				lastTaken = true;
 			}
 		}

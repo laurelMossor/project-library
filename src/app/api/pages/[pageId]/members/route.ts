@@ -3,7 +3,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { canManagePage, getResourcePermissions } from "@/lib/utils/server/permission";
 import { getViewerContext, requireViewableProfile } from "@/lib/utils/server/visibility";
-import { invitePageMember, listPageInvites } from "@/lib/utils/server/requests";
+import { invitePageMember, listPageEmailInvites, listPageInvites } from "@/lib/utils/server/requests";
 import { PermissionRole, ResourceType } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
@@ -12,7 +12,8 @@ const ASSIGNABLE = new Set<string>(Object.values(PermissionRole));
 
 /**
  * GET /api/pages/[pageId]/members
- * List members. A page ADMIN also sees pending invites, each flagged `pending: true`.
+ * List members. A page ADMIN also sees pending invites, each flagged `pending: true` — including
+ * invites sent by email, listed by address until accepted (`kind: "email"`, no `user`).
  */
 export async function GET(_request: Request, { params }: RouteParams) {
 	try {
@@ -27,9 +28,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
 		const isAdmin = viewer.userId ? await canManagePage(viewer.userId, pageId) : false;
 		if (!isAdmin) return NextResponse.json(members);
 
-		const invites = await listPageInvites(pageId);
+		const [invites, emailInvites] = await Promise.all([listPageInvites(pageId), listPageEmailInvites(pageId)]);
+		// An invite that went out by email is listed by its email row only (see listPageEmailInvites).
+		const sentByEmail = new Set(emailInvites.map((inv) => inv.claimedUserId).filter(Boolean));
 		const pending = invites
-			.filter((inv) => inv.targetUser)
+			.filter((inv) => inv.targetUser && !sentByEmail.has(inv.targetUserId))
 			.map((inv) => ({
 				id: inv.id,
 				userId: inv.targetUserId,
@@ -39,7 +42,17 @@ export async function GET(_request: Request, { params }: RouteParams) {
 				createdAt: inv.createdAt,
 			}));
 
-		return NextResponse.json([...members, ...pending]);
+		// Invites sent by email: shown by address (never the profile), cancelled via the email-invites route.
+		const pendingEmail = emailInvites.map((inv) => ({
+			id: inv.id,
+			kind: "email" as const,
+			email: inv.email,
+			role: inv.role,
+			pending: true,
+			createdAt: inv.createdAt,
+		}));
+
+		return NextResponse.json([...members, ...pending, ...pendingEmail]);
 	} catch (error) {
 		console.error("GET /api/pages/[pageId]/members error:", error);
 		return serverError("Failed to fetch members");

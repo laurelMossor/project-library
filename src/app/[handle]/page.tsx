@@ -27,8 +27,7 @@ import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPageByHandle } from "@/lib/utils/server/page";
 import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
-import { canManagePage, canPostAsPage } from "@/lib/utils/server/permission";
-import { getSessionContext } from "@/lib/utils/server/session";
+import { canManagePage } from "@/lib/utils/server/permission";
 import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
@@ -75,7 +74,6 @@ export default async function HandleProfilePage({ params }: Props) {
 		if (access === "LOCKED") return <LockedProfilePreview profile={profile} />;
 
 		const isOwnProfile = viewerId === user.id;
-		const acting = isOwnProfile ? await getSessionContext() : null;
 		const userDisplayName = getUserDisplayName(user);
 
 		const [events, posts] = await Promise.all([
@@ -105,12 +103,11 @@ export default async function HandleProfilePage({ params }: Props) {
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						pinScope={{ userId: user.id }}
 						prependCards={aboutCard ? [aboutCard] : []}
 						title="History"
 						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
-						currentUserId={user.id}
-						activePageId={acting?.activePageId ?? null}
 					/>
 				</CenteredLayout>
 			);
@@ -125,6 +122,7 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					pinScope={{ userId: user.id }}
 					prependCards={aboutCard ? [aboutCard] : []}
 					title="History"
 					emptyMessage="There's nothing here yet."
@@ -147,13 +145,8 @@ export default async function HandleProfilePage({ params }: Props) {
 		const access = await resolveProfileAccess("PAGE", page, viewer);
 		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
 
-		// Admins get the edit chrome. Editors can pin (same gate as the pin PATCH) without editing the page.
-		const [isOwner, canPinAsPage] = viewerId
-			? await Promise.all([
-				canManagePage(viewerId, page.id),
-				canPostAsPage(viewerId, page.id),
-			])
-			: [false, false];
+		// Admins get the edit chrome. Pin permission is stamped on each item by the collection query.
+		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
 		const [events, posts] = await Promise.all([
 			getEventsByPage(page.id, { includeDrafts: isOwner, viewer }),
@@ -183,12 +176,11 @@ export default async function HandleProfilePage({ params }: Props) {
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						pinScope={{ pageId: page.id }}
 						prependCards={pageAboutCard ? [pageAboutCard] : []}
 						title={`${displayName}'s Collection`}
 						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
-						currentUserId={canPinAsPage ? viewerId ?? undefined : undefined}
-						activePageId={canPinAsPage ? page.id : undefined}
 					/>
 				</CenteredLayout>
 			);
@@ -203,12 +195,11 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					pinScope={{ pageId: page.id }}
 					prependCards={pageAboutCard ? [pageAboutCard] : []}
 					title={`${displayName}'s Collection`}
 					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
-					currentUserId={canPinAsPage ? viewerId ?? undefined : undefined}
-					activePageId={canPinAsPage ? page.id : undefined}
 				/>
 			</CenteredLayout>
 		);

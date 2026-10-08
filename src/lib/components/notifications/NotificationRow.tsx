@@ -5,6 +5,7 @@ import type { NotificationItem } from "@/lib/types/notification";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
+import { notificationPrompt } from "@/lib/utils/notification-text";
 import { notificationMessage } from "./notification-copy";
 
 /**
@@ -13,6 +14,7 @@ import { notificationMessage } from "./notification-copy";
  * false) — the whole row is the Link, so no nested anchors.
  */
 export function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavigate: () => void }) {
+	const prompt = notificationPrompt(n.type);
 	return (
 		<Link
 			href={n.href}
@@ -34,6 +36,7 @@ export function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavi
 				<span className={`block text-sm text-rich-brown ${n.readAt ? "" : "font-semibold"}`}>
 					{notificationMessage(n)}
 				</span>
+				{prompt && <span className="block text-sm font-bold text-rich-brown">{prompt}</span>}
 				<LocalDate value={n.createdAt} mode="relative" className="block text-xs text-ash-green mt-0.5" />
 			</span>
 

@@ -58,64 +58,64 @@ test.describe("Authoring — create content", () => {
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-  test("a new page is created on open and kept once confirmed", async ({ page }) => {
+  test("a new page is created only when confirmed", async ({ page }) => {
     const handle = `playwright-test-${Date.now() % 1e7}`;
+    const before = await page.request.get("/api/me/pages");
+    const beforeCount = (await before.json() as unknown[]).length;
+
     await page.goto("/pages/new");
     await expect(page.getByRole("heading", { name: "Create a page", level: 1 })).toBeVisible();
+    await expect(page.getByText("Alice Example")).toBeVisible();
 
     const handleField = page.getByLabel("Handle");
     await expect(handleField).toHaveValue("");
-    const staged = (await (await page.request.get("/api/me/page")).json()).handle as string;
-    // The staged handle is already taken. The one typed below is not, until confirm.
-    const stagedRes = await page.request.get(`/api/handles/available?handle=${staged}`);
-    expect((await stagedRes.json()).available).toBe(false);
-
     await handleField.fill(handle);
     await expect(page.getByText("Available")).toBeVisible();
     const free = await page.request.get(`/api/handles/available?handle=${handle}`);
     expect((await free.json()).available).toBe(true);
 
+    const mid = await page.request.get("/api/me/pages");
+    expect((await mid.json() as unknown[]).length).toBe(beforeCount);
+
     await page.getByRole("button", { name: "Looks good" }).click();
     await page.waitForURL(new RegExp(`/${handle}$`), { timeout: 15_000 });
-    // Left alone, the page name is the handle, and the staged handle is released.
     await expect(page.getByRole("heading", { name: handle, level: 1, exact: true })).toBeVisible();
     const taken = await page.request.get(`/api/handles/available?handle=${handle}`);
     expect((await taken.json()).available).toBe(false);
-    const released = await page.request.get(`/api/handles/available?handle=${staged}`);
-    expect((await released.json()).available).toBe(true);
+    const after = await page.request.get("/api/me/pages");
+    expect((await after.json() as unknown[]).length).toBe(beforeCount + 1);
   });
 
-  test("leaving the new-page form deletes the staged page", async ({ page }) => {
+  test("leaving the new-page form creates nothing", async ({ page }) => {
     const handle = `playwright-test-${Date.now() % 1e7}x`;
+    const before = await page.request.get("/api/me/pages");
+    const beforeCount = (await before.json() as unknown[]).length;
+
     await page.goto("/pages/new");
     const handleField = page.getByLabel("Handle");
     await expect(handleField).toHaveValue("");
-    const staged = (await (await page.request.get("/api/me/page")).json()).handle as string;
     await handleField.fill(handle);
     await expect(page.getByText("Available")).toBeVisible();
 
     await page.getByRole("link", { name: "Project Library" }).click();
     await page.waitForURL(/\/explore/);
-    await expect.poll(async () => {
-      const res = await page.request.get(`/api/handles/available?handle=${staged}`);
-      return (await res.json()).available;
-    }).toBe(true);
     const typed = await page.request.get(`/api/handles/available?handle=${handle}`);
     expect((await typed.json()).available).toBe(true);
+    const after = await page.request.get("/api/me/pages");
+    expect((await after.json() as unknown[]).length).toBe(beforeCount);
   });
 
-  test("cancel deletes the staged page", async ({ page }) => {
+  test("cancel creates nothing", async ({ page }) => {
+    const before = await page.request.get("/api/me/pages");
+    const beforeCount = (await before.json() as unknown[]).length;
+
     await page.goto("/pages/new");
-    const handleField = page.getByLabel("Handle");
-    await expect(handleField).toHaveValue("");
-    const staged = (await (await page.request.get("/api/me/page")).json()).handle as string;
+    await expect(page.getByLabel("Handle")).toHaveValue("");
 
     await page.getByRole("button", { name: "Cancel" }).click();
     await page.waitForURL(/\/settings/);
-    await expect.poll(async () => {
-      const res = await page.request.get(`/api/handles/available?handle=${staged}`);
-      return (await res.json()).available;
-    }).toBe(true);
+    const after = await page.request.get("/api/me/pages");
+    expect((await after.json() as unknown[]).length).toBe(beforeCount);
   });
 
   // ─── Profile inline editing ──────────────────────────────────────────────

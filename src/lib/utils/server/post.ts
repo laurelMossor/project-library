@@ -7,8 +7,9 @@ import { postCollectionFields, postWithUserFields, toCollectionMeta } from "./fi
 import { getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
-import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere, resolveParentVisibility, canViewEvent, canViewPost, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
 import { canEditContent } from "./permission";
+import { withCanPin } from "./pin";
 import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "./content-placement";
 import { ContentVisibility } from "@prisma/client";
 
@@ -45,10 +46,31 @@ export async function getEventUpdates(eventId: string, viewer?: ViewerContext): 
 	return posts as PostItem[];
 }
 
-/** Fetch reply posts (updates) for a parent post, sorted by createdAt (newest first) */
-export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
+/**
+ * Fetch update posts attached to a parent post, sorted by createdAt (newest first).
+ * Pass `viewer` to gate PRIVATE updates by the parent post's relationship
+ * (defense-in-depth — the caller route also gates the parent itself).
+ * The owner sees DRAFT updates; everyone else gets PUBLISHED only.
+ */
+export async function getPostUpdates(parentPostId: string, viewer?: ViewerContext): Promise<PostItem[]> {
+	const parent = await prisma.post.findUnique({
+		where: { id: parentPostId },
+		select: { id: true, userId: true, pageId: true, asPageId: true, eventId: true, contentVisibility: true },
+	});
+	if (!parent) return [];
+
+	const canSeePrivate = viewer
+		? await canViewPost(parent, viewer)
+		: parent.contentVisibility !== ContentVisibility.PRIVATE;
+
+	const isOwner = viewer ? await isContentOwner(viewer, parent) : false;
+
 	const posts = await prisma.post.findMany({
-		where: { parentPostId },
+		where: {
+			parentPostId,
+			...(isOwner ? {} : { status: "PUBLISHED" as const }),
+			...(canSeePrivate ? {} : { contentVisibility: { in: PROFILE_COLLECTION_VISIBILITY } }),
+		},
 		orderBy: { createdAt: "desc" },
 		select: postWithUserFields,
 	});
@@ -79,12 +101,12 @@ export async function getPostsByUser(
 	});
 	const postIds = posts.map((p) => p.id);
 	const imagesMap = await getImagesForTargetsBatch("POST", postIds);
-	return posts.map(({ _count, updates, ...p }) => ({
+	return withCanPin(posts.map(({ _count, updates, ...p }) => ({
 		...p,
 		type: COLLECTION_TYPES.POST as "post",
 		images: imagesMap.get(p.id) || [],
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { userId });
 }
 
 /**
@@ -109,12 +131,12 @@ export async function getPostsByPage(
 	});
 	const postIds = posts.map((p) => p.id);
 	const imagesMap = await getImagesForTargetsBatch("POST", postIds);
-	return posts.map(({ _count, updates, ...p }) => ({
+	return withCanPin(posts.map(({ _count, updates, ...p }) => ({
 		...p,
 		type: COLLECTION_TYPES.POST as "post",
 		images: imagesMap.get(p.id) || [],
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { pageId });
 }
 
 /**

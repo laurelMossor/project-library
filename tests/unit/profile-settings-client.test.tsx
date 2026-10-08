@@ -27,8 +27,13 @@ import { ProfileSettingsClient } from "@/app/settings/profile/ProfileSettingsCli
 
 /** useActiveProfile stub — only the fields ProfileSettingsClient reads. */
 function mockProfile(activePageId: string | null, role?: string) {
-  const pages = activePageId ? [{ id: activePageId, name: "Makers", handle: "makers", role, avatarImageId: null, avatarImage: null }] : [];
-  vi.mocked(useActiveProfile).mockReturnValue({ activePageId, pages, loading: false } as never);
+  // The switcher list is empty until that menu opens. The gate must use activeRole.
+  vi.mocked(useActiveProfile).mockReturnValue({
+    activePageId,
+    activeRole: role ?? null,
+    pages: [],
+    loading: false,
+  } as never);
 }
 
 beforeEach(() => {
