@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
+import { CommentTextArea } from "./CommentTextArea";
 
 type CommentComposerProps = {
 	/** Add the comment. Resolves on success (clears the box); throws with a message on failure. */
@@ -49,9 +50,9 @@ export function CommentComposer({ onSubmit }: CommentComposerProps) {
 				{hasPages && (
 					<DropdownProfileSelector label="Commenting as" initialPageId={null} onChange={setAsPageId} />
 				)}
-				<textarea
+				<CommentTextArea
 					value={content}
-					onChange={(e) => setContent(e.target.value)}
+					onChange={setContent}
 					placeholder="Add a comment…"
 					rows={3}
 					maxLength={5000}

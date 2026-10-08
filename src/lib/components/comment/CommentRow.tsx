@@ -7,9 +7,30 @@ import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { resolveCardIdentity } from "@/lib/types/card";
 import { commentIdentity, type CommentItem } from "@/lib/types/comment";
+import { splitMentions } from "@/lib/utils/mentions";
+import { COMMENT_ANCHOR } from "@/lib/const/routes";
+import { CommentTextArea } from "./CommentTextArea";
+
+/** The comment's words, with each @handle that names a real user or page in bold. Plain text otherwise. */
+function CommentBody({ content, mentions }: { content: string; mentions: string[] }) {
+	const known = new Set(mentions);
+	return (
+		<>
+			{splitMentions(content, known).map((seg, i) =>
+				seg.kind === "mention" ? (
+					<strong key={i} className="font-semibold text-rich-brown">{seg.text}</strong>
+				) : (
+					seg.text
+				),
+			)}
+		</>
+	);
+}
 
 type CommentRowProps = {
 	comment: CommentItem;
+	/** Briefly highlight this row — it's the one a notification linked to. */
+	isHighlighted?: boolean;
 	/** The comment speaks as the post/event owner → show an "author" badge. */
 	isFromOwner: boolean;
 	/** Viewer is the comment author → may edit. */
@@ -25,7 +46,12 @@ type CommentRowProps = {
  * then the body, then a muted meta footer (time · edit · delete). Avatar anchors the left.
  * The author can edit inline, swapping the body for a textarea + save/cancel.
  */
-export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, onDelete }: CommentRowProps) {
+export function CommentRow({ comment, isHighlighted = false, isFromOwner, canEdit, canDelete, onEdit, onDelete }: CommentRowProps) {
+	// Anchor for notification deep links (`#comment-<id>`); scroll-mt clears the sticky nav.
+	const rowProps = {
+		id: COMMENT_ANCHOR(comment.id),
+		className: `flex gap-3 scroll-mt-24 rounded-lg ring-offset-4 transition-shadow duration-700 ${isHighlighted ? "ring-2 ring-melon-green" : "ring-0"}`,
+	};
 	const entity = commentIdentity(comment);
 	const [editing, setEditing] = useState(false);
 	const [draft, setDraft] = useState(comment.content);
@@ -35,7 +61,7 @@ export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, o
 	if (comment.deleted || !entity) {
 		const who = comment.deleted === "PAGE" ? "[page deleted]" : "[user deleted]";
 		return (
-			<div className="flex gap-3">
+			<div {...rowProps}>
 				<div className="h-8 w-8 shrink-0 rounded-full bg-soft-grey" aria-hidden />
 				<div className="min-w-0 flex-1">
 					<p className="text-sm font-medium text-dusty-grey">{who}</p>
@@ -71,7 +97,7 @@ export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, o
 	}
 
 	return (
-		<div className="flex gap-3">
+		<div {...rowProps}>
 			<ProfilePicture entity={entity} size="sm" asLink />
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2">
@@ -87,9 +113,9 @@ export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, o
 
 				{editing ? (
 					<div className="mt-1 space-y-2">
-						<textarea
+						<CommentTextArea
 							value={draft}
-							onChange={(e) => setDraft(e.target.value)}
+							onChange={setDraft}
 							rows={3}
 							maxLength={5000}
 							autoFocus
@@ -116,7 +142,9 @@ export function CommentRow({ comment, isFromOwner, canEdit, canDelete, onEdit, o
 					</div>
 				) : (
 					<>
-						<p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-warm-grey">{comment.content}</p>
+						<p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-warm-grey">
+							<CommentBody content={comment.content} mentions={comment.mentions} />
+						</p>
 						<div className="mt-1.5 flex items-center gap-3 text-xs text-dusty-grey">
 							<LocalDate value={comment.createdAt} mode="relative" />
 							{canEdit && (

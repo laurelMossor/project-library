@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
@@ -9,7 +10,7 @@ import { MessageIcon } from "@/lib/components/icons/icons";
 import { CommentComposer } from "./CommentComposer";
 import { CommentRow } from "./CommentRow";
 import { getComments, createComment, updateComment, deleteComment, type CommentTarget } from "@/lib/utils/comment-client";
-import { POST_DETAIL, EVENT_DETAIL, LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
+import { POST_DETAIL, EVENT_DETAIL, LOGIN_WITH_CALLBACK, COMMENT_ANCHOR, COMMENT_PARAM } from "@/lib/const/routes";
 import type { CommentItem } from "@/lib/types/comment";
 
 type CommentSectionProps = {
@@ -34,7 +35,7 @@ function isFromOwner(comment: CommentItem, ownerUserId: string, ownerPageId: str
 
 /**
  * The "Comments" card that sits below a post/event. Reads comments on mount, hosts the
- * composer (or a log-in prompt), and lists comments newest-first. Comments inherit the
+ * composer (or a log-in prompt), and lists comments oldest-first, so the thread reads top to bottom. Comments inherit the
  * parent's viewability — the API gates that; this only renders what it's given.
  */
 export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwner, isLoggedIn }: CommentSectionProps) {
@@ -43,8 +44,13 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 
+	// A notification links to `?comment=<id>`. Clicking one while already on this page only changes the
+	// param, so it re-reads the list too — the comment it points at may be newer than what's shown.
+	const focusId = useSearchParams().get(COMMENT_PARAM);
+
 	useEffect(() => {
 		let active = true;
+		setLoading(true);
 		getComments(target)
 			.then((data) => { if (active) setComments(data); })
 			.catch(() => { if (active) setError("Failed to load comments"); })
@@ -52,11 +58,23 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 		return () => { active = false; };
 	// target is stable for the page lifetime
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [target.kind, target.id]);
+	}, [target.kind, target.id, focusId]);
+
+	// Once the comments are in, scroll to the linked one and highlight it for a moment.
+	const [highlightedId, setHighlightedId] = useState<string | null>(null);
+	useEffect(() => {
+		if (loading || !focusId) return;
+		const row = document.getElementById(COMMENT_ANCHOR(focusId));
+		if (!row) return;
+		row.scrollIntoView({ behavior: "smooth", block: "center" });
+		setHighlightedId(focusId);
+		const timer = window.setTimeout(() => setHighlightedId(null), 2500);
+		return () => window.clearTimeout(timer);
+	}, [loading, focusId]);
 
 	async function handleAdd(content: string, asPageId: string | null) {
 		const created = await createComment(target, { content, asPageId });
-		setComments((prev) => [created, ...prev]);
+		setComments((prev) => [...prev, created]);
 	}
 
 	async function handleEdit(id: string, content: string) {
@@ -80,19 +98,6 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 				{count > 0 && <span className="font-normal text-misty-forest">· {count}</span>}
 			</h2>
 
-			<div className="mb-6">
-				{isLoggedIn ? (
-					<CommentComposer onSubmit={handleAdd} />
-				) : (
-					<Link
-						href={LOGIN_WITH_CALLBACK(detailUrl)}
-						className="text-sm font-medium text-moss-green hover:text-rich-brown"
-					>
-						Log in to comment →
-					</Link>
-				)}
-			</div>
-
 			{loading ? (
 				<p className="text-sm text-misty-forest">Loading comments…</p>
 			) : error ? (
@@ -107,6 +112,7 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 						<CommentRow
 							key={comment.id}
 							comment={comment}
+							isHighlighted={comment.id === highlightedId}
 							isFromOwner={!comment.deleted && isFromOwner(comment, ownerUserId, ownerPageId)}
 							canEdit={!comment.deleted && comment.authorId === currentUser?.id}
 							canDelete={!comment.deleted && (isContentOwner || comment.authorId === currentUser?.id)}
@@ -116,6 +122,20 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 					))}
 				</div>
 			)}
+
+			{/* Below the thread, where a new comment lands (oldest-first reads top to bottom). */}
+			<div className="mt-6">
+				{isLoggedIn ? (
+					<CommentComposer onSubmit={handleAdd} />
+				) : (
+					<Link
+						href={LOGIN_WITH_CALLBACK(detailUrl)}
+						className="text-sm font-medium text-moss-green hover:text-rich-brown"
+					>
+						Log in to comment →
+					</Link>
+				)}
+			</div>
 		</ContentCard>
 	);
 }

@@ -19,6 +19,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 		permission: { findMany: vi.fn(), findFirst: vi.fn() },
 		follow: { findFirst: vi.fn() },
 		comment: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), delete: vi.fn(), update: vi.fn() },
+		handle: { findMany: vi.fn() },
 	},
 }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
@@ -49,9 +50,9 @@ function mockEvent(row: EventRow) {
 	vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "e1", ...row } as never);
 }
 /** The comment row returned by getCommentForModeration (its author + parent target). */
-function mockComment(row: { authorId: string; postId?: string | null; eventId?: string | null }) {
+function mockComment(row: { authorId: string; postId?: string | null; eventId?: string | null; asPageId?: string | null }) {
 	vi.mocked(prisma.comment.findUnique).mockResolvedValue({
-		id: "c1", postId: null, eventId: null, ...row,
+		id: "c1", postId: null, eventId: null, asPageId: null, ...row,
 	} as never);
 }
 
@@ -69,9 +70,10 @@ beforeEach(() => {
 	vi.mocked(prisma.permission.findFirst).mockResolvedValue(null as never); // no ADMIN/EDITOR
 	vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never); // no follow edge
 	vi.mocked(prisma.comment.findMany).mockResolvedValue([] as never);
-	vi.mocked(prisma.comment.create).mockResolvedValue({ id: "c1", authorId: "owner" } as never);
+	vi.mocked(prisma.comment.create).mockResolvedValue({ id: "c1", authorId: "owner", content: "hi" } as never);
 	vi.mocked(prisma.comment.delete).mockResolvedValue({} as never);
-	vi.mocked(prisma.comment.update).mockResolvedValue({ id: "c1" } as never);
+	vi.mocked(prisma.comment.update).mockResolvedValue({ id: "c1", content: "edited" } as never);
+	vi.mocked(prisma.handle.findMany).mockResolvedValue([] as never);
 });
 
 const PUBLIC_POST: PostRow = { userId: "owner", pageId: null, status: "PUBLISHED", contentVisibility: "LISTED" };
@@ -197,6 +199,26 @@ describe("PATCH /api/comments/[id] — author-only edit (distinct from moderatio
 		asViewer("author1");
 		mockComment({ authorId: "author1", postId: "p1" });
 		mockPost(PUBLIC_POST);
+		const res = await PATCH(jsonReq("PATCH", { content: "edited" }), ctx("c1"));
+		expect(res.status).toBe(200);
+		expect(prisma.comment.update).toHaveBeenCalled();
+	});
+
+	test("the author of an as-page comment who no longer manages the page cannot edit → 403", async () => {
+		asViewer("author1");
+		mockComment({ authorId: "author1", postId: "p1", asPageId: "page-1" });
+		mockPost(PUBLIC_POST);
+		// beforeEach: permission.findFirst → null, i.e. no ADMIN/EDITOR row on page-1 anymore
+		const res = await PATCH(jsonReq("PATCH", { content: "rewrite as the page" }), ctx("c1"));
+		expect(res.status).toBe(403);
+		expect(prisma.comment.update).not.toHaveBeenCalled();
+	});
+
+	test("a current editor may still edit their as-page comment → 200", async () => {
+		asViewer("author1");
+		mockComment({ authorId: "author1", postId: "p1", asPageId: "page-1" });
+		mockPost(PUBLIC_POST);
+		vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: "EDITOR" } as never);
 		const res = await PATCH(jsonReq("PATCH", { content: "edited" }), ctx("c1"));
 		expect(res.status).toBe(200);
 		expect(prisma.comment.update).toHaveBeenCalled();

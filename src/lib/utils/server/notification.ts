@@ -4,7 +4,7 @@
 // read/write is scoped to a (recipientUserId, context) pair — that scoping is the security
 // boundary. Actor + object are hydrated at read time via the attribution-only embed selectors.
 
-import { Prisma, type NotificationType, type NotificationObject } from "@prisma/client";
+import { Prisma, NotificationType, type NotificationObject } from "@prisma/client";
 import { prisma } from "./prisma";
 import { publicUserEmbedFields } from "./user";
 import { publicPageEmbedFields } from "./fields";
@@ -31,6 +31,26 @@ export async function createNotifications(rows: Prisma.NotificationCreateManyInp
 		data: rows,
 		select: { id: true, recipientUserId: true, contextPageId: true, type: true },
 	});
+}
+
+/**
+ * The identities already told they were tagged in one comment: a personal MENTION row means that user,
+ * a page-context row means that page (its managers' rows collapse to the page). An edit tags only
+ * identities not in this set, so removing and re-adding a handle never re-notifies.
+ */
+export async function getMentionedIdentities(commentId: string): Promise<{ type: "USER" | "PAGE"; id: string }[]> {
+	const rows = await prisma.notification.findMany({
+		where: { commentId, type: NotificationType.MENTION },
+		select: { recipientUserId: true, contextPageId: true },
+	});
+	const seen = new Map<string, { type: "USER" | "PAGE"; id: string }>();
+	for (const r of rows) {
+		const identity = r.contextPageId
+			? { type: "PAGE" as const, id: r.contextPageId }
+			: { type: "USER" as const, id: r.recipientUserId };
+		seen.set(`${identity.type}:${identity.id}`, identity);
+	}
+	return [...seen.values()];
 }
 
 /** Per-identity unread counts for the bell + profile-switcher dots (same shape as messages). */
@@ -66,6 +86,7 @@ const notificationRowSelect = {
 	actorName: true,
 	objectType: true,
 	objectId: true,
+	commentId: true,
 } as const;
 
 /** The raw notification fields the hydrator needs — the shape of `notificationRowSelect`. */
@@ -79,6 +100,7 @@ export type NotificationRowForHydration = {
 	actorName: string | null;
 	objectType: NotificationObject | null;
 	objectId: string | null;
+	commentId: string | null;
 };
 
 /** The latest notifications for one identity's bell, hydrated (actor, object title, deep link). */
@@ -169,7 +191,7 @@ export async function hydrateNotificationRows(
 					: r.objectId
 						? titleMap.get(r.objectId) ?? null
 						: null,
-			href: notificationHref({ type: r.type, objectType: r.objectType, objectId: r.objectId, actorHandle }),
+			href: notificationHref({ type: r.type, objectType: r.objectType, objectId: r.objectId, commentId: r.commentId, actorHandle }),
 		};
 	});
 }

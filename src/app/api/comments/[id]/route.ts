@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getViewerContext, requireViewablePost, requireViewableEvent } from "@/lib/utils/server/visibility";
 import { getCommentForModeration, canModerateComment, canEditComment, deleteComment, updateComment } from "@/lib/utils/server/comment";
+import { canPostAsPage } from "@/lib/utils/server/permission";
 import { validateCommentContent } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
@@ -95,13 +96,22 @@ export async function PATCH(
 			);
 		}
 
+		// Words spoken as a page stay the page's: once the author no longer manages it, they can't
+		// rewrite them (or tag anyone in its name). Same rule as page-spoken posts.
+		if (comment.asPageId && !(await canPostAsPage(viewer.userId, comment.asPageId))) {
+			return NextResponse.json(
+				{ error: "You can no longer edit a comment made as this page" },
+				{ status: 403 }
+			);
+		}
+
 		const data = await request.json();
 		const validation = validateCommentContent(data?.content);
 		if (!validation.valid) {
 			return badRequest(validation.error!);
 		}
 
-		const updated = await updateComment(id, data.content);
+		const updated = await updateComment(comment, data.content);
 		return NextResponse.json(updated);
 	} catch (error) {
 		console.error("Error editing comment:", error);

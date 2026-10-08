@@ -56,6 +56,8 @@ export function notificationText(n: NotificationTextInput): string {
 		}
 		case "ROLE_CHANGED":
 			return `${who} changed your role`;
+		case "MENTION":
+			return `${who} tagged you in a comment`;
 		default:
 			return `${who} sent you a notification`;
 	}

@@ -6,8 +6,10 @@ import { commentWithAuthorFields, type CommentFromQuery } from "./fields";
 import { canModerateContent, canPostAsPage } from "./permission";
 import type { ViewerContext } from "./visibility";
 import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
+import { getMentionedIdentities } from "./notification";
 import { NotificationObject } from "@prisma/client";
 import type { CommentItem } from "@/lib/types/comment";
+import { extractMentionHandles, MAX_MENTION_NOTIFICATIONS } from "@/lib/utils/mentions";
 
 /**
  * Thrown for caller/client-fixable problems (missing target, missing permission,
@@ -66,50 +68,122 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 		select: commentWithAuthorFields,
 	});
 
-	// Notify the content owner that someone commented — unless they're commenting on their own
-	// content (actor == target), which needs no self-notification. The object is the post/event so
-	// the bell row deep-links to it.
-	const actor: EntityRef = data.asPageId ? { type: "PAGE", id: data.asPageId } : { type: "USER", id: userId };
-	const target: EntityRef = owner.asPageId
+	// The object is the post/event (plus this comment, so the bell row scrolls to it).
+	const actor = commentActor(userId, data.asPageId ?? null);
+	const object: ObjectRef = data.postId
+		? { type: NotificationObject.POST, id: data.postId, commentId: comment.id }
+		: { type: NotificationObject.EVENT, id: data.eventId!, commentId: comment.id };
+
+	const mentions = await resolveMentions(extractMentionHandles(comment.content));
+	const tagged = await notifyMentions(userId, actor, object, mentions, MAX_MENTION_NOTIFICATIONS);
+
+	// Notify the content owner that someone commented — unless they're commenting on their own content
+	// (actor == target), or the comment tags them (the more specific tag notification already went out).
+	const ownerRef: EntityRef = owner.asPageId
 		? { type: "PAGE", id: owner.asPageId }
 		: { type: "USER", id: owner.userId };
-	if (actor.type !== target.type || actor.id !== target.id) {
-		const object: ObjectRef = data.postId
-			? { type: NotificationObject.POST, id: data.postId }
-			: { type: NotificationObject.EVENT, id: data.eventId! };
-		await emitActivity("comment.created", actor, target, object);
+	if (!sameEntity(actor, ownerRef) && !tagged.some((t) => sameEntity(t, ownerRef))) {
+		await emitActivity("comment.created", actor, ownerRef, object, { authorUserId: userId });
 	}
 
-	return toCommentItem(comment);
+	return toCommentItem(comment, new Set(mentions.map((m) => m.handle)));
 }
 
-/** List a post's comments, newest first. Comments inherit the parent's viewability (gated by the route). */
+// ---------------------------------------------------------------------------
+// @-mentions — resolved from the text on every read and write (nothing extra is stored), so a handle
+// is bold exactly when it names a real user or page right now.
+// ---------------------------------------------------------------------------
+
+/** A mentioned handle that resolved to a user or page. */
+type MentionTarget = EntityRef & { handle: string };
+
+const sameEntity = (a: EntityRef, b: EntityRef) => a.type === b.type && a.id === b.id;
+
+/** Who a comment speaks as: the page when commenting "as" one, else the author. */
+function commentActor(authorId: string, asPageId: string | null): EntityRef {
+	return asPageId ? { type: "PAGE", id: asPageId } : { type: "USER", id: authorId };
+}
+
+/**
+ * Resolve lowercase handles to the users/pages that hold them (one query), in the order the handles
+ * were given — i.e. the order they appear in the text, so a cap keeps the first people named.
+ * Unknown handles drop out.
+ */
+async function resolveMentions(handles: string[]): Promise<MentionTarget[]> {
+	if (handles.length === 0) return [];
+	const rows = await prisma.handle.findMany({
+		where: { handle: { in: handles } },
+		select: { handle: true, userId: true, pageId: true },
+	});
+	const byHandle = new Map(rows.map((r) => [r.handle, r]));
+	return handles.flatMap((handle): MentionTarget[] => {
+		const r = byHandle.get(handle);
+		if (r?.userId) return [{ type: "USER", id: r.userId, handle }];
+		if (r?.pageId) return [{ type: "PAGE", id: r.pageId, handle }];
+		return [];
+	});
+}
+
+/**
+ * Send "tagged you in a comment" to up to `limit` mentioned identities — never the speaker, and never
+ * the human who wrote it (commenting as a page and tagging your own handle tells no one). Recipients who
+ * can't see the post/event are dropped by the dispatcher's visibility gate. Returns who was tagged.
+ */
+async function notifyMentions(
+	authorUserId: string,
+	actor: EntityRef,
+	object: ObjectRef,
+	mentions: MentionTarget[],
+	limit: number,
+): Promise<MentionTarget[]> {
+	const targets = mentions
+		.filter((m) => !sameEntity(m, actor) && !(m.type === "USER" && m.id === authorUserId))
+		.slice(0, Math.max(0, limit));
+	await Promise.all(
+		targets.map((t) => emitActivity("comment.mentioned", actor, { type: t.type, id: t.id }, object, { authorUserId })),
+	);
+	return targets;
+}
+
+/** Comment rows → CommentItems, with each one's resolved mentions (one handle query for the whole list). */
+async function toCommentItems(rows: CommentFromQuery[]): Promise<CommentItem[]> {
+	const handles = [...new Set(rows.flatMap((r) => (r.deletedAs ? [] : extractMentionHandles(r.content))))];
+	const known = new Set((await resolveMentions(handles)).map((m) => m.handle));
+	return rows.map((r) => toCommentItem(r, known));
+}
+
+/** List a post's comments, oldest first (the thread reads top to bottom). Comments inherit the parent's viewability (gated by the route). */
 export async function getPostComments(postId: string): Promise<CommentItem[]> {
 	const comments = await prisma.comment.findMany({
 		where: { postId },
-		orderBy: { createdAt: "desc" },
+		orderBy: { createdAt: "asc" },
 		select: commentWithAuthorFields,
 	});
-	return comments.map(toCommentItem);
+	return toCommentItems(comments);
 }
 
-/** List an event's comments, newest first. */
+/** List an event's comments, oldest first. */
 export async function getEventComments(eventId: string): Promise<CommentItem[]> {
 	const comments = await prisma.comment.findMany({
 		where: { eventId },
-		orderBy: { createdAt: "desc" },
+		orderBy: { createdAt: "asc" },
 		select: commentWithAuthorFields,
 	});
-	return comments.map(toCommentItem);
+	return toCommentItems(comments);
 }
 
-/** Minimal comment shape for gating a mutation: its parent target + its author. */
+/**
+ * Minimal comment shape for gating a mutation: its parent target, its author, and the identity it
+ * speaks as (an edit re-checks that identity and tags in its name).
+ */
 export async function getCommentForModeration(id: string) {
 	return prisma.comment.findUnique({
 		where: { id },
-		select: { id: true, authorId: true, postId: true, eventId: true },
+		select: { id: true, authorId: true, asPageId: true, postId: true, eventId: true },
 	});
 }
+
+type CommentForEdit = NonNullable<Awaited<ReturnType<typeof getCommentForModeration>>>;
 
 /**
  * May `viewer` delete this comment? The comment author, the content owner, or a
@@ -141,18 +215,35 @@ export async function deleteComment(id: string): Promise<void> {
 
 /**
  * Edit a comment's body. Authorization (author-only — see the route) is the caller's job;
- * this is the write. Content is trimmed; validation happens in the route.
+ * this is the write. Content is trimmed; validation happens in the route. Anyone tagged in the new
+ * text who hasn't already been told about this comment gets a tag notification — checked against the
+ * stored notifications, so removing and re-adding a handle never re-notifies. The comment's lifetime
+ * total stays within MAX_MENTION_NOTIFICATIONS.
  */
-export async function updateComment(id: string, content: string): Promise<CommentItem> {
-	const comment = await prisma.comment.update({
-		where: { id },
+export async function updateComment(comment: CommentForEdit, content: string): Promise<CommentItem> {
+	const updated = await prisma.comment.update({
+		where: { id: comment.id },
 		data: { content: content.trim() },
 		select: commentWithAuthorFields,
 	});
-	return toCommentItem(comment);
+
+	const mentions = await resolveMentions(extractMentionHandles(updated.content));
+	if (mentions.length > 0 && comment.authorId) {
+		const already = await getMentionedIdentities(comment.id);
+		const fresh = mentions.filter((m) => !already.some((a) => sameEntity(a, m)));
+		const object: ObjectRef = comment.postId
+			? { type: NotificationObject.POST, id: comment.postId, commentId: comment.id }
+			: { type: NotificationObject.EVENT, id: comment.eventId!, commentId: comment.id };
+		const actor = commentActor(comment.authorId, comment.asPageId);
+		await notifyMentions(comment.authorId, actor, object, fresh, MAX_MENTION_NOTIFICATIONS - already.length);
+	}
+
+	return toCommentItem(updated, new Set(mentions.map((m) => m.handle)));
 }
 
-function toCommentItem(row: CommentFromQuery): CommentItem {
+/** `known` =the handles (lowercase) that resolved; the client bolds only these. */
+function toCommentItem(row: CommentFromQuery, known: ReadonlySet<string>): CommentItem {
 	const { deletedAs, ...rest } = row;
-	return { ...rest, deleted: deletedAs };
+	const mentions = deletedAs ? [] : extractMentionHandles(row.content).filter((h) => known.has(h));
+	return { ...rest, deleted: deletedAs, mentions };
 }
