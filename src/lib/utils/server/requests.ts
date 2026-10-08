@@ -230,10 +230,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type EmailInviteResult =
   | {
       ok: true;
-      /** Addresses accepted (all of them — no per-address outcome, so nothing leaks). */
+      /** Addresses that became an invite (in-app or signup email). */
       sent: number;
       /** Addresses without an account: the caller emails each a signup link. */
       signupInvites: { email: string; rawToken: string }[];
+      /**
+       * Addresses that already belong to a member of this page. Nothing was created for them.
+       * Naming them is safe: it says the address matches a current member, not which other
+       * addresses have accounts.
+       */
+      alreadyMembers: string[];
       page: { id: string; name: string };
     }
   | { ok: false; reason: "not_found" | "invalid_role" | "no_emails" | "invalid_emails" }
@@ -260,6 +266,29 @@ export async function invitePageMembersByEmail(args: {
   if (!emails.every(validateEmail)) return { ok: false, reason: "invalid_emails" };
   const note = args.note?.trim().slice(0, EMAIL_INVITE_NOTE_MAX) || null;
 
+  const users = await prisma.user.findMany({
+    where: { email: { in: emails } },
+    select: { id: true, email: true },
+  });
+  const userIdByEmail = new Map(users.map((u) => [u.email, u.id]));
+
+  // Someone who already has a role is not invited again: no row, no email, no bell, and
+  // they don't spend a slot of the daily cap. Checked before the write so a no-op batch
+  // never touches the invite table.
+  const alreadyMembers: string[] = [];
+  const toInvite: string[] = [];
+  for (const email of emails) {
+    const userId = userIdByEmail.get(email);
+    const existing = userId ? await getUserPermission(userId, page.id, ResourceType.PAGE) : null;
+    if (existing) alreadyMembers.push(email);
+    else toInvite.push(email);
+  }
+
+  const pageInfo = { id: page.id, name: page.name };
+  if (toInvite.length === 0) {
+    return { ok: true, sent: 0, signupInvites: [], alreadyMembers, page: pageInfo };
+  }
+
   // Cap check + rows in one transaction (DB writes only — no notifications in here, so a
   // rollback can't leave a stray bell). Two concurrent batches can overshoot slightly under
   // READ COMMITTED; acceptable for an anti-spam cap.
@@ -267,16 +296,16 @@ export async function invitePageMembersByEmail(args: {
     const used = await tx.pageEmailInvite.count({
       where: { invitedById: args.inviterId, createdAt: { gte: new Date(Date.now() - DAY_MS) } },
     });
-    if (used + emails.length > EMAIL_INVITE_DAILY_CAP) {
+    if (used + toInvite.length > EMAIL_INVITE_DAILY_CAP) {
       return { remaining: Math.max(0, EMAIL_INVITE_DAILY_CAP - used) };
     }
     // A newer send to the same address supersedes the older row (one email row per page+address).
     await tx.pageEmailInvite.updateMany({
-      where: { pageId: page.id, email: { in: emails }, cancelledAt: null },
+      where: { pageId: page.id, email: { in: toInvite }, cancelledAt: null },
       data: { cancelledAt: new Date() },
     });
     return tx.pageEmailInvite.createManyAndReturn({
-      data: emails.map((email) => ({
+      data: toInvite.map((email) => ({
         pageId: page.id,
         invitedById: args.inviterId,
         email,
@@ -288,41 +317,48 @@ export async function invitePageMembersByEmail(args: {
   });
   if (!Array.isArray(rows)) return { ok: false, reason: "over_cap", remaining: rows.remaining };
 
-  const users = await prisma.user.findMany({
-    where: { email: { in: emails } },
-    select: { id: true, email: true },
-  });
-  const userIdByEmail = new Map(users.map((u) => [u.email, u.id]));
-
   const signupInvites: { email: string; rawToken: string }[] = [];
+  let sent = 0;
   for (const row of rows) {
     const userId = userIdByEmail.get(row.email);
     if (userId) {
-      await claimEmailInvite(row, userId);
+      const outcome = await claimEmailInvite(row, userId);
+      // Joined between the check above and this claim: drop the row we just wrote.
+      if (outcome === "already_member") alreadyMembers.push(row.email);
+      else if (outcome === "claimed") sent += 1;
     } else {
       const { rawToken } = await createSignupInvite(row.email);
       signupInvites.push({ email: row.email, rawToken });
+      sent += 1;
     }
   }
 
-  return { ok: true, sent: emails.length, signupInvites, page: { id: page.id, name: page.name } };
+  return { ok: true, sent, signupInvites, alreadyMembers, page: pageInfo };
 }
 
 type EmailInviteRow = { id: string; pageId: string; role: PermissionRole; note: string | null };
 
 /**
  * Turn a pending email invite into the real AccessRequest INVITE for `userId` (which notifies them).
- * If the page can no longer offer the role, the row is cancelled instead.
+ * If the page can no longer offer the role, or they already have one, the row is cancelled.
  */
-async function claimEmailInvite(row: EmailInviteRow, userId: string): Promise<void> {
+async function claimEmailInvite(
+  row: EmailInviteRow,
+  userId: string,
+): Promise<"claimed" | "already_member" | "cancelled"> {
   const result = await invitePageMember(row.pageId, userId, row.role, row.note);
-  // Already a member: leave the row pending, exactly like an address that never signs up, so the
-  // admin's list can't reveal that this address belongs to a member. It stays until cancelled.
-  if (!result.ok && result.reason === "already_member") return;
+  if (!result.ok && result.reason === "already_member") {
+    await prisma.pageEmailInvite.update({
+      where: { id: row.id },
+      data: { cancelledAt: new Date() },
+    });
+    return "already_member";
+  }
   await prisma.pageEmailInvite.update({
     where: { id: row.id },
     data: result.ok ? { claimedAt: new Date(), claimedUserId: userId } : { cancelledAt: new Date() },
   });
+  return result.ok ? "claimed" : "cancelled";
 }
 
 /**

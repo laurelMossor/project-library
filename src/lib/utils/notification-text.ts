@@ -60,3 +60,9 @@ export function notificationText(n: NotificationTextInput): string {
 			return `${who} sent you a notification`;
 	}
 }
+
+/** A second line under a bell row, when that notification asks the recipient to act. */
+export function notificationPrompt(type: NotificationType | string): string | null {
+	if (type === "MEMBER_INVITE") return "Approve or Decline?";
+	return null;
+}

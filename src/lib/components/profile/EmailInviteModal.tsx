@@ -19,8 +19,8 @@ type EmailInviteModalProps = {
 	/** Prefill for the address field, e.g. an email typed into the member search. */
 	initialEmails?: string;
 	onClose: () => void;
-	/** Called after the invites were accepted by the server, with the number of addresses. */
-	onSent: (count: number) => void;
+	/** Called after the server accepts the batch: how many were invited, and who already had a role. */
+	onSent: (result: { sent: number; alreadyMembers: string[] }) => void;
 };
 
 /**
@@ -50,11 +50,21 @@ export function EmailInviteModal({ pageId, pageName, roleChoices, initialEmails 
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ emails: valid, role, note: trimmedNote || null }),
 			});
+			const body = (await res.json().catch(() => ({}))) as {
+				error?: string;
+				sent?: number;
+				alreadyMembers?: unknown;
+			};
 			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
 				throw new Error(body.error ?? "Failed to send invites");
 			}
-			onSent(valid.length);
+			const alreadyMembers = Array.isArray(body.alreadyMembers)
+				? body.alreadyMembers.filter((email): email is string => typeof email === "string")
+				: [];
+			onSent({
+				sent: typeof body.sent === "number" ? body.sent : valid.length,
+				alreadyMembers,
+			});
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Failed to send invites");
 			setBusy(false);

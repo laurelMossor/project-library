@@ -15,10 +15,12 @@ import { isAdminRole } from "@/lib/const/roles";
  * preferences keep their own per-toggle autosave, outside the session.
  */
 export function ProfileSettingsClient() {
-	const { activePageId, pages } = useActiveProfile();
+	const { activePageId, activeRole } = useActiveProfile();
 	const isPage = !!activePageId;
-	const activePageRole = pages.find((p) => p.id === activePageId)?.role;
-	const canEditVisibility = !isPage || isAdminRole(activePageRole);
+	// The role comes from the acting identity the layout already resolved. The switcher
+	// list (`pages`) stays empty until that menu opens, so reading the role from it hid
+	// these sections on a direct visit to settings.
+	const canEditVisibility = !isPage || isAdminRole(activeRole);
 
 	return (
 		<div>

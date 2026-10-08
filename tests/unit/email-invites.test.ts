@@ -4,8 +4,9 @@
  * notification seam are mocked.
  *
  * The load-bearing invariants: the daily cap is enforced before anything is created; an address
- * with an account is claimed into a normal invite and the result never says so; and a pending
- * email invite never surfaces the account behind it.
+ * with an account is claimed into a normal invite and the result never says so; an address that
+ * already has a role is skipped (no row, and the result names it); and a pending email invite
+ * never surfaces the account behind it.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { PermissionRole } from "@prisma/client";
@@ -102,16 +103,36 @@ describe("invitePageMembersByEmail", () => {
     });
   });
 
-  test("an address that's already a member stays a pending email row — nothing reveals the membership", async () => {
+  test("an address that already has a role is skipped — no row, no invite, and the result names it", async () => {
     vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: "u-sam2", email: "sam@example.com" }] as never);
-    vi.mocked(getUserPermission).mockResolvedValue({ role: "EDITOR" } as never);
-    const res = await invitePageMembersByEmail({ ...base, emails: ["sam@example.com"] });
+    vi.mocked(getUserPermission).mockResolvedValue("EDITOR" as never);
+    const res = await invitePageMembersByEmail({ ...base, emails: ["sam@example.com", "new@example.com"] });
 
-    expect(res).toMatchObject({ ok: true, sent: 1, signupInvites: [] });
+    expect(res).toMatchObject({
+      ok: true,
+      sent: 1,
+      signupInvites: [{ email: "new@example.com" }],
+      alreadyMembers: ["sam@example.com"],
+    });
+    expect(prisma.pageEmailInvite.createManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ email: "new@example.com" })],
+      }),
+    );
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
     expect(emitActivity).not.toHaveBeenCalled();
-    // Neither claimed nor cancelled: listPageEmailInvites keeps showing it, like an unanswered invite.
-    expect(prisma.pageEmailInvite.update).not.toHaveBeenCalled();
+    expect(prisma.pageEmailInvite.count).toHaveBeenCalled();
+  });
+
+  test("a batch of only current members writes nothing and does not spend the daily cap", async () => {
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: "u-sam2", email: "sam@example.com" }] as never);
+    vi.mocked(getUserPermission).mockResolvedValue("EDITOR" as never);
+    const res = await invitePageMembersByEmail({ ...base, emails: ["sam@example.com"] });
+
+    expect(res).toMatchObject({ ok: true, sent: 0, signupInvites: [], alreadyMembers: ["sam@example.com"] });
+    expect(prisma.pageEmailInvite.createManyAndReturn).not.toHaveBeenCalled();
+    expect(prisma.pageEmailInvite.count).not.toHaveBeenCalled();
+    expect(createSignupInvite).not.toHaveBeenCalled();
   });
 
   test("over the daily cap → refused before any row, token, or invite", async () => {
@@ -189,6 +210,20 @@ describe("claimPageEmailInvites (at signup)", () => {
     expect(prisma.pageEmailInvite.update).toHaveBeenCalledWith({
       where: { id: "e1" },
       data: { claimedAt: expect.any(Date), claimedUserId: "u-new" },
+    });
+  });
+
+  test("already a member by the time the row is claimed → row cancelled, no invite", async () => {
+    vi.mocked(getUserPermission).mockResolvedValue("MEMBER" as never);
+    vi.mocked(prisma.pageEmailInvite.findMany).mockResolvedValue([
+      { id: "e1", pageId: "p1", role: "MEMBER", note: null },
+    ] as never);
+    await claimPageEmailInvites("u-new", "new@example.com");
+    expect(prisma.accessRequest.create).not.toHaveBeenCalled();
+    expect(emitActivity).not.toHaveBeenCalled();
+    expect(prisma.pageEmailInvite.update).toHaveBeenCalledWith({
+      where: { id: "e1" },
+      data: { cancelledAt: expect.any(Date) },
     });
   });
 

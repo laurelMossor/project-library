@@ -21,7 +21,7 @@ const ASSIGNABLE = new Set<string>(Object.values(PermissionRole));
  * POST /api/pages/[pageId]/email-invites  { emails: string[], role, note? }
  * Invite people to a role by email. Addresses with an account get the normal in-app invite;
  * the rest get a signup link and their invite waits for them. Page ADMIN only.
- * The response is the same whichever addresses had accounts.
+ * The response names addresses that already have a role. It does not say which other addresses had accounts.
  */
 export async function POST(request: Request, { params }: RouteParams) {
 	try {
@@ -103,8 +103,16 @@ export async function POST(request: Request, { params }: RouteParams) {
 			});
 		}
 
-		logAction("page_invite.email_sent", ctx.userId, { pageId, count: result.sent, role });
-		return NextResponse.json({ status: "invited", sent: result.sent }, { status: 201 });
+		logAction("page_invite.email_sent", ctx.userId, {
+			pageId,
+			count: result.sent,
+			alreadyMembers: result.alreadyMembers.length,
+			role,
+		});
+		return NextResponse.json(
+			{ status: "invited", sent: result.sent, alreadyMembers: result.alreadyMembers },
+			{ status: 201 },
+		);
 	} catch (error) {
 		console.error("POST /api/pages/[pageId]/email-invites error:", error);
 		return serverError("Failed to send invites");

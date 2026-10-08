@@ -434,10 +434,19 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		setEmailInvitePrefill(query.includes("@") ? query : "");
 	}
 
-	async function onEmailInvitesSent(count: number) {
+	async function onEmailInvitesSent(result: { sent: number; alreadyMembers: string[] }) {
 		setEmailInvitePrefill(null);
 		setShowAddMember(false);
-		setInviteNotice(`Invites sent to ${count} ${count === 1 ? "address" : "addresses"}.`);
+		const parts: string[] = [];
+		if (result.sent > 0) {
+			parts.push(`Invites sent to ${result.sent} ${result.sent === 1 ? "address" : "addresses"}.`);
+		}
+		if (result.alreadyMembers.length === 1) {
+			parts.push(`${result.alreadyMembers[0]} already has a role on this page.`);
+		} else if (result.alreadyMembers.length > 1) {
+			parts.push(`${result.alreadyMembers.join(", ")} already have a role on this page.`);
+		}
+		setInviteNotice(parts.join(" "));
 		await refreshMembers();
 	}
 

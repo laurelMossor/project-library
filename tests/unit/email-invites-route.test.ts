@@ -81,6 +81,7 @@ describe("POST email-invites", () => {
       sent: 2,
       page,
       signupInvites: [{ email: "new@example.com", rawToken: "tok" }],
+      alreadyMembers: [],
     });
     const res = await post({ emails: ["alice@example.com", "new@example.com"], role: "MEMBER", note: " hi " });
     expect(res.status).toBe(201);
@@ -97,16 +98,38 @@ describe("POST email-invites", () => {
   });
 
   test("the response is identical whether or not an address had an account", async () => {
-    vi.mocked(invitePageMembersByEmail).mockResolvedValueOnce({ ok: true, sent: 1, page, signupInvites: [] });
+    vi.mocked(invitePageMembersByEmail).mockResolvedValueOnce({
+      ok: true, sent: 1, page, signupInvites: [], alreadyMembers: [],
+    });
     const existing = await (await post({ emails: ["alice@example.com"], role: "MEMBER" })).json();
     vi.mocked(invitePageMembersByEmail).mockResolvedValueOnce({
       ok: true,
       sent: 1,
       page,
       signupInvites: [{ email: "new@example.com", rawToken: "tok" }],
+      alreadyMembers: [],
     });
     const fresh = await (await post({ emails: ["new@example.com"], role: "MEMBER" })).json();
     expect(existing).toEqual(fresh);
+    expect(existing).toEqual({ status: "invited", sent: 1, alreadyMembers: [] });
+  });
+
+  test("addresses that already have a role are named, and no signup email goes out for them", async () => {
+    vi.mocked(invitePageMembersByEmail).mockResolvedValue({
+      ok: true,
+      sent: 0,
+      page,
+      signupInvites: [],
+      alreadyMembers: ["sam@example.com"],
+    });
+    const res = await post({ emails: ["sam@example.com"], role: "MEMBER" });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({
+      status: "invited",
+      sent: 0,
+      alreadyMembers: ["sam@example.com"],
+    });
+    expect(sendPageInviteEmails).not.toHaveBeenCalled();
   });
 });
 
