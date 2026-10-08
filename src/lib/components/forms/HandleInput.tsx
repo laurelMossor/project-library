@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { API_HANDLE_AVAILABLE } from "@/lib/const/routes";
+import { sanitizeHandleTyping } from "@/lib/utils/handle";
 import { validateHandle } from "@/lib/validations";
 
 type Status = { state: "idle" } | { state: "checking" } | { state: "ok" } | { state: "bad"; reason: string };
@@ -29,7 +30,7 @@ export function HandleInput({
 	currentHandle?: string;
 }) {
 	const [status, setStatus] = useState<Status>({ state: "idle" });
-	const handle = value.trim().toLowerCase();
+	const handle = sanitizeHandleTyping(value);
 
 	useEffect(() => {
 		if (!handle) {
@@ -81,8 +82,8 @@ export function HandleInput({
 				<input
 					id="handle-input"
 					type="text"
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
+					value={handle}
+					onChange={(e) => onChange(sanitizeHandleTyping(e.target.value))}
 					maxLength={30}
 					autoFocus={autoFocus}
 					autoCapitalize="none"

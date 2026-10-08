@@ -19,7 +19,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
-    permission: { findFirst: vi.fn() },
+    permission: { findFirst: vi.fn(), findUnique: vi.fn() },
     page: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("@/lib/utils/errors", () => ({
   serverError: (msg?: string) => new Response(JSON.stringify({ error: msg ?? "Internal server error" }), { status: 500 }),
 }));
 
-import { PUT } from "@/app/api/me/page/route";
+import { GET, PUT } from "@/app/api/me/page/route";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 
@@ -110,6 +110,32 @@ describe("PUT /api/me/page — ADMIN", () => {
     expect(res.status).toBe(200);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("GET /api/me/page — acting role on the body", () => {
+  test("ADMIN → 200 and the caller's role, from findUnique only", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "ADMIN" } as never);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(expect.objectContaining({ role: "ADMIN" }));
+    expect(prisma.permission.findFirst).not.toHaveBeenCalled();
+  });
+
+  test("MEMBER → 404, page is not returned", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "MEMBER" } as never);
+    const res = await GET();
+    expect(res.status).toBe(404);
+    expect(prisma.page.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("no permission row → 404", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(null);
+    expect((await GET()).status).toBe(404);
+  });
+});
+
+describe("PUT /api/me/page — invalid pairing", () => {
+  beforeEach(() => setStoredRole("ADMIN"));
 
   test("invalid combo (PRIVATE profile + LISTED content) → 400, not 403, no write", async () => {
     // A real validation/pairing failure carries no `forbidden` flag, so it must map to 400 —

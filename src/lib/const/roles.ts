@@ -30,6 +30,17 @@ export function isActingRole(role: string | null | undefined): boolean {
 	return role === "ADMIN" || role === "EDITOR";
 }
 
+/**
+ * May this role post to a page (their words, the page's collection)?
+ * An acting role may always. Any other role may only when the page allows member posts.
+ * No role may not. Posting as the page is a separate check.
+ */
+export function mayPostToPage(role: string | null | undefined, allowMemberPosts: boolean): boolean {
+	if (!role) return false;
+	if (isActingRole(role)) return true;
+	return allowMemberPosts;
+}
+
 /** Is this the ADMIN role (full page management)? */
 export function isAdminRole(role: string | null | undefined): boolean {
 	return role === "ADMIN";

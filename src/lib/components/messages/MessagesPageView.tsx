@@ -15,6 +15,7 @@ import { CardUser, CardPageWithRole, getCardUserDisplayName } from "@/lib/types/
 import type { ConversationSummary, ConversationThreadData } from "@/lib/types/message";
 import { truncateText } from "@/lib/utils/text";
 import { API_MESSAGES_INBOX } from "@/lib/const/routes";
+import { formatRole } from "@/lib/const/roles";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -231,7 +232,7 @@ export function MessagesPageView() {
 						<ProfileTag
 							entity={meta.entity as CardUser | CardPageWithRole}
 							badge={meta.entityType === "page" && (meta.entity as CardPageWithRole).role
-								? (meta.entity as CardPageWithRole).role!.toLowerCase()
+								? formatRole((meta.entity as CardPageWithRole).role)
 								: undefined}
 							asLink={false}
 							variant="compact"

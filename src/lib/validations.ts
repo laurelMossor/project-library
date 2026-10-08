@@ -24,7 +24,7 @@ export function normalizeEmail(input: unknown): string {
 }
 
 /**
- * Strict handle validator: lowercase alphanumeric + `-` + `_`, 3–30 chars.
+ * Strict handle validator: lowercase letters, numbers, periods, underscores, and hyphens, 3–30 chars.
  *
  * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)
  * and the inline regex inside `validatePageData` (Page-only). One rule for

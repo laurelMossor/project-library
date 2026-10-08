@@ -42,7 +42,7 @@ export function ProfileTag({
 	const name = page ? entity.name : getCardUserDisplayName(entity);
 	const handle = entity.handle;
 	const href = PUBLIC_PROFILE(entity.handle);
-	const resolvedBadge = badge ?? (variant === "compact" && !page ? "me" : undefined);
+	const resolvedBadge = badge ?? (variant === "compact" && !page ? "Me" : undefined);
 
 	const picture = <ProfilePicture entity={entity} size={size} asLink={false} />;
 	// Avatar and name are separate links so `trailing` (often its own link) is never nested inside one.

@@ -15,7 +15,7 @@ import {
   validateGroupName,
   validateGroupMemberRefs,
 } from "@/lib/validations";
-import { generateHandle } from "@/lib/utils/handle";
+import { generateHandle, handleFromName, nameFromHandle, sanitizeHandleTyping } from "@/lib/utils/handle";
 import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS } from "@/lib/const/messaging";
 
 // ---------------------------------------------------------------------------
@@ -145,6 +145,40 @@ describe("generateHandle", () => {
     // generateHandle is forgiving; callers pair it with validateHandle.
     expect(generateHandle("!!")).toBe("");
     expect(validateHandle(generateHandle("!!"))).toBe(false);
+  });
+
+  test("keeps periods and still collapses hyphen runs", () => {
+    expect(generateHandle("Dr. Who")).toBe("dr.-who");
+    expect(generateHandle("alice.example")).toBe("alice.example");
+    expect(generateHandle("foo   bar")).toBe("foo-bar");
+    expect(validateHandle(generateHandle("Dr. Who"))).toBe(true);
+  });
+});
+
+describe("handleFromName / nameFromHandle", () => {
+  test("a name becomes the same slug generateHandle would", () => {
+    expect(handleFromName("Dr. Who")).toBe("dr.-who");
+    expect(handleFromName("Portland Makers Guild")).toBe(generateHandle("Portland Makers Guild"));
+  });
+
+  test("a handle becomes the page name only once it is a legal handle", () => {
+    expect(nameFromHandle("Foo!!")).toBe("foo");
+    expect(nameFromHandle("Dr. Who")).toBe("dr.-who");
+    expect(nameFromHandle("ab")).toBeNull();
+    expect(nameFromHandle("!!")).toBeNull();
+  });
+});
+
+describe("sanitizeHandleTyping", () => {
+  test("drops characters outside the handle alphabet", () => {
+    expect(sanitizeHandleTyping("Foo!!")).toBe("foo");
+    expect(sanitizeHandleTyping("foo bar")).toBe("foobar");
+    expect(sanitizeHandleTyping("!!")).toBe("");
+  });
+
+  test("keeps an in-progress separator", () => {
+    expect(sanitizeHandleTyping("foo-")).toBe("foo-");
+    expect(sanitizeHandleTyping("alice.example")).toBe("alice.example");
   });
 });
 

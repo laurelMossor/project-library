@@ -17,32 +17,41 @@ export function InlineHandleField({
 	original,
 	startEditing = false,
 	highlight = false,
+	blankUntilChosen = false,
 	suggested = null,
+	handEdited = false,
+	onHandTyped,
 }: {
 	original: string;
 	startEditing?: boolean;
 	highlight?: boolean;
+	/** The stored handle is only there so the row can exist. The field stays empty until one is chosen. */
+	blankUntilChosen?: boolean;
 	/** While the person hasn't typed a handle, a page name's slug fills this field. */
 	suggested?: string | null;
+	/** Once true, `suggested` no longer overwrites what they typed. */
+	handEdited?: boolean;
+	/** Fires only for a keystroke in this field, not when a suggestion fills it. */
+	onHandTyped?: (next: string) => void;
 }) {
 	const session = useInlineEditSession();
-	const { value, setValue } = useInlineField<string>("handle", original);
+	// A staged page already has a handle. Treat that as unset so it doesn't look chosen.
+	const shown = blankUntilChosen ? "" : original;
+	const { value, setValue } = useInlineField<string>("handle", shown);
 	const [editing, setEditing] = useState(startEditing);
-	const [draft, setDraft] = useState(original);
-	const [manual, setManual] = useState(false);
+	const [draft, setDraft] = useState(shown);
 	const cancelRevision = session?.cancelRevision ?? 0;
 
 	useEffect(() => {
 		if (cancelRevision === 0) return;
-		setDraft(original);
+		setDraft(shown);
 		setEditing(false);
-		setManual(false);
-	}, [cancelRevision, original]);
+	}, [cancelRevision, shown]);
 
 	useEffect(() => {
-		if (manual || !suggested) return;
+		if (handEdited || !suggested) return;
 		setDraft(suggested);
-	}, [manual, suggested]);
+	}, [handEdited, suggested]);
 
 	return (
 		<InlineEditable
@@ -66,8 +75,8 @@ export function InlineHandleField({
 						value={draft}
 						currentHandle={original}
 						highlight={highlight}
-						onChange={(next) => { setManual(true); setDraft(next); }}
-						onAvailable={(ok) => setValue(ok ? draft.trim().toLowerCase() : original)}
+						onChange={(next) => { setDraft(next); onHandTyped?.(next); }}
+						onAvailable={(ok) => setValue(ok ? draft.trim().toLowerCase() : shown)}
 						autoFocus
 					/>
 				</div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ClickableProfilePicture } from "./ClickableProfilePicture";
 import { InlineHandleField } from "./InlineHandleField";
 import { InlineNameField } from "./InlineNameField";
-import { OptionalTitle, handleFromName } from "@/lib/components/inline-editable/OptionalTitle";
+import { OptionalTitle } from "@/lib/components/inline-editable/OptionalTitle";
+import { handleFromName, nameFromHandle } from "@/lib/utils/handle";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { IdentityEntity } from "./ActiveIdentityEditor";
@@ -30,7 +31,21 @@ export function EditableIdentityBlock({
 	const session = useInlineEditSession();
 	const isPage = entity.type === "page";
 	const { value: handle } = useInlineField<string>("handle", entity.data.handle);
+	// Each field is filled from the other once, until that field is typed by hand.
+	const [nameTouched, setNameTouched] = useState(false);
+	const [handleTouched, setHandleTouched] = useState(false);
 	const [suggestedHandle, setSuggestedHandle] = useState<string | null>(null);
+	const [suggestedName, setSuggestedName] = useState<string | null>(null);
+	const cancelRevision = session?.cancelRevision ?? 0;
+
+	useEffect(() => {
+		if (cancelRevision === 0) return;
+		setNameTouched(false);
+		setHandleTouched(false);
+		setSuggestedHandle(null);
+		setSuggestedName(null);
+	}, [cancelRevision]);
+
 	const card: CardEntity = isPage
 		? {
 			id: entity.data.id,
@@ -60,7 +75,13 @@ export function EditableIdentityBlock({
 			/>
 			<div className="min-w-0 flex-1 space-y-3">
 				{draft && isPage ? (
-					<PageDraftName stored={entity.data.name} onSlug={setSuggestedHandle} />
+					<PageDraftName
+						suggestedName={nameTouched ? null : suggestedName}
+						onNameTyped={(next) => {
+							setNameTouched(true);
+							if (!handleTouched) setSuggestedHandle(handleFromName(next));
+						}}
+					/>
 				) : (
 					<InlineNameField
 						name={isPage ? "name" : "displayName"}
@@ -75,31 +96,52 @@ export function EditableIdentityBlock({
 					original={entity.data.handle}
 					startEditing={draft || followHandle}
 					highlight={draft || followHandle}
+					blankUntilChosen={draft && isPage}
 					suggested={draft && isPage ? suggestedHandle : null}
+					handEdited={handleTouched}
+					onHandTyped={draft && isPage ? (next) => {
+						setHandleTouched(true);
+						if (nameTouched) return;
+						const suggested = nameFromHandle(next);
+						if (suggested) setSuggestedName(suggested);
+					} : undefined}
 				/>
 			</div>
 		</div>
 	);
 }
 
-function PageDraftName({ stored, onSlug }: { stored: string; onSlug: (slug: string) => void }) {
+function PageDraftName({
+	suggestedName,
+	onNameTyped,
+}: {
+	/** A hand-typed handle, applied only while the name itself hasn't been typed. */
+	suggestedName: string | null;
+	onNameTyped: (next: string) => void;
+}) {
 	const session = useInlineEditSession();
-	const { value, setValue } = useInlineField<string>("name", stored);
+	// Ignore the staged "New page" name so the placeholder shows until someone types.
+	const { value, setValue } = useInlineField<string>("name", "");
 	const [editing, setEditing] = useState(true);
+
+	useEffect(() => {
+		if (suggestedName == null) return;
+		setValue(suggestedName);
+	}, [suggestedName, setValue]);
 
 	return (
 		<OptionalTitle
 			value={value || ""}
 			onChange={(next) => {
 				setValue(next);
-				onSlug(handleFromName(next));
+				onNameTyped(next);
 			}}
 			canEdit={session?.canEdit ?? false}
 			isEditing={editing}
 			onEditStart={() => setEditing(true)}
 			onCancel={() => setEditing(false)}
-			placeholder="Think of a name for your page"
-			textClassName="text-2xl leading-tight font-bold text-rich-brown"
+			placeholder="Think of a name for your Page"
+			sizeClassName="text-2xl"
 			showPlaceholder
 		/>
 	);

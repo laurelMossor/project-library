@@ -10,7 +10,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { ReactNode } from "react";
 import { ActiveProfileProvider, useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import type { CardUser, CardPage } from "@/lib/types/card";
+import type { CardUser, CardPageWithRole } from "@/lib/types/card";
 import { useSession } from "next-auth/react";
 
 vi.mock("next-auth/react", () => ({ useSession: vi.fn() }));
@@ -19,13 +19,13 @@ const mockUpdateSession = vi.fn().mockResolvedValue(undefined);
 
 // Minimal shapes — only fields the context reads
 const mockUser: CardUser = { id: "user-1", handle: "alice", displayName: "Alice Doe", avatarImageId: null, avatarImage: null };
-const mockPage: CardPage = { id: "page-1", name: "Makers Guild", handle: "makers-guild", avatarImageId: null, avatarImage: null };
+const mockPage: CardPageWithRole = { id: "page-1", name: "Makers Guild", handle: "makers-guild", avatarImageId: null, avatarImage: null, role: "ADMIN" };
 
 /**
  * Render the hook inside a provider whose props can be changed between renders
  * (simulating the layout re-running getActingIdentity on router.refresh()).
  */
-function renderWithProps(initialCurrentUser: CardUser | null, initialActivePage: CardPage | null = null) {
+function renderWithProps(initialCurrentUser: CardUser | null, initialActivePage: CardPageWithRole | null = null) {
   let props = { initialCurrentUser, initialActivePage };
   const wrapper = ({ children }: { children: ReactNode }) => (
     <ActiveProfileProvider {...props}>{children}</ActiveProfileProvider>
@@ -73,6 +73,7 @@ describe("ActiveProfileContext", () => {
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
     expect(result.current.activeEntity).toEqual(mockUser);
     expect(result.current.activePageId).toBeNull();
+    expect(result.current.activeRole).toBeNull();
   });
 
   test("session with activePageId → activeEntity resolves to the seeded active page", async () => {
@@ -80,6 +81,7 @@ describe("ActiveProfileContext", () => {
     const { result } = renderWithProps(mockUser, mockPage);
     await waitFor(() => expect(result.current.activeEntity).toEqual(mockPage));
     expect(result.current.activePageId).toBe("page-1");
+    expect(result.current.activeRole).toBe("ADMIN");
   });
 
   test("stale/forbidden activePageId (no page prop) → nav falls back to personal, never blank", async () => {
@@ -108,7 +110,7 @@ describe("ActiveProfileContext", () => {
     const { result, setProps } = renderWithProps(mockUser, mockPage);
     await waitFor(() => expect(result.current.activeEntity).toEqual(mockPage));
 
-    const updatedPage: CardPage = { ...mockPage, avatarImageId: "img-p", avatarImage: { url: "https://cdn/page.png" } };
+    const updatedPage: CardPageWithRole = { ...mockPage, avatarImageId: "img-p", avatarImage: { url: "https://cdn/page.png" } };
     act(() => setProps({ initialActivePage: updatedPage }));
 
     await waitFor(() => expect(result.current.activeEntity).toEqual(updatedPage));

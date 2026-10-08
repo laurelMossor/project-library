@@ -39,15 +39,22 @@ describe("content authority", () => {
     expect(await canModerateContent("editor", memberPost)).toBe(true);
   });
 
-  test("canPostToPage requires the page to allow member posts and any role", async () => {
+  test("canPostToPage lets acting roles through when member posts are off", async () => {
     vi.mocked(prisma.page.findUnique).mockResolvedValue({ allowMemberPosts: false } as never);
+
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "ADMIN" } as never);
+    expect(await canPostToPage("alice", "page-1")).toBe(true);
+
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "EDITOR" } as never);
+    expect(await canPostToPage("alice", "page-1")).toBe(true);
+
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "MEMBER" } as never);
     expect(await canPostToPage("alice", "page-1")).toBe(false);
 
     vi.mocked(prisma.page.findUnique).mockResolvedValue({ allowMemberPosts: true } as never);
+    expect(await canPostToPage("alice", "page-1")).toBe(true);
+
     vi.mocked(prisma.permission.findUnique).mockResolvedValue(null);
     expect(await canPostToPage("alice", "page-1")).toBe(false);
-
-    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "MEMBER" } as never);
-    expect(await canPostToPage("alice", "page-1")).toBe(true);
   });
 });
