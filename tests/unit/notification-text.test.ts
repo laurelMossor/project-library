@@ -21,3 +21,10 @@ describe("notificationText MEMBER_INVITE", () => {
 		expect(notificationPrompt("FOLLOW_REQUEST")).toBeNull();
 	});
 });
+
+describe("notificationText MENTION", () => {
+	test("says who tagged you, in plain words", () => {
+		expect(notificationText({ type: "MENTION", actorName: "alice", objectType: "POST", objectTitle: "Loom" }))
+			.toBe("alice tagged you in a comment");
+	});
+});

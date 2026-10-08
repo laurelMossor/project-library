@@ -39,6 +39,20 @@ export function parseEmailList(input: string): { valid: string[]; invalid: strin
 	return { valid, invalid };
 }
 
+/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
+export function isCuid(value: string): boolean {
+	return /^c[0-9a-z]{24}$/.test(value);
+}
+
+/**
+ * The characters a handle may contain, as a regex character-class body. The single owner of the
+ * handle alphabet — validateHandle and the comment @-mention parser/picker all build from it.
+ */
+export const HANDLE_CHARS = "a-z0-9._-";
+export const HANDLE_MIN_LENGTH = 3;
+export const HANDLE_MAX_LENGTH = 30;
+const HANDLE_REGEX = new RegExp(`^[${HANDLE_CHARS}]{${HANDLE_MIN_LENGTH},${HANDLE_MAX_LENGTH}}$`);
+
 /**
  * Strict handle validator: lowercase letters, numbers, periods, underscores, and hyphens, 3–30 chars.
  *
@@ -50,14 +64,9 @@ export function parseEmailList(input: string): { valid: string[]; invalid: strin
  * Pairs with `generateHandle` in `lib/utils/handle.ts` (the forgiving
  * normalizer used to suggest a handle from free-text input).
  */
-/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
-export function isCuid(value: string): boolean {
-	return /^c[0-9a-z]{24}$/.test(value);
-}
-
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
-	return /^[a-z0-9._-]{3,30}$/.test(handle);
+	return HANDLE_REGEX.test(handle);
 }
 
 export function validatePassword(password: string): boolean {

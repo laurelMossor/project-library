@@ -117,6 +117,7 @@ enum NotificationType {
   REQUEST_APPROVED
   MEMBER_INVITE // a page invited this user to a role
   ROLE_CHANGED // an admin changed this member's role
+  MENTION // someone tagged this identity's @handle in a comment
 }
 
 // What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
@@ -901,9 +902,13 @@ model Notification {
   // static Requests tab.
   objectType NotificationObject?
   objectId   String?
+  // The comment within that object to scroll to (COMMENT / MENTION). Anchor only — loose id, no FK,
+  // so a deleted comment just leaves the link landing on its post/event.
+  commentId  String?
 
   @@index([recipientUserId, contextPageId, readAt])
   @@index([recipientUserId, contextPageId, createdAt])
+  @@index([commentId]) // who's already been tagged in a comment (edits never re-notify)
   @@map("notifications")
 }
 

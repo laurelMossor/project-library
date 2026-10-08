@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { CardUser } from "@/lib/types/card";
-import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
-import { getCardUserDisplayName } from "@/lib/types/card";
 import { MIN_SEARCH_LENGTH, useProfileSearch } from "@/lib/hooks/useProfileSearch";
+import { ProfileResultList } from "./ProfileResultList";
 import { searchResultUser } from "@/lib/types/search";
 import { AtAvatar } from "@/lib/components/profile/EmailInviteTag";
 
@@ -146,33 +145,12 @@ export function ProfileSearchDropdown({
 						</div>
 					)}
 					{showResults && (
-						<ul role="listbox" className="py-1">
-							{results.map((user, index) => (
-								<li
-									key={user.id}
-									role="option"
-									aria-selected={focusedIndex === index}
-									onMouseDown={(e) => e.preventDefault()}
-									onClick={() => handleSelect(user)}
-									onMouseEnter={() => setFocusedIndex(index)}
-									className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
-										focusedIndex === index
-											? "bg-grey-white"
-											: "hover:bg-grey-white/60"
-									}`}
-								>
-									<ProfilePicture entity={user} size="sm" asLink={false} />
-									<div className="min-w-0">
-										<p className="text-sm font-medium text-rich-brown leading-tight truncate">
-											{getCardUserDisplayName(user)}
-										</p>
-										<p className="text-xs text-dusty-grey truncate">
-											@{user.handle}
-										</p>
-									</div>
-								</li>
-							))}
-						</ul>
+						<ProfileResultList
+							results={results}
+							focusedIndex={focusedIndex}
+							onFocusIndex={setFocusedIndex}
+							onSelect={handleSelect}
+						/>
 					)}
 					{showExtra && (
 						<div

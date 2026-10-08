@@ -18,6 +18,8 @@ export interface CommentItem {
 	updatedAt: Date | string;
 	/** Set when the speaker was removed and the words were cleared. */
 	deleted: "USER" | "PAGE" | null;
+	/** Lowercase handles in `content` that name a real user or page — rendered bold (see splitMentions). */
+	mentions: string[];
 	author: (CardUser & { firstName: string | null; lastName: string | null }) | null;
 	asPage: CardPage | null;
 }

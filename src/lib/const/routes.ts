@@ -78,6 +78,13 @@ export const EVENT_DETAIL = (id: string) => `/events/${id}`;
 export const POSTS = "/posts";
 export const POST_NEW = "/posts/new";
 export const POST_DETAIL = (id: string) => `/posts/${id}`;
+/** DOM id of one comment row on a post/event detail page. */
+export const COMMENT_ANCHOR = (commentId: string) => `comment-${commentId}`;
+/** Query param naming the comment a detail page should scroll to and highlight (notification links). */
+export const COMMENT_PARAM = "comment";
+/** A post/event detail URL that lands on one of its comments. */
+export const COMMENT_LINK = (detailUrl: string, commentId: string) =>
+	`${detailUrl}?${COMMENT_PARAM}=${encodeURIComponent(commentId)}`;
 
 // ============================================================================
 // Message Routes
