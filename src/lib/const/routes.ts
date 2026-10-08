@@ -38,6 +38,7 @@ export const PUBLIC_PROFILE = (handle: string) => `/${handle}`;
 export const PROFILE_ABOUT = (handle: string) => `/${handle}/about`; // PR 3
 
 // Session-scoped — active profile resolved from session, no handle in URL
+export const SETUP = "/setup";
 export const SETTINGS = "/settings";
 export const PERSONAL_INFO = "/settings/personal-info";
 export const PROFILE_SETTINGS = "/settings/profile";
@@ -50,6 +51,7 @@ export const UNSUBSCRIBE_WITH_TOKEN = (token: string) =>
 export const CONNECTIONS = "/connections";
 export const CONNECTIONS_TAB_QUERY = "tab"; // ?tab= selects the initial connections tab
 export const CONNECTIONS_REQUESTS = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Requests`; // deep-link to the Requests tab
+export const CONNECTIONS_MEMBERSHIP = `${CONNECTIONS}?${CONNECTIONS_TAB_QUERY}=Membership`; // deep-link to the Membership tab
 
 export const PAGE_NEW = "/pages/new";
 
@@ -83,25 +85,34 @@ export const POST_DETAIL = (id: string) => `/posts/${id}`;
 export const MESSAGES = "/messages";
 // `asPageId` (optional) makes the link open the conversation under a page identity the viewer
 // manages — a one-shot entry consumed and stripped by the conversation page (see its useEffect).
+// DM entry by the other party (profile "Message" button) — resolves to the DM's conversation page.
 export const MESSAGE_CONVERSATION = ({ id, type, asPageId }: { id: string; type: "user" | "page"; asPageId?: string | null }) =>
 	`/messages/${type === "page" ? "p" : "u"}/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
+// A conversation (DM or group) by id — the canonical thread URL. Same one-shot `asPageId` as above.
+export const MESSAGE_THREAD = (conversationId: string, asPageId?: string | null) =>
+	`/messages/c/${conversationId}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
 
 // ============================================================================
 // API Routes
 // ============================================================================
 export const API_AUTH_SESSION = "/api/auth/session";
 export const API_AUTH_SIGNUP = "/api/auth/signup";
+export const API_HANDLE_AVAILABLE = "/api/handles/available"; // GET ?handle= — public, rate-limited
 export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
 export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
 export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
 export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
-export const API_ME_USER = "/api/me/user"; // GET/PUT current user profile
+export const API_ME_USER = "/api/me/user"; // GET/PUT/DELETE current user profile
+export const API_ME_USER_DELETE_PREVIEW = "/api/me/user/delete-preview"; // GET pages deleted with the account
+export const API_ME_SETUP = "/api/me/setup"; // DELETE an account that has not finished setup
+export const API_ME_SETUP_COMPLETE = "/api/me/setup-complete"; // POST mark the settings review done
 export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
+export const API_ME_INVITES = "/api/me/invites"; // GET role invitations waiting on the current user
 export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
 export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
 
@@ -120,6 +131,7 @@ export const API_EVENT_COMMENTS = (id: string) => `/api/events/${id}/comments`;
 // Post API Routes
 export const API_POSTS = "/api/posts";
 export const API_POST = (id: string) => `/api/posts/${id}`;
+export const API_POST_POSTS = (id: string) => `/api/posts/${id}/posts`;
 export const API_POST_COMMENTS = (id: string) => `/api/posts/${id}/comments`;
 
 // Comment API Routes
@@ -143,6 +155,8 @@ export const API_PAGES = "/api/pages";
 export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 
 export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
+export const API_PAGE_MEMBERS = (pageId: string) => `/api/pages/${pageId}/members`;
+export const API_PAGE_MEMBER = (pageId: string, userId: string) => `/api/pages/${pageId}/members/${userId}`;
 
 // Access-request API Routes (Request-to-Follow / Request-to-Join)
 export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;
@@ -156,7 +170,17 @@ export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 
 // Message API Routes
 export const API_MESSAGES = "/api/messages";
-export const API_MESSAGE = (userId: string) => `/api/messages/conversation/${userId}`;
+export const API_SEARCH_PROFILES = (q: string, type: "user" | "page" | "all" = "all") =>
+	`/api/search/profiles?q=${encodeURIComponent(q)}&type=${type}`;
+export const API_MESSAGES_DIRECT = "/api/messages/direct"; // POST resolve/create the DM with a user/page
+export const API_MESSAGES_SUGGESTIONS = (asPageId?: string | null) =>
+	asPageId ? `/api/messages/suggestions?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/suggestions";
+export const API_CONVERSATIONS = "/api/messages/conversations"; // POST create a group
+/** GET a thread (pass `asPageId` for a page identity), PATCH rename/add members. */
+export const API_CONVERSATION = (id: string, asPageId?: string | null) =>
+	`/api/messages/conversations/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
+export const API_CONVERSATION_MESSAGES = (id: string) => `/api/messages/conversations/${id}/messages`;
+export const API_CONVERSATION_LEAVE = (id: string) => `/api/messages/conversations/${id}/leave`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 
 // Activity notifications

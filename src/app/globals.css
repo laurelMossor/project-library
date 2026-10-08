@@ -118,8 +118,21 @@
 	margin-top: 4px;
 }
 
-.tooltip:hover .tooltiptext {
+.tooltip:hover .tooltiptext,
+.tooltip:focus-within .tooltiptext {
 	visibility: visible;
 	opacity: 1;
 	transition: opacity 0.2s ease-in 0.5s, visibility 0s 0s;
+}
+
+/* Messaging: a new message settles into the thread. */
+@keyframes msg-in {
+	from { opacity: 0; transform: translateY(4px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+.msg-in {
+	animation: msg-in 180ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+	.msg-in { animation: none; }
 }

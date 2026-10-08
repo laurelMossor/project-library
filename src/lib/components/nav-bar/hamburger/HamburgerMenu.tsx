@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -14,7 +14,6 @@ import {
 	SearchIcon,
 } from "../../icons/icons";
 import { NotificationDot } from "../../ui/NotificationDot";
-import { AboutModal } from "../../AboutModal";
 import { NewItemModal } from "../NewItemModal";
 import {
 	MESSAGES,
@@ -46,19 +45,8 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 	const { activeCount: unreadCount } = useUnreadCount();
 
 	const [isOpen, setIsOpen] = useState(false);
-	const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 	const [isNewItemModalOpen, setIsNewItemModalOpen] = useState(false);
 	const settingsLink = isLoggedIn ? SETTINGS : undefined;
-	const [handle, setHandle] = useState<string>('');
-
-	useEffect(() => {
-		if (isLoggedIn) {
-			fetch("/api/me/user")
-				.then((r) => (r.ok ? r.json() : null))
-				.then((user) => user?.handle && setHandle(user.handle))
-				.catch(() => {});
-		}
-	}, [isLoggedIn]);
 
 	const closeMenu = () => {
 		setIsOpen(false);
@@ -171,16 +159,9 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					/>
 				)}
 			</DropdownMenu>
-			{/* About modal not in use right now */}
-			<AboutModal
-				isOpen={isAboutModalOpen}
-				onClose={() => setIsAboutModalOpen(false)}
-				handle={handle}
-			/>
-			<NewItemModal
-				isOpen={isNewItemModalOpen}
-				onClose={() => setIsNewItemModalOpen(false)}
-			/>
+			{isNewItemModalOpen && (
+				<NewItemModal onClose={() => setIsNewItemModalOpen(false)} />
+			)}
 		</nav>
 	);
 }

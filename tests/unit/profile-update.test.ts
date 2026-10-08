@@ -13,6 +13,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 	prisma: {
 		page: { findUnique: vi.fn() },
 		user: { findUnique: vi.fn() },
+		image: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	},
 }));
@@ -90,40 +91,108 @@ describe("saveMyProfile visibility gate", () => {
 		vi.mocked(prisma.$transaction).mockResolvedValue({ id: "p1" } as never);
 	});
 
-	test("allowVisibilityChange=false + a visibility field → blocked (403-class error), no write", async () => {
+	test("allowManageChange=false + a visibility field → blocked (403-class error), no write", async () => {
 		const res = await saveMyProfile(
 			"PAGE",
 			"p1",
 			{ fields: { profileVisibility: "PRIVATE" } },
-			{ allowVisibilityChange: false },
+			{ allowManageChange: false },
 		);
 		expect(res).toEqual({ ok: false, error: expect.stringMatching(/only an admin/i), forbidden: true });
 		// Returned before any DB work — the gate is an early-out.
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});
 
-	test("allowVisibilityChange=false + only a NON-visibility field → not blocked (gate is visibility-specific)", async () => {
+	test("allowManageChange=false + only a NON-visibility field → not blocked (gate is visibility-specific)", async () => {
 		const res = await saveMyProfile(
 			"PAGE",
 			"p1",
 			{ fields: { name: "New Name" } },
-			{ allowVisibilityChange: false },
+			{ allowManageChange: false },
 		);
 		expect(res.ok).toBe(true);
 	});
 
-	test("allowVisibilityChange=true + a visibility field → passes the gate (admin may change privacy)", async () => {
+	test("allowManageChange=true + a visibility field → passes the gate (admin may change privacy)", async () => {
 		const res = await saveMyProfile(
 			"PAGE",
 			"p1",
 			{ fields: { profileVisibility: "PRIVATE", contentVisibility: "PRIVATE" } },
-			{ allowVisibilityChange: true },
+			{ allowManageChange: true },
 		);
 		expect(res.ok).toBe(true);
+	});
+
+	test("OPEN membership is rejected", async () => {
+		const res = await saveMyProfile(
+			"PAGE",
+			"p1",
+			{ fields: { membershipPolicy: "OPEN" } },
+			{ allowManageChange: true },
+		);
+		expect(res.ok).toBe(false);
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	test("saving CLOSED forces member posts off", async () => {
+		vi.mocked(prisma.page.findUnique).mockResolvedValue({
+			profileVisibility: "PUBLIC",
+			contentVisibility: "LISTED",
+			membershipPolicy: "REQUEST_TO_JOIN",
+			allowMemberPosts: true,
+		} as never);
+		const res = await saveMyProfile(
+			"PAGE",
+			"p1",
+			{ fields: { membershipPolicy: "CLOSED" } },
+			{ allowManageChange: true },
+		);
+		expect(res.ok).toBe(true);
+		const tx = vi.mocked(prisma.$transaction).mock.calls[0][0] as (db: typeof prisma) => Promise<unknown>;
+		const db = {
+			page: {
+				update: vi.fn().mockResolvedValue({}),
+				findUnique: vi.fn().mockResolvedValue({}),
+			},
+		};
+		await tx(db as never);
+		expect(db.page.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ membershipPolicy: "CLOSED", allowMemberPosts: false }),
+			}),
+		);
 	});
 
 	test("defaults to allowed (a user editing their own profile is always permitted)", async () => {
 		const res = await saveMyProfile("USER", "u1", { fields: { contentVisibility: "UNLISTED" } });
 		expect(res.ok).toBe(true);
+	});
+
+	test("a page avatar is judged by the session user, not the page id", async () => {
+		vi.mocked(prisma.page.findUnique).mockResolvedValue({ avatarImageId: null } as never);
+		vi.mocked(prisma.image.findUnique).mockResolvedValue({
+			uploadedByUserId: "editor-1",
+			_count: { attachments: 0 },
+		} as never);
+
+		const ok = await saveMyProfile(
+			"PAGE",
+			"p1",
+			{ fields: { avatarImageId: "img-new" } },
+			{ actorUserId: "editor-1" },
+		);
+		expect(ok.ok).toBe(true);
+
+		vi.mocked(prisma.image.findUnique).mockResolvedValue({
+			uploadedByUserId: "p1",
+			_count: { attachments: 0 },
+		} as never);
+		const rejected = await saveMyProfile(
+			"PAGE",
+			"p1",
+			{ fields: { avatarImageId: "img-new" } },
+			{ actorUserId: "editor-1" },
+		);
+		expect(rejected).toEqual({ ok: false, error: expect.stringMatching(/profile picture/i) });
 	});
 });

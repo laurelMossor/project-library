@@ -196,7 +196,7 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 					latitude: d.latitude,
 					longitude: d.longitude,
 					tags: d.tags,
-					pageId: eventsPageId,
+					asPageId: eventsPageId,
 					isDraft: asDraft,
 				});
 				eventId = event.id;

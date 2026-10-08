@@ -9,6 +9,7 @@ import { prisma } from "./prisma";
 import { publicUserEmbedFields } from "./user";
 import { publicPageEmbedFields } from "./fields";
 import { notificationHref } from "@/lib/utils/notification-href";
+import { formatRole } from "@/lib/const/roles";
 import { canViewPost, canViewEvent, type ViewerContext } from "./visibility";
 import type { CardUser, CardPage } from "@/lib/types/card";
 import type { NotificationItem, NotificationContextKey, NotificationCounts } from "@/lib/types/notification";
@@ -162,7 +163,12 @@ export async function hydrateNotificationRows(
 			actor,
 			actorName: r.actorName,
 			objectType: r.objectType,
-			objectTitle: r.objectId ? titleMap.get(r.objectId) ?? null : null,
+			objectTitle:
+				r.type === "MEMBER_INVITE"
+					? formatRole(r.objectId) || null
+					: r.objectId
+						? titleMap.get(r.objectId) ?? null
+						: null,
 			href: notificationHref({ type: r.type, objectType: r.objectType, objectId: r.objectId, actorHandle }),
 		};
 	});

@@ -55,7 +55,7 @@ render, so it holds even mid-migration). `/api` is excluded, so `/api/health` st
 
 The gate must already be live on **both `main` and `develop`**. Then:
 
-1. **Back up** (free tier has no PITR): `pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc -f ~/prolib-backups/prod-<date>.dump`. Use `DIRECT_URL` (`:5432`), not the `:6543` pooler.
+1. **Back up** (free tier has no PITR). Follow [Local production backup](#local-production-backup).
 2. **Clear drift** — if an object already exists in prod: `prisma migrate resolve --applied <name>`.
 3. **Pause:** `MAINTENANCE_MODE=1` → redeploy.
 4. **Migrate:** `npm run db:migrate:deploy`.
@@ -65,6 +65,31 @@ The gate must already be live on **both `main` and `develop`**. Then:
 8. **Confirm:** `/api/health` ok, `migrate status` clean; keep the backup until confident.
 
 ---
+
+## Local production backup
+
+Supabase free tier has no point-in-time recovery, so a dump on this machine is the copy. `DIRECT_URL` in `.env.production` is the session pooler on port **5432** (`*.pooler.supabase.com`). That is the connection that works from here. The direct database host is IPv6-only and failed with P1001. Do not dump through the transaction pooler (`:6543`).
+
+`pg_dump` has to be the same major version as the server (17 as of 2026-10). Homebrew's `postgresql@17` provides it.
+
+```bash
+mkdir -p ~/prolib-backups
+set -a && source .env.production && set +a
+STAMP=$(date +%Y%m%d-%H%M)
+pg_dump "$DIRECT_URL" --no-owner --no-privileges -Fc \
+  -f "$HOME/prolib-backups/prolib-prod-${STAMP}.dump"
+pg_restore --list "$HOME/prolib-backups/prolib-prod-${STAMP}.dump" | grep "TABLE DATA public "
+```
+
+The archive is custom format (`-Fc`), about the size of the July 2026 dump plus whatever has landed since. The `grep` line should list the app tables (`users`, `pages`, `posts`, `events`, and the rest). Keep the file until the change you were protecting against is confirmed. These dumps are outside the repo, in `~/prolib-backups/`.
+
+To look at a backup locally, restore only `public` into an empty local database. Do not play the whole archive back onto the live Supabase project. It also contains `auth`, `storage`, and other platform schemas.
+
+```bash
+createdb prolib_restore
+pg_restore --no-owner --no-privileges -n public \
+  -d prolib_restore ~/prolib-backups/prolib-prod-<stamp>.dump
+```
 
 ## After deploying: verify (don't trust silence)
 

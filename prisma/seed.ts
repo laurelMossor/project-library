@@ -118,8 +118,7 @@ export type SeedPagePacket = {
   creatorHandle: string;
   editors?: string[];
   // Users to seed as FOLLOWERS of the page. ("*" = all non-creator/non-editor users.)
-  // Self-service membership is flagged off (FEATURES.SELF_SERVICE_MEMBERSHIP); following a
-  // page grants the same access members had, so seed page connections as follows.
+  // Seeded pages stay CLOSED (no members). Following a page is the seeded connection.
   followers?: "*" | string[];
   posts?: SeedPost[];
   events?: SeedEvent[];
@@ -128,6 +127,8 @@ export type SeedPagePacket = {
 export type SeedRelationships = {
   follows?: { follower: string; following: string }[];
   conversations?: {
+    kind?: "DIRECT" | "GROUP"; // default DIRECT
+    name?: string; // GROUP only
     participants: string[];
     messages: {
       senderHandle: string;
@@ -391,6 +392,7 @@ async function main() {
         handle,
         // Seeded accounts are pre-verified so logins (incl. E2E) aren't gated.
         emailVerified: new Date(),
+        setupCompletedAt: new Date(),
         firstName: packet.firstName,
         lastName: packet.lastName,
         displayName:
@@ -692,6 +694,9 @@ async function main() {
         data: {
           userId: page.creatorUserId,
           pageId: page.id,
+          // Historical page content speaks as the page. The membership migration
+          // backfills the same way; seed runs after that, so it has to say it here.
+          asPageId: page.id,
           title: postData.title ?? null,
           content: postData.content,
           tags: postData.tags ?? [],
@@ -726,6 +731,7 @@ async function main() {
         data: {
           userId: page.creatorUserId,
           pageId: page.id,
+          asPageId: page.id,
           title: eventData.title ?? null,
           content: eventData.content,
           eventDateTime,
@@ -812,6 +818,8 @@ async function main() {
 
     const conversation = await prisma.conversation.create({
       data: {
+        kind: convo.kind ?? "DIRECT",
+        name: convo.name ?? null,
         participants: {
           create: participantData.map((p) => ({
             userId: p.userId ?? null,
@@ -821,6 +829,7 @@ async function main() {
       },
     });
 
+    let lastMessageAt: Date | null = null;
     for (const msg of convo.messages) {
       const sender = usersByHandle.get(msg.senderHandle.toLowerCase());
       if (!sender) {
@@ -836,13 +845,26 @@ async function main() {
         asPageId = page.id;
       }
 
-      await prisma.message.create({
+      const created = await prisma.message.create({
         data: {
           conversationId: conversation.id,
           senderId: sender.id,
           asPageId,
           content: msg.content,
         },
+      });
+      lastMessageAt = created.createdAt;
+    }
+
+    // Every seeded conversation starts fully read for all its participants — a fresh demo
+    // environment shouldn't carry unread badges for content that was never actually new. Without
+    // this, every participant row defaults to lastReadAt: null, so the last message of every
+    // conversation (often not authored by every participant) reads as permanently unread until
+    // something in the app happens to open that exact thread.
+    if (lastMessageAt) {
+      await prisma.conversationParticipant.updateMany({
+        where: { conversationId: conversation.id },
+        data: { lastReadAt: lastMessageAt },
       });
     }
   }

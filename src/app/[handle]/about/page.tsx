@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { findEntityByHandle } from "@/lib/utils/server/handle";
 import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPageByHandle } from "@/lib/utils/server/page";
 import { canManagePage } from "@/lib/utils/server/permission";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { AboutPageClient } from "@/lib/components/profile/AboutPageClient";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
@@ -71,17 +71,8 @@ export default async function HandleAboutPage({ params }: Props) {
 	if (!canEdit && !aboutContent) notFound();
 
 	return (
-		<CenteredLayout maxWidth="3xl">
+		<CenteredLayout maxWidth="3xl" breadcrumb={<Breadcrumb href={PUBLIC_PROFILE(handle)} label={`Back to ${displayName}`} />}>
 			<div className="flex flex-col gap-8">
-				<div>
-					<Link
-						href={PUBLIC_PROFILE(handle)}
-						className="text-sm text-dusty-grey hover:text-rich-brown transition-colors"
-					>
-						← Back to {displayName}
-					</Link>
-				</div>
-
 				<div className="flex items-center gap-3">
 					<ProfilePicture entity={avatarEntity} size="sm" asLink={false} />
 					<div>

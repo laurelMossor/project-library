@@ -8,12 +8,17 @@ import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
 import {
+	API_PAGE,
 	API_PAGE_REQUESTS,
+	API_PAGE_MEMBERS,
+	API_PAGE_MEMBER,
+	API_PAGE_MEMBERSHIP,
 	API_ME_REQUESTS,
+	API_ME_INVITES,
 	API_REQUEST_APPROVE,
 	API_REQUEST_DENY,
 } from "@/lib/const/routes";
-import { assignableRoles, isAdminRole } from "@/lib/const/roles";
+import { assignableRoles, formatRole, isAdminRole } from "@/lib/const/roles";
 import type { PermissionRole } from "@prisma/client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -62,12 +67,25 @@ type ConnectionItem = {
 type MemberItem = {
 	id: string;
 	role: string;
+	/** True for an invitation that hasn't been accepted. The row's id is the request id. */
+	pending?: boolean;
 	user: {
 		id: string;
 		handle: string;
 		displayName: string | null;
 		avatarImageId: string | null;
 	};
+};
+
+type InviteItem = {
+	id: string;
+	role: string | null;
+	page: {
+		id: string;
+		handle: string;
+		name: string;
+		avatarImageId: string | null;
+	} | null;
 };
 
 type PageMembershipItem = {
@@ -87,6 +105,7 @@ type ConnectionsData = {
 	membership: MemberItem[];
 	memberOf: PageMembershipItem[];
 	requests: RequestItem[];
+	invites: InviteItem[];
 };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -139,7 +158,7 @@ function ExpandableActions({
 		return (
 			<button
 				onClick={onToggle}
-				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
+				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
 				aria-label="More actions"
 			>
 				<EllipsisIcon className="w-4 h-4" />
@@ -158,8 +177,10 @@ function ExpandableActions({
 						key={action.label}
 						onClick={() => run(action)}
 						disabled={loadingLabel !== null}
-						className={`text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap ${
-							danger ? "hover:border-red-300 hover:text-red-500" : "hover:border-misty-forest hover:text-misty-forest"
+						className={`text-xs px-3 py-1 rounded-md font-medium transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 ${
+							danger
+								? "bg-white border border-red-300 text-red-600 hover:bg-red-50"
+								: "bg-moss-green text-white hover:opacity-90"
 						}`}
 					>
 						{loadingLabel === action.label ? "..." : action.label}
@@ -168,7 +189,7 @@ function ExpandableActions({
 			})}
 			<button
 				onClick={onToggle}
-				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer"
+				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
 				aria-label="Close"
 			>
 				<XCircleIcon className="w-4 h-4" />
@@ -177,13 +198,18 @@ function ExpandableActions({
 	);
 }
 
-// Per-member role selector using the shared DropdownMenu. Options come from
-// assignableRoles() so MEMBER drops out while self-service membership is flagged off.
+const ROLE_CHIP =
+	"text-xs px-2 py-0.5 rounded border border-soft-grey/60 bg-white text-dusty-grey";
+
+// Role selector rendered as the same chip the row's role badge uses, so changing a
+// role doesn't look like one of the action buttons next to it.
 function RoleSelector({
 	current,
+	roles,
 	onChange,
 }: {
 	current: string;
+	roles: readonly string[];
 	onChange: (role: string) => Promise<void>;
 }) {
 	const [open, setOpen] = useState(false);
@@ -192,11 +218,11 @@ function RoleSelector({
 			isOpen={open}
 			onClose={() => setOpen(!open)}
 			triggerAriaLabel="Change role"
-			triggerClassName="text-xs px-2 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer whitespace-nowrap"
-			trigger={<span>{current.toLowerCase()} ▾</span>}
+			triggerClassName={`${ROLE_CHIP} hover:border-misty-forest transition-colors cursor-pointer whitespace-nowrap`}
+			trigger={<span>{formatRole(current)} ▾</span>}
 			containerClassName="min-w-[140px]"
 		>
-			{assignableRoles().map((role) => (
+			{roles.map((role) => (
 				<button
 					key={role}
 					role="menuitem"
@@ -204,11 +230,11 @@ function RoleSelector({
 						setOpen(false);
 						if (role !== current) await onChange(role);
 					}}
-					className={`w-full text-left px-4 py-1.5 text-sm hover:bg-soft-grey/20 transition-colors cursor-pointer ${
-						role === current ? "font-semibold text-rich-brown" : "text-dusty-grey"
-					}`}
+					className="w-full text-left px-3 py-1.5 hover:bg-soft-grey/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20"
 				>
-					{role.toLowerCase()}
+					<span className={`${ROLE_CHIP} ${role === current ? "border-moss-green text-rich-brown" : ""}`}>
+						{formatRole(role)}
+					</span>
 				</button>
 			))}
 		</DropdownMenu>
@@ -296,9 +322,9 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	// Explicit-pick add flow: hold the selected user + chosen role until confirmed,
 	// rather than granting MEMBER immediately on select.
 	const [pendingUser, setPendingUser] = useState<SearchResultUser | null>(null);
-	const [pendingRole, setPendingRole] = useState<PermissionRole>(
-		assignableRoles()[assignableRoles().length - 1],
-	);
+	const [pendingRole, setPendingRole] = useState<PermissionRole>("EDITOR");
+	const [pagePolicy, setPagePolicy] = useState<string>("CLOSED");
+	const roleChoices = assignableRoles(pagePolicy);
 
 	// Load every connections slice in one pass. `silent` skips the loading/error toggles so a
 	// post-mutation refresh doesn't flash the panel's "Loading…" state or wipe it on a transient
@@ -314,12 +340,14 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 			}
 			try {
 				const base = entityType === "user" ? "users" : "pages";
-				const [followersRes, followingRes, membershipRes] = await Promise.all([
+				const [followersRes, followingRes, membershipRes, invitesRes, pageRes] = await Promise.all([
 					fetch(`/api/${base}/${entity.id}/followers`),
 					fetch(`/api/${base}/${entity.id}/following`),
 					entityType === "page"
-						? fetch(`/api/pages/${entity.id}/members`)
+						? fetch(API_PAGE_MEMBERS(entity.id))
 						: fetch(`/api/users/${entity.id}/memberships`),
+					entityType === "user" ? fetch(API_ME_INVITES) : Promise.resolve(null),
+					entityType === "page" ? fetch(API_PAGE(entity.id)) : Promise.resolve(null),
 				]);
 
 				const followers = followersRes.ok ? (await followersRes.json()).followers ?? [] : [];
@@ -342,7 +370,16 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					? (await requestsRes.json()).requests ?? []
 					: [];
 
-				setData({ followers, following, membership, memberOf, requests });
+				const invites: InviteItem[] = invitesRes?.ok
+					? (await invitesRes.json()).invites ?? []
+					: [];
+
+				if (pageRes?.ok) {
+					const page = await pageRes.json();
+					if (typeof page.membershipPolicy === "string") setPagePolicy(page.membershipPolicy);
+				}
+
+				setData({ followers, following, membership, memberOf, requests, invites });
 			} catch {
 				// Keep the already-loaded panel intact on a silent refresh failure; only the
 				// initial load surfaces the error.
@@ -387,7 +424,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	// a person is now a real ADMIN/EDITOR grant, so it must be a deliberate choice.)
 	function selectPendingUser(user: SearchResultUser) {
 		setAddMemberError(null);
-		setPendingRole(assignableRoles()[assignableRoles().length - 1]);
+		setPendingRole(roleChoices[roleChoices.length - 1]);
 		setPendingUser(user);
 	}
 
@@ -401,7 +438,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		if (!pendingUser) return;
 		setAddMemberError(null);
 		try {
-			const res = await fetch(`/api/pages/${entity.id}/members`, {
+			const res = await fetch(API_PAGE_MEMBERS(entity.id), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ userId: pendingUser.id, role: pendingRole }),
@@ -410,7 +447,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 				const body = await res.json().catch(() => ({}));
 				throw new Error(body.error ?? "Failed to add member");
 			}
-			const updated = await fetch(`/api/pages/${entity.id}/members`);
+			const updated = await fetch(API_PAGE_MEMBERS(entity.id));
 			if (updated.ok) {
 				const members = await updated.json();
 				setData((prev) => (prev ? { ...prev, membership: members } : prev));
@@ -422,8 +459,25 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		}
 	}
 
+	async function changeInviteRole(item: MemberItem, role: string) {
+		const res = await fetch(API_PAGE_MEMBERS(entity.id), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ userId: item.user.id, role }),
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => ({}));
+			throw new Error(body.error ?? "Failed to change invite role");
+		}
+		setData((prev) =>
+			prev
+				? { ...prev, membership: prev.membership.map((m) => (m.id === item.id ? { ...m, role } : m)) }
+				: prev,
+		);
+	}
+
 	async function changeMemberRole(item: MemberItem, role: string) {
-		const res = await fetch(`/api/pages/${entity.id}/members/${item.user.id}`, {
+		const res = await fetch(API_PAGE_MEMBER(entity.id, item.user.id), {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ role }),
@@ -500,7 +554,9 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		if (top === "Followers") return data.followers.length;
 		if (top === "Following") return data.following.length;
 		if (top === "Requests") return data.requests.length;
-		return entityType === "user" ? data.memberOf.length : data.membership.length;
+		return entityType === "user"
+			? data.memberOf.length + data.invites.length
+			: data.membership.length;
 	}
 
 	function renderContent(_leftId: string, top: TopTab) {
@@ -566,27 +622,56 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		// Membership tab — user profile: pages the user is a member of
 		if (entityType === "user") {
 			const items = data.memberOf;
-			if (!items.length) return <EmptyMessage label="Memberships" />;
+			const invites = data.invites.filter((inv) => inv.page);
+			if (!items.length && !invites.length) return <EmptyMessage label="Memberships" />;
 			return (
 				<div className="p-5 space-y-2">
+					{invites.length > 0 && (
+						<p className="text-xs font-medium text-dusty-grey pt-1">Pending invitations</p>
+					)}
+					{invites.map((inv) => (
+						<ProfileTag
+							key={inv.id}
+							entity={inv.page!}
+							badge={`Pending · invited as ${formatRole(inv.role)}`}
+							actions={
+								<ExpandableActions
+									expanded={expandedId === inv.id}
+									onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+									actions={[
+										{ label: "Accept", tone: "default", onAction: () => actOnRequest(inv.id, "approve") },
+										{
+											label: "Decline",
+											onAction: async () => {
+												await actOnRequest(inv.id, "deny");
+												setData((prev) =>
+													prev ? { ...prev, invites: prev.invites.filter((i) => i.id !== inv.id) } : prev,
+												);
+											},
+										},
+									]}
+								/>
+							}
+						/>
+					))}
 					{items.map((item) => (
 						<ProfileTag
 							key={item.id}
 							entity={item.page}
-							badge={item.role.toLowerCase()}
+							badge={formatRole(item.role)}
 							actions={
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
 									actions={[{
-										label: "Leave Group",
+										label: "Leave",
 										onAction: async () => {
-											const res = await fetch(`/api/pages/${item.page.id}/membership`, {
+											const res = await fetch(API_PAGE_MEMBERSHIP(item.page.id), {
 												method: "DELETE",
 											});
 											if (!res.ok) {
 												const body = await res.json().catch(() => ({}));
-												throw new Error(body.error ?? "Failed to leave group");
+												throw new Error(body.error ?? "Failed to leave");
 											}
 											setData((prev) =>
 												prev
@@ -609,29 +694,71 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		return (
 			<div className="p-5 space-y-2">
 				{!items.length && <EmptyMessage label="Members" />}
-				{items.map((item) => (
+				{items.map((item) => {
+					if (item.pending) {
+						const canChange = isAdmin;
+						return (
+							<ProfileTag
+								key={item.id}
+								entity={item.user}
+								badge={canChange ? (
+									<span className="inline-flex items-center gap-1.5">
+										<span className="text-xs text-dusty-grey">Pending</span>
+										<RoleSelector
+											current={item.role}
+											roles={roleChoices}
+											onChange={(role) => changeInviteRole(item, role)}
+										/>
+									</span>
+								) : `Pending · invited as ${formatRole(item.role)}`}
+								actions={
+									isAdmin ? (
+										<ExpandableActions
+											expanded={expandedId === item.id}
+											onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+											actions={[{
+												label: "Cancel",
+												onAction: async () => {
+													const res = await fetch(API_REQUEST_DENY(item.id), { method: "POST" });
+													if (!res.ok) {
+														const body = await res.json().catch(() => ({}));
+														throw new Error(body.error ?? "Failed to cancel invite");
+													}
+													setData((prev) =>
+														prev
+															? { ...prev, membership: prev.membership.filter((m) => m.id !== item.id) }
+															: prev,
+													);
+												},
+											}]}
+										/>
+									) : undefined
+								}
+							/>
+						);
+					}
+					return (
 					<ProfileTag
 						key={item.id}
 						entity={item.user}
-						badge={item.role.toLowerCase()}
+						badge={
+							isAdmin && item.user.id !== currentUserId ? (
+								<RoleSelector
+									current={item.role}
+									roles={roleChoices}
+									onChange={(role) => changeMemberRole(item, role)}
+								/>
+							) : formatRole(item.role)
+						}
 						actions={
 							isAdmin && item.user.id !== currentUserId ? (
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-									extra={
-										<RoleSelector
-											current={item.role}
-											onChange={(role) => changeMemberRole(item, role)}
-										/>
-									}
 									actions={[{
 										label: "Remove from group",
 										onAction: async () => {
-											const res = await fetch(
-												`/api/pages/${entity.id}/members/${item.user.id}`,
-												{ method: "DELETE" }
-											);
+											const res = await fetch(API_PAGE_MEMBER(entity.id, item.user.id), { method: "DELETE" });
 											if (!res.ok) {
 												const body = await res.json().catch(() => ({}));
 												throw new Error(body.error ?? "Failed to remove member");
@@ -650,7 +777,8 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 							) : undefined
 						}
 					/>
-				))}
+					);
+				})}
 				{isAdmin && (
 					<div className="pt-3">
 						{showAddMember ? (
@@ -663,17 +791,18 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 											<div className="flex items-center gap-1.5">
 												<RoleSelector
 													current={pendingRole}
+													roles={roleChoices}
 													onChange={async (role) => setPendingRole(role as PermissionRole)}
 												/>
 												<button
 													onClick={confirmAddMember}
-													className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer whitespace-nowrap"
+													className="text-xs px-3 py-1 rounded-md font-medium bg-moss-green text-white hover:opacity-90 transition-colors cursor-pointer whitespace-nowrap"
 												>
-													Add
+													Invite
 												</button>
 												<button
 													onClick={() => setPendingUser(null)}
-													className="text-xs px-3 py-1 rounded border border-soft-grey/60 text-dusty-grey hover:border-red-300 hover:text-red-500 transition-colors cursor-pointer"
+													className="text-xs px-3 py-1 rounded-md font-medium bg-white border border-red-300 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
 												>
 													Cancel
 												</button>
@@ -706,7 +835,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 									onClick={() => setShowAddMember(true)}
 									className="text-xs px-4 py-1.5 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer"
 								>
-									+ Add
+									Invite
 								</button>
 							</div>
 						)}
@@ -726,7 +855,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 			renderLeftTab={() => (
 				<ProfileTag
 					entity={entity}
-					badge={isPage && role ? role.toLowerCase() : undefined}
+					badge={isPage && role ? formatRole(role) : undefined}
 					asLink={false}
 					variant="compact"
 					align="right"

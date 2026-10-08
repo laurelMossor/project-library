@@ -49,6 +49,7 @@
     "ai": "^7.0.66",
     "autoprefixer": "^10.4.23",
     "bcryptjs": "^3.0.3",
+    "boring-avatars": "^2.0.4",
     "dotenv": "^17.2.3",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.0.10",

@@ -103,11 +103,11 @@ export default async function HandleProfilePage({ params }: Props) {
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						pinScope={{ userId: user.id }}
 						prependCards={aboutCard ? [aboutCard] : []}
 						title="History"
-						emptyMessage={`${handle} hasn't created anything yet.`}
+						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
-						currentUserId={user.id}
 					/>
 				</CenteredLayout>
 			);
@@ -122,9 +122,10 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					pinScope={{ userId: user.id }}
 					prependCards={aboutCard ? [aboutCard] : []}
 					title="History"
-					emptyMessage={`${handle} hasn't created anything yet.`}
+					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>
 			</CenteredLayout>
@@ -144,6 +145,7 @@ export default async function HandleProfilePage({ params }: Props) {
 		const access = await resolveProfileAccess("PAGE", page, viewer);
 		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
 
+		// Admins get the edit chrome. Pin permission is stamped on each item by the collection query.
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
 		const [events, posts] = await Promise.all([
@@ -174,11 +176,11 @@ export default async function HandleProfilePage({ params }: Props) {
 
 					<ProfileCollectionSection
 						items={collectionItems}
+						pinScope={{ pageId: page.id }}
 						prependCards={pageAboutCard ? [pageAboutCard] : []}
 						title={`${displayName}'s Collection`}
-						emptyMessage={`${displayName} hasn't created anything yet.`}
+						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
-						currentUserId={viewerId ?? undefined}
 					/>
 				</CenteredLayout>
 			);
@@ -193,9 +195,10 @@ export default async function HandleProfilePage({ params }: Props) {
 
 				<ProfileCollectionSection
 					items={collectionItems}
+					pinScope={{ pageId: page.id }}
 					prependCards={pageAboutCard ? [pageAboutCard] : []}
 					title={`${displayName}'s Collection`}
-					emptyMessage={`${displayName} hasn't created anything yet.`}
+					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>
 			</CenteredLayout>

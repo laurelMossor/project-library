@@ -161,6 +161,7 @@ export function RsvpForm({
 			</div>
 
 			{/* Single plus-one */}
+			{/* TODO: migrate this checkbox to forms/Checkbox.tsx */}
 			<div className="space-y-2">
 				<label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
 					<input

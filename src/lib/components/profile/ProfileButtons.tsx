@@ -18,7 +18,7 @@ type ProfileButtonsProps = {
 
 /**
  * Follow/Request + Message action buttons for public User and Page profiles.
- * Both buttons are disabled when the viewer's active profile matches the viewed entity.
+ * Omitted entirely when the viewer's active profile is the entity being viewed.
  */
 export function ProfileButtons({ entityId, entityType, profileVisibility }: ProfileButtonsProps) {
 	const { activeEntity, currentUser } = useActiveProfile();
@@ -44,7 +44,10 @@ export function ProfileButtons({ entityId, entityType, profileVisibility }: Prof
 
 	const messageHref = MESSAGE_CONVERSATION({ id: entityId, type: entityType });
 
-	const disabled = isOwnProfile || !loggedIn;
+	// Looking at yourself (your user, or a page you are acting as) has no follow or message.
+	if (isOwnProfile) return null;
+
+	const disabled = !loggedIn;
 	// PRIVATE targets gate Follow behind owner approval (see requests.ts followOrRequest),
 	// so signal that up front instead of implying an instant follow.
 	const isPrivate = profileVisibility === "PRIVATE";

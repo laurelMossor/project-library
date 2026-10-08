@@ -22,6 +22,8 @@ export interface BaseCollectionItem {
 	id: string;
 	userId: string;
 	pageId: string | null;
+	asPageId: string | null;
+	showOnAuthorProfile: boolean;
 	title: string | null;
 	content: string;
 	status: "DRAFT" | "PUBLISHED";
@@ -31,6 +33,8 @@ export interface BaseCollectionItem {
 	user: { id: string; handle: string; displayName: string | null; firstName: string | null; lastName: string | null; avatarImageId: string | null };
 	page: { id: string; name: string; handle: string; avatarImageId: string | null } | null;
 	pinnedAt: Date | null;
+	/** Set on profile collections. Absent on Explore, which never offers pin. */
+	canPin?: boolean;
 	createdAt: Date;
 	updatedAt: Date;
 	type: CollectionItemType;

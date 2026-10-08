@@ -31,6 +31,16 @@ export async function isHandleTaken(handle: string): Promise<boolean> {
 	return existing !== null;
 }
 
+/** The reason a handle can't be used for a new account or page, or null when it's free. */
+export async function handleUnavailableReason(handle: string): Promise<string | null> {
+	if (!validateHandle(handle)) {
+		return "Handle must be 3–30 characters: lowercase letters, numbers, periods, underscores, or hyphens.";
+	}
+	if (isReservedHandle(handle)) return "That handle is reserved. Please choose another.";
+	if (await isHandleTaken(handle)) return "That handle is already taken.";
+	return null;
+}
+
 /**
  * Generate a unique, valid handle from a seed (typically the email local-part), for the signup
  * flow that no longer asks users to pick one. The result always passes `validateHandle`, isn't
@@ -45,8 +55,10 @@ export async function isHandleTaken(handle: string): Promise<boolean> {
  * never chose the value.
  */
 export async function generateUniqueHandle(seed: string): Promise<string> {
-	// Local-part, lowercased, stripped to the valid charset; trimmed to leave room for a suffix.
-	const local = (seed.split("@")[0] ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+	// Email seeds use the local-part; any other base (a page name) is sanitized whole.
+	// Spaces become hyphens, then everything outside the handle charset is dropped.
+	const source = seed.includes("@") ? (seed.split("@")[0] ?? "") : seed;
+	const local = source.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9_-]/g, "");
 	let base = local.slice(0, 24);
 	// validateHandle requires ≥3 chars — pad a too-short/empty base with a neutral prefix.
 	if (base.length < 3) base = `member${base}`.slice(0, 24);

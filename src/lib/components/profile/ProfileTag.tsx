@@ -6,11 +6,13 @@ import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
 export type ProfileTagProps = {
 	entity: CardEntity;
-	badge?: string;
+	badge?: ReactNode;
 	size?: "sm" | "md" | "lg";
 	/** Whether the left section (avatar + name) links to the profile. Defaults true. */
 	asLink?: boolean;
 	actions?: ReactNode;
+	/** Extra text on the same line as the name, e.g. " › Page" for a post placed on a page. */
+	trailing?: ReactNode;
 	className?: string;
 	/**
 	 * "default" (standard): shows @handle, badge inline to the right.
@@ -31,6 +33,7 @@ export function ProfileTag({
 	size = "sm",
 	asLink = true,
 	actions,
+	trailing,
 	className = "",
 	variant = "default",
 	align = "left",
@@ -39,35 +42,39 @@ export function ProfileTag({
 	const name = page ? entity.name : getCardUserDisplayName(entity);
 	const handle = entity.handle;
 	const href = PUBLIC_PROFILE(entity.handle);
-	const resolvedBadge = badge ?? (variant === "compact" && !page ? "me" : undefined);
+	const resolvedBadge = badge ?? (variant === "compact" && !page ? "Me" : undefined);
 
-	const avatar = <ProfilePicture entity={entity} size={size} asLink={false} />;
+	const picture = <ProfilePicture entity={entity} size={size} asLink={false} />;
+	// Avatar and name are separate links so `trailing` (often its own link) is never nested inside one.
+	const avatar = asLink ? (
+		<Link href={href} className="hover:opacity-80 transition-opacity shrink-0">{picture}</Link>
+	) : picture;
+	const nameText = asLink ? (
+		<Link href={href} className="hover:opacity-80 transition-opacity">{name}</Link>
+	) : name;
 
 	const nameBlock =
 		variant === "compact" ? (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{name}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{nameText}{trailing}</p>
 				{resolvedBadge && (
-					<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize mt-1 inline-block">
-						{resolvedBadge}
-					</span>
+					typeof resolvedBadge === "string" ? (
+						<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey mt-1 inline-block">
+							{resolvedBadge}
+						</span>
+					) : resolvedBadge
 				)}
 			</div>
 		) : (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight">{name}</p>
+				<p className="text-sm font-medium text-rich-brown leading-tight">{nameText}{trailing}</p>
 				<p className="text-xs text-dusty-grey">@{handle}</p>
 			</div>
 		);
 
 	const alignClass = variant === "compact" ? "items-start" : "items-center";
 
-	const leftSection = asLink ? (
-		<Link href={href} className={`flex ${alignClass} gap-3 hover:opacity-80 transition-opacity min-w-0`}>
-			{avatar}
-			{nameBlock}
-		</Link>
-	) : (
+	const leftSection = (
 		<div className={`flex ${alignClass} gap-3 min-w-0`}>
 			{avatar}
 			{nameBlock}
@@ -81,9 +88,11 @@ export function ProfileTag({
 			: (badge || actions) && (
 					<div className="flex items-center gap-2 shrink-0">
 						{badge && (
-							<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey capitalize">
-								{badge}
-							</span>
+							typeof badge === "string" ? (
+								<span className="text-xs px-2 py-0.5 rounded border border-soft-grey/60 text-dusty-grey">
+									{badge}
+								</span>
+							) : badge
 						)}
 						{actions}
 					</div>

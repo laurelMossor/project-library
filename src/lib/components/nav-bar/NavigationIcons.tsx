@@ -95,7 +95,9 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 					<AboutIcon className={navIconStyles} />
 				</button>
 			</Tooltip>
-			<AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} handle={username} />
+			{isAboutModalOpen && (
+				<AboutModal onClose={() => setIsAboutModalOpen(false)} handle={username} />
+			)}
 
 			{/* Collections icon */}
 			<Tooltip text={"Collections"}>
@@ -120,7 +122,9 @@ export function NavigationIcons({ session: sessionProp }: NavigationIconsProps) 
 					</button>
 				</Tooltip>
 			)}
-			<NewItemModal isOpen={isNewItemModalOpen} onClose={() => setIsNewItemModalOpen(false)} />
+			{isNewItemModalOpen && (
+				<NewItemModal onClose={() => setIsNewItemModalOpen(false)} />
+			)}
 
 			{/* Message icon - links to messages panel */}
 			{isLoggedIn && (

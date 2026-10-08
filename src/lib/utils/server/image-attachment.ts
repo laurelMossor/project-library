@@ -3,10 +3,12 @@
 
 import { prisma } from "./prisma";
 import { ImageItem } from "../../types/image";
-import { AttachmentTarget } from "@prisma/client";
+import { AttachmentTarget, type Prisma } from "@prisma/client";
 import { imageFields } from "./fields";
-import { canActAsEntity } from "./permission";
-import { deleteImage } from "./storage";
+import { canActAsEntity, canEditContent } from "./permission";
+import { removeStoragePaths } from "./storage";
+
+type Db = Prisma.TransactionClient | typeof prisma;
 
 /**
  * Persist an Image row for an already-uploaded blob. The single owner of Image-row creation,
@@ -46,18 +48,14 @@ export async function canManageAttachmentTarget(
 		case AttachmentTarget.PAGE:
 			return canActAsEntity(userId, { page: { id: targetId } });
 		case AttachmentTarget.EVENT: {
-			const event = await prisma.event.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true } });
+			const event = await prisma.event.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true, asPageId: true } });
 			if (!event) return false;
-			return event.pageId
-				? canActAsEntity(userId, { page: { id: event.pageId } })
-				: canActAsEntity(userId, { user: { id: event.userId } });
+			return canEditContent(userId, event);
 		}
 		case AttachmentTarget.POST: {
-			const post = await prisma.post.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true } });
+			const post = await prisma.post.findUnique({ where: { id: targetId }, select: { userId: true, pageId: true, asPageId: true } });
 			if (!post) return false;
-			return post.pageId
-				? canActAsEntity(userId, { page: { id: post.pageId } })
-				: canActAsEntity(userId, { user: { id: post.userId } });
+			return canEditContent(userId, post);
 		}
 		default:
 			return false;
@@ -156,29 +154,75 @@ export async function getImagesForTargetsBatch(
 }
 
 /**
- * Hard-delete an Image row + its storage blob, but ONLY if nothing else references it.
- *
- * One Image can back multiple ImageAttachments and/or a User/Page avatar FK. Because
- * ImageAttachment.imageId is `onDelete: Cascade` and avatar FKs are `onDelete: SetNull`,
- * deleting a still-referenced Image would silently drop another attachment or null an
- * avatar. So we count remaining references first and skip the delete when shared. Call
- * this AFTER removing the attachment(s) so the count reflects the post-detach state.
- *
- * Storage deletion is best-effort (Supabase-only; dev `/uploads/` paths fail the URL
- * check and are logged, not thrown) — matches the rest of the delete paths.
+ * Delete Image rows among `imageIds` that nothing still points at (no attachment, no
+ * user or page avatar) and return their storage paths. Call after the referencing rows
+ * are gone. The caller removes the blobs — immediately for a single detach, or after
+ * commit when this runs inside a larger transaction.
  */
-async function deleteImageIfOrphaned(imageId: string, url: string): Promise<void> {
+export async function collectOrphanedImages(imageIds: string[], tx: Db = prisma): Promise<string[]> {
+	const ids = [...new Set(imageIds.filter(Boolean))];
+	if (ids.length === 0) return [];
 	const [attachments, userAvatars, pageAvatars] = await Promise.all([
-		prisma.imageAttachment.count({ where: { imageId } }),
-		prisma.user.count({ where: { avatarImageId: imageId } }),
-		prisma.page.count({ where: { avatarImageId: imageId } }),
+		tx.imageAttachment.findMany({ where: { imageId: { in: ids } }, select: { imageId: true } }),
+		tx.user.findMany({ where: { avatarImageId: { in: ids } }, select: { avatarImageId: true } }),
+		tx.page.findMany({ where: { avatarImageId: { in: ids } }, select: { avatarImageId: true } }),
 	]);
-	if (attachments || userAvatars || pageAvatars) return; // still referenced → keep
-	await prisma.image.delete({ where: { id: imageId } });
-	const result = await deleteImage(url);
-	if (!result.success) {
-		console.error(`Failed to delete image ${imageId} from storage:`, result.error);
+	const referenced = new Set<string>();
+	for (const row of attachments) referenced.add(row.imageId);
+	for (const row of userAvatars) if (row.avatarImageId) referenced.add(row.avatarImageId);
+	for (const row of pageAvatars) if (row.avatarImageId) referenced.add(row.avatarImageId);
+	const orphanIds = ids.filter((id) => !referenced.has(id));
+	if (orphanIds.length === 0) return [];
+	const orphans = await tx.image.findMany({ where: { id: { in: orphanIds } }, select: { path: true } });
+	await tx.image.deleteMany({ where: { id: { in: orphanIds } } });
+	return orphans.map((image) => image.path);
+}
+
+const AVATAR_REJECTED = "That photo can't be used as a profile picture.";
+
+export class AvatarNotAllowed extends Error {
+	constructor() {
+		super(AVATAR_REJECTED);
+		this.name = "AvatarNotAllowed";
 	}
+}
+
+/**
+ * A profile photo is either the one this profile already uses, or an unattached
+ * image this person uploaded. Anything else would republish someone else's photo.
+ * Returns an error string, or null when the id may be saved. `null` image ids
+ * (clearing the avatar) are the caller's job and are not passed here.
+ */
+export async function avatarAssignmentError(
+	actorUserId: string,
+	imageId: string,
+	currentAvatarId: string | null,
+	tx: Db = prisma,
+): Promise<string | null> {
+	if (imageId === currentAvatarId) return null;
+	const image = await tx.image.findUnique({
+		where: { id: imageId },
+		select: { uploadedByUserId: true, _count: { select: { attachments: true } } },
+	});
+	if (!image || image.uploadedByUserId !== actorUserId || image._count.attachments > 0) {
+		return AVATAR_REJECTED;
+	}
+	return null;
+}
+
+/** Detach every attachment on the given targets. Returns storage paths of images that became orphaned. */
+export async function detachAllForTargets(
+	targets: { type: AttachmentTarget; targetId: string }[],
+	tx: Db,
+): Promise<string[]> {
+	if (targets.length === 0) return [];
+	const attachments = await tx.imageAttachment.findMany({
+		where: { OR: targets.map((target) => ({ type: target.type, targetId: target.targetId })) },
+		select: { id: true, imageId: true },
+	});
+	if (attachments.length === 0) return [];
+	await tx.imageAttachment.deleteMany({ where: { id: { in: attachments.map((a) => a.id) } } });
+	return collectOrphanedImages(attachments.map((a) => a.imageId), tx);
 }
 
 /**
@@ -189,11 +233,11 @@ async function deleteImageIfOrphaned(imageId: string, url: string): Promise<void
 export async function deleteAttachment(attachmentId: string): Promise<void> {
 	const attachment = await prisma.imageAttachment.findUnique({
 		where: { id: attachmentId },
-		include: { image: { select: { id: true, url: true } } },
+		select: { imageId: true },
 	});
 	if (!attachment) return;
 	await prisma.imageAttachment.delete({ where: { id: attachmentId } });
-	await deleteImageIfOrphaned(attachment.image.id, attachment.image.url);
+	await removeStoragePaths(await collectOrphanedImages([attachment.imageId]));
 }
 
 /**
@@ -213,13 +257,11 @@ export async function deleteAllAttachmentsForTarget(
 			targetId,
 			...(opts?.onlyUploadedBy ? { image: { uploadedByUserId: opts.onlyUploadedBy } } : {}),
 		},
-		include: { image: { select: { id: true, url: true } } },
+		select: { id: true, imageId: true },
 	});
 	if (attachments.length === 0) return;
 	await prisma.imageAttachment.deleteMany({ where: { id: { in: attachments.map((a) => a.id) } } });
-	for (const att of attachments) {
-		await deleteImageIfOrphaned(att.image.id, att.image.url);
-	}
+	await removeStoragePaths(await collectOrphanedImages(attachments.map((a) => a.imageId)));
 }
 
 /**

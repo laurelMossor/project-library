@@ -72,6 +72,18 @@ describe("emitActivity fan-out", () => {
 		expect(writtenRows()[0].type).toBe("JOIN_REQUEST");
 	});
 
+	test("a page invite stores the offered role and names no deep-link object", async () => {
+		await emitActivity("membership.invited", { type: "PAGE", id: "pageY" }, { type: "USER", id: "sam" }, { role: "EDITOR" });
+		expect(writtenRows()).toHaveLength(1);
+		expect(writtenRows()[0]).toMatchObject({
+			recipientUserId: "sam",
+			type: "MEMBER_INVITE",
+			actorPageId: "pageY",
+			objectType: null,
+			objectId: "EDITOR",
+		});
+	});
+
 	test("USER target yields one personal row (contextPageId null)", async () => {
 		await emitActivity("follow.created", { type: "USER", id: "follower" }, { type: "USER", id: "followee" });
 		const rows = writtenRows();

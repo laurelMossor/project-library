@@ -2,10 +2,10 @@
 import type { Session } from "next-auth";
 import { auth } from "@/lib/auth";
 import { prisma } from "./prisma";
-import { canPostAsPage } from "./permission";
+import { canPostAsPage, getActingRole } from "./permission";
 import { publicUserEmbedFields } from "./user";
 import { publicPageEmbedFields } from "./fields";
-import type { CardUser, CardPage } from "@/lib/types/card";
+import type { CardUser, CardPageWithRole } from "@/lib/types/card";
 
 export type SessionContext = {
   userId: string;
@@ -15,8 +15,8 @@ export type SessionContext = {
 export type ActingIdentity = {
   /** The signed-in user, always resolved when authenticated. */
   currentUser: CardUser | null;
-  /** The page the user is acting as, or null for personal identity. */
-  activePage: CardPage | null;
+  /** The page the user is acting as, with their role, or null for personal identity. */
+  activePage: CardPageWithRole | null;
 };
 
 /**
@@ -29,7 +29,7 @@ export type ActingIdentity = {
  * Uses the lean *embed* selectors (no email/bio/elements): CardUser/CardPage are all
  * the nav needs, and it keeps sensitive profile data off the RSC→client prop boundary.
  * `activePageId` comes from the JWT (client-settable via updateSession), so the page is
- * re-gated with `canPostAsPage` here — matching GET /api/me/page — before it's returned.
+ * re-gated with `getActingRole` here — matching GET /api/me/page — before it's returned.
  */
 export async function getActingIdentity(session: Session | null): Promise<ActingIdentity> {
   const userId = session?.user?.id;
@@ -45,11 +45,14 @@ export async function getActingIdentity(session: Session | null): Promise<Acting
   return { currentUser, activePage };
 }
 
-/** Fetch the active page only if it's set and the user may still act as it. */
-async function resolveActivePage(userId: string, activePageId: string | null): Promise<CardPage | null> {
+/** Fetch the active page, with the caller's role, only if they may still act as it. */
+async function resolveActivePage(userId: string, activePageId: string | null): Promise<CardPageWithRole | null> {
   if (!activePageId) return null;
-  if (!(await canPostAsPage(userId, activePageId))) return null;
-  return prisma.page.findUnique({ where: { id: activePageId }, select: publicPageEmbedFields });
+  const role = await getActingRole(userId, activePageId);
+  if (!role) return null;
+  const page = await prisma.page.findUnique({ where: { id: activePageId }, select: publicPageEmbedFields });
+  if (!page) return null;
+  return { ...page, role };
 }
 
 /** Get the current authenticated user's ID from session */

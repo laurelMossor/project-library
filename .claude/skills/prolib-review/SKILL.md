@@ -8,9 +8,10 @@ description: >-
   "code review this PR", "anything wrong with this?", or after finishing a feature
   and wanting a check before commit. Prefer this over a bare /code-review here,
   because the bare review doesn't know ProLib's conventions (route constants,
-  server-util query layout, permission helpers, identity scoping) or its schema
+  server-util query layout, permission helpers, identity scoping), its schema
   invariants (post/event mutual exclusion, two-field profile/content visibility,
-  draft gating, conversation asPageId scoping). Not for QA/acceptance of a finished
+  draft gating, conversation asPageId scoping), or where the same rule or component
+  now has two owners. Not for QA/acceptance of a finished
   ticket against the running app — that's /prolib-qa.
 ---
 
@@ -23,8 +24,9 @@ Review changed code for The Project Library. This is a **two-layer** review:
 2. **Project Library fit** — the house rules and domain invariants a generic
    reviewer can't know. This skill exists for *this* layer.
 
-Run layer 1, then apply layer 2. Then check whether the diff's **tests** protect
-the change — meaningful coverage gaps and weak tests (step 5). Report them together.
+Run layer 1, then apply layer 2, including the DRY/SOLID pass (step 4). Then check
+whether the diff's **tests** protect the change — meaningful coverage gaps and weak
+tests (step 6). Report them together.
 
 Most layer-2 findings are **rule violations**, so the **invariant checklist below is
 the primary artifact.** The diagrams are supporting actors: they answer one structural
@@ -37,8 +39,13 @@ trace by hand.
 
 ### 1. Run the standard review
 
-Invoke the built-in **`/code-review`** on the current diff.
+Invoke the built-in **`/code-review`** on the diff against the base branch.
 
+- **Base: `develop`, unless the user names another** base, branch, or PR. Review
+  `git diff develop...HEAD` plus uncommitted changes. When you're *on* `develop`
+  (so that range is empty), review uncommitted changes plus commits not yet on
+  `origin/develop`. If that's empty too, ask what to review — don't guess. Name the base
+  in the report header.
 - **Default effort: `high`.**
 - **Escalate to `xhigh`** when the diff touches any of: auth (`src/lib/auth.ts`,
   NextAuth), **permissions** (`src/lib/utils/server/permission.ts`, role checks),
@@ -135,7 +142,42 @@ stable invariants, which are the high-value catches:
 **Schema-design principles (when the diff changes the schema):** avoid open-ended enums;
 prefer single-responsibility models.
 
-### 4. Other house rules
+### 4. DRY/SOLID — one owner for each operation
+
+Review the changed code for a rule, write, or component that already exists somewhere
+else, or for one function that now does two jobs. The win is consolidation: the next
+edit should have one place to get right. Flag a finding when a future change would
+update one copy and leave another stale, or when a caller can't use a function without
+also taking on behavior it doesn't want.
+
+**Checkable catches — each is a finding:**
+
+- **The same operation written twice.** Two functions, or a function and an inline
+  block, that write the same field, enforce the same rule, or render the same control.
+  Name the existing owner (a server util, a shared component, `fields.ts`,
+  `validations.ts`) and what should call it. A seed or fixture that sets a column
+  directly is a different job, not a second owner.
+- **A second public door for one behavior.** A route, helper, or component nothing in
+  the app calls, kept beside the path that actually runs. The unused one drifts.
+- **One unit, two jobs.** A query that also writes. A pure helper living in a module
+  that imports Prisma, the network, or an LLM, so a unit test has to mock I/O to import
+  a string function. A route that inlines a policy the server-util layer already owns.
+  The read stays a read. The policy lives at the caller that means it, usually the route.
+- **A shared helper that doesn't fit its callers.** Consolidation is fewer owners, not a
+  wrapper around two copies that still diverge. If the helper re-fetches data the caller
+  already holds, or it can't run inside the caller's transaction, the shape of the
+  helper is the finding.
+- **Duplicated UI.** A second component or field block for a control that already has a
+  shared one. Extend the existing component.
+
+**Scope.** Start with the diff. Mention duplication the diff joins in untouched code
+only when leaving it means two owners of the same rule. Step 9 settles whether the fix
+stays in this diff or also pulls the sibling in.
+
+Skip a one-off seed write, presentational repetition that isn't a shared behavior, and
+a rename that doesn't remove an owner.
+
+### 5. Other house rules
 
 - **Hand-written TS types** that duplicate schema shapes — the DB schema is the source
   of truth; prefer the schema-derived interfaces in `src/lib/types/` → flag.
@@ -145,7 +187,7 @@ prefer single-responsibility models.
 - **Identity-aware UI** that refetches/derives identity instead of reading
   `ActiveProfileContext` (`activeEntity`, `activePageId`, `currentUser`) → flag.
 
-### 5. Test coverage — does the diff leave meaningful risk untested?
+### 6. Test coverage — does the diff leave meaningful risk untested?
 
 Look at the tests as part of the diff's surface, not an afterthought. Two checks,
 both judged by one bar — **"would this meaningfully protect against a real
@@ -181,7 +223,7 @@ protection*: security, data integrity, identity scoping, permission paths, and
 regressions of bugs this diff (or a prior one) fixed. If coverage is already
 adequate, say so explicitly rather than manufacturing a gap.
 
-### 6. Verify before reporting — don't trust this list over the code
+### 7. Verify before reporting — don't trust this list over the code
 
 Paths, function names, and invariants drift. Before reporting a layer-2 finding that
 names a specific field, enum value, helper, or file, confirm it against the source of
@@ -195,20 +237,23 @@ needs updating) rather than emitting a false positive.
 The authoritative convention list is **`docs/guidance/PROJECT_GUIDELINES.md`**; this
 skill is a review checklist derived from it, not a second copy.
 
-### 7. Report the findings
+### 8. Report the findings
 
 Combine the layers into one report. Lead with correctness/security, then Project
-Library fit, then test coverage. For each finding give file:line, what's wrong,
-and the fix.
+Library fit, then DRY/SOLID, then test coverage. For each finding give file:line,
+what's wrong, and the fix.
 
 ```
-## Review: <branch / PR / diff>
+## Review: <branch / PR / diff>  (base: <develop | named base>)
 
 ### Correctness & security
 - <finding> — file:line — <why + fix>
 
 ### Project Library fit
 - <convention/invariant> — file:line — <what to change>
+
+### DRY & SOLID
+- <one owner / one job> — file:line — <what to consolidate onto>
 
 ### Test coverage
 - <missing case worth adding | weak or misleading test> — file:line — <the risk it protects + the case to add/fix>
@@ -219,7 +264,7 @@ Nothing flagged in a section → say so explicitly.
 If a finding is **ambiguous** (arguably-correct, needs a product/design call), flag it
 for the user rather than asserting a verdict.
 
-### 8. Discuss before planning — do NOT jump to a plan or to fixes
+### 9. Discuss before planning — do NOT jump to a plan or to fixes
 
 This review is a **conversation, not a hand-off.** After reporting, the default is to
 *talk through* the findings with the user — never to immediately write a plan or start
@@ -234,13 +279,13 @@ editing. Specifically:
   should live) and get a decision. Use `AskUserQuestion` for the genuine choices.
   **These answers settle *what* to do — they are NOT approval to start editing.** A "fix
   them all" / "fix now" / "investigate now" answer chooses scope; it does not skip the
-  plan gate in step 9.
+  plan gate in step 10.
 - **Wait for "we're done discussing."** Don't pre-empt the user by starting a plan while
   scope is still open.
 
-### 9. Plan and get approval BEFORE editing — a hard gate
+### 10. Plan and get approval BEFORE editing — a hard gate
 
-Settling scope (step 8) is **not** a green light to edit. Once scope is settled, enter
+Settling scope (step 9) is **not** a green light to edit. Once scope is settled, enter
 plan mode (`EnterPlanMode`), write the implementation plan for the agreed changes, and
 call `ExitPlanMode` to get the user's approval. **Do not edit a single file — not even a
 one-line comment fix, a test, or an "obviously safe" change — until that plan is
@@ -252,7 +297,13 @@ now") as authorization and jumping straight to edits — don't. Scope answers te
 *which* findings to plan; the plan + `ExitPlanMode` is what unlocks editing.
 
 The plan covers only what was agreed, names the files/helpers to reuse, and includes a
-verification section. Verify with **targeted checks** (the affected unit/E2E tests, a
+verification section.
+
+**Antagonist pass before `ExitPlanMode` — required.** Run the antagonist pass from
+CLAUDE.md on the drafted plan (skeptical staff engineer: hidden coupling, a simpler
+route or existing abstraction, DRY/SOLID, edge cases, cuttable scope). Revise the plan
+from it and present the hardened version with a short "Tradeoffs weighed" note — never
+the first draft. Verify with **targeted checks** (the affected unit/E2E tests, a
 typecheck of touched files). Don't run `npm run validate` and don't ask the user to run
 it either — it's the CI merge gate and runs automatically on every PR. Don't silently
 auto-apply `/code-review --fix`.

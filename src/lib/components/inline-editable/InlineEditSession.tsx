@@ -38,8 +38,9 @@ export type InlineEditSessionContextType = {
 	updateCreate: (tempId: string, field: string, value: unknown) => void;
 	markDeleted: (elementId: string) => void;
 	unmarkDeleted: (elementId: string) => void;
-	saveAll: () => Promise<void>;
-	publish: () => Promise<void>;
+	/** Resolves true when everything saved (or there was nothing to save), false on failure. */
+	saveAll: () => Promise<boolean>;
+	publish: () => Promise<boolean>;
 	cancelAll: () => void;
 };
 
@@ -67,6 +68,8 @@ type InlineEditSessionProps<T extends Record<string, unknown>> = {
 	canPublish?: (current: T) => boolean;
 	/** Message shown next to the disabled Publish button when canPublish returns false. */
 	publishHint?: string;
+	/** `none` hides the save bar so a parent (setup) can call `saveAll()` from its own button. */
+	footer?: "bar" | "none";
 	children: ReactNode;
 };
 
@@ -78,6 +81,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	publishable = false,
 	canPublish,
 	publishHint,
+	footer = "bar",
 	children,
 }: InlineEditSessionProps<T>) {
 	const [dirtyFields, setDirtyFields] = useState<Record<string, unknown>>({});
@@ -186,10 +190,10 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	 * When publish=true, injects status:"PUBLISHED" into the fields payload.
 	 * A publish with zero field/element changes still goes through (no early-return).
 	 */
-	const commit = useCallback(async ({ publish = false }: { publish?: boolean } = {}) => {
-		if (savingRef.current) return; // re-entrancy guard (synchronous)
+	const commit = useCallback(async ({ publish = false }: { publish?: boolean } = {}): Promise<boolean> => {
+		if (savingRef.current) return false; // re-entrancy guard (synchronous)
 		// For plain saves, skip if nothing is dirty
-		if (!publish && changeCount === 0) return;
+		if (!publish && changeCount === 0) return true;
 		savingRef.current = true;
 		setSaving(true);
 		setError(null);
@@ -240,8 +244,10 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 			originalValuesRef.current = {};
 			setPendingCreates([]);
 			setPendingDeletes([]);
+			return true;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save");
+			return false;
 		} finally {
 			savingRef.current = false;
 			setSaving(false);
@@ -297,7 +303,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	return (
 		<InlineEditSessionContext.Provider value={ctx}>
 			{children}
-			{!overlayOpen && (
+			{footer === "bar" && !overlayOpen && (
 				<InlineEditSessionBar
 					changeCount={changeCount}
 					pendingDeleteCount={pendingDeletes.length}

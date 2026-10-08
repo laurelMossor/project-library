@@ -58,19 +58,64 @@ test.describe("Authoring — create content", () => {
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────
-  test("create a page redirects to its public profile", async ({ page }) => {
-    const handle = `playwright-test-${Date.now()}`;
+  test("a new page is created only when confirmed", async ({ page }) => {
+    const handle = `playwright-test-${Date.now() % 1e7}`;
+    const before = await page.request.get("/api/me/pages");
+    const beforeCount = (await before.json() as unknown[]).length;
+
     await page.goto("/pages/new");
-    await expect(page).toHaveURL(/\/pages\/new/);
+    await expect(page.getByRole("heading", { name: "Create a page", level: 1 })).toBeVisible();
+    await expect(page.getByText("Alice Example")).toBeVisible();
 
-    await page.locator("#name").fill("Playwright Test Page");
-    await page.locator("#handle").fill(handle);
-    await page.getByRole("button", { name: "Create Page" }).click();
+    const handleField = page.getByLabel("Handle");
+    await expect(handleField).toHaveValue("");
+    await handleField.fill(handle);
+    await expect(page.getByText("Available")).toBeVisible();
+    const free = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await free.json()).available).toBe(true);
 
-    await page.waitForURL(new RegExp(`/${handle}`), { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Playwright Test Page", level: 1, exact: true }),
-    ).toBeVisible();
+    const mid = await page.request.get("/api/me/pages");
+    expect((await mid.json() as unknown[]).length).toBe(beforeCount);
+
+    await page.getByRole("button", { name: "Looks good" }).click();
+    await page.waitForURL(new RegExp(`/${handle}$`), { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: handle, level: 1, exact: true })).toBeVisible();
+    const taken = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await taken.json()).available).toBe(false);
+    const after = await page.request.get("/api/me/pages");
+    expect((await after.json() as unknown[]).length).toBe(beforeCount + 1);
+  });
+
+  test("leaving the new-page form creates nothing", async ({ page }) => {
+    const handle = `playwright-test-${Date.now() % 1e7}x`;
+    const before = await page.request.get("/api/me/pages");
+    const beforeCount = (await before.json() as unknown[]).length;
+
+    await page.goto("/pages/new");
+    const handleField = page.getByLabel("Handle");
+    await expect(handleField).toHaveValue("");
+    await handleField.fill(handle);
+    await expect(page.getByText("Available")).toBeVisible();
+
+    await page.getByRole("link", { name: "Project Library" }).click();
+    await page.waitForURL(/\/explore/);
+    const typed = await page.request.get(`/api/handles/available?handle=${handle}`);
+    expect((await typed.json()).available).toBe(true);
+    const after = await page.request.get("/api/me/pages");
+    expect((await after.json() as unknown[]).length).toBe(beforeCount);
+  });
+
+  test("cancel creates nothing", async ({ page }) => {
+    const before = await page.request.get("/api/me/pages");
+    const beforeCount = (await before.json() as unknown[]).length;
+
+    await page.goto("/pages/new");
+    await expect(page.getByLabel("Handle")).toHaveValue("");
+
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await page.waitForURL(/\/settings/);
+    const after = await page.request.get("/api/me/pages");
+    expect((await after.json() as unknown[]).length).toBe(beforeCount);
   });
 
   // ─── Profile inline editing ──────────────────────────────────────────────

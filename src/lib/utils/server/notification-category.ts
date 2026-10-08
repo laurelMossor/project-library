@@ -16,6 +16,8 @@ export const NOTIFICATION_TYPE_TO_CATEGORY: Record<NotificationType, Notificatio
 	[NotificationType.NEW_FOLLOWER]: NotificationCategory.FOLLOWS,
 	[NotificationType.NEW_MEMBER]: NotificationCategory.FOLLOWS,
 	[NotificationType.RSVP]: NotificationCategory.RSVPS,
+	[NotificationType.MEMBER_INVITE]: NotificationCategory.REQUESTS,
+	[NotificationType.ROLE_CHANGED]: NotificationCategory.FOLLOWS,
 };
 
 // Effective on/off for a category when the identity has no stored NotificationPreference row.

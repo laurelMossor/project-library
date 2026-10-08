@@ -7,8 +7,10 @@ import { postCollectionFields, postWithUserFields, toCollectionMeta } from "./fi
 import { getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ViewerContext } from "./visibility";
-import { collectionVisibilityWhere, resolveParentVisibility, canViewEvent, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
-import { canPostAsPage } from "./permission";
+import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere, resolveParentVisibility, canViewEvent, canViewPost, isContentOwner, PROFILE_COLLECTION_VISIBILITY } from "./visibility";
+import { canEditContent } from "./permission";
+import { withCanPin } from "./pin";
+import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "./content-placement";
 import { ContentVisibility } from "@prisma/client";
 
 /**
@@ -19,7 +21,7 @@ import { ContentVisibility } from "@prisma/client";
 export async function getEventUpdates(eventId: string, viewer?: ViewerContext): Promise<PostItem[]> {
 	const event = await prisma.event.findUnique({
 		where: { id: eventId },
-		select: { id: true, userId: true, pageId: true, contentVisibility: true },
+		select: { id: true, userId: true, pageId: true, asPageId: true, contentVisibility: true },
 	});
 	if (!event) return [];
 
@@ -44,10 +46,31 @@ export async function getEventUpdates(eventId: string, viewer?: ViewerContext): 
 	return posts as PostItem[];
 }
 
-/** Fetch reply posts (updates) for a parent post, sorted by createdAt (newest first) */
-export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
+/**
+ * Fetch update posts attached to a parent post, sorted by createdAt (newest first).
+ * Pass `viewer` to gate PRIVATE updates by the parent post's relationship
+ * (defense-in-depth — the caller route also gates the parent itself).
+ * The owner sees DRAFT updates; everyone else gets PUBLISHED only.
+ */
+export async function getPostUpdates(parentPostId: string, viewer?: ViewerContext): Promise<PostItem[]> {
+	const parent = await prisma.post.findUnique({
+		where: { id: parentPostId },
+		select: { id: true, userId: true, pageId: true, asPageId: true, eventId: true, contentVisibility: true },
+	});
+	if (!parent) return [];
+
+	const canSeePrivate = viewer
+		? await canViewPost(parent, viewer)
+		: parent.contentVisibility !== ContentVisibility.PRIVATE;
+
+	const isOwner = viewer ? await isContentOwner(viewer, parent) : false;
+
 	const posts = await prisma.post.findMany({
-		where: { parentPostId },
+		where: {
+			parentPostId,
+			...(isOwner ? {} : { status: "PUBLISHED" as const }),
+			...(canSeePrivate ? {} : { contentVisibility: { in: PROFILE_COLLECTION_VISIBILITY } }),
+		},
 		orderBy: { createdAt: "desc" },
 		select: postWithUserFields,
 	});
@@ -63,31 +86,32 @@ export async function getPostsByUser(
 	userId: string,
 	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
 ): Promise<PostCollectionItem[]> {
+	const personal = await collectionVisibilityWhere("USER", userId, viewer);
+	const placed = await authorProfilePlacementWhere(viewer);
 	const posts = await prisma.post.findMany({
 		where: {
 			userId,
-			pageId: null,
 			parentPostId: null,
 			eventId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
-			...(await collectionVisibilityWhere("USER", userId, viewer)),
+			OR: [{ pageId: null, ...personal }, placed],
 		},
 		select: postCollectionFields,
 		orderBy: { createdAt: "desc" },
 	});
 	const postIds = posts.map((p) => p.id);
 	const imagesMap = await getImagesForTargetsBatch("POST", postIds);
-	return posts.map(({ _count, updates, ...p }) => ({
+	return withCanPin(posts.map(({ _count, updates, ...p }) => ({
 		...p,
 		type: COLLECTION_TYPES.POST as "post",
 		images: imagesMap.get(p.id) || [],
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { userId });
 }
 
 /**
  * Fetch a page's top-level published posts for public views.
- * Pass `includeDrafts: true` to also return drafts (for page admins/editors).
+ * Pass `includeDrafts: true` to also return page-spoken drafts and the viewer's own.
  * Pass `viewer` to apply visibility filtering (omit only when caller already knows viewer is a member).
  */
 export async function getPostsByPage(
@@ -99,7 +123,7 @@ export async function getPostsByPage(
 			pageId,
 			parentPostId: null,
 			eventId: null,
-			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...draftsOnPageWhere(includeDrafts, viewer),
 			...(await collectionVisibilityWhere("PAGE", pageId, viewer)),
 		},
 		select: postCollectionFields,
@@ -107,12 +131,12 @@ export async function getPostsByPage(
 	});
 	const postIds = posts.map((p) => p.id);
 	const imagesMap = await getImagesForTargetsBatch("POST", postIds);
-	return posts.map(({ _count, updates, ...p }) => ({
+	return withCanPin(posts.map(({ _count, updates, ...p }) => ({
 		...p,
 		type: COLLECTION_TYPES.POST as "post",
 		images: imagesMap.get(p.id) || [],
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { pageId });
 }
 
 /**
@@ -120,6 +144,9 @@ export async function getPostsByPage(
  * invariant violations). Routes map this to a 400; anything else is a 500.
  */
 export class PostInputError extends Error {}
+
+/** Placement was refused because the caller may not post there. Routes map this to a 403. */
+export class PostForbiddenError extends PostInputError {}
 
 type CreatePostData = PostCreateInput & {
 	topics?: string[];
@@ -147,15 +174,19 @@ export async function createPost(
 		throw new PostInputError("Content is required and cannot be empty");
 	}
 
-	// A reply inherits its page from the parent (INV-3); a client-supplied pageId is only
-	// meaningful for non-reply posts. effectivePageId is the value actually written.
-	let effectivePageId: string | null = data.parentPostId ? null : data.pageId || null;
+	// A reply inherits placement from its parent (INV-3). An event update copies the
+	// event and ignores the client. Otherwise the caller chooses who's speaking
+	// (asPageId) and, when speaking as themselves, where it lives (pageId).
+	let placement: { pageId: string | null; asPageId: string | null; showOnAuthorProfile: boolean } = {
+		pageId: null,
+		asPageId: null,
+		showOnAuthorProfile: false,
+	};
 
 	if (data.parentPostId) {
-		// Reply: parent must exist, be top-level (INV-2), and be owned by the caller.
 		const parentPost = await prisma.post.findUnique({
 			where: { id: data.parentPostId },
-			select: { id: true, parentPostId: true, userId: true, pageId: true },
+			select: { id: true, parentPostId: true, userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true },
 		});
 		if (!parentPost) {
 			throw new PostInputError("Parent post not found");
@@ -163,46 +194,57 @@ export async function createPost(
 		if (parentPost.parentPostId) {
 			throw new PostInputError("Cannot nest posts more than one level deep");
 		}
-		const parentOwned = parentPost.pageId
-			? await canPostAsPage(userId, parentPost.pageId)
-			: parentPost.userId === userId;
-		if (!parentOwned) {
+		if (!(await canEditContent(userId, parentPost))) {
 			throw new PostInputError("You can only add updates to your own posts");
 		}
-		effectivePageId = parentPost.pageId;
-	} else if (data.pageId) {
-		// Page-authored post (INV-8): caller must hold ADMIN/EDITOR on the page.
-		if (!(await canPostAsPage(userId, data.pageId))) {
-			throw new PostInputError("You don't have permission to post as this page");
-		}
-	}
-
-	if (data.eventId) {
-		// Event update: event must exist and be owned by the caller.
+		placement = await resolveContentPlacement(userId, { parent: parentPost });
+	} else if (data.eventId) {
+		// Event update: placement and voice come from the event. A client pageId must
+		// not widen a private event onto a public page.
 		const event = await prisma.event.findUnique({
 			where: { id: data.eventId },
-			select: { userId: true },
+			select: { userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true },
 		});
 		if (!event) {
 			throw new PostInputError("Event not found");
 		}
-		if (event.userId !== userId) {
-			throw new PostInputError("Cannot create post for an event you don't own");
+		if (!(await canEditContent(userId, event))) {
+			throw new PostInputError("You can only add updates to your own events");
+		}
+		placement = {
+			pageId: event.pageId,
+			asPageId: event.asPageId,
+			showOnAuthorProfile: event.showOnAuthorProfile,
+		};
+	} else {
+		try {
+			placement = await resolveContentPlacement(userId, {
+				asPageId: data.asPageId,
+				pageId: data.pageId,
+				showOnAuthorProfile: data.showOnAuthorProfile,
+			});
+		} catch (err) {
+			if (err instanceof PlacementForbiddenError) throw new PostForbiddenError(err.message);
+			if (err instanceof PlacementError) throw new PostInputError(err.message);
+			throw err;
 		}
 	}
 
-	// A reply inherits its PARENT POST's visibility, not the page's — this matches what
-	// syncDescendantVisibility("POST", ...) writes on a re-parent, and stays correct if a
-	// future per-item override ever lets a post's visibility diverge from its page. For
-	// non-replies, derive from the (effective) page → event → user chain as usual.
+	// A reply inherits its PARENT POST's visibility. An event update inherits the
+	// EVENT's visibility (page argument null, so a public page cannot widen it).
+	// Everything else derives from the page → user chain.
 	const contentVisibility = data.parentPostId
 		? await resolveParentVisibility(userId, null, null, data.parentPostId)
-		: await resolveParentVisibility(userId, effectivePageId, data.eventId, null);
+		: data.eventId
+			? await resolveParentVisibility(userId, null, data.eventId, null)
+			: await resolveParentVisibility(userId, placement.pageId, null, null);
 
 	const post = await prisma.post.create({
 		data: {
 			userId,
-			pageId: effectivePageId,
+			pageId: placement.pageId,
+			asPageId: placement.asPageId,
+			showOnAuthorProfile: placement.showOnAuthorProfile,
 			eventId: data.eventId || null,
 			parentPostId: data.parentPostId || null,
 			title: data.title?.trim() || null,

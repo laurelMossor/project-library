@@ -12,8 +12,11 @@ import {
   validateEventPublishable,
   validatePageData,
   isValidCoordinate,
+  validateGroupName,
+  validateGroupMemberRefs,
 } from "@/lib/validations";
-import { generateHandle } from "@/lib/utils/handle";
+import { generateHandle, handleFromName, nameFromHandle, sanitizeHandleTyping } from "@/lib/utils/handle";
+import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS } from "@/lib/const/messaging";
 
 // ---------------------------------------------------------------------------
 // validateEmail
@@ -142,6 +145,40 @@ describe("generateHandle", () => {
     // generateHandle is forgiving; callers pair it with validateHandle.
     expect(generateHandle("!!")).toBe("");
     expect(validateHandle(generateHandle("!!"))).toBe(false);
+  });
+
+  test("keeps periods and still collapses hyphen runs", () => {
+    expect(generateHandle("Dr. Who")).toBe("dr.-who");
+    expect(generateHandle("alice.example")).toBe("alice.example");
+    expect(generateHandle("foo   bar")).toBe("foo-bar");
+    expect(validateHandle(generateHandle("Dr. Who"))).toBe(true);
+  });
+});
+
+describe("handleFromName / nameFromHandle", () => {
+  test("a name becomes the same slug generateHandle would", () => {
+    expect(handleFromName("Dr. Who")).toBe("dr.-who");
+    expect(handleFromName("Portland Makers Guild")).toBe(generateHandle("Portland Makers Guild"));
+  });
+
+  test("a handle becomes the page name only once it is a legal handle", () => {
+    expect(nameFromHandle("Foo!!")).toBe("foo");
+    expect(nameFromHandle("Dr. Who")).toBe("dr.-who");
+    expect(nameFromHandle("ab")).toBeNull();
+    expect(nameFromHandle("!!")).toBeNull();
+  });
+});
+
+describe("sanitizeHandleTyping", () => {
+  test("drops characters outside the handle alphabet", () => {
+    expect(sanitizeHandleTyping("Foo!!")).toBe("foo");
+    expect(sanitizeHandleTyping("foo bar")).toBe("foobar");
+    expect(sanitizeHandleTyping("!!")).toBe("");
+  });
+
+  test("keeps an in-progress separator", () => {
+    expect(sanitizeHandleTyping("foo-")).toBe("foo-");
+    expect(sanitizeHandleTyping("alice.example")).toBe("alice.example");
   });
 });
 
@@ -465,4 +502,40 @@ describe("validatePageData", () => {
     // which is covered directly in reserved-handles.test.ts (isReservedHandle("API")).
     expect(validatePageData({ name: "Api", handle: "API" })).toMatchObject({ valid: false });
   });
+});
+
+describe("validateGroupName", () => {
+	test("no name (null/undefined) is allowed — groups can be unnamed", () => {
+		expect(validateGroupName(null).valid).toBe(true);
+		expect(validateGroupName(undefined).valid).toBe(true);
+	});
+	test("blank / whitespace-only is fine — it means no name (the field is optional)", () => {
+		expect(validateGroupName("").valid).toBe(true);
+		expect(validateGroupName("   ").valid).toBe(true);
+	});
+	test("over the length cap is rejected; at the cap is fine", () => {
+		expect(validateGroupName("x".repeat(MAX_GROUP_NAME_LENGTH)).valid).toBe(true);
+		expect(validateGroupName("x".repeat(MAX_GROUP_NAME_LENGTH + 1)).valid).toBe(false);
+	});
+	test("non-string is rejected", () => {
+		expect(validateGroupName(42).valid).toBe(false);
+	});
+});
+
+describe("validateGroupMemberRefs", () => {
+	test("accepts user and page refs", () => {
+		const r = validateGroupMemberRefs([{ type: "user", id: "u1" }, { type: "page", id: "p1" }]);
+		expect(r.valid).toBe(true);
+		expect(r.refs).toEqual([{ type: "user", id: "u1" }, { type: "page", id: "p1" }]);
+	});
+	test("rejects empty, non-array, and malformed refs", () => {
+		expect(validateGroupMemberRefs([]).valid).toBe(false);
+		expect(validateGroupMemberRefs("u1").valid).toBe(false);
+		expect(validateGroupMemberRefs([{ type: "robot", id: "x" }]).valid).toBe(false);
+		expect(validateGroupMemberRefs([{ type: "user", id: "" }]).valid).toBe(false);
+	});
+	test("rejects more refs than the participant cap", () => {
+		const refs = Array.from({ length: MAX_GROUP_PARTICIPANTS + 1 }, (_, i) => ({ type: "user", id: `u${i}` }));
+		expect(validateGroupMemberRefs(refs).valid).toBe(false);
+	});
 });

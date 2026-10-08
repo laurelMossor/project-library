@@ -7,6 +7,9 @@ import { getEventPosts, getPostUpdates } from "@/lib/utils/post-client";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import Link from "next/link";
 import { resolveCardIdentity } from "@/lib/types/card";
+import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
+import { contentIdentity } from "@/lib/utils/content-identity";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 
 type PostsListProps = {
 	collectionId: string;
@@ -63,21 +66,16 @@ export function PostsList({
 			<div className="space-y-4">
 				{displayPosts.map((post) => {
 					// Resolve the posting identity — a page takes precedence over the author.
-					const entity = post.page ?? post.user ?? null;
-					const identity = entity ? resolveCardIdentity(entity) : null;
+					const identityItem = post.user ? contentIdentity({ user: post.user, page: post.page ?? null, asPageId: post.asPageId ?? null }) : null;
+					const identity = identityItem ? resolveCardIdentity(identityItem.voice) : null;
+					const placedIn = identityItem?.placedIn ?? null;
 
 					return (
 						<div key={post.id} className="border-l-2 border-soft-grey pl-4 py-2">
 							{/* Attribution */}
-							{identity && (
+							{identity && identityItem && (
 								<div className="flex items-center gap-2 mb-2">
-									{/* Inline avatar for posts */}
-									<Link
-										href={identity.href}
-										className="w-8 h-8 rounded-full bg-soft-grey flex items-center justify-center flex-shrink-0 hover:opacity-80 transition-opacity text-xs text-warm-grey font-medium"
-									>
-										{identity.initials}
-									</Link>
+									<ProfilePicture entity={identityItem.voice} size="sm" />
 									<div className="flex items-center gap-1">
 										<Link
 											href={identity.href}
@@ -85,6 +83,11 @@ export function PostsList({
 										>
 											{identity.name}
 										</Link>
+										{placedIn && (
+											<Link href={PUBLIC_PROFILE(placedIn.handle)} className="text-xs text-dusty-grey hover:underline">
+												{" › "}{placedIn.name}
+											</Link>
+										)}
 									</div>
 									<LocalDate value={post.createdAt} mode="absolute" className="text-xs text-dusty-grey" />
 								</div>

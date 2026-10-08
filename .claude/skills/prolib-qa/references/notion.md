@@ -31,7 +31,38 @@ curl -s -X GET "https://api.notion.com/v1/blocks/$PAGE_ID/children?page_size=100
 their `<type>.rich_text[].plain_text`. `to_do` blocks also have a `checked` boolean —
 that's where informal acceptance checklists show up.
 
-## Writing back (step 6 — immediately after each ticket)
+## Writing drafted criteria (step 2 — both tracks, no approval gate)
+
+Append a heading, the not-yet-driven note, and unchecked `to_do` rows. If the ticket
+already has an "Acceptance Criteria" heading, skip the heading and append the note +
+your added rows after the existing ones.
+
+```bash
+curl -s -X PATCH "https://api.notion.com/v1/blocks/$PAGE_ID/children" \
+  -H "Authorization: Bearer $NOTION_KEY" -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "children": [
+      { "object": "block", "type": "heading_3",
+        "heading_3": { "rich_text": [ { "text": { "content": "Acceptance Criteria" } } ] } },
+      { "object": "block", "type": "paragraph",
+        "paragraph": { "rich_text": [ { "text": { "content": "Drafted by QA agent — not yet driven in the app." },
+                                        "annotations": { "italic": true } } ] } },
+      { "object": "block", "type": "to_do",
+        "to_do": { "rich_text": [ { "text": { "content": "<do X → see Y>" } } ], "checked": false } }
+    ]
+  }'
+```
+
+After a QA run, PATCH that paragraph block's text to *"QA'd <date>: checked rows were
+driven live."* (`PATCH /v1/blocks/<paragraph id>` with a `paragraph.rich_text` body).
+
+## Writing back (step 6 — after the user says yes)
+
+Drive every acceptance criterion, report, then ask before writing. The question is in
+SKILL.md step 5. On a yes, do the writes below. A clean pass (every row passed, nothing
+untested, nothing concerning observed) also moves Status to `Done`, announced as
+"I'll move this ticket to Done".
 
 Do **both** on a pass; on a fail, skip checking off criteria if the user prefers, and
 set Status as directed. (There is no third step — do **not** post a comment; see below.)
@@ -55,7 +86,8 @@ curl -s -X PATCH "https://api.notion.com/v1/blocks/$BLOCK_ID" \
   -d '{"to_do": {"checked": true}}'
 ```
 
-If criteria haven't been written yet, append them now (already checked for passes):
+If criteria haven't been written yet, append them now (already checked for passes; use
+the "QA'd <date>" note instead of the not-yet-driven one):
 
 ```bash
 curl -s -X PATCH "https://api.notion.com/v1/blocks/$PAGE_ID/children" \

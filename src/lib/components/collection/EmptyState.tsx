@@ -5,12 +5,14 @@ type EmptyStateProps = {
 	collectionTypeFilter: FilterCollectionType;
 	search: string;
 	showCreateLinks?: boolean;
+	message?: string;
 };
 
 export function EmptyState({
 	collectionTypeFilter,
 	search,
 	showCreateLinks = true,
+	message,
 }: EmptyStateProps) {
 	const getItemLabel = () => {
 		switch (collectionTypeFilter) {
@@ -28,7 +30,7 @@ export function EmptyState({
 		if (search) {
 			return `No ${label} found matching "${search}".`;
 		}
-		return `No ${label} yet.`;
+		return message ?? `No ${label} yet.`;
 	};
 
 	return (

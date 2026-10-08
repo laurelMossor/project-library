@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
+import { formatRole } from "@/lib/const/roles";
 
 export type PageItem = {
 	id: string;
@@ -39,7 +40,7 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 								avatarImageId: page.avatarImageId ?? null,
 								avatarImage: page.avatarImage,
 							}}
-							badge={page.role?.toLowerCase()}
+							badge={page.role ? formatRole(page.role) : undefined}
 							asLink={false}
 						/>
 					</Link>

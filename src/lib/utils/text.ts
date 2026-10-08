@@ -20,6 +20,23 @@ export function toTitleCase(text: string): string {
 }
 
 /**
+ * Strip social-preview chrome from an og:description to recover the raw caption. Instagram wraps
+ * captions as `"1,234 likes, 56 comments - username on Instagram: \"<caption>\""`; other sites
+ * usually return the description as-is (no match → returned unchanged, only trimmed).
+ */
+export function cleanSocialDescription(desc: string): string {
+	let d = desc.trim();
+	// Drop leading engagement counts: "1,234 likes, 56 comments - "
+	d = d.replace(/^[\d,.]+\s+likes?,\s*[\d,.]+\s+comments?\s*[-–—:]\s*/i, "");
+	// Prefer the quoted caption after "... on Instagram:"
+	const quoted = d.match(/on instagram:\s*["“”']([\s\S]+)["“”']\s*$/i);
+	if (quoted) return quoted[1].trim();
+	// Otherwise drop everything up to and including "on Instagram:" if present.
+	d = d.replace(/^[\s\S]*?\bon instagram:\s*/i, "");
+	return d.trim();
+}
+
+/**
  * Poster Catcher: append a trailing "Original source: {url}" line to an event description.
  * Idempotent — if the exact line is already present it isn't added twice. Used at extraction
  * (to bake the source into the editable content) and on operator hand-fill of a link-only

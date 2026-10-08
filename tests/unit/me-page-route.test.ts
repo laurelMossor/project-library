@@ -3,7 +3,7 @@
  *
  * The netwerk-8 fix made changing a page's privacy ADMIN-only while an EDITOR may still
  * edit the rest of the profile. `profile-update.test.ts` covers the util given an explicit
- * `allowVisibilityChange`; THIS test locks the route WIRING — that the route feeds
+ * `allowManageChange`; THIS test locks the route WIRING — that the route feeds
  * `canManagePage` (not `canPostAsPage`) into that flag, and maps the util's `forbidden`
  * result to 403 vs. 400 for validation errors.
  *
@@ -19,7 +19,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
-    permission: { findFirst: vi.fn() },
+    permission: { findFirst: vi.fn(), findUnique: vi.fn() },
     page: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock("@/lib/utils/errors", () => ({
   serverError: (msg?: string) => new Response(JSON.stringify({ error: msg ?? "Internal server error" }), { status: 500 }),
 }));
 
-import { PUT } from "@/app/api/me/page/route";
+import { GET, PUT } from "@/app/api/me/page/route";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 
@@ -87,7 +87,7 @@ describe("PUT /api/me/page — EDITOR (act-as-page, not admin)", () => {
   beforeEach(() => setStoredRole("EDITOR"));
 
   test("visibility change → 403 and NO write (the regression lock)", async () => {
-    // If the route regressed to feeding canPostAsPage into allowVisibilityChange, the
+    // If the route regressed to feeding canPostAsPage into allowManageChange, the
     // EDITOR would pass and a write would run → 200. The 403 + no-write proves it uses
     // canManagePage (ADMIN-only) for the visibility field.
     const res = await PUT(putReq({ profileVisibility: "PRIVATE" }));
@@ -110,6 +110,32 @@ describe("PUT /api/me/page — ADMIN", () => {
     expect(res.status).toBe(200);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("GET /api/me/page — acting role on the body", () => {
+  test("ADMIN → 200 and the caller's role, from findUnique only", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "ADMIN" } as never);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(expect.objectContaining({ role: "ADMIN" }));
+    expect(prisma.permission.findFirst).not.toHaveBeenCalled();
+  });
+
+  test("MEMBER → 404, page is not returned", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "MEMBER" } as never);
+    const res = await GET();
+    expect(res.status).toBe(404);
+    expect(prisma.page.findUnique).not.toHaveBeenCalled();
+  });
+
+  test("no permission row → 404", async () => {
+    vi.mocked(prisma.permission.findUnique).mockResolvedValue(null);
+    expect((await GET()).status).toBe(404);
+  });
+});
+
+describe("PUT /api/me/page — invalid pairing", () => {
+  beforeEach(() => setStoredRole("ADMIN"));
 
   test("invalid combo (PRIVATE profile + LISTED content) → 400, not 403, no write", async () => {
     // A real validation/pairing failure carries no `forbidden` flag, so it must map to 400 —

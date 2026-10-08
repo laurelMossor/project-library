@@ -28,7 +28,16 @@ enum ContentVisibility {
 enum PermissionRole {
   ADMIN // full control: edit page, manage permissions, post as page, manage messages
   EDITOR // can post as page, edit content, view/send page messages
-  MEMBER // basic membership (future use)
+  MEMBER // member of a page that has membership turned on
+}
+
+// Whether a page has members, and how they join. CLOSED is the default (no members).
+// OPEN is reserved for a later self-join; the server rejects it until that ships.
+enum MembershipPolicy {
+  CLOSED
+  INVITE_ONLY
+  REQUEST_TO_JOIN
+  OPEN
 }
 
 // Permission is polymorphic (resourceId + resourceType) so a role set can attach to
@@ -44,7 +53,8 @@ enum ResourceType {
 // Kind of pending access request (see AccessRequest model).
 enum AccessRequestKind {
   FOLLOW // requester wants to follow a private User or Page → materializes a Follow
-  JOIN // requester (a User) wants MEMBER on a private Page → materializes a Permission(MEMBER)
+  JOIN // requester (a User) wants MEMBER on a page → materializes a Permission(MEMBER)
+  INVITE // a page invites a user to a role; the invitee must accept → materializes a Permission(role)
 }
 
 enum EventStatus {
@@ -66,6 +76,13 @@ enum EventSubmissionStatus {
 enum PostStatus {
   DRAFT
   PUBLISHED
+}
+
+// Why a message or comment was blanked. Once the sender FK is nulled, the row
+// alone can't tell whether a person or a page was speaking.
+enum DeletedAs {
+  USER
+  PAGE
 }
 
 enum RsvpStatus {
@@ -98,6 +115,8 @@ enum NotificationType {
   NEW_MEMBER
   RSVP
   REQUEST_APPROVED
+  MEMBER_INVITE // a page invited this user to a role
+  ROLE_CHANGED // an admin changed this member's role
 }
 
 // What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
@@ -120,7 +139,16 @@ enum NotificationCategory {
   RSVPS
 }
 
-// What an EmailOutbox row points at, so the flush can read the source's readAt for read-suppression.
+// DIRECT = a 1:1 thread between two identities (found by its pair); GROUP = an explicitly created,
+// optionally named thread of 2+ identities. Never inferred from participant count: a group that
+// shrinks to two members must not start matching DM lookups. (A future Page chat room would be a
+// third kind.)
+enum ConversationKind {
+  DIRECT
+  GROUP
+}
+
+// What an EmailOutbox row points at, so the flush can read the source's read state for read-suppression.
 enum EmailSourceType {
   NOTIFICATION
   MESSAGE
@@ -141,6 +169,9 @@ model User {
   // null = not yet verified. Login is gated on this being set.
   // Existing users were backfilled to verified in the adding migration.
   emailVerified DateTime?
+  // null = the account has not finished the post-login settings review.
+  // Existing users are backfilled; new signups and dev-bypass accounts leave it null.
+  setupCompletedAt DateTime?
   // Session epoch. Bumped on password reset to invalidate all existing JWTs
   // for this user (the session callback rejects tokens with a stale version).
   tokenVersion  Int       @default(0)
@@ -281,6 +312,10 @@ model Page {
   location          String?
   profileVisibility ProfileVisibility @default(PUBLIC)
   contentVisibility ContentVisibility
+  // Membership is configuration on the page. CLOSED = no members.
+  membershipPolicy  MembershipPolicy  @default(CLOSED)
+  // Members (any role) may post TO this page. Forced off while the policy is CLOSED.
+  allowMemberPosts  Boolean           @default(false)
 
   // Address (useful for small biz, community spaces)
   addressLine1 String?
@@ -422,7 +457,11 @@ model Permission {
 model Post {
   id           String  @id @default(cuid())
   userId       String
-  pageId       String?
+  pageId       String? // where the post lives (its audience). Null = the author's profile.
+  // Who is speaking. Null = the author. When set it equals pageId (DB CHECK
+  // posts_as_page_matches_page) — "posted AS the page", not "posted TO the page".
+  asPageId             String?
+  showOnAuthorProfile  Boolean @default(false) // also list a to-page post on the author's profile
   eventId      String?
   parentPostId String?
 
@@ -464,7 +503,12 @@ model Post {
 model Event {
   id     String  @id @default(cuid())
   userId String
-  pageId String?
+  pageId String? // where the event lives (its audience). Null = the author's profile.
+  // Who is speaking. Null = the author. When set it equals pageId (DB CHECK
+  // events_as_page_matches_page).
+  asPageId            String?
+  showOnAuthorProfile Boolean @default(false)
+
 
   title             String?
   content           String
@@ -542,10 +586,12 @@ model RsvpGuest {
 // A dedicated, single-responsibility model — NOT a Post. Comments are not feed
 // content and carry no title/status/tags/visibility.
 //
-// - Author is always the logged-in user (accountability); asPageId optionally
-//   records "commented as this Page", verified server-side via canPostAsPage —
-//   never trusted from the client. Deleting that Page nulls asPageId (SetNull), so
-//   the comment falls back to author attribution rather than losing the human's words.
+// - Author is the logged-in user (accountability); asPageId optionally records
+//   "commented as this Page", verified server-side via canPostAsPage — never
+//   trusted from the client. Deleting that Page tombstones the comment
+//   (content cleared, deletedAs = PAGE) and then nulls asPageId (SetNull), so
+//   the person behind a page-voiced comment is not revealed. Deleting the user
+//   tombstones only comments they made in their own voice.
 // - Polymorphic target: exactly one of postId/eventId. DB CHECK
 //   `comments_post_xor_event` ((post_id IS NULL) <> (event_id IS NULL)) enforces this.
 // - No visibility column: read access is INHERITED from the parent post/event
@@ -554,8 +600,9 @@ model RsvpGuest {
 
 model Comment {
   id              String  @id @default(cuid())
-  authorId        String
+  authorId        String?
   asPageId        String?
+  deletedAs       DeletedAs?
   postId          String?
   eventId         String?
   parentCommentId String? // RESERVED for future replies — unused in v1
@@ -565,7 +612,7 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author        User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
   asPage        Page?     @relation(fields: [asPageId], references: [id], onDelete: SetNull)
   post          Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
   event         Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -619,10 +666,10 @@ model Follow {
 // Access requests (Request-to-Follow / Request-to-Join)
 // ========================
 //
-// A pending request to gain access to a PRIVATE entity. The row's existence IS
-// the "pending" state — there is no status column. On approval the matching edge
-// is materialized (Follow for FOLLOW, Permission(MEMBER) for JOIN) and the request
-// row is deleted in the same transaction; on denial the row is simply deleted.
+// A pending request. The row's existence IS the "pending" state — there is no status
+// column. On approval the matching edge is materialized (Follow for FOLLOW,
+// Permission for JOIN/INVITE) and the request row is deleted in the same transaction;
+// on denial the row is simply deleted.
 // This keeps the grant tables (Follow / Permission) meaning "granted, full stop" —
 // the visibility layer reads their existence directly, so a pending request must
 // never live there.
@@ -644,6 +691,9 @@ model AccessRequest {
   // Target — exactly one
   targetUserId String?
   targetPageId String?
+
+  // Set only for INVITE: the role the invitee is offered. JOIN always materializes MEMBER.
+  role PermissionRole?
 
   requester     User? @relation("RequestsMade", fields: [requesterId], references: [id], onDelete: Cascade)
   requesterPage Page? @relation("RequestsMadeAs", fields: [requesterPageId], references: [id], onDelete: Cascade)
@@ -670,10 +720,10 @@ model Image {
   path             String
   altText          String?
   caption          String?
-  uploadedByUserId String
+  uploadedByUserId String?
   createdAt        DateTime @default(now())
 
-  uploadedBy User @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
 
   attachments   ImageAttachment[]
   userAvatarFor User[]            @relation("UserAvatar")
@@ -716,11 +766,17 @@ model ImageAttachment {
 //   1. Direct user participant: conversation_participants.userId = X
 //   2. Page participant: conversation_participants.pageId = P
 //      AND permissions(userId=X, resourceId=P, role in [ADMIN, EDITOR])
+//
+// Read state is per participant (`lastReadAt`), so in a group one member reading never clears
+// another's unread. A Page participant's marker is shared by all its managers. A participant sees
+// only messages sent at/after it joined (`ConversationParticipant.createdAt`).
 
 model Conversation {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  kind      ConversationKind @default(DIRECT)
+  name      String? // GROUP only; optional display name
 
   participants ConversationParticipant[]
   messages     Message[]
@@ -739,6 +795,9 @@ model ConversationParticipant {
   userId String?
   pageId String?
 
+  // Messages at/before this are read for this identity. Null = nothing read yet.
+  lastReadAt DateTime?
+
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   page         Page?        @relation(fields: [pageId], references: [id], onDelete: Cascade)
@@ -754,13 +813,16 @@ model Message {
   id             String    @id @default(cuid())
   conversationId String
   content        String
-  senderId       String
+  senderId       String?
   asPageId       String?
+  deletedAs      DeletedAs?
   createdAt      DateTime  @default(now())
+  // DEPRECATED — superseded by ConversationParticipant.lastReadAt; no longer read or written.
+  // Kept so this release stays additive; dropped by a follow-up migration.
   readAt         DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("SentMessages", fields: [senderId], references: [id], onDelete: SetNull)
 
   @@index([conversationId, createdAt])
   @@index([senderId])

@@ -10,15 +10,13 @@ import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import ImageCarousel from "../images/ImageCarousel";
-import { EVENT_DETAIL, POST_DETAIL, PROFILE_ABOUT } from "@/lib/const/routes";
+import { API_EVENT, API_POST, EVENT_DETAIL, POST_DETAIL, PROFILE_ABOUT, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { MAX_PINNED_PER_PROFILE } from "@/lib/const/pin";
 import { resolveCardIdentity } from "@/lib/types/card";
+import { contentIdentity } from "@/lib/utils/content-identity";
 import { AtSignIcon, PinIcon } from "../icons/icons";
 
-const MAX_PINNED = 3;
-
 export type PinConfig = {
-	currentUserId: string;
-	activePageId?: string | null;
 	pinnedCount: number;
 };
 
@@ -60,18 +58,16 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	const ev = isEventItem ? (ri as EventItem) : null;
 	const detailUrl = isEventItem ? EVENT_DETAIL(ri.id) : POST_DETAIL(ri.id);
 
-	const { name: displayName, handle, href: profileHref } = resolveCardIdentity(ri.page ?? ri.user);
+	const { voice, placedIn } = contentIdentity(ri);
+	const { name: displayName, handle, href: profileHref } = resolveCardIdentity(voice);
 
 	const isPinned = Boolean(ri.pinnedAt);
 	const isDraft = ri.status === "DRAFT";
 	const isPublished = ri.status === "PUBLISHED";
 	const isPast = isPastEvent(ri);
-	const canPin = !!pinConfig && (
-		pinConfig.currentUserId === ri.userId ||
-		(ri.page !== null && ri.page?.id === pinConfig.activePageId)
-	);
-	const atPinLimit = pinConfig ? pinConfig.pinnedCount >= MAX_PINNED && !isPinned : false;
-	const apiEndpoint = isEventItem ? `/api/events/${ri.id}` : `/api/posts/${ri.id}`;
+	const canPin = ri.canPin === true;
+	const atPinLimit = !!pinConfig && pinConfig.pinnedCount >= MAX_PINNED_PER_PROFILE && !isPinned;
+	const apiEndpoint = isEventItem ? API_EVENT(ri.id) : API_POST(ri.id);
 
 	async function handleTogglePin() {
 		if (atPinLimit) return;
@@ -94,11 +90,11 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 		>
 			<div className="mb-4">
 				<div className="flex items-start gap-3 mb-2">
-					<ProfilePicture entity={ri.page ?? ri.user} size="md" />
+					<ProfilePicture entity={voice} size="md" />
 					<div className="flex-1 min-w-0">
 						{ri.title && <h2 className="text-xl font-semibold mb-2">{ri.title}</h2>}
 					</div>
-					{pinConfig && isDraft && (
+					{isDraft && (
 						<span className="flex-shrink-0 text-xs font-medium uppercase tracking-wide text-dusty-grey border border-dusty-grey rounded px-1.5 py-0.5">
 							Draft
 						</span>
@@ -107,7 +103,7 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 						<button
 							onClick={(e) => { e.stopPropagation(); handleTogglePin(); }}
 							disabled={atPinLimit}
-							title={atPinLimit ? `Max ${MAX_PINNED} posts pinned` : isPinned ? "Unpin" : "Pin to top of profile"}
+							title={atPinLimit ? `Max ${MAX_PINNED_PER_PROFILE} posts pinned` : isPinned ? "Unpin" : "Pin to top of profile"}
 							className={`flex-shrink-0 p-1 rounded transition-all ${
 								isPinned
 									? "opacity-100 text-rich-brown hover:text-warm-grey"
@@ -154,6 +150,15 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 						>
 							{displayName}
 						</Link>
+						{placedIn && (
+							<Link
+								href={PUBLIC_PROFILE(placedIn.handle)}
+								onClick={(e) => e.stopPropagation()}
+								className="text-sm text-dusty-grey hover:underline"
+							>
+								{" › "}{placedIn.name}
+							</Link>
+						)}
 					</div>
 				</div>
 			)}

@@ -1,9 +1,10 @@
 import { ProfileData } from "./types/user";
-import type { ProfileVisibility, ContentVisibility } from "@prisma/client";
+import type { ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
 import { isReservedHandle } from "./const/reserved-handles";
+import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS, type MessagingIdentityRef } from "./const/messaging";
 
 // Validation utilities for user input
 // Provides reusable validation functions for email, handle, password, and profile data
@@ -23,7 +24,7 @@ export function normalizeEmail(input: unknown): string {
 }
 
 /**
- * Strict handle validator: lowercase alphanumeric + `-` + `_`, 3–30 chars.
+ * Strict handle validator: lowercase letters, numbers, periods, underscores, and hyphens, 3–30 chars.
  *
  * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)
  * and the inline regex inside `validatePageData` (Page-only). One rule for
@@ -33,6 +34,11 @@ export function normalizeEmail(input: unknown): string {
  * Pairs with `generateHandle` in `lib/utils/handle.ts` (the forgiving
  * normalizer used to suggest a handle from free-text input).
  */
+/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
+export function isCuid(value: string): boolean {
+	return /^c[0-9a-z]{24}$/.test(value);
+}
+
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
 	return /^[a-z0-9._-]{3,30}$/.test(handle);
@@ -533,6 +539,43 @@ export function validateMessageContent(content: string): { valid: boolean; error
 	return { valid: true };
 }
 
+/**
+ * Validate a group's optional display name. `null`, `undefined`, or blank/whitespace-only all mean
+ * "no name" (and clear it on rename) — the field is optional, so blank is never an error. A real name
+ * must fit MAX_GROUP_NAME_LENGTH once trimmed.
+ */
+export function validateGroupName(name: unknown): { valid: boolean; error?: string } {
+	if (name === null || name === undefined) return { valid: true };
+	if (typeof name !== "string") return { valid: false, error: "Group name must be text" };
+	if (name.trim().length > MAX_GROUP_NAME_LENGTH) {
+		return { valid: false, error: `Group name must be ${MAX_GROUP_NAME_LENGTH} characters or less` };
+	}
+	return { valid: true };
+}
+
+/**
+ * Validate a list of group member refs ({ type: "user" | "page", id }). Shape only — existence and the
+ * participant cap (which depends on who is already in the group) are enforced in the server layer.
+ */
+export function validateGroupMemberRefs(members: unknown): { valid: boolean; error?: string; refs?: MessagingIdentityRef[] } {
+	if (!Array.isArray(members) || members.length === 0) {
+		return { valid: false, error: "Add at least one member" };
+	}
+	if (members.length > MAX_GROUP_PARTICIPANTS) {
+		return { valid: false, error: `A group can have at most ${MAX_GROUP_PARTICIPANTS} members` };
+	}
+	const refs: MessagingIdentityRef[] = [];
+	for (const m of members) {
+		if (!m || typeof m !== "object") return { valid: false, error: "Invalid member" };
+		const { type, id } = m as Record<string, unknown>;
+		if ((type !== "user" && type !== "page") || typeof id !== "string" || id.length === 0) {
+			return { valid: false, error: "Invalid member" };
+		}
+		refs.push({ type, id });
+	}
+	return { valid: true, refs };
+}
+
 /** Validate a comment body (required, non-empty, capped). Mirrors validateMessageContent. */
 export function validateCommentContent(content: string): { valid: boolean; error?: string } {
 	if (!content || typeof content !== "string") {
@@ -549,6 +592,30 @@ export function validateCommentContent(content: string): { valid: boolean; error
 
 // Page validation utilities
 
+const SAVABLE_MEMBERSHIP_POLICIES = ["CLOSED", "INVITE_ONLY", "REQUEST_TO_JOIN"] as const;
+
+/**
+ * Membership settings shared by page create and page update.
+ * OPEN exists in the enum for a later self-join feature and is rejected here.
+ */
+export function validateMembershipFields(data: {
+	membershipPolicy?: unknown;
+	allowMemberPosts?: unknown;
+}): { valid: boolean; error?: string } {
+	if (data.membershipPolicy !== undefined && data.membershipPolicy !== null) {
+		if (data.membershipPolicy === "OPEN") {
+			return { valid: false, error: "Open membership is not available yet" };
+		}
+		if (!SAVABLE_MEMBERSHIP_POLICIES.includes(data.membershipPolicy as (typeof SAVABLE_MEMBERSHIP_POLICIES)[number])) {
+			return { valid: false, error: "Invalid membership policy" };
+		}
+	}
+	if (data.allowMemberPosts !== undefined && typeof data.allowMemberPosts !== "boolean") {
+		return { valid: false, error: "allowMemberPosts must be a boolean" };
+	}
+	return { valid: true };
+}
+
 export interface PageCreateData {
 	name: string;
 	handle: string;
@@ -556,6 +623,8 @@ export interface PageCreateData {
 	bio?: string;
 	interests?: string[];
 	location?: string;
+	membershipPolicy?: MembershipPolicy;
+	allowMemberPosts?: boolean;
 }
 
 export function validatePageData(data: PageCreateData): { valid: boolean; error?: string } {
@@ -645,6 +714,9 @@ export function validatePageData(data: PageCreateData): { valid: boolean; error?
 		}
 	}
 
+	const membership = validateMembershipFields(data);
+	if (!membership.valid) return membership;
+
 	return { valid: true };
 }
 
@@ -663,6 +735,8 @@ export function validatePageUpdateData(data: {
 	avatarImageId?: string | null;
 	profileVisibility?: ProfileVisibility | null;
 	contentVisibility?: ContentVisibility | null;
+	membershipPolicy?: MembershipPolicy | null;
+	allowMemberPosts?: boolean | null;
 }): { valid: boolean; error?: string } {
 	// Validate headline: optional, max 200 characters
 	if (data.headline !== undefined && data.headline !== null) {
@@ -790,6 +864,9 @@ export function validatePageUpdateData(data: {
 			return { valid: false, error: "contentVisibility must be LISTED, UNLISTED, or PRIVATE" };
 		}
 	}
+
+	const membership = validateMembershipFields(data);
+	if (!membership.valid) return membership;
 
 	return { valid: true };
 }

@@ -11,6 +11,45 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Mon 10/05/2026 17:43 PDT
+QA'd the open column live in the app. Delete Page passed and is Done. Profile and page setup, members posting, page membership, and group messaging failed and went back to In progress. Settings page issues stayed in QA.
+
+#### Entry: Mon 10/05/2026 10:40 PDT
+Reworked the three prolib skills. The PM skill now has planning, ideating, and organizing tracks. Its briefs read as a handoff to a colleague, with only real decisions marked settled and no line numbers. QA can write criteria straight to tickets, and every report lists bugs noticed and anything left untested. Reviews default to develop, and every plan gets an antagonist pass first.
+
+#### Entry: Mon 10/05/2026 09:56 PDT
+Reviewed and updated meatup-7. Took a local backup of the production database. The dump is read-only, so production itself was not changed. Wrote the steps into the deployment guide, including the session-pooler connection and restoring only the public schema onto a local database.
+
+#### Entry: Sun 10/04/2026 17:23 PDT
+Nothing is created until someone confirms. Signup now asks for the handle and display name, and a new page is a draft form that only exists once you say it looks good. Setup and the new-page form share one set of sections, with a logo-only header during setup. Fields show Public or Private plus an Optional tag, and Personal information and Address sit behind a false flag for now.
+
+#### Entry: Sun 10/04/2026 16:00 PDT
+New accounts and new pages both open one page titled Set up your account. The handle comes first and becomes the URL. The name under it starts as that handle and stays that way if you leave it. Deleting an account or a page leaves a tombstone so other people's words remain.
+
+#### Entry: Sun 10/04/2026 12:46 PDT
+Profiles without a photo now get a generated Bauhaus avatar in the Project Library colors. An uploaded photo still shows instead. The picture is seeded by the account id, so renaming a handle leaves it unchanged.
+
+#### Entry: Sun 10/04/2026 12:15 PDT
+Reviewed the membership and post-to-page branch and landed the review fixes. Only a current admin or editor can edit content spoken as a page, and removing a member also drops their follow. Event updates and member drafts stay with their real audience, and a leftover join or closed-page invite can no longer change a role. Drafted unchecked acceptance criteria for these onto both QA tickets.
+
+#### Entry: Sun 10/04/2026 11:38 PDT
+Reviewed the group-messaging follow-up and landed the DRY pass. Viewing and sending share one forward-only read marker. A thread fetch is a pure read again. Added a DRY/SOLID step to `/prolib-review` so a review flags a second copy of a rule or component.
+
+#### Entry: Sat 10/03/2026 14:10 PDT
+The post composer is now one dropdown. Your profile starts checked, the pages you can post to are radios, and at least one has to stay selected. A page invite now says the page invited you to be an Admin, an Editor, or a Member on their page. Your own profile no longer offers Follow, and admins and editors can pin that page's posts.
+
+#### Entry: Sat 10/03/2026 12:49 PDT
+Membership is a page setting now. A page starts Closed, or it can be Invite only or Request to join. Open is in the enum and the server rejects it. Request to join shows on every such page, public or private. Joining no longer depends on the profile being public.
+
+Every new role is an invitation the person accepts. Accepting grants the role and follows the page. Leaving does not unfollow. Creating a page follows it for the creator. Changing someone who already has a role stays direct and notifies them.
+
+Posting to a page is separate from posting as one. pageId is where a post lives and who can see it. asPageId is who is speaking. Existing page posts were backfilled so they still speak as the page. The composer checkboxes store whether a to-page post also appears on the author's profile. That extra listing never reaches anyone who cannot already see it on the page.
+
+A page manager can delete a member's post and pin it. The author still edits their own words. Placement can change only while the post is a draft. The five membership tickets are in QA.
+
+#### Entry: Sat 10/03/2026 10:40 PDT
+Built MVP group messaging on top of 1:1 messaging, addressing conversations by id instead of by peer so messaging someone can no longer land in a group shared with them. Read state moved to per-participant markers, and page messages now show sender attribution only to that page's own managers. Ran `/prolib-review` and closed all 17 findings, converging duplicated identity, read-state, and search logic onto single owners. Closed two real CI bugs along the way: a unit test's accidental Prisma import at module load, and a seeded group conversation that left alice permanently unread, breaking an existing nav test.
+
 #### Entry: Sun 09/13/2026 11:44 PDT
 Unified the drifted tag UI onto one blue chiclet. The Tag component now owns both the display and a removable draft variant, so the green pills and the duplicated post/event field blocks collapse behind one shared TagsField. Tags normalize on entry, raising only a lowercase first letter so DIY and 3D survive, and dedup is case-insensitive. Also improved Poster Catcher. The extractor defaults times to Pacific and demands an explicit offset, the model moved to Gemini Flash Lite, and the location auto-geocodes so the review shows a confirmation map. The bot reply now links straight to the review queue.
 

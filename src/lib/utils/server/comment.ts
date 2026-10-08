@@ -2,9 +2,9 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import { commentWithAuthorFields } from "./fields";
-import { canPostAsPage } from "./permission";
-import { isContentOwner, type ViewerContext } from "./visibility";
+import { commentWithAuthorFields, type CommentFromQuery } from "./fields";
+import { canModerateContent, canPostAsPage } from "./permission";
+import type { ViewerContext } from "./visibility";
 import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
 import { NotificationObject } from "@prisma/client";
 import type { CommentItem } from "@/lib/types/comment";
@@ -22,12 +22,12 @@ type CreateCommentData = {
 	content: string;
 };
 
-type ContentOwner = { userId: string; pageId: string | null };
+type ContentOwner = { userId: string; pageId: string | null; asPageId: string | null };
 
 /** Fetch the owning identity of the parent post/event (for moderation + the activity target). */
 async function getContentOwner(postId: string | null, eventId: string | null): Promise<ContentOwner | null> {
-	if (postId) return prisma.post.findUnique({ where: { id: postId }, select: { userId: true, pageId: true } });
-	if (eventId) return prisma.event.findUnique({ where: { id: eventId }, select: { userId: true, pageId: true } });
+	if (postId) return prisma.post.findUnique({ where: { id: postId }, select: { userId: true, pageId: true, asPageId: true } });
+	if (eventId) return prisma.event.findUnique({ where: { id: eventId }, select: { userId: true, pageId: true, asPageId: true } });
 	return null;
 }
 
@@ -70,7 +70,9 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 	// content (actor == target), which needs no self-notification. The object is the post/event so
 	// the bell row deep-links to it.
 	const actor: EntityRef = data.asPageId ? { type: "PAGE", id: data.asPageId } : { type: "USER", id: userId };
-	const target: EntityRef = owner.pageId ? { type: "PAGE", id: owner.pageId } : { type: "USER", id: owner.userId };
+	const target: EntityRef = owner.asPageId
+		? { type: "PAGE", id: owner.asPageId }
+		: { type: "USER", id: owner.userId };
 	if (actor.type !== target.type || actor.id !== target.id) {
 		const object: ObjectRef = data.postId
 			? { type: NotificationObject.POST, id: data.postId }
@@ -78,7 +80,7 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 		await emitActivity("comment.created", actor, target, object);
 	}
 
-	return comment as CommentItem;
+	return toCommentItem(comment);
 }
 
 /** List a post's comments, newest first. Comments inherit the parent's viewability (gated by the route). */
@@ -88,7 +90,7 @@ export async function getPostComments(postId: string): Promise<CommentItem[]> {
 		orderBy: { createdAt: "desc" },
 		select: commentWithAuthorFields,
 	});
-	return comments as CommentItem[];
+	return comments.map(toCommentItem);
 }
 
 /** List an event's comments, newest first. */
@@ -98,7 +100,7 @@ export async function getEventComments(eventId: string): Promise<CommentItem[]> 
 		orderBy: { createdAt: "desc" },
 		select: commentWithAuthorFields,
 	});
-	return comments as CommentItem[];
+	return comments.map(toCommentItem);
 }
 
 /** Minimal comment shape for gating a mutation: its parent target + its author. */
@@ -115,21 +117,21 @@ export async function getCommentForModeration(id: string) {
  * post/event (its userId/pageId) returned by requireViewable*.
  */
 export async function canModerateComment(
-	comment: { authorId: string },
-	parent: { userId: string; pageId: string | null },
+	comment: { authorId: string | null },
+	parent: { userId: string; pageId: string | null; asPageId?: string | null },
 	viewer: ViewerContext,
 ): Promise<boolean> {
 	if (!viewer.userId) return false;
 	if (viewer.userId === comment.authorId) return true;
-	return isContentOwner(viewer, parent);
+	return canModerateContent(viewer.userId, parent);
 }
 
 /**
  * May `viewer` edit this comment? Author-only — a content owner may *delete* a comment
  * (moderation) but not rewrite someone else's words. Distinct from canModerateComment on purpose.
  */
-export function canEditComment(comment: { authorId: string }, viewer: ViewerContext): boolean {
-	return viewer.userId !== null && viewer.userId === comment.authorId;
+export function canEditComment(comment: { authorId: string | null }, viewer: ViewerContext): boolean {
+	return viewer.userId !== null && comment.authorId !== null && viewer.userId === comment.authorId;
 }
 
 /** Delete a comment. Authorization (canModerateComment) is the route's responsibility. */
@@ -147,5 +149,10 @@ export async function updateComment(id: string, content: string): Promise<Commen
 		data: { content: content.trim() },
 		select: commentWithAuthorFields,
 	});
-	return comment as CommentItem;
+	return toCommentItem(comment);
+}
+
+function toCommentItem(row: CommentFromQuery): CommentItem {
+	const { deletedAs, ...rest } = row;
+	return { ...rest, deleted: deletedAs };
 }

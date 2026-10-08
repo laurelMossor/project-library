@@ -57,6 +57,8 @@ export async function updateEvent(
 		tags?: string[];
 		status?: string;
 		pageId?: string | null;
+		asPageId?: string | null;
+		showOnAuthorProfile?: boolean;
 	}
 ): Promise<EventItem> {
 	const res = await authFetch(API_EVENT(id), {
@@ -97,8 +99,10 @@ export async function createEvent(data: {
 	latitude?: number | null;
 	longitude?: number | null;
 	tags?: string[];
-	pageId?: string | null;
-	isDraft?: boolean;
+		pageId?: string | null;
+		asPageId?: string | null;
+		showOnAuthorProfile?: boolean;
+		isDraft?: boolean;
 }): Promise<EventItem> {
 	const res = await authFetch(API_EVENTS, {
 		method: "POST",
@@ -117,11 +121,11 @@ export async function createEvent(data: {
 /**
  * Create a draft event for inline editing (authenticated)
  */
-export async function createDraftEvent(pageId?: string, title?: string): Promise<EventItem> {
+export async function createDraftEvent(asPageId?: string, title?: string): Promise<EventItem> {
 	const res = await authFetch(API_EVENTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}), ...(title ? { title } : {}) }),
+		body: JSON.stringify({ isDraft: true, ...(asPageId ? { asPageId } : {}), ...(title ? { title } : {}) }),
 	});
 
 	if (!res.ok) {

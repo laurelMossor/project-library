@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { CardUser } from "@/lib/types/card";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { getCardUserDisplayName } from "@/lib/types/card";
-import { useDebounce } from "@/lib/hooks/useDebounce";
+import { MIN_SEARCH_LENGTH, useProfileSearch } from "@/lib/hooks/useProfileSearch";
+import { searchResultUser } from "@/lib/types/search";
 
 export type SearchResultUser = CardUser;
 
@@ -22,49 +23,23 @@ export function ProfileSearchDropdown({
 	className = "",
 }: ProfileSearchDropdownProps) {
 	const [query, setQuery] = useState("");
-	const [results, setResults] = useState<SearchResultUser[]>([]);
-	const [isLoading, setIsLoading] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const debouncedQuery = useDebounce(query, 300);
 
-	const fetchResults = useCallback(async (q: string) => {
-		if (q.length < 2) {
-			setResults([]);
-			setIsOpen(false);
-			return;
-		}
+	const { results: found, loading: isLoading, debouncedQuery } = useProfileSearch(query, "user");
+	const results = useMemo(
+		() => found.map(searchResultUser).filter((u) => !excludeUserIds.includes(u.id)),
+		[found, excludeUserIds],
+	);
 
-		setIsLoading(true);
-		try {
-			const res = await fetch(`/api/search/profiles?q=${encodeURIComponent(q)}&type=user`);
-			if (!res.ok) throw new Error();
-			const data = await res.json();
-			const users: SearchResultUser[] = (data.results ?? []).map((r: { id: string; handle: string; name: string; avatarImageId: string | null; avatarImage?: { url: string } | null }) => ({
-				id: r.id,
-				handle: r.handle,
-				displayName: r.name,
-				avatarImageId: r.avatarImageId,
-				avatarImage: r.avatarImage,
-			}));
-			const filtered = users.filter(
-				(u) => !excludeUserIds.includes(u.id)
-			);
-			setResults(filtered);
-			setIsOpen(true);
-		} catch {
-			setResults([]);
-		} finally {
-			setIsLoading(false);
-		}
-	}, [excludeUserIds]);
-
+	// Open once a real query's results settle (including "no users found"); close for short queries.
 	useEffect(() => {
-		fetchResults(debouncedQuery);
-	}, [debouncedQuery, fetchResults]);
+		if (debouncedQuery.length < MIN_SEARCH_LENGTH) setIsOpen(false);
+		else if (!isLoading) setIsOpen(true);
+	}, [debouncedQuery, isLoading, found]);
 
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
@@ -79,7 +54,6 @@ export function ProfileSearchDropdown({
 	function handleSelect(user: SearchResultUser) {
 		onSelect(user);
 		setQuery("");
-		setResults([]);
 		setIsOpen(false);
 		setFocusedIndex(-1);
 	}
@@ -104,8 +78,8 @@ export function ProfileSearchDropdown({
 		}
 	}
 
-	const showHint = query.length > 0 && query.length < 2;
-	const showEmpty = isOpen && !isLoading && debouncedQuery.length >= 2 && results.length === 0;
+	const showHint = query.length > 0 && query.length < MIN_SEARCH_LENGTH;
+	const showEmpty = isOpen && !isLoading && debouncedQuery.length >= MIN_SEARCH_LENGTH && results.length === 0;
 	const showResults = isOpen && results.length > 0;
 
 	return (
@@ -120,7 +94,7 @@ export function ProfileSearchDropdown({
 						setFocusedIndex(-1);
 					}}
 					onFocus={() => {
-						if (results.length > 0 && debouncedQuery.length >= 2) setIsOpen(true);
+						if (results.length > 0 && debouncedQuery.length >= MIN_SEARCH_LENGTH) setIsOpen(true);
 					}}
 					onKeyDown={handleKeyDown}
 					placeholder={placeholder}

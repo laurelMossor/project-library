@@ -8,25 +8,29 @@ import { ImageEditModal } from "@/lib/components/images/ImageEditModal";
 import { ImageLightbox } from "@/lib/components/images/ImageLightbox";
 import { uploadImageOnly } from "@/lib/utils/image-client";
 import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
-import { getUserInitials, getPageInitials } from "@/lib/utils/text";
+import { GeneratedAvatar } from "./GeneratedAvatar";
 
 type ClickableProfilePictureProps = {
 	entity: CardEntity;
 	/** Owner can open the photo editor. Defaults false (public profiles). */
 	canEdit?: boolean;
+	/** Called after the avatar FK is saved, so a client-loaded profile can merge it. */
+	onSaved?: (avatar: { id: string; url: string } | null) => void;
+	/** Replaces the direct save, for an entity that doesn't exist yet (a draft page). */
+	persistAvatar?: (avatarImageId: string | null) => Promise<void>;
 };
 
-export function ClickableProfilePicture({ entity, canEdit = false }: ClickableProfilePictureProps) {
+export function ClickableProfilePicture({ entity, canEdit = false, onSaved, persistAvatar }: ClickableProfilePictureProps) {
 	const router = useRouter();
 	const [editOpen, setEditOpen] = useState(false);
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 
 	const avatarUrl = entity.avatarImage?.url ?? null;
-	const initials = isCardPage(entity) ? getPageInitials(entity.name) : getUserInitials(entity);
 
 	// Avatar persists via a direct FK (not ImageAttachment): PUT the profile route
 	// with { fields: { avatarImageId } }. Both user and page routes take the same wrapper.
 	async function saveAvatarImageId(avatarImageId: string | null) {
+		if (persistAvatar) return persistAvatar(avatarImageId);
 		const endpoint = isCardPage(entity) ? API_PAGE(entity.id) : API_ME_USER;
 		const res = await fetch(endpoint, {
 			method: "PUT",
@@ -90,15 +94,17 @@ export function ClickableProfilePicture({ entity, canEdit = false }: ClickablePr
 					title="Profile Photo"
 					previewShape="round"
 					existingImageUrl={avatarUrl}
-					fallback={initials}
+					fallback={<GeneratedAvatar seed={entity.id} />}
 					onSave={async ({ file }) => {
 						if (!file) return;
 						const image = await uploadImageOnly({ file, folder: "avatars" });
 						await saveAvatarImageId(image.id);
+						onSaved?.({ id: image.id, url: image.url });
 						router.refresh();
 					}}
 					onRemove={async () => {
 						await saveAvatarImageId(null);
+						onSaved?.(null);
 						router.refresh();
 					}}
 				/>

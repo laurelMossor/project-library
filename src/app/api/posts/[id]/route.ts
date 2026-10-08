@@ -4,11 +4,12 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { postHasContent } from "@/lib/utils/content";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
+import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { deletePost } from "@/lib/utils/server/post";
 import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
-
-const MAX_PINNED_POSTS = 3;
+import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE } from "@/lib/const/pin";
+import { canPinContent, otherPinnedCount } from "@/lib/utils/server/pin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -44,6 +45,8 @@ const postFields = {
 	id: true,
 	userId: true,
 	pageId: true,
+	asPageId: true,
+	showOnAuthorProfile: true,
 	eventId: true,
 	parentPostId: true,
 	title: true,
@@ -136,37 +139,41 @@ export async function PATCH(request: Request, { params }: Params) {
 			return notFound("Post not found");
 		}
 
-		const isAuthor = existing.userId === viewer.userId;
-		const isPageEditor = existing.pageId
-			? await canPostAsPage(viewer.userId, existing.pageId)
-			: false;
-
-		if (!isAuthor && !isPageEditor) {
+		const data = await request.json();
+		// Pinning on a page is a manage action, separate from editing the words.
+		// A page manager may pin a member's post; the member may not.
+		const pinOnly = data.pinnedAt !== undefined
+			&& Object.keys(data).every((key) => key === "pinnedAt")
+			&& (await canPinContent(viewer.userId, { userId: existing.userId, pageId: existing.pageId }));
+		if (!pinOnly && !(await canEditContent(viewer.userId, existing))) {
 			return NextResponse.json(
 				{ error: "You can only edit your own posts" },
 				{ status: 403 }
 			);
 		}
+		const { title, content, tags, topics, pinnedAt, status, pageId, asPageId, showOnAuthorProfile } = data;
 
-		const data = await request.json();
-		const { title, content, tags, topics, pinnedAt, status, pageId } = data;
-
-		// A reply inherits its page from its parent post (INV-3) — it cannot be re-pointed
-		// to a different page directly; the parent's page is the single source of truth.
-		if (pageId !== undefined && existing.parentPostId) {
-			return badRequest("A reply inherits its page from its parent post and cannot be moved");
-		}
-
-		// If switching author page, verify permission for the new page
-		if (pageId !== undefined) {
-			if (pageId !== null) {
-				const allowed = await canPostAsPage(viewer.userId, pageId);
-				if (!allowed) {
-					return badRequest("You don't have permission to post as this page");
-				}
-			} else if (existing.userId !== viewer.userId) {
-				// Switching to personal identity — only the post author can do this
-				return NextResponse.json({ error: "Only the post author can change the posting identity" }, { status: 403 });
+		const placementTouched = pageId !== undefined || asPageId !== undefined || showOnAuthorProfile !== undefined;
+		let placement: { pageId: string | null; asPageId: string | null; showOnAuthorProfile: boolean } | null = null;
+		if (placementTouched) {
+			if (existing.parentPostId) {
+				return badRequest("A reply inherits its page from its parent post and cannot be moved");
+			}
+			if (existing.eventId) {
+				return badRequest("An event update stays on its event and cannot be moved");
+			}
+			if (existing.status !== "DRAFT") {
+				return badRequest("A published post's placement can't change");
+			}
+			try {
+				placement = await resolveContentPlacement(viewer.userId, {
+					asPageId: asPageId !== undefined ? asPageId : existing.asPageId,
+					pageId: pageId !== undefined ? pageId : existing.pageId,
+					showOnAuthorProfile: showOnAuthorProfile !== undefined ? showOnAuthorProfile : existing.showOnAuthorProfile,
+				});
+			} catch (err) {
+				if (err instanceof PlacementError) return badRequest(err.message);
+				throw err;
 			}
 		}
 
@@ -198,15 +205,20 @@ export async function PATCH(request: Request, { params }: Params) {
 		}
 
 		// Handle pinnedAt toggle — enforce 3-pin limit per user/page scope
+		const pinPageId = placement?.pageId ?? existing.pageId;
 		if (pinnedAt !== undefined) {
+			if (!(await canPinContent(viewer.userId, { userId: existing.userId, pageId: pinPageId }))) {
+				return badRequest(pinPageId
+					? "Only page editors can pin posts on this page"
+					: "You can only pin your own posts");
+			}
 			if (pinnedAt !== null) {
-				// Pinning: count existing pinned posts in the same scope
-				const scopeWhere = existing.pageId
-					? { pageId: existing.pageId, pinnedAt: { not: null } }
-					: { userId: existing.userId, pageId: null, pinnedAt: { not: null } };
-				const pinnedCount = await prisma.post.count({ where: scopeWhere });
-				if (pinnedCount >= MAX_PINNED_POSTS) {
-					return badRequest(`You can only pin up to ${MAX_PINNED_POSTS} posts at a time`);
+				const pinnedCount = await otherPinnedCount(
+					pinPageId ? { pageId: pinPageId } : { userId: existing.userId },
+					{ postId: id },
+				);
+				if (pinnedCount >= MAX_PINNED_PER_PROFILE) {
+					return badRequest(PIN_CAP_MESSAGE);
 				}
 			}
 		}
@@ -216,10 +228,12 @@ export async function PATCH(request: Request, { params }: Params) {
 		// passing the real eventId so an event-attached post inherits the event's visibility, not the
 		// author's profile default (finding 3). Child update posts cascade to match.
 		let reparentedVisibility: ContentVisibility | undefined;
-		if (pageId !== undefined) {
-			updateData.pageId = pageId;
-			if ((pageId || null) !== existing.pageId) {
-				reparentedVisibility = await resolveParentVisibility(existing.userId, pageId || null, existing.eventId);
+		if (placement) {
+			updateData.pageId = placement.pageId;
+			updateData.asPageId = placement.asPageId;
+			updateData.showOnAuthorProfile = placement.showOnAuthorProfile;
+			if (placement.pageId !== existing.pageId) {
+				reparentedVisibility = await resolveParentVisibility(existing.userId, placement.pageId, existing.eventId);
 				updateData.contentVisibility = reparentedVisibility;
 			}
 		}
@@ -254,14 +268,21 @@ export async function PATCH(request: Request, { params }: Params) {
 				data: updateData,
 				select: postFields,
 			});
-			if (reparentedVisibility !== undefined) {
-				// Replies live in the parent's page context (INV-3) and inherit its visibility —
-				// keep both in sync when the parent is re-parented.
+			if (placement) {
+				// Replies copy the parent's placement even when the page stays put, so a
+				// draft that switches from "as the page" to "to the page" does not leave
+				// replies speaking as the page. Visibility changes only with the audience.
 				await tx.post.updateMany({
 					where: { parentPostId: id },
-					data: { pageId: pageId || null },
+					data: {
+						pageId: placement.pageId,
+						asPageId: placement.asPageId,
+						showOnAuthorProfile: placement.showOnAuthorProfile,
+					},
 				});
-				await syncDescendantVisibility("POST", id, reparentedVisibility, tx);
+				if (reparentedVisibility !== undefined) {
+					await syncDescendantVisibility("POST", id, reparentedVisibility, tx);
+				}
 			}
 			return updated;
 		});
@@ -291,7 +312,7 @@ export async function DELETE(request: Request, { params }: Params) {
 			return notFound("Post not found");
 		}
 
-		if (existing.userId !== viewer.userId) {
+		if (!(await canModerateContent(viewer.userId, existing))) {
 			return NextResponse.json(
 				{ error: "You can only delete your own posts" },
 				{ status: 403 }

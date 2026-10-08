@@ -15,11 +15,13 @@ interface ActiveProfileContextValue {
 	currentUser: CardUser | null;
 	/** All pages the user can act as (ADMIN/EDITOR only), lazy-loaded */
 	pages: CardPageWithRole[];
+	/** The caller's role on the active page, or null while acting as themselves. */
+	activeRole: string | null;
 	/**
 	 * Switch active profile. Pass null for personal identity, a pageId for a page.
 	 * Internally calls PUT /api/session/active-page (page) or DELETE (personal).
 	 */
-	switchProfile: (pageId: string | null) => Promise<void>;
+	switchProfile: (pageId: string | null) => Promise<boolean>;
 	/** Explicitly load the pages list. Call this when opening a profile switcher. */
 	fetchPages: () => Promise<void>;
 	loading: boolean;
@@ -38,7 +40,7 @@ const ActiveProfileCtx = createContext<ActiveProfileContextValue | undefined>(un
 function resolveActiveEntity(
 	currentUser: CardUser | null,
 	activePageId: string | null,
-	activePage: CardPage | null,
+	activePage: (CardPage & { role?: string }) | null,
 	prev: CardEntity | null,
 ): CardEntity | null {
 	if (!currentUser) return null;
@@ -51,7 +53,7 @@ interface ActiveProfileProviderProps {
 	children: ReactNode;
 	/** Server-resolved identity, seeded from the root layout (see getActingIdentity). */
 	initialCurrentUser: CardUser | null;
-	initialActivePage: CardPage | null;
+	initialActivePage: (CardPage & { role?: string }) | null;
 }
 
 export function ActiveProfileProvider({ children, initialCurrentUser, initialActivePage }: ActiveProfileProviderProps) {
@@ -96,7 +98,7 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 	// there's nothing to keep (e.g. a stale/forbidden activePageId at load), fall back to
 	// personal so the nav tag never blanks.
 	const pageSig = initialActivePage
-		? `${initialActivePage.id}|${initialActivePage.handle}|${initialActivePage.name}|${initialActivePage.avatarImageId ?? ""}|${initialActivePage.avatarImage?.url ?? ""}`
+		? `${initialActivePage.id}|${initialActivePage.handle}|${initialActivePage.name}|${initialActivePage.avatarImageId ?? ""}|${initialActivePage.avatarImage?.url ?? ""}|${initialActivePage.role ?? ""}`
 		: null;
 	useEffect(() => {
 		setActiveEntity((prev) => resolveActiveEntity(currentUser, activePageId, initialActivePage, prev));
@@ -140,7 +142,7 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 				if (!res.ok) {
 					const data = await res.json().catch(() => ({}));
 					setError((data as { error?: string }).error || "Failed to switch profile");
-					return;
+					return false;
 				}
 				await updateSession({ activePageId: pageId });
 				// Optimistically set the new active page entity for an instant switch. This also
@@ -150,27 +152,33 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 				const pageRes = await fetch(API_ME_PAGE);
 				if (pageRes.ok) {
 					const page = await pageRes.json();
-					if (page?.id) setActiveEntity(page as CardPage);
+					if (page?.id) setActiveEntity(page as CardPageWithRole);
 				}
 			} else {
 				const res = await fetch(API_SESSION_ACTIVE_PAGE, { method: "DELETE" });
 				if (!res.ok) {
 					setError("Failed to switch profile");
-					return;
+					return false;
 				}
 				await updateSession({ activePageId: null });
 				setActiveEntity(currentUser);
 			}
+			return true;
 		} catch {
 			setError("Failed to switch profile");
+			return false;
 		} finally {
 			setLoading(false);
 		}
 	};
 
+	const activeRole = activePageId && activeEntity && "role" in activeEntity && typeof activeEntity.role === "string"
+		? activeEntity.role
+		: null;
+
 	return (
 		<ActiveProfileCtx.Provider
-			value={{ activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading, error }}
+			value={{ activeEntity, activePageId, currentUser, pages, activeRole, switchProfile, fetchPages, loading, error }}
 		>
 			{children}
 		</ActiveProfileCtx.Provider>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getPageById } from "@/lib/utils/server/page";
-import { canPostAsPage, canManagePage } from "@/lib/utils/server/permission";
+import { canPostAsPage, canManagePage, getActingRole } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { saveMyProfile } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
@@ -24,8 +24,9 @@ export async function GET() {
 
 		// Re-verify the caller may act as this page — activePageId comes from the JWT, which
 		// can be set client-side via updateSession without going through the validated route.
-		const allowed = await canPostAsPage(ctx.userId, ctx.activePageId);
-		if (!allowed) {
+		// One permission read. A member, or a missing row, is the same 404 as a missing page.
+		const role = await getActingRole(ctx.userId, ctx.activePageId);
+		if (!role) {
 			return notFound("Active page not found");
 		}
 
@@ -34,7 +35,7 @@ export async function GET() {
 			return notFound("Active page not found");
 		}
 
-		return NextResponse.json(page);
+		return NextResponse.json({ ...page, role });
 	} catch (error) {
 		console.error("GET /api/me/page error:", error);
 		return serverError();
@@ -68,15 +69,13 @@ export async function PUT(request: Request) {
 
 		const body = (await request.json()) as SavePayload;
 
-		// Changing the page's privacy (profile/content visibility) is ADMIN-only, even
-		// though an EDITOR may edit the rest of the profile (canPostAsPage above).
+		// Privacy and membership settings are ADMIN-only, even though an EDITOR may
+		// edit the rest of the profile (canPostAsPage above).
 		const isAdmin = await canManagePage(ctx.userId, ctx.activePageId);
 
-		// Shared executor: whitelist + validate (incl. visibility) + cascade.
-		// The old hand-rolled transaction here dropped `visibility` and skipped
-		// the descendant-visibility cascade — using saveMyProfile fixes both.
 		const result = await saveMyProfile("PAGE", ctx.activePageId, body, {
-			allowVisibilityChange: isAdmin,
+			allowManageChange: isAdmin,
+			actorUserId: ctx.userId,
 		});
 		if (!result.ok) {
 			// A non-admin attempting a visibility change is a permission failure (403),

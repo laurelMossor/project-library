@@ -8,12 +8,15 @@ import { AttachmentTarget } from "@prisma/client";
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: { event: { findUnique: vi.fn() }, post: { findUnique: vi.fn() } },
 }));
-vi.mock("@/lib/utils/server/permission", () => ({ canActAsEntity: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+  canActAsEntity: vi.fn(),
+  canEditContent: vi.fn(),
+}));
 
 import { canManageAttachmentTarget } from "@/lib/utils/server/image-attachment";
 import { isAllowedImageUrl, isAllowedStoragePath } from "@/lib/utils/server/storage";
 import { prisma } from "@/lib/utils/server/prisma";
-import { canActAsEntity } from "@/lib/utils/server/permission";
+import { canActAsEntity, canEditContent } from "@/lib/utils/server/permission";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -27,17 +30,18 @@ describe("canManageAttachmentTarget", () => {
     expect(canActAsEntity).toHaveBeenCalledWith("u1", { page: { id: "page-1" } });
   });
 
-  test("EVENT target on a page → checks the hosting page's managers", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ userId: "owner-1", pageId: "page-1" } as never);
-    vi.mocked(canActAsEntity).mockResolvedValue(true);
-    expect(await canManageAttachmentTarget("u1", AttachmentTarget.EVENT, "e1")).toBe(true);
-    expect(canActAsEntity).toHaveBeenCalledWith("u1", { page: { id: "page-1" } });
+  test("EVENT target → the author or the page it is spoken as, not a to-page manager", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({ userId: "owner-1", pageId: "page-1", asPageId: null } as never);
+    vi.mocked(canEditContent).mockResolvedValue(false);
+    expect(await canManageAttachmentTarget("u1", AttachmentTarget.EVENT, "e1")).toBe(false);
+    expect(canEditContent).toHaveBeenCalledWith("u1", expect.objectContaining({ asPageId: null, pageId: "page-1" }));
   });
 
-  test("POST target (standalone) → checks the author", async () => {
-    vi.mocked(prisma.post.findUnique).mockResolvedValue({ userId: "owner-1", pageId: null } as never);
-    await canManageAttachmentTarget("u1", AttachmentTarget.POST, "p1");
-    expect(canActAsEntity).toHaveBeenCalledWith("u1", { user: { id: "owner-1" } });
+  test("POST target → defers to canEditContent", async () => {
+    vi.mocked(prisma.post.findUnique).mockResolvedValue({ userId: "owner-1", pageId: null, asPageId: null } as never);
+    vi.mocked(canEditContent).mockResolvedValue(true);
+    expect(await canManageAttachmentTarget("u1", AttachmentTarget.POST, "p1")).toBe(true);
+    expect(canEditContent).toHaveBeenCalled();
   });
 
   test("missing target row → false", async () => {

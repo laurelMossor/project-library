@@ -7,7 +7,7 @@ import {
 	validateInviteToken,
 	normalizeEmail,
 } from "@/lib/validations";
-import { generateUniqueHandle } from "@/lib/utils/server/handle";
+import { generateUniqueHandle, handleUnavailableReason } from "@/lib/utils/server/handle";
 import { consumeInviteAndCreateUser, type ConsumeInviteResult } from "@/lib/utils/server/signup-invite";
 import { isDevSignupBypassToken } from "@/lib/utils/server/dev-signup-bypass";
 import { prisma } from "@/lib/utils/server/prisma";
@@ -23,8 +23,8 @@ import { VERIFY_EMAIL_WITH_TOKEN } from "@/lib/const/routes";
  * POST /api/auth/signup
  *
  * Creates a User and its companion Handle row atomically (per PR 2's cross-entity
- * uniqueness model). Signup no longer asks for a handle — one is auto-generated from the
- * email via `generateUniqueHandle` (users personalize it later in Settings). The write
+ * uniqueness model). The form collects the handle and display name; a caller that omits the
+ * handle (dev/E2E accounts) gets one generated from the email via `generateUniqueHandle`. The write
  * happens in `createUser` / `consumeInviteAndCreateUser`, both of which create the User and
  * Handle rows atomically. Because the handle is machine-picked, a lost uniqueness race
  * (P2002) is resolved by regenerating and retrying — never surfaced as an error the user
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 	if (limited) return limited;
 
 	try {
-		const { email, password, invite } = await request.json();
+		const { email, password, invite, handle: rawHandle, displayName: rawDisplayName } = await request.json();
 
 		if (!email || !password) {
 			return badRequest("Email and password are required");
@@ -63,11 +63,22 @@ export async function POST(request: Request) {
 			return badRequest("Password must be at least 8 characters long");
 		}
 
+		// The person picks their handle on the signup form. Callers that omit it (dev/E2E accounts)
+		// get a generated one. A chosen handle fails loudly; a generated one is retried on a race.
+		const chosenHandle = typeof rawHandle === "string" && rawHandle.trim()
+			? rawHandle.trim().toLowerCase()
+			: null;
+		if (chosenHandle) {
+			const reason = await handleUnavailableReason(chosenHandle);
+			if (reason) return badRequest(reason);
+		}
+		const displayName = typeof rawDisplayName === "string" && rawDisplayName.trim()
+			? rawDisplayName.trim().slice(0, 100)
+			: null;
+
 		const passwordHash = await bcrypt.hash(password, 10);
 
-		// The handle is auto-generated (signup no longer collects it). A lost uniqueness race is
-		// resolved by regenerating, so both create paths run in a small retry loop.
-		const MAX_HANDLE_ATTEMPTS = 4;
+		const MAX_HANDLE_ATTEMPTS = chosenHandle ? 1 : 4;
 
 		let responseUserId: string;
 
@@ -82,12 +93,13 @@ export async function POST(request: Request) {
 			}
 			let userId: string | null = null;
 			for (let attempt = 0; attempt < MAX_HANDLE_ATTEMPTS && userId === null; attempt++) {
-				const handle = await generateUniqueHandle(normalizedEmail);
+				const handle = chosenHandle ?? await generateUniqueHandle(normalizedEmail);
 				try {
 					const created = await createUser({
 						email: normalizedEmail,
 						handle,
 						passwordHash,
+						displayName: displayName ?? undefined,
 						// Local / E2E accounts are born verified — no email to click,
 						// and it keeps the login-gated test suite green.
 						emailVerified: new Date(),
@@ -97,6 +109,7 @@ export async function POST(request: Request) {
 					const isHandleRace =
 						typeof err === "object" && err !== null && "code" in err &&
 						(err as { code?: string }).code === "P2002";
+					if (isHandleRace && chosenHandle) return badRequest("That handle is already taken.");
 					if (isHandleRace && attempt < MAX_HANDLE_ATTEMPTS - 1) continue;
 					throw err;
 				}
@@ -106,12 +119,13 @@ export async function POST(request: Request) {
 		} else {
 			let result: ConsumeInviteResult | null = null;
 			for (let attempt = 0; attempt < MAX_HANDLE_ATTEMPTS; attempt++) {
-				const handle = await generateUniqueHandle(normalizedEmail);
+				const handle = chosenHandle ?? await generateUniqueHandle(normalizedEmail);
 				result = await consumeInviteAndCreateUser({
 					normalizedEmail,
 					handle,
 					passwordHash,
 					rawInviteToken: inviteStr,
+					displayName,
 				});
 				// Retry only the handle race; any other failure (bad invite, email taken) is final.
 				if (result.ok || !result.handleConflict) break;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
@@ -11,6 +11,7 @@ import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { hasSession } from "@/lib/utils/auth-client";
 import { UserHomeIcon, AtSignIcon } from "@/lib/components/icons/icons";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { formatRole } from "@/lib/const/roles";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { useNotificationCount } from "@/lib/components/notifications/NotificationContext";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
@@ -29,7 +30,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 	const activeSession = status === "loading" ? sessionProp : session;
 	const isLoggedIn = hasSession(activeSession);
 
-	const { activeEntity, activePageId, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
+	const { activeEntity, activePageId, activeRole, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
 	const { unreadData } = useUnreadCount();
 	const { data: notifData } = useNotificationCount();
 
@@ -42,19 +43,12 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [switcherExpanded, setSwitcherExpanded] = useState(false);
 
-	// Load pages on mount so the trigger badge can show the active role
-	useEffect(() => {
-		if (isLoggedIn) fetchPages();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isLoggedIn]);
-
 	if (!isLoggedIn) return <NavProfileShell />;
 	if (!activeEntity) return null;
 
-	// Badge on the trigger: "me" for personal identity, role for a page
-	const activeBadge = activePageId
-		? (pages.find((p) => p.id === activePageId)?.role?.toLowerCase() ?? undefined)
-		: "me";
+	// Badge on the trigger: "Me" for personal identity, the server role for a page.
+	// The pages list is only the switcher menu, so a page that isn't in it yet still badged.
+	const activeBadge = activePageId ? (activeRole ? formatRole(activeRole) : undefined) : "Me";
 
 	const isActingAsPage = activePageId !== null;
 	const profileLink = PUBLIC_PROFILE(activeEntity.handle);
@@ -142,7 +136,7 @@ export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
 							aria-label={`Switch to ${page.name}`}
 						>
 							<div className="w-[260px]">
-								<ProfileTag entity={page} size="md" asLink={false} variant="compact" badge={page.role.toLowerCase()} />
+								<ProfileTag entity={page} size="md" asLink={false} variant="compact" badge={formatRole(page.role)} />
 							</div>
 							{identityHasActivity(page.id) && <NotificationDot />}
 						</div>

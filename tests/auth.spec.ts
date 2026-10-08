@@ -29,15 +29,15 @@ test.describe("Authentication flows", () => {
   });
 
   test("signup with a valid invite redirects to the check-inbox page", async ({ page }) => {
-    // "tst" prefix matches the teardown; the auto-generated handle derives from the
-    // email local-part, so it also starts with "tst" and is cleaned up.
+    // "tst" prefix matches the teardown; the handle picked below starts with it too.
     const unique = `tst${Date.now() % 1e7}`;
     const email = `${unique}@example.com`;
     const { rawToken } = await createSignupInvite(email);
 
     await page.goto(SIGNUP_WITH_INVITE(rawToken));
     await page.getByPlaceholder("Email").fill(email);
-    // Signup no longer collects a handle — one is auto-generated from the email server-side.
+    await page.getByLabel("Handle").fill(unique);
+    await expect(page.getByText("Available")).toBeVisible();
     await page.getByPlaceholder("Password", { exact: true }).fill("password123");
     await page.getByPlaceholder("Confirm password").fill("password123");
     await page.getByRole("button", { name: "Sign Up" }).click();
@@ -63,6 +63,57 @@ test.describe("Authentication flows", () => {
   test("/settings redirects unauthenticated users to login", async ({ page }) => {
     await page.goto("/settings");
     await expect(page).toHaveURL(/\/login/);
+  });
+
+  test("leaving setup keeps the account and returns to setup", async ({ page }) => {
+    const unique = `tst${Date.now() % 1e7}`;
+    const email = `${unique}@example.com`;
+    await createUser({
+      email,
+      handle: unique,
+      passwordHash: await bcrypt.hash("password123", 10),
+      emailVerified: new Date(),
+    });
+
+    try {
+      await page.goto("/login");
+      await submitLogin(page, email, "password123");
+      await page.waitForURL(/\/setup/, { timeout: 15_000 });
+      await expect(page.getByRole("heading", { name: "Set up your account" })).toBeVisible();
+
+      await page.getByRole("link", { name: "Project Library" }).click();
+      await expect(page).toHaveURL(/\/setup/, { timeout: 15_000 });
+      await expect(page.getByRole("heading", { name: "Set up your account" })).toBeVisible();
+      const user = await prisma.user.findUnique({ where: { email } });
+      expect(user).not.toBeNull();
+      expect(user?.setupCompletedAt).toBeNull();
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
+  });
+
+  test("Delete this account deletes it after confirming", async ({ page }) => {
+    const unique = `tst${Date.now() % 1e7}c`;
+    const email = `${unique}@example.com`;
+    await createUser({
+      email,
+      handle: unique,
+      passwordHash: await bcrypt.hash("password123", 10),
+      emailVerified: new Date(),
+    });
+
+    try {
+      await page.goto("/login");
+      await submitLogin(page, email, "password123");
+      await page.waitForURL(/\/setup/, { timeout: 15_000 });
+
+      await page.getByRole("button", { name: "Delete this account" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Delete this account" }).click();
+      await page.waitForURL(/\/welcome/, { timeout: 15_000 });
+      await expect.poll(async () => prisma.user.findUnique({ where: { email } })).toBeNull();
+    } finally {
+      await prisma.user.deleteMany({ where: { email } });
+    }
   });
 
   test("session persists across a page refresh", async ({ page }) => {
@@ -100,6 +151,7 @@ test.describe("Email verification + password reset", () => {
       email,
       handle: unique,
       passwordHash: await bcrypt.hash("password123", 10),
+      setupCompletedAt: new Date(),
     });
 
     try {
@@ -134,6 +186,7 @@ test.describe("Email verification + password reset", () => {
       handle: unique,
       passwordHash: await bcrypt.hash("oldpassword123", 10),
       emailVerified: new Date(), // verified, so login isn't gated
+      setupCompletedAt: new Date(),
     });
 
     try {

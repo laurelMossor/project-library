@@ -1,32 +1,27 @@
 /**
- * Admin member-management routes — role assignability under the membership flag.
- *
- * Uses the REAL `assignableRoles()` policy (only the flag + the DB-write boundary are
- * mocked), so these assert the actual gate: while membership is flagged off, MEMBER
- * can't be assigned on add (POST) or on role-change (PUT), and the last-admin guard
- * still fires on its own axis.
+ * Member routes. POST invites (the invitee accepts later). PUT changes an
+ * existing member's role, gated by the page's membership policy.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { PermissionRole } from "@prisma/client";
 
-const flag = vi.hoisted(() => ({ on: false }));
-vi.mock("@/lib/const/features", () => ({
-  FEATURES: {
-    get SELF_SERVICE_MEMBERSHIP() {
-      return flag.on;
-    },
-  },
-}));
-// NOTE: @/lib/const/roles is intentionally NOT mocked — assignableRoles() is the real
-// policy under test. Only the flag it reads and the DB writes are stubbed.
-
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
+vi.mock("@/lib/utils/server/activity", () => ({ emitActivity: vi.fn() }));
+vi.mock("@/lib/utils/server/prisma", () => ({
+  prisma: { page: { findUnique: vi.fn() } },
+}));
 vi.mock("@/lib/utils/server/permission", () => ({
   canManagePage: vi.fn(),
+  getUserPermission: vi.fn(),
   grantPermission: vi.fn(),
   revokePermission: vi.fn(),
   wouldRemoveLastAdmin: vi.fn(),
   getResourcePermissions: vi.fn(),
+}));
+vi.mock("@/lib/utils/server/requests", () => ({
+  invitePageMember: vi.fn(),
+  listPageInvites: vi.fn(),
+  removeMember: vi.fn(),
 }));
 vi.mock("@/lib/utils/server/visibility", () => ({
   getViewerContext: vi.fn(),
@@ -40,9 +35,11 @@ vi.mock("@/lib/utils/errors", () => ({
 }));
 
 import { POST } from "@/app/api/pages/[pageId]/members/route";
-import { PUT } from "@/app/api/pages/[pageId]/members/[userId]/route";
+import { PUT, DELETE } from "@/app/api/pages/[pageId]/members/[userId]/route";
 import { getSessionContext } from "@/lib/utils/server/session";
-import { canManagePage, grantPermission, wouldRemoveLastAdmin } from "@/lib/utils/server/permission";
+import { prisma } from "@/lib/utils/server/prisma";
+import { canManagePage, getUserPermission, grantPermission, wouldRemoveLastAdmin } from "@/lib/utils/server/permission";
+import { invitePageMember, removeMember } from "@/lib/utils/server/requests";
 
 const addReq = (role: string) =>
   new Request("http://localhost/api/pages/p1/members", {
@@ -58,57 +55,80 @@ const putReq = (role: string) =>
   });
 const putCtx = { params: Promise.resolve({ pageId: "p1", userId: "u2" }) };
 
-describe("POST /members — add with a role (flag OFF, real assignableRoles)", () => {
+describe("POST /members — invite", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    flag.on = false;
     vi.mocked(getSessionContext).mockResolvedValue({ userId: "admin" } as never);
-    vi.mocked(canManagePage).mockResolvedValue(true); // caller is an admin
+    vi.mocked(canManagePage).mockResolvedValue(true);
   });
 
-  test("role=MEMBER → 400, no grant (MEMBER is not assignable while flagged off)", async () => {
+  test("a role the page won't offer → 400, nothing granted", async () => {
+    vi.mocked(invitePageMember).mockResolvedValue({ ok: false, reason: "invalid_role" });
     const res = await POST(addReq(PermissionRole.MEMBER), addCtx);
     expect(res.status).toBe(400);
     expect(grantPermission).not.toHaveBeenCalled();
   });
 
-  test("role=EDITOR → 201, grant issued (EDITOR is assignable)", async () => {
-    vi.mocked(grantPermission).mockResolvedValue({} as never);
+  test("an offered role → 201 invited, no grant", async () => {
+    vi.mocked(invitePageMember).mockResolvedValue({ ok: true, status: "invited" });
     const res = await POST(addReq(PermissionRole.EDITOR), addCtx);
     expect(res.status).toBe(201);
-    expect(grantPermission).toHaveBeenCalledWith("u2", "p1", expect.anything(), PermissionRole.EDITOR);
+    expect(invitePageMember).toHaveBeenCalledWith("p1", "u2", PermissionRole.EDITOR);
+    expect(grantPermission).not.toHaveBeenCalled();
   });
 });
 
-describe("PUT /members/[userId] — change role (flag OFF, real assignableRoles)", () => {
+describe("PUT /members/[userId] — change role", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    flag.on = false;
     vi.mocked(getSessionContext).mockResolvedValue({ userId: "admin" } as never);
     vi.mocked(canManagePage).mockResolvedValue(true);
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ membershipPolicy: "CLOSED" } as never);
+    vi.mocked(getUserPermission).mockResolvedValue(PermissionRole.ADMIN);
   });
 
-  test("demote to MEMBER → 400, no write (rejected before the last-admin check)", async () => {
+  test("demote to MEMBER on a CLOSED page → 400, no write", async () => {
     const res = await PUT(putReq(PermissionRole.MEMBER), putCtx);
     expect(res.status).toBe(400);
     expect(grantPermission).not.toHaveBeenCalled();
-    // The MEMBER rejection short-circuits — the last-admin guard is never even reached.
     expect(wouldRemoveLastAdmin).not.toHaveBeenCalled();
   });
 
-  test("assignable role (EDITOR) but demoting the sole admin → 400 via the independent last-admin guard", async () => {
+  test("MEMBER is allowed once the page invites members", async () => {
+    vi.mocked(prisma.page.findUnique).mockResolvedValue({ membershipPolicy: "INVITE_ONLY" } as never);
+    vi.mocked(wouldRemoveLastAdmin).mockResolvedValue(false);
+    vi.mocked(grantPermission).mockResolvedValue({} as never);
+    const res = await PUT(putReq(PermissionRole.MEMBER), putCtx);
+    expect(res.status).toBe(200);
+    expect(grantPermission).toHaveBeenCalled();
+  });
+
+  test("demoting the sole admin → 400", async () => {
     vi.mocked(wouldRemoveLastAdmin).mockResolvedValue(true);
     const res = await PUT(putReq(PermissionRole.EDITOR), putCtx);
     expect(res.status).toBe(400);
-    expect(wouldRemoveLastAdmin).toHaveBeenCalledWith("p1", "u2");
     expect(grantPermission).not.toHaveBeenCalled();
   });
 
-  test("assignable role (EDITOR), not last admin → 200, write issued", async () => {
-    vi.mocked(wouldRemoveLastAdmin).mockResolvedValue(false);
-    vi.mocked(grantPermission).mockResolvedValue({} as never);
+  test("someone with no role → 400 (they need an invite)", async () => {
+    vi.mocked(getUserPermission).mockResolvedValue(null);
     const res = await PUT(putReq(PermissionRole.EDITOR), putCtx);
+    expect(res.status).toBe(400);
+    expect(grantPermission).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /members/[userId] — admin remove", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getSessionContext).mockResolvedValue({ userId: "admin" } as never);
+    vi.mocked(canManagePage).mockResolvedValue(true);
+    vi.mocked(wouldRemoveLastAdmin).mockResolvedValue(false);
+  });
+
+  test("drops the role and the follow together", async () => {
+    const res = await DELETE(new Request("http://localhost/api/pages/p1/members/u2"), putCtx);
     expect(res.status).toBe(200);
-    expect(grantPermission).toHaveBeenCalledWith("u2", "p1", expect.anything(), PermissionRole.EDITOR);
+    expect(removeMember).toHaveBeenCalledWith("u2", "p1");
   });
 });

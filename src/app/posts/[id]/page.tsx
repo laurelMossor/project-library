@@ -5,6 +5,7 @@ import { postWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
 import { PostPageClient } from "@/lib/components/post/PostPageClient";
 import { getViewerContext, canViewPost } from "@/lib/utils/server/visibility";
+import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
 
 type Props = {
 	params: Promise<{ id: string }>;
@@ -23,11 +24,18 @@ export default async function PostDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	const isOwner = session?.user?.id === post.userId;
 	const isLoggedIn = !!session?.user?.id;
+	const authority = { userId: post.userId, asPageId: post.asPageId, pageId: post.pageId };
+	const [canEdit, canModerate] = session?.user?.id
+		? await Promise.all([
+			canEditContent(session.user.id, authority),
+			canModerateContent(session.user.id, authority),
+		])
+		: [false, false];
 
-	// Non-owners cannot see DRAFT posts
-	if (post.status === "DRAFT" && !isOwner) {
+	// Drafts are visible to whoever may edit the words (the author, or a current
+	// editor of page-spoken content). A member post's draft stays with its author.
+	if (post.status === "DRAFT" && !canEdit) {
 		notFound();
 	}
 
@@ -42,7 +50,8 @@ export default async function PostDetailPage({ params }: Props) {
 		<PostPageClient
 			post={post}
 			images={images}
-			isOwner={isOwner}
+			canEdit={canEdit}
+			canModerate={canModerate}
 			isLoggedIn={isLoggedIn}
 		/>
 	);

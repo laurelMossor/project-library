@@ -25,8 +25,8 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 - **Routes**: All route constants in `src/lib/const/routes.ts` — never hardcode paths
 - **Server utils**: DB queries live in `src/lib/utils/server/` (e.g. `user.ts`, `page.ts`, `event.ts`, `permission.ts`)
 - **Field selectors**: Reusable Prisma `select` objects in `src/lib/utils/server/fields.ts`
-- **Permissions**: `permission.ts` owns all role logic. Two tiers: `canManagePage()` = ADMIN (members, roles, privacy, destructive); `canPostAsPage()`/`canActAsEntity()` = ADMIN/EDITOR (author, message). Role values/predicates/sets live in `src/lib/const/roles.ts` (client-safe); never compare `PermissionRole` inline.
-- **Feature flags**: compile-time constants in `src/lib/const/features.ts` (`FEATURES.*`), importable server + client. Currently gates self-service Join/membership off for beta.
+- **Permissions**: `permission.ts` owns all role logic. `canManagePage()` = ADMIN (members, roles, privacy, membership settings, destructive). `canPostAsPage()`/`canActAsEntity()` = ADMIN/EDITOR (speak as the page, message, pin on the page). `canPostToPage()` = ADMIN/EDITOR always; a MEMBER only when the page's `allowMemberPosts` is on. `canEditContent()` = a current ADMIN/EDITOR when the content is spoken as a page (`asPageId` set); otherwise the author (personal posts and posts to a page). `canModerateContent()` = editors, plus a manager of the page the content *lives on* (delete a member post, never rewrite it). Role values/predicates/sets live in `src/lib/const/roles.ts` (client-safe); `assignableRoles(policy)` decides which roles a page may offer. Never compare `PermissionRole` inline.
+- **Feature flags**: compile-time constants in `src/lib/const/features.ts` (`FEATURES.*`), importable server + client. Membership is not a flag: a page's `membershipPolicy` (CLOSED by default, INVITE_ONLY, REQUEST_TO_JOIN; OPEN exists and is rejected until it ships) decides who can join.
 - **Identity context**: `ActiveProfileContext` (`src/lib/contexts/`) — provides `activeEntity`, `activePageId`, `currentUser`, `switchProfile()`. All identity-aware UI reads from this context.
 - **Shared text utils**: Initials, truncation, display names → `src/lib/utils/text.ts`
 - **Validations**: All input validation in `src/lib/validations.ts` (events, posts, pages, messages)
@@ -40,8 +40,11 @@ Profile pages: ProfileCollectionSection (wraps CollectionPage for user/page prof
 Identity:      ProfileTag (avatar + name + handle + badge, works for User or Page)
                NavProfileTag (nav bar profile trigger w/ dropdown: View Profile, Switch Profile)
                ProfilePicture (handles User or Page, image or initials fallback)
-Messaging:     MessagesPageView (TabbedPanel inbox, profile-scoped threads)
-               ConversationThread (message list + send form, receives asPageId)
+Messaging:     MessagesPageView (TabbedPanel inbox of DMs + groups, scoped to the active identity)
+               ConversationThread (thread by conversationId + send form, receives asPageId)
+               StandaloneThreadPage (deep-link thread pages /messages/c/:id and /messages/u|p/:id)
+               NewGroupModal / MembersModal (on ModalShell) + MemberPicker, AvatarStack
+               Server: utils/server/message.ts owns access, read state, groups; message-routes.ts is the route prelude
 Image display: ImageCarousel (multi-image carousel on cards)
 Posts on cards: PostsList (fetches child posts/updates for a parent post or event)
 Layout:        CenteredLayout, FormLayout, TabbedPanel (dual-axis tabbed container)

@@ -1,5 +1,5 @@
 import { PostItem, PostCollectionItem } from "../types/post";
-import { API_POSTS, API_POST, API_EVENT_POSTS } from "../const/routes";
+import { API_POSTS, API_POST, API_POST_POSTS, API_EVENT_POSTS } from "../const/routes";
 import { authFetch } from "./auth-client";
 
 /**
@@ -20,7 +20,7 @@ export async function getEventPosts(eventId: string): Promise<PostItem[]> {
  * Fetch child posts (updates) for a parent post
  */
 export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
-	const response = await fetch(`${API_POSTS}?parentPostId=${parentPostId}`);
+	const response = await fetch(API_POST_POSTS(parentPostId));
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch post updates: ${response.statusText}`);
@@ -91,11 +91,11 @@ export async function createPost(data: {
 /**
  * Create a minimal draft post — called from /posts/new (client component).
  */
-export async function createDraftPost(pageId?: string, title?: string, content?: string): Promise<PostItem> {
+export async function createDraftPost(asPageId?: string, title?: string, content?: string): Promise<PostItem> {
 	const res = await authFetch(API_POSTS, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true, ...(pageId ? { pageId } : {}), ...(title ? { title } : {}), ...(content ? { content } : {}) }),
+		body: JSON.stringify({ isDraft: true, ...(asPageId ? { asPageId } : {}), ...(title ? { title } : {}), ...(content ? { content } : {}) }),
 	});
 
 	if (!res.ok) {
@@ -111,7 +111,7 @@ export async function createDraftPost(pageId?: string, title?: string, content?:
  */
 export async function updatePost(
 	id: string,
-	data: Partial<{ title: string | null; content: string; tags: string[]; status: string; pageId: string | null }>
+	data: Partial<{ title: string | null; content: string; tags: string[]; status: string; pageId: string | null; asPageId: string | null; showOnAuthorProfile: boolean }>
 ): Promise<PostItem> {
 	const res = await authFetch(API_POST(id), {
 		method: "PATCH",

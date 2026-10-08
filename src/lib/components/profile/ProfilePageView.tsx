@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { UserSettingsContent } from "./profile-settings/UserSettingsContent";
 import { PageSettingsContent } from "./profile-settings/PageSettingsContent";
 import { PUBLIC_PROFILE, API_ME_USER, API_ME_PAGE, API_ME_PAGES } from "@/lib/const/routes";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
+import { HeadingTitle } from "@/lib/components/text/HeadingTitle";
+import { isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import { isActingRole } from "@/lib/const/roles";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
@@ -52,37 +55,65 @@ export function ProfilePageView() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [activeEntity?.id, activePageId]);
 
-	if (profileLoading || !currentUser || !activeEntity) {
-		return <p className="text-sm text-dusty-grey text-center py-12">Loading...</p>;
-	}
+	const identityReady = !profileLoading && !!currentUser && !!activeEntity;
+	const identityName = !activeEntity
+		? ""
+		: isCardPage(activeEntity)
+			? activeEntity.name
+			: getCardUserDisplayName(activeEntity);
 
-	if (dataLoading) {
-		return <p className="text-sm text-dusty-grey text-center py-12">Loading profile...</p>;
-	}
-
-	if (error) {
-		return <p className="text-sm text-red-500 text-center py-12">{error}</p>;
-	}
-
-	if (page && activePageId) {
+	if (!identityReady || !activeEntity) {
 		return (
+			<>
+				<SettingsHeading />
+				<p className="text-sm text-dusty-grey text-center py-12">Loading...</p>
+			</>
+		);
+	}
+
+	let body: ReactNode;
+	if (dataLoading) {
+		body = <p className="text-sm text-dusty-grey text-center py-12">Loading profile...</p>;
+	} else if (error) {
+		body = <p className="text-sm text-red-500 text-center py-12">{error}</p>;
+	} else if (page && activePageId) {
+		body = (
 			<PageSettingsContent
 				page={page}
 				pages={pages}
 				publicProfileHref={PUBLIC_PROFILE(page.handle)}
 			/>
 		);
-	}
-
-	if (user) {
-		return (
+	} else if (user) {
+		body = (
 			<UserSettingsContent
 				user={user}
 				pages={pages}
 				publicProfileHref={PUBLIC_PROFILE(user.handle)}
 			/>
 		);
+	} else {
+		body = <p className="text-sm text-red-500 text-center py-12">Could not load profile.</p>;
 	}
 
-	return <p className="text-sm text-red-500 text-center py-12">Could not load profile.</p>;
+	return (
+		<>
+			<div className="mb-3">
+				<Breadcrumb href={PUBLIC_PROFILE(activeEntity.handle)} label={`Back to ${identityName}`} />
+			</div>
+			<SettingsHeading />
+			{body}
+		</>
+	);
+}
+
+function SettingsHeading() {
+	return (
+		<div className="mb-8">
+			<HeadingTitle title="Settings" />
+			<p className="text-gray-600">
+				Manage your profile information and account settings
+			</p>
+		</div>
+	);
 }

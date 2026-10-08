@@ -5,6 +5,7 @@ import type { NotificationCategory } from "@prisma/client";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { resolveCardIdentity } from "@/lib/types/card";
 import { Toggle } from "@/lib/components/forms/Toggle";
+import { VisibilitySelector, type SelectorOption } from "@/lib/components/visibility/VisibilitySelector";
 import { API_ME_NOTIFICATION_PREFS } from "@/lib/const/routes";
 
 type Prefs = { master: boolean; categories: Record<string, boolean> };
@@ -16,6 +17,18 @@ const CATEGORY_ROWS: { key: NotificationCategory; label: string; description: st
 	{ key: "RSVPS", label: "Event RSVPs", description: "When someone RSVPs to your event" },
 	{ key: "FOLLOWS", label: "New followers & members", description: "When someone follows you or joins a page" },
 ];
+
+type Frequency = "NEVER" | "MONTHLY" | "DAILY" | "INSTANT";
+
+const FREQUENCY_OPTIONS: SelectorOption<Frequency>[] = [
+	{ value: "NEVER", label: "Never" },
+	{ value: "MONTHLY", label: "Monthly" },
+	{ value: "DAILY", label: "Daily" },
+	{ value: "INSTANT", label: "As it happens" },
+];
+
+/** Flip to false once digests exist. Until then the group only reflects the master switch. */
+const FREQUENCY_COMING_SOON = true;
 
 export function NotificationSettingsForm() {
 	const { activeEntity, activePageId } = useActiveProfile();
@@ -88,6 +101,30 @@ export function NotificationSettingsForm() {
 						save({ master: v });
 					}}
 				/>
+				<div className={`mt-1 border-t border-ash-green py-3 ${FREQUENCY_COMING_SOON ? "opacity-50" : ""}`}>
+					<div className="flex items-center gap-2">
+						<p className="text-sm font-medium text-rich-brown">Email frequency</p>
+						{FREQUENCY_COMING_SOON && (
+							<span className="rounded-full bg-ash-green px-2 py-0.5 text-xs text-dusty-grey">Coming soon!</span>
+						)}
+					</div>
+					<p className="text-xs text-misty-forest mb-2">How often you want to be notified of activity</p>
+					<VisibilitySelector<Frequency>
+						value={prefs.master ? "INSTANT" : "NEVER"}
+						onChange={(next) => {
+							// Never is the master switch turned off; the rest need digests that don't exist yet.
+							if (next === "NEVER" || next === "INSTANT") {
+								setPrefs({ ...prefs, master: next === "INSTANT" });
+								save({ master: next === "INSTANT" });
+							}
+						}}
+						options={FREQUENCY_OPTIONS}
+						name="emailFrequency"
+						legend="Email frequency"
+						hideLegend
+						disabled={FREQUENCY_COMING_SOON || saving}
+					/>
+				</div>
 				<div className={`mt-1 divide-y divide-ash-green border-t border-ash-green pt-1 ${prefs.master ? "" : "opacity-50"}`}>
 					{CATEGORY_ROWS.map((row) => (
 						<Toggle

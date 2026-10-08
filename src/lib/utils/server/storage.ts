@@ -183,6 +183,63 @@ export async function uploadImageBuffer(
 }
 
 /**
+ * Where a stored object lives on disk in dev (no Supabase URL).
+ * Uploads are `public/uploads/<path>`. Seed fixtures are `public/static/examples/<filename>`.
+ * Returns null when the path is unsafe or neither file exists.
+ */
+export function localStorageFile(storagePath: string): string | null {
+	if (!isAllowedStoragePath(storagePath)) return null;
+	const roots = [
+		path.resolve(process.cwd(), "public", "uploads"),
+		path.resolve(process.cwd(), "public", "static", "examples"),
+	];
+	for (const root of roots) {
+		const file = path.resolve(root, storagePath);
+		if (file !== root && !file.startsWith(root + path.sep)) continue;
+		if (fs.existsSync(file) && fs.statSync(file).isFile()) return file;
+	}
+	return null;
+}
+
+function removeLocalStoragePaths(paths: string[]): void {
+	for (const storagePath of paths) {
+		const file = localStorageFile(storagePath);
+		if (!file) continue;
+		try {
+			fs.unlinkSync(file);
+		} catch (error) {
+			console.error("Failed to remove storage paths:", error);
+		}
+	}
+}
+
+/**
+ * Best-effort batched blob delete. `paths` are `Image.path` values. Failures are logged,
+ * never thrown — a committed row delete must not roll back because storage was unreachable.
+ * Called after the database transaction commits.
+ *
+ * With no Supabase URL, the files are on disk: `public/uploads` for uploads made in dev,
+ * `public/static/examples` for seeded fixtures.
+ */
+export async function removeStoragePaths(paths: string[]): Promise<void> {
+	const unique = [...new Set(paths.filter(Boolean))];
+	if (unique.length === 0) return;
+	// Dev has no Supabase bucket. The same paths are files under public/uploads
+	// (uploads) or public/static/examples (seed fixtures).
+	if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+		removeLocalStoragePaths(unique);
+		return;
+	}
+	try {
+		const supabase = getSupabaseClient();
+		const { error } = await supabase.storage.from(BUCKET_NAME).remove(unique);
+		if (error) console.error("Failed to remove storage paths:", error);
+	} catch (error) {
+		console.error("Failed to remove storage paths:", error);
+	}
+}
+
+/**
  * Delete an image from Supabase storage
  * @param imageUrl - The public URL of the image to delete
  * @returns Success status and error if any

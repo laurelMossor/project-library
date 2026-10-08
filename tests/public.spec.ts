@@ -34,7 +34,8 @@ test.describe("Public pages — unauthenticated renders", () => {
     await page.goto(SIGNUP_WITH_INVITE(rawToken));
     await expect(page.getByRole("heading", { name: "Sign Up" })).toBeVisible();
     await expect(page.getByPlaceholder("Email")).toBeVisible();
-    // No Handle field; signup auto-generates one from the email server-side.
+    // The handle is picked here, so the account never exists with a made-up one.
+    await expect(page.getByLabel("Handle")).toBeVisible();
     await expect(page.getByPlaceholder("Password", { exact: true })).toBeVisible();
     await expect(page.getByPlaceholder("Confirm password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible();

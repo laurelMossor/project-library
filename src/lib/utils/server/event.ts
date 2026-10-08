@@ -1,14 +1,16 @@
 // ⚠️ SERVER-ONLY: This file uses prisma (database client)
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
+import { AttachmentTarget } from "@prisma/client";
 import { prisma } from "./prisma";
 import { EventItem } from "../../types/event";
 import { eventWithUserFields, eventCollectionFields, EventFromQuery, toCollectionMeta } from "./fields";
-import { getImagesForTarget, getImagesForTargetsBatch, deleteAllAttachmentsForTarget } from "./image-attachment";
+import { getImagesForTarget, getImagesForTargetsBatch, detachAllForTargets } from "./image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 import type { ViewerContext } from "./visibility";
-import { collectionVisibilityWhere } from "./visibility";
+import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere } from "./visibility";
+import { withCanPin } from "./pin";
 
 /** Transform Prisma query result to EventItem */
 function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
@@ -35,12 +37,13 @@ export async function getEventsByUser(
 	userId: string,
 	{ includeDrafts = false, viewer }: { includeDrafts?: boolean; viewer?: ViewerContext } = {}
 ): Promise<EventItem[]> {
+	const personal = await collectionVisibilityWhere("USER", userId, viewer);
+	const placed = await authorProfilePlacementWhere(viewer);
 	const events = await prisma.event.findMany({
 		where: {
 			userId,
-			pageId: null,
 			...(includeDrafts ? {} : { status: "PUBLISHED" }),
-			...(await collectionVisibilityWhere("USER", userId, viewer)),
+			OR: [{ pageId: null, ...personal }, placed],
 		},
 		select: eventCollectionFields,
 		orderBy: { createdAt: "desc" },
@@ -50,10 +53,10 @@ export async function getEventsByUser(
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map(({ _count, updates, ...e }) => ({
+	return withCanPin(events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { userId });
 }
 
 // Fetch all events for a page
@@ -64,7 +67,7 @@ export async function getEventsByPage(
 	const events = await prisma.event.findMany({
 		where: {
 			pageId,
-			...(includeDrafts ? {} : { status: "PUBLISHED" }),
+			...draftsOnPageWhere(includeDrafts, viewer),
 			...(await collectionVisibilityWhere("PAGE", pageId, viewer)),
 		},
 		select: eventCollectionFields,
@@ -75,10 +78,10 @@ export async function getEventsByPage(
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map(({ _count, updates, ...e }) => ({
+	return withCanPin(events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { pageId });
 }
 
 // NOTE: event creation/updates go through the route handlers (`POST`/`PATCH /api/events[/:id]`),
@@ -86,27 +89,25 @@ export async function getEventsByPage(
 // `createEvent`/`updateEvent` server utils here were unused (the client `event-client.ts` has its
 // own same-named fetch wrappers) and were removed to avoid a second, divergent write path.
 
-export async function deleteEvent(id: string): Promise<EventItem> {
-	// Fetch event to verify it exists
-	const event = await prisma.event.findUnique({
-		where: { id },
-		select: { id: true },
-	});
-
-	if (!event) {
-		throw new Error("Event not found");
-	}
-
-	// Remove every attached image (attachment row + Image row + storage blob). The event
-	// is going away, so no uploader scoping — all images attached to it are cleaned up.
-	await deleteAllAttachmentsForTarget("EVENT", id);
-
-	// Delete the event (cascade will delete posts)
-	const deletedEvent = await prisma.event.delete({
-		where: { id },
-		select: eventWithUserFields,
-	});
-
-	// Images already deleted above
-	return toEventItem(deletedEvent, []);
+/**
+ * Delete an event and return storage paths to remove after commit.
+ * Update posts cascade with the event, but their photos are POST attachments
+ * with no foreign key, so they are detached here too. Blobs stay until the caller
+ * removes the returned paths, so a failed delete does not drop the photos.
+ */
+export async function deleteEvent(id: string): Promise<string[]> {
+	return prisma.$transaction(async (tx) => {
+		// A new update's eventId foreign key share-locks this row, so it waits.
+		await tx.$queryRaw`SELECT id FROM "events" WHERE id = ${id} FOR UPDATE`;
+		const posts = await tx.post.findMany({ where: { eventId: id }, select: { id: true } });
+		const paths = await detachAllForTargets(
+			[
+				{ type: AttachmentTarget.EVENT, targetId: id },
+				...posts.map((post) => ({ type: AttachmentTarget.POST, targetId: post.id })),
+			],
+			tx,
+		);
+		await tx.event.delete({ where: { id } });
+		return paths;
+	}, { timeout: 30_000, maxWait: 10_000 });
 }

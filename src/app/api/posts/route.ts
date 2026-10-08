@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
-import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
+import { unauthorized, badRequest, forbidden, serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { createPost, PostInputError } from "@/lib/utils/server/post";
+import { createPost, PostForbiddenError, PostInputError } from "@/lib/utils/server/post";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { postCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
@@ -54,7 +54,6 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
  */
 export async function GET(request: Request) {
 	// Rate limiting: 200 requests per minute per IP
-	// Higher limit because each collection card may fetch child posts individually
 	const limited = await enforceRateLimit(request, "search-posts", {
 		maxRequests: 200,
 		windowMs: 60 * 1000,
@@ -65,7 +64,6 @@ export async function GET(request: Request) {
 	const userId = searchParams.get("userId") || undefined;
 	const pageId = searchParams.get("pageId") || undefined;
 	const eventId = searchParams.get("eventId") || undefined;
-	const parentPostId = searchParams.get("parentPostId") || undefined;
 	const toplevel = searchParams.get("toplevel"); // "true" to exclude child/event posts
 	const search = searchParams.get("search") || undefined;
 	const limit = parseNumber(searchParams.get("limit"));
@@ -92,8 +90,8 @@ export async function GET(request: Request) {
 		andConditions.push({ status: "PUBLISHED" as const });
 	}
 
-	// Visibility: list mode only shows PUBLIC content (plus the viewer's own)
-	andConditions.push(postListWhere(viewer));
+	// List mode is the public feed: LISTED only, for every viewer.
+	andConditions.push(postListWhere());
 
 	if (search) {
 		andConditions.push({ OR: [
@@ -108,7 +106,6 @@ export async function GET(request: Request) {
 				...(userId ? { userId } : {}),
 				...(pageId ? { pageId } : {}),
 				...(eventId ? { eventId } : {}),
-				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
 				...(andConditions.length > 0 ? { AND: andConditions } : {}),
@@ -153,7 +150,7 @@ export async function POST(request: Request) {
 		}
 
 		const data = await request.json();
-		const { content, title, pageId, eventId, parentPostId, tags, topics, isDraft } = data;
+		const { content, title, pageId, asPageId, showOnAuthorProfile, eventId, parentPostId, tags, topics, isDraft } = data;
 
 		// HTTP-shape validation (length limits) stays at the edge; createPost owns the
 		// data invariants (XOR, nesting, page permission, child pageId — INV-1/2/3/8).
@@ -189,6 +186,8 @@ export async function POST(request: Request) {
 				content,
 				title,
 				pageId: pageId || null,
+				asPageId: asPageId || null,
+				showOnAuthorProfile: showOnAuthorProfile === true,
 				eventId: eventId || null,
 				parentPostId: parentPostId || null,
 				tags: processedTags,
@@ -196,6 +195,9 @@ export async function POST(request: Request) {
 				isDraft: !!isDraft,
 			});
 		} catch (err) {
+			if (err instanceof PostForbiddenError) {
+				return forbidden(err.message);
+			}
 			if (err instanceof PostInputError) {
 				return badRequest(err.message);
 			}

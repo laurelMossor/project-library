@@ -4,7 +4,6 @@ import { type ReactNode } from "react";
 import { ButtonLink } from "@/lib/components/ui/ButtonLink";
 import { BUG_REPORT_FORM } from "@/lib/const/routes";
 import { SettingsSection } from "./SettingsSection";
-import { DisabledSettingsButton } from "./DisabledSettingsButton";
 import { UserPageSettings } from "./UserPageSettings";
 import { PageItem } from "./PageSwitcher";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
@@ -19,7 +18,6 @@ type ProfileSettingsBaseProps = {
 	avatarEntity?: CardEntity;
 	viewPublicProfileHref: string;
 	viewPublicProfileLabel?: string;
-	disabledButtons?: string[];
 	additionalSettingsButtons?: ReactNode;
 };
 
@@ -35,7 +33,6 @@ export function ProfileSettingsBase({
 	avatarEntity,
 	viewPublicProfileHref,
 	viewPublicProfileLabel = "View Public Profile",
-	disabledButtons = [],
 	additionalSettingsButtons,
 }: ProfileSettingsBaseProps) {
 	return (
@@ -49,10 +46,6 @@ export function ProfileSettingsBase({
 				</ButtonLink>
 
 				{additionalSettingsButtons}
-
-				{disabledButtons.map((label) => (
-					<DisabledSettingsButton key={label}>{label}</DisabledSettingsButton>
-				))}
 
 				<ButtonLink href={BUG_REPORT_FORM} variant="secondary" fullWidth target="_blank" rel="noopener noreferrer">
 					Report an Issue

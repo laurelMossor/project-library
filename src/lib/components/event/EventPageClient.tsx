@@ -27,9 +27,12 @@ import { AuthError, authFetch } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
-import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { contentIdentity } from "@/lib/utils/content-identity";
+import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { PostPageShell } from "@/lib/components/layout/PostPageShell";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ContentCard } from "@/lib/components/layout/ContentCard";
 import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
@@ -43,7 +46,8 @@ import type { SavePayload } from "@/lib/types/inline-edit";
 
 type EventPageClientProps = {
 	event: EventItem;
-	isOwner: boolean;
+	canEdit: boolean;
+	canModerate: boolean;
 	isLoggedIn: boolean;
 	initialName?: string;
 	initialEmail?: string;
@@ -57,7 +61,8 @@ type EventPageClientProps = {
 function EventPageContent({
 	event,
 	setEvent,
-	isOwner,
+	canEdit,
+	canModerate,
 	isLoggedIn,
 	initialName,
 	initialEmail,
@@ -68,7 +73,8 @@ function EventPageContent({
 }: {
 	event: EventItem;
 	setEvent: React.Dispatch<React.SetStateAction<EventItem>>;
-	isOwner: boolean;
+	canEdit: boolean;
+	canModerate: boolean;
 	isLoggedIn: boolean;
 	initialName?: string;
 	initialEmail?: string;
@@ -125,10 +131,10 @@ function EventPageContent({
 
 	// Tracks whether this event is still a draft so the unmount cleanup always
 	// has the latest value (avoids stale closure over `isDraft`).
-	const shouldDiscardOnLeaveRef = useRef(isDraft && isOwner);
+	const shouldDiscardOnLeaveRef = useRef(isDraft && canEdit);
 	useEffect(() => {
-		shouldDiscardOnLeaveRef.current = event.status === "DRAFT" && isOwner;
-	}, [event.status, isOwner]);
+		shouldDiscardOnLeaveRef.current = event.status === "DRAFT" && canEdit;
+	}, [event.status, canEdit]);
 
 	// True once any content has been added — prevents silent deletion of non-empty drafts.
 	// eventHasContent counts a cover image (attached immediately now that the cover no
@@ -167,9 +173,26 @@ function EventPageContent({
 		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
 	};
 
-	const handleAuthorSwitch = async (pageId: string | null) => {
+	const { voice, placedIn } = contentIdentity({
+		user: event.user,
+		page: event.page ?? null,
+		asPageId: event.asPageId ?? null,
+	});
+
+	const handleAuthorSwitch = async (asPageId: string | null) => {
 		try {
-			const updated = await updateEvent(event.id, { pageId });
+			const updated = await updateEvent(event.id, asPageId
+				? { asPageId }
+				: { asPageId: null, pageId: null, showOnAuthorProfile: false });
+			setEvent((prev) => ({ ...prev, ...updated }));
+		} catch (err) {
+			if (err instanceof AuthError) handleAuthError();
+		}
+	};
+
+	const handlePostTo = async (next: { pageId: string | null; showOnAuthorProfile: boolean }) => {
+		try {
+			const updated = await updateEvent(event.id, { asPageId: null, ...next });
 			setEvent((prev) => ({ ...prev, ...updated }));
 		} catch (err) {
 			if (err instanceof AuthError) handleAuthError();
@@ -179,7 +202,7 @@ function EventPageContent({
 	return (
 		<>
 			{/* Draft banner */}
-			{isDraft && isOwner && (
+			{isDraft && canEdit && (
 				<div className="bg-alice-blue px-6 py-3 text-center text-sm font-medium text-whale-blue">
 					Draft — only you can see this
 				</div>
@@ -188,14 +211,14 @@ function EventPageContent({
 			{/* Cover image */}
 			<CoverImageEditor
 				imageUrl={coverImageUrl}
-				canEdit={isOwner && isEditing}
+				canEdit={canEdit && isEditing}
 				onEdit={() => setCoverModalOpen(true)}
 				onOpen={coverImageUrl ? () => setCoverLightboxOpen(true) : undefined}
 			/>
 			{coverLightboxOpen && coverImageUrl && (
 				<ImageLightbox src={coverImageUrl} alt="Event cover" onClose={() => setCoverLightboxOpen(false)} />
 			)}
-			{isOwner && coverModalOpen && (
+			{canEdit && coverModalOpen && (
 				<ImageEditModal
 					isOpen
 					onClose={() => setCoverModalOpen(false)}
@@ -209,13 +232,13 @@ function EventPageContent({
 			<PostContentArea>
 				{/* Title */}
 				<InlineEditable
-					canEdit={isOwner && isEditing}
+					canEdit={canEdit && isEditing}
 					isEditing={editingField === "title"}
 					onEditStart={() => setEditingField("title")}
 					onCancel={() => setEditingField(null)}
 					displayContent={
 						<h1 className={`text-4xl leading-tight ${title ? "font-bold text-rich-brown" : "font-normal italic text-misty-forest/50"}`}>
-							{(title as string) || (isOwner ? "Event name" : "Untitled Event")}
+							{(title as string) || (canEdit ? "Event name" : "Untitled Event")}
 						</h1>
 					}
 					editContent={
@@ -243,25 +266,47 @@ function EventPageContent({
 				<InlineDateTimePicker
 					eventDateTime={event.eventDateTime}
 					eventTimezone={event.eventTimezone}
-					canEdit={isOwner && isEditing}
+					canEdit={canEdit && isEditing}
 				/>
 
 				{/* Organizer info + actions */}
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex-1">
-						{isOwner && isDraft ? (
-							<DropdownProfileSelector
-								initialPageId={event.page?.id ?? null}
-								onChange={handleAuthorSwitch}
-							/>
+						{canEdit && isDraft ? (
+							<div className="space-y-2">
+								<DropdownProfileSelector
+									label="Posting as"
+									hint="Pages you can manage"
+									initialPageId={event.asPageId ?? null}
+									onChange={handleAuthorSwitch}
+								/>
+								{event.asPageId ? (
+									<p className="text-xs text-dusty-grey">Posts as {event.page?.name ?? "this page"} go on its page.</p>
+								) : (
+									<PostToSelector
+										pageId={event.pageId}
+										showOnProfile={!event.pageId || event.showOnAuthorProfile}
+										onChange={handlePostTo}
+									/>
+								)}
+							</div>
 						) : (
-							<ProfileTag entity={page ?? event.user} size="md" asLink />
+							<ProfileTag
+								entity={voice}
+								size="md"
+								asLink
+								trailing={placedIn ? (
+									<Link href={PUBLIC_PROFILE(placedIn.handle)} className="text-dusty-grey font-normal">
+										{" › "}{placedIn.name}
+									</Link>
+								) : undefined}
+							/>
 						)}
 					</div>
 
 					<div className="flex flex-wrap gap-3 items-center">
 						{isPublished && <ShareButton />}
-						{isLoggedIn && !isOwner && (
+						{isLoggedIn && !canEdit && (
 							<Link
 								href={MESSAGE_CONVERSATION({ id: event.userId, type: "user" })}
 								className="px-3 py-1 text-sm font-medium border border-soft-grey rounded-full hover:bg-grey-white transition-colors"
@@ -269,7 +314,7 @@ function EventPageContent({
 								Message
 							</Link>
 						)}
-						{isOwner && isPublished && (
+						{canEdit && isPublished && (
 							<span className="px-3 py-1 text-xs font-semibold text-moss-green border border-melon-green rounded-full">
 								Live
 							</span>
@@ -288,7 +333,7 @@ function EventPageContent({
 
 				{/* Description */}
 				<InlineEditable
-					canEdit={isOwner && isEditing}
+					canEdit={canEdit && isEditing}
 					isEditing={editingField === "content"}
 					onEditStart={() => setEditingField("content")}
 					onCancel={() => setEditingField(null)}
@@ -317,7 +362,7 @@ function EventPageContent({
 
 				{/* Location */}
 				<InlineEditable
-					canEdit={isOwner && isEditing}
+					canEdit={canEdit && isEditing}
 					isEditing={editingField === "location"}
 					onEditStart={() => setEditingField("location")}
 					onCancel={() => setEditingField(null)}
@@ -325,7 +370,7 @@ function EventPageContent({
 						<div className="space-y-3">
 							<div className="rounded-xl border border-soft-grey p-4">
 								<p className="text-xs font-semibold uppercase tracking-wider text-misty-forest mb-1">Location</p>
-								<InlinePlaceholder value={locationDisplay as string | null} placeholder={isOwner ? "Add a location" : "TBD"}>
+								<InlinePlaceholder value={locationDisplay as string | null} placeholder={canEdit ? "Add a location" : "TBD"}>
 									<p className="text-lg font-medium text-rich-brown">{locationDisplay as string}</p>
 								</InlinePlaceholder>
 							</div>
@@ -334,7 +379,7 @@ function EventPageContent({
 							)}
 							{(latValue as number | null) == null && (lngValue as number | null) == null &&
 								(locationDisplay as string | null) &&
-								isOwner && (
+								canEdit && (
 								<p className="text-sm text-misty-forest">
 									Add a map location by editing this event and picking a place from search.
 								</p>
@@ -378,7 +423,7 @@ function EventPageContent({
 				<TagsField
 					value={tags as string[]}
 					onChange={(newTags) => setTags(newTags)}
-					isOwner={isOwner}
+					isOwner={canEdit}
 					isEditing={isEditing}
 					editingField={editingField}
 					onEditStart={() => setEditingField("tags")}
@@ -389,25 +434,27 @@ function EventPageContent({
 				<PostsList collectionId={event.id} collectionType="event" />
 
 				{/* Attendee list (owner only) */}
-				{isOwner && isPublished && <AttendeeList eventId={event.id} />}
+				{canEdit && isPublished && <AttendeeList eventId={event.id} />}
 
 				{/* Footer actions */}
-				{isOwner && (
+				{(canEdit || canModerate) && (
 					<div className="flex flex-wrap gap-3 items-center pt-4 border-t border-soft-grey">
-						<DeleteConfirmButton
-							label="Delete Event"
-							itemTitle={event.title || "Untitled Event"}
-							onDelete={async () => {
-								try {
-									await deleteEvent(event.id);
-									router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
-								} catch (err) {
-									if (err instanceof AuthError) { router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id))); return; }
-									throw err;
-								}
-							}}
-						/>
-						{isPublished && !isEditing && (
+						{canModerate && (
+							<DeleteConfirmButton
+								label="Delete Event"
+								itemTitle={event.title || "Untitled Event"}
+								onDelete={async () => {
+									try {
+										await deleteEvent(event.id);
+										router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+									} catch (err) {
+										if (err instanceof AuthError) { router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id))); return; }
+										throw err;
+									}
+								}}
+							/>
+						)}
+						{canEdit && isPublished && !isEditing && (
 							<button
 								type="button"
 								onClick={() => setIsEditing(true)}
@@ -417,7 +464,7 @@ function EventPageContent({
 								Edit
 							</button>
 						)}
-						{isPublished && isEditing && (
+						{canEdit && isPublished && isEditing && (
 							<button
 								type="button"
 								onClick={async () => {
@@ -440,7 +487,8 @@ function EventPageContent({
 
 export function EventPageClient({
 	event: initialEvent,
-	isOwner,
+	canEdit,
+	canModerate,
 	isLoggedIn,
 	initialName,
 	initialEmail,
@@ -457,11 +505,7 @@ export function EventPageClient({
 	const isPublished = event.status === "PUBLISHED";
 
 	return (
-		<PostPageShell breadcrumb={
-			<Link href={exploreHref} className="text-sm text-misty-forest hover:text-rich-brown hover:underline">
-				&larr; Back to Explore
-			</Link>
-		}>
+		<PostPageShell breadcrumb={<Breadcrumb href={exploreHref} label="Back to Explore" />}>
 			<ContentCard>
 				<InlineEditSession
 					resource={event as unknown as Record<string, unknown>}
@@ -473,15 +517,16 @@ export function EventPageClient({
 					onSaved={(updated) => {
 						setEvent((prev) => ({ ...prev, ...(updated as Partial<EventItem>) }));
 					}}
-					canEdit={isOwner}
-					publishable={isOwner && isDraft}
+					canEdit={canEdit}
+					publishable={canEdit && isDraft}
 					canPublish={(current) => Boolean((current.title as string)?.trim())}
 					publishHint="Add an event name to publish"
 				>
 					<EventPageContent
 						event={event}
 						setEvent={setEvent}
-						isOwner={isOwner}
+						canEdit={canEdit}
+						canModerate={canModerate}
 						isLoggedIn={isLoggedIn}
 						initialName={initialName}
 						initialEmail={initialEmail}
@@ -499,7 +544,7 @@ export function EventPageClient({
 					target={{ kind: "event", id: event.id }}
 					ownerUserId={event.userId}
 					ownerPageId={event.pageId}
-					isContentOwner={isOwner}
+					isContentOwner={canModerate}
 					isLoggedIn={isLoggedIn}
 				/>
 			)}

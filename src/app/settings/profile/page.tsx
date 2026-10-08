@@ -1,8 +1,9 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
+import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ProfileSettingsClient } from "./ProfileSettingsClient";
-import { LOGIN_WITH_CALLBACK, PROFILE_SETTINGS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, PROFILE_SETTINGS, SETTINGS } from "@/lib/const/routes";
 
 export default async function ProfileSettingsPage() {
 	const session = await auth();
@@ -11,7 +12,7 @@ export default async function ProfileSettingsPage() {
 	}
 
 	return (
-		<CenteredLayout maxWidth="lg">
+		<CenteredLayout maxWidth="lg" breadcrumb={<Breadcrumb href={SETTINGS} label="Back to Settings" />}>
 			<ProfileSettingsClient />
 		</CenteredLayout>
 	);

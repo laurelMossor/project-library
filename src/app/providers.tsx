@@ -5,14 +5,14 @@ import { ActiveProfileProvider } from "@/lib/contexts/ActiveProfileContext";
 import { UnreadCountProvider } from "@/lib/contexts/UnreadCountContext";
 import { NotificationProvider } from "@/lib/components/notifications/NotificationContext";
 import { Session } from "next-auth";
-import type { CardUser, CardPage } from "@/lib/types/card";
+import type { CardUser, CardPageWithRole } from "@/lib/types/card";
 
 interface ProvidersProps {
 	children: React.ReactNode;
 	session: Session | null;
 	/** Server-resolved acting identity, seeded into ActiveProfileProvider (see getActingIdentity). */
 	currentUser: CardUser | null;
-	activePage: CardPage | null;
+	activePage: CardPageWithRole | null;
 }
 
 export function Providers({ children, session, currentUser, activePage }: ProvidersProps) {
