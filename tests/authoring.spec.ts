@@ -64,8 +64,8 @@ test.describe("Authoring — create content", () => {
     await expect(page.getByRole("heading", { name: "Create a page", level: 1 })).toBeVisible();
 
     const handleField = page.getByLabel("Handle");
-    await expect(handleField).not.toHaveValue("");
-    const staged = await handleField.inputValue();
+    await expect(handleField).toHaveValue("");
+    const staged = (await (await page.request.get("/api/me/page")).json()).handle as string;
     // The staged handle is already taken. The one typed below is not, until confirm.
     const stagedRes = await page.request.get(`/api/handles/available?handle=${staged}`);
     expect((await stagedRes.json()).available).toBe(false);
@@ -89,8 +89,8 @@ test.describe("Authoring — create content", () => {
     const handle = `playwright-test-${Date.now() % 1e7}x`;
     await page.goto("/pages/new");
     const handleField = page.getByLabel("Handle");
-    await expect(handleField).not.toHaveValue("");
-    const staged = await handleField.inputValue();
+    await expect(handleField).toHaveValue("");
+    const staged = (await (await page.request.get("/api/me/page")).json()).handle as string;
     await handleField.fill(handle);
     await expect(page.getByText("Available")).toBeVisible();
 
@@ -107,8 +107,8 @@ test.describe("Authoring — create content", () => {
   test("cancel deletes the staged page", async ({ page }) => {
     await page.goto("/pages/new");
     const handleField = page.getByLabel("Handle");
-    await expect(handleField).not.toHaveValue("");
-    const staged = await handleField.inputValue();
+    await expect(handleField).toHaveValue("");
+    const staged = (await (await page.request.get("/api/me/page")).json()).handle as string;
 
     await page.getByRole("button", { name: "Cancel" }).click();
     await page.waitForURL(/\/settings/);

@@ -17,6 +17,7 @@ export function InlineHandleField({
 	original,
 	startEditing = false,
 	highlight = false,
+	blankUntilChosen = false,
 	suggested = null,
 	handEdited = false,
 	onHandTyped,
@@ -24,6 +25,8 @@ export function InlineHandleField({
 	original: string;
 	startEditing?: boolean;
 	highlight?: boolean;
+	/** The stored handle is only there so the row can exist. The field stays empty until one is chosen. */
+	blankUntilChosen?: boolean;
 	/** While the person hasn't typed a handle, a page name's slug fills this field. */
 	suggested?: string | null;
 	/** Once true, `suggested` no longer overwrites what they typed. */
@@ -32,16 +35,18 @@ export function InlineHandleField({
 	onHandTyped?: (next: string) => void;
 }) {
 	const session = useInlineEditSession();
-	const { value, setValue } = useInlineField<string>("handle", original);
+	// A staged page already has a handle. Treat that as unset so it doesn't look chosen.
+	const shown = blankUntilChosen ? "" : original;
+	const { value, setValue } = useInlineField<string>("handle", shown);
 	const [editing, setEditing] = useState(startEditing);
-	const [draft, setDraft] = useState(original);
+	const [draft, setDraft] = useState(shown);
 	const cancelRevision = session?.cancelRevision ?? 0;
 
 	useEffect(() => {
 		if (cancelRevision === 0) return;
-		setDraft(original);
+		setDraft(shown);
 		setEditing(false);
-	}, [cancelRevision, original]);
+	}, [cancelRevision, shown]);
 
 	useEffect(() => {
 		if (handEdited || !suggested) return;
@@ -71,7 +76,7 @@ export function InlineHandleField({
 						currentHandle={original}
 						highlight={highlight}
 						onChange={(next) => { setDraft(next); onHandTyped?.(next); }}
-						onAvailable={(ok) => setValue(ok ? draft.trim().toLowerCase() : original)}
+						onAvailable={(ok) => setValue(ok ? draft.trim().toLowerCase() : shown)}
 						autoFocus
 					/>
 				</div>

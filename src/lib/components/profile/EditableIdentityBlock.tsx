@@ -96,6 +96,7 @@ export function EditableIdentityBlock({
 					original={entity.data.handle}
 					startEditing={draft || followHandle}
 					highlight={draft || followHandle}
+					blankUntilChosen={draft && isPage}
 					suggested={draft && isPage ? suggestedHandle : null}
 					handEdited={handleTouched}
 					onHandTyped={draft && isPage ? (next) => {

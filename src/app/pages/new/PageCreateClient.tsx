@@ -165,8 +165,8 @@ function PageDraftFields({
 }) {
 	const session = useInlineEditSession();
 	const page = entity.data as PublicPage;
-	// The handle is the one required field, and it only enters the draft once it checks out.
-	const hasHandle = !!page.handle || !!session?.dirtyFields.handle;
+	// The staged row already has a handle. It counts only once this form has chosen one.
+	const hasHandle = typeof session?.dirtyFields.handle === "string" && !!session.dirtyFields.handle;
 
 	return (
 		<div>
