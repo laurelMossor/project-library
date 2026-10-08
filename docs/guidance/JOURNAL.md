@@ -17,6 +17,9 @@ Built invite by email (PR #59). A page admin can invite people by address from C
 #### Entry: Thu 10/08/2026 16:43 PDT
 Built comment tagging on `comment-mentions`. Typing @ opens a people-and-pages search, and any real handle in a comment shows in bold. The tagged person or page gets a notification that opens the comment. Only people who can see the post are told, and an edit never tags someone twice. Comments now read oldest to newest with the box below the thread.
 
+#### Entry: Thu 10/08/2026 12:00 PDT
+Triaged the four in-progress P0 bugs live and planned their fixes. Traced the setup and new-page discard flow and found that closing a second setup tab could delete a finished account. Planned the redesign so nothing is created until Looks good and nothing is deleted on leave. Found Explore showing your own unlisted posts and planned it back to listed only. Signup now fills the name and handle from each other, and the handle reads as a required field.
+
 #### Entry: Mon 10/05/2026 17:43 PDT
 QA'd the open column live in the app. Delete Page passed and is Done. Profile and page setup, members posting, page membership, and group messaging failed and went back to In progress. Settings page issues stayed in QA.
 

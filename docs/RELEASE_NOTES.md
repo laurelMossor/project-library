@@ -19,9 +19,10 @@ Group messaging, page membership, member posting, account setup, and deletion. G
 - **Role invitations** — page roles are invites the person accepts; pending invitees show in the member list.
 - **Invite by email** — page admins invite by address from Connections with an optional note, up to 20 a day; existing accounts get the in-app invite; new people get a signup link and find the invite waiting after they join; invite notifications ask "Approve or Decline?".
 - **Plain-letter invite emails** — site and page invites read as a short note with the link written out plus a plain-text part, to stay out of Gmail Promotions.
-- **Members post to a page** — members post and create events on a page, credited as "alice › Page".
+- **Members post to a page** — members post and create events on a page, credited as "alice › Page"; admins and editors can post to their page in their own voice or as the page, even when member posts are off.
 - **Generated avatars** — profiles without a photo get a Bauhaus mark in Project Library colors.
-- **Account and page setup** — one "Set up your account" page for a new person and a new page; the handle is the URL and the name starts as that handle.
+- **Account and page setup** — one "Set up your account" page for a new person and a new page; the handle is the URL; name and handle fill each other until one is typed by hand, on signup too.
+- **Confirm before anything is kept** — a new page is only created on "Looks good"; leaving, reloading, or Back never deletes an unfinished account; "Delete this account" is an explicit, confirmed action that only works before setup is finished.
 - **Delete account and page** — any page admin can delete that page; deleting an account or a page leaves a tombstone so other people's messages and comments remain.
 - **Comment tagging** — type @ to tag a person or page; real handles show bold; "tagged you in a comment" notification opens the comment; comments read oldest to newest.
 
@@ -29,6 +30,13 @@ Group messaging, page membership, member posting, account setup, and deletion. G
 
 - **Event images** — deleting an event removes its stored images.
 - **Page settings visibility** — a page admin opening profile settings directly now sees the visibility sections.
+- **Explore is listed-only** — your own and your pages' unlisted or private posts no longer appear on Explore; they stay on your profile.
+- **Post updates** — anyone who can open a post now sees its updates, including on unlisted posts.
+- **Setup deletions** — closing a second setup tab can no longer delete an account that was just confirmed; a new page's handle can't land on a different page.
+- **Role tags** — roles read "Admin", "Editor", "Member", and "Me", and the nav shows your role on a page right away.
+- **Pins** — pin controls follow the server's rules and appear only on the profile on screen.
+- **Signup handle** — the handle is a clearly required field, and an empty one says so.
+- **Post title placeholder** — "Title (optional)" is faded grey again; the new-page name uses the same style.
 
 ---
 
