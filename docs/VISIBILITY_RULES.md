@@ -45,8 +45,9 @@ client content visibility.
 **Where it lives is not who's speaking.** `pageId` is the collection, and therefore the audience:
 a post or event inherits that page's visibility. `asPageId` is the voice. When it is set it equals
 `pageId` (the page is speaking). When it is null the human author is speaking, even if the post
-lives on a page. `showOnAuthorProfile` only changes where an author-voiced, to-page post also
-appears. It never changes who can see it.
+lives on a page. An admin or editor may post to a page or as that page; a member may post to a
+page only when it allows member posts, and never as the page. `showOnAuthorProfile` only changes
+where an author-voiced, to-page post also appears. It never changes who can see it.
 
 ---
 

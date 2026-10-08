@@ -658,7 +658,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 						<ProfileTag
 							key={item.id}
 							entity={item.page}
-							badge={item.role.toLowerCase()}
+							badge={formatRole(item.role)}
 							actions={
 								<ExpandableActions
 									expanded={expandedId === item.id}
@@ -855,7 +855,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 			renderLeftTab={() => (
 				<ProfileTag
 					entity={entity}
-					badge={isPage && role ? role.toLowerCase() : undefined}
+					badge={isPage && role ? formatRole(role) : undefined}
 					asLink={false}
 					variant="compact"
 					align="right"

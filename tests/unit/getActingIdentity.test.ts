@@ -13,12 +13,15 @@ vi.mock("@/lib/utils/server/prisma", () => ({
     page: { findUnique: vi.fn() },
   },
 }));
-vi.mock("@/lib/utils/server/permission", () => ({ canPostAsPage: vi.fn() }));
+vi.mock("@/lib/utils/server/permission", () => ({
+  canPostAsPage: vi.fn(),
+  getUserPermission: vi.fn(),
+}));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 
 import { getActingIdentity } from "@/lib/utils/server/session";
 import { prisma } from "@/lib/utils/server/prisma";
-import { canPostAsPage } from "@/lib/utils/server/permission";
+import { canPostAsPage, getUserPermission } from "@/lib/utils/server/permission";
 
 const user = { id: "user-1", handle: "alice", displayName: "Alice", avatarImageId: null, avatarImage: null };
 const page = { id: "page-1", name: "Makers", handle: "makers", avatarImageId: null, avatarImage: null };
@@ -33,6 +36,7 @@ beforeEach(() => {
   vi.mocked(prisma.user.findUnique).mockResolvedValue(user as never);
   vi.mocked(prisma.page.findUnique).mockResolvedValue(page as never);
   vi.mocked(canPostAsPage).mockResolvedValue(true as never);
+  vi.mocked(getUserPermission).mockResolvedValue("ADMIN" as never);
 });
 
 describe("getActingIdentity", () => {
@@ -51,11 +55,12 @@ describe("getActingIdentity", () => {
     expect(prisma.page.findUnique).not.toHaveBeenCalled();
   });
 
-  test("activePageId set and permitted → active page resolved", async () => {
+  test("activePageId set and permitted → active page resolved with the caller's role", async () => {
     const result = await getActingIdentity(session("user-1", "page-1"));
     expect(canPostAsPage).toHaveBeenCalledWith("user-1", "page-1");
+    expect(getUserPermission).toHaveBeenCalled();
     expect(result.currentUser).toEqual(user);
-    expect(result.activePage).toEqual(page);
+    expect(result.activePage).toEqual({ ...page, role: "ADMIN" });
   });
 
   test("activePageId set but NOT permitted → active page is null, page never fetched", async () => {

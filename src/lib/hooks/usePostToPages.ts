@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { API_ME_PAGES } from "@/lib/const/routes";
+import { isActingRole } from "@/lib/const/roles";
 
 export type PostToPage = {
 	id: string;
@@ -13,7 +14,7 @@ export type PostToPage = {
 	allowMemberPosts: boolean;
 };
 
-/** Pages the current user can post TO: any role, and the page allows member posts. */
+/** Pages the current user can post TO: acting roles always, members only when the page allows it. */
 export function usePostToPages() {
 	const [pages, setPages] = useState<PostToPage[]>([]);
 
@@ -22,7 +23,7 @@ export function usePostToPages() {
 		fetch(API_ME_PAGES)
 			.then((r) => (r.ok ? r.json() : []))
 			.then((data: PostToPage[]) => {
-				if (!cancelled) setPages((data ?? []).filter((p) => p.allowMemberPosts));
+				if (!cancelled) setPages((data ?? []).filter((p) => p.allowMemberPosts || isActingRole(p.role)));
 			})
 			.catch(() => {
 				if (!cancelled) setPages([]);

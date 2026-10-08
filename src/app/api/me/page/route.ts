@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getPageById } from "@/lib/utils/server/page";
-import { canPostAsPage, canManagePage } from "@/lib/utils/server/permission";
+import { ResourceType } from "@prisma/client";
+import { canPostAsPage, canManagePage, getUserPermission } from "@/lib/utils/server/permission";
 import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
 import { saveMyProfile } from "@/lib/utils/server/profile-update";
 import type { SavePayload } from "@/lib/types/inline-edit";
@@ -29,12 +30,15 @@ export async function GET() {
 			return notFound("Active page not found");
 		}
 
-		const page = await getPageById(ctx.activePageId);
-		if (!page) {
+		const [page, role] = await Promise.all([
+			getPageById(ctx.activePageId),
+			getUserPermission(ctx.userId, ctx.activePageId, ResourceType.PAGE),
+		]);
+		if (!page || !role) {
 			return notFound("Active page not found");
 		}
 
-		return NextResponse.json(page);
+		return NextResponse.json({ ...page, role });
 	} catch (error) {
 		console.error("GET /api/me/page error:", error);
 		return serverError();

@@ -5,6 +5,7 @@ import { CardEntity } from "@/lib/types/card";
 import { ProfileTag } from "./ProfileTag";
 import { DropdownShell } from "./DropdownShell";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { formatRole } from "@/lib/const/roles";
 
 export type DropdownProfileSelectorProps = {
 	label?: string;
@@ -65,7 +66,7 @@ export function DropdownProfileSelector({ label, hint, onChange, initialPageId }
 			)}
 			{pages.map((page) => (
 				<Option key={page.id} selected={selectedPageId === page.id} onClick={() => select(page.id)}>
-					<ProfileTag entity={page} size="sm" asLink={false} badge={page.role.toLowerCase()} className="w-full" />
+					<ProfileTag entity={page} size="sm" asLink={false} badge={formatRole(page.role)} className="w-full" />
 				</Option>
 			))}
 		</DropdownShell>

@@ -11,16 +11,21 @@ type Props = {
 	onCancel: () => void;
 	onCommit?: () => void;
 	placeholder?: string;
-	/** Heading and input share this scale. Posts use text-4xl; a page name uses text-2xl. */
-	textClassName?: string;
+	/** Scale only. Posts use text-4xl; a page name uses text-2xl. Color and weight live here. */
+	sizeClassName?: string;
 	maxLength?: number;
 	/** Empty drafts show the placeholder. Published empty titles stay blank. */
 	showPlaceholder?: boolean;
 };
 
+/** Typed title. Kept apart from the placeholder so the two never share a class and fight. */
+const TITLE_CLASS = "leading-tight font-bold text-rich-brown";
+/** Empty-state hint. Faded, so it cannot be read as the title. */
+const PLACEHOLDER_CLASS = "leading-tight font-normal italic text-misty-forest/50";
+
 /**
  * The optional title editor used on posts and on a page draft's name.
- * Callers own the value; this only draws the same click-to-edit field.
+ * Callers own the value and the size; this owns the two looks.
  */
 export function OptionalTitle({
 	value,
@@ -31,7 +36,7 @@ export function OptionalTitle({
 	onCancel,
 	onCommit,
 	placeholder = "Title (optional)",
-	textClassName = "text-4xl leading-tight font-bold text-rich-brown",
+	sizeClassName = "text-4xl",
 	maxLength = 150,
 	showPlaceholder = false,
 }: Props) {
@@ -43,11 +48,9 @@ export function OptionalTitle({
 			onCancel={onCancel}
 			displayContent={
 				value ? (
-					<h1 className={textClassName}>{value}</h1>
+					<h1 className={`${sizeClassName} ${TITLE_CLASS}`}>{value}</h1>
 				) : showPlaceholder ? (
-					<h1 className={`${textClassName} font-normal italic text-misty-forest/50`}>
-						{placeholder}
-					</h1>
+					<h1 className={`${sizeClassName} ${PLACEHOLDER_CLASS}`}>{placeholder}</h1>
 				) : null
 			}
 			editContent={
@@ -65,7 +68,7 @@ export function OptionalTitle({
 					}}
 					placeholder={placeholder}
 					maxLength={maxLength}
-					className={`w-full border-none outline-none bg-transparent ${textClassName}`}
+					className={`w-full border-none outline-none bg-transparent placeholder:font-normal placeholder:italic placeholder:text-misty-forest/50 ${sizeClassName} ${TITLE_CLASS}`}
 					autoFocus
 				/>
 			}
