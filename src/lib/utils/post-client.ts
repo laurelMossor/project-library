@@ -1,5 +1,5 @@
 import { PostItem, PostCollectionItem } from "../types/post";
-import { API_POSTS, API_POST, API_EVENT_POSTS } from "../const/routes";
+import { API_POSTS, API_POST, API_POST_POSTS, API_EVENT_POSTS } from "../const/routes";
 import { authFetch } from "./auth-client";
 
 /**
@@ -20,7 +20,7 @@ export async function getEventPosts(eventId: string): Promise<PostItem[]> {
  * Fetch child posts (updates) for a parent post
  */
 export async function getPostUpdates(parentPostId: string): Promise<PostItem[]> {
-	const response = await fetch(`${API_POSTS}?parentPostId=${parentPostId}`);
+	const response = await fetch(API_POST_POSTS(parentPostId));
 
 	if (!response.ok) {
 		throw new Error(`Failed to fetch post updates: ${response.statusText}`);

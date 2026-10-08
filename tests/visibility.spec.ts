@@ -85,6 +85,20 @@ test.describe("PUBLIC profile, UNLISTED content", () => {
     await expect(page.getByRole("heading", { name: "Explore", level: 1 })).toBeVisible();
     await expect(page.getByText("Unlisted post")).not.toBeVisible();
   });
+
+  test.describe("owner (alice)", () => {
+    test.use({ storageState: STORAGE_STATE.alice });
+
+    test("her own UNLISTED post is on the page and not on Explore", async ({ page }) => {
+      await page.goto("/explore");
+      await expect(page.getByRole("heading", { name: "Explore", level: 1 })).toBeVisible();
+      await expect(page.getByText("Unlisted post")).not.toBeVisible();
+
+      await page.goto("/unlisted-zine");
+      await expect(page.getByRole("heading", { name: "Unlisted Zine", exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText("Unlisted post")).toBeVisible();
+    });
+  });
 });
 
 // ── PRIVATE profile (user) ────────────────────────────────────────────────────

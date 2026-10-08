@@ -106,6 +106,7 @@ export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 // Current User Context API Routes (all under /api/me/)
 export const API_ME_USER = "/api/me/user"; // GET/PUT/DELETE current user profile
 export const API_ME_USER_DELETE_PREVIEW = "/api/me/user/delete-preview"; // GET pages deleted with the account
+export const API_ME_SETUP = "/api/me/setup"; // DELETE an account that has not finished setup
 export const API_ME_SETUP_COMPLETE = "/api/me/setup-complete"; // POST mark the settings review done
 export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
@@ -130,6 +131,7 @@ export const API_EVENT_COMMENTS = (id: string) => `/api/events/${id}/comments`;
 // Post API Routes
 export const API_POSTS = "/api/posts";
 export const API_POST = (id: string) => `/api/posts/${id}`;
+export const API_POST_POSTS = (id: string) => `/api/posts/${id}/posts`;
 export const API_POST_COMMENTS = (id: string) => `/api/posts/${id}/comments`;
 
 // Comment API Routes

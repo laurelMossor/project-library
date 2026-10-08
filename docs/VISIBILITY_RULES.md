@@ -76,9 +76,10 @@ where an author-voiced, to-page post also appears. It never changes who can see 
    headline/interests/location for PRIVATE profiles. Anonymous and logged-in non-edge viewers both
    get the stub (no more existence-deny 404 for profiles).
 
-6. **Global collections are LISTED-only, plus your own.** Feeds/search of *content* use
-   `postListWhere`/`eventListWhere`, which filter to `FEED_VISIBILITY` (`[LISTED]`) plus the
-   viewer's own. UNLISTED and PRIVATE content never reach the collections.
+6. **Global collections are LISTED-only.** Feeds/search of *content* use
+   `postListWhere`/`eventListWhere`, which filter to `FEED_VISIBILITY` (`[LISTED]`) for every
+   viewer. Your own UNLISTED/PRIVATE content lives on your own collection. UNLISTED and PRIVATE
+   content never reach the global collections.
 
 7. **Not-viewable content 404s (never 403).** A detail/mutation route for content the viewer can't
    see returns 404, so it can't be told apart from "missing". This includes **mutation** routes
@@ -137,7 +138,7 @@ where an author-voiced, to-page post also appears. It never changes who can see 
 | showing ONE profile by id/handle | `requireViewableProfile(kind, id, viewer)` → `{id, profileVisibility}` or `null`→404 |
 | deciding SSR full/stub | `resolveProfileAccess(kind, {id, profileVisibility}, viewer)` → `FULL` / `LOCKED` |
 | gating ONE post / event | `canViewPost` / `canViewEvent` (read the content's `visibility`) |
-| a global content feed / search | `postListWhere` / `eventListWhere` (filter `FEED_VISIBILITY`) |
+| a global content feed / search | `postListWhere` / `eventListWhere` (filter `FEED_VISIBILITY` for every viewer) |
 | a profile search | `profileListWhere` (returns `{}`) + strip stub fields for PRIVATE (see `search.ts`) |
 | one entity's OWN collection | `collectionVisibilityWhere(kind, id, viewer)` (LISTED+UNLISTED, +PRIVATE if edge) |
 | an author's profile, including posts they wrote to a page | `authorProfilePlacementWhere(viewer)` OR'd with the personal-post clause. Never use `collectionVisibilityWhere("USER")` alone for that — it returns `{}` to the author's followers and would leak a private page's posts |

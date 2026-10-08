@@ -4,11 +4,12 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { postHasContent } from "@/lib/utils/content";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { publicUserEmbedFields } from "@/lib/utils/server/user";
-import { canEditContent, canModerateContent, canPostAsPage } from "@/lib/utils/server/permission";
+import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
 import { PlacementError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { deletePost } from "@/lib/utils/server/post";
 import { getViewerContext, canViewPost, isContentOwner, requireViewablePost, resolveParentVisibility, syncDescendantVisibility } from "@/lib/utils/server/visibility";
-import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE, otherPinnedCount } from "@/lib/utils/server/pin";
+import { MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE } from "@/lib/const/pin";
+import { canPinContent, otherPinnedCount } from "@/lib/utils/server/pin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -141,10 +142,9 @@ export async function PATCH(request: Request, { params }: Params) {
 		const data = await request.json();
 		// Pinning on a page is a manage action, separate from editing the words.
 		// A page manager may pin a member's post; the member may not.
-		const pinOnly = Boolean(existing.pageId)
-			&& data.pinnedAt !== undefined
+		const pinOnly = data.pinnedAt !== undefined
 			&& Object.keys(data).every((key) => key === "pinnedAt")
-			&& (await canPostAsPage(viewer.userId, existing.pageId!));
+			&& (await canPinContent(viewer.userId, { userId: existing.userId, pageId: existing.pageId }));
 		if (!pinOnly && !(await canEditContent(viewer.userId, existing))) {
 			return NextResponse.json(
 				{ error: "You can only edit your own posts" },
@@ -207,8 +207,10 @@ export async function PATCH(request: Request, { params }: Params) {
 		// Handle pinnedAt toggle — enforce 3-pin limit per user/page scope
 		const pinPageId = placement?.pageId ?? existing.pageId;
 		if (pinnedAt !== undefined) {
-			if (pinPageId && !(await canPostAsPage(viewer.userId, pinPageId))) {
-				return badRequest("Only page editors can pin posts on this page");
+			if (!(await canPinContent(viewer.userId, { userId: existing.userId, pageId: pinPageId }))) {
+				return badRequest(pinPageId
+					? "Only page editors can pin posts on this page"
+					: "You can only pin your own posts");
 			}
 			if (pinnedAt !== null) {
 				const pinnedCount = await otherPinnedCount(

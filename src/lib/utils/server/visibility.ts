@@ -317,34 +317,22 @@ export function profileListWhere(_kind: ProfileKind, _viewer: ViewerContext) {
   return {};
 }
 
-/** Prisma where fragment for Event list queries. Only LISTED content, plus the viewer's own. */
-export function eventListWhere(viewer: ViewerContext) {
-  const listedClause = { contentVisibility: { in: FEED_VISIBILITY } };
-  if (!viewer.userId) return listedClause;
-  return {
-    OR: [
-      listedClause,
-      { userId: viewer.userId },
-      ...(viewer.memberPageIds.length > 0
-        ? [{ pageId: { in: viewer.memberPageIds } }]
-        : []),
-    ],
-  };
+/**
+ * Prisma where fragment for Event list queries.
+ * Explore and other global feeds are LISTED only, for every viewer.
+ * A viewer's own UNLISTED/PRIVATE content stays on their profile collection.
+ */
+export function eventListWhere() {
+  return { contentVisibility: { in: FEED_VISIBILITY } };
 }
 
-/** Prisma where fragment for Post list queries (combined with status filter by caller). */
-export function postListWhere(viewer: ViewerContext) {
-  const listedClause = { contentVisibility: { in: FEED_VISIBILITY } };
-  if (!viewer.userId) return listedClause;
-  return {
-    OR: [
-      listedClause,
-      { userId: viewer.userId },
-      ...(viewer.memberPageIds.length > 0
-        ? [{ pageId: { in: viewer.memberPageIds } }]
-        : []),
-    ],
-  };
+/**
+ * Prisma where fragment for Post list queries (combined with status filter by caller).
+ * Explore and other global feeds are LISTED only, for every viewer.
+ * A viewer's own UNLISTED/PRIVATE content stays on their profile collection.
+ */
+export function postListWhere() {
+  return { contentVisibility: { in: FEED_VISIBILITY } };
 }
 
 // ---------------------------------------------------------------------------

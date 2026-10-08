@@ -2,19 +2,19 @@
 
 import { useState, useMemo } from "react";
 import { CollectionItem, AboutCollectionItem } from "@/lib/types/collection";
+import { pinnedCountInScope, type PinScope } from "@/lib/const/pin";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
 
 type ProfileCollectionSectionProps = {
 	items: CollectionItem[];
+	/** The profile whose pin slot these buttons spend. */
+	pinScope: PinScope;
 	/** Synthetic cards prepended before the filterable collection (e.g. About card). */
 	prependCards?: AboutCollectionItem[];
 	title?: string;
 	emptyMessage?: string;
 	showCreateLinks?: boolean;
-	/** Set when the viewing user owns this profile/page — enables pin controls */
-	currentUserId?: string;
-	activePageId?: string | null;
 };
 
 /**
@@ -23,12 +23,11 @@ type ProfileCollectionSectionProps = {
  */
 export function ProfileCollectionSection({
 	items,
+	pinScope,
 	prependCards = [],
 	title = "Collection",
 	emptyMessage = "There's nothing here yet.",
 	showCreateLinks = true,
-	currentUserId,
-	activePageId,
 }: ProfileCollectionSectionProps) {
 	const [search, setSearch] = useState("");
 
@@ -67,15 +66,13 @@ export function ProfileCollectionSection({
 		return [...pinned, ...unpinned];
 	}, [filteredItems]);
 
-	// Count all pinned items in the current profile scope (for pin limit enforcement in UI)
+	// Cap counts only this profile's pin slot, not page pins listed on a user profile.
 	const pinnedCount = useMemo(
-		() => items.filter((item) => item.pinnedAt !== null).length,
-		[items]
+		() => pinnedCountInScope(items, pinScope),
+		[items, pinScope]
 	);
 
-	const pinConfig = currentUserId
-		? { currentUserId, activePageId, pinnedCount }
-		: undefined;
+	const pinConfig = { pinnedCount };
 
 	const hasLocationData = useMemo(
 		() => items.some((item) => {

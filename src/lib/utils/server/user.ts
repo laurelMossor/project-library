@@ -16,6 +16,14 @@ export class AccountDeleteConflict extends Error {
 	}
 }
 
+/** Setup delete lost the race: Looks good committed before this delete took the row lock. */
+export class SetupAlreadyFinished extends Error {
+	constructor() {
+		super("This account is already set up — delete it from Settings.");
+		this.name = "SetupAlreadyFinished";
+	}
+}
+
 function sameIdSet(a: string[], b: string[]) {
 	if (a.length !== b.length) return false;
 	const left = [...a].sort();
@@ -210,17 +218,45 @@ export async function createUser(data: {
 }
 
 /**
+ * Whether this account has finished setup. `null` when the user does not exist.
+ * The setup-delete route refuses a finished account.
+ */
+export async function isSetupComplete(userId: string): Promise<boolean | null> {
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { setupCompletedAt: true },
+	});
+	if (!user) return null;
+	return user.setupCompletedAt != null;
+}
+
+/**
  * Delete an account and return storage paths to remove after commit.
  * `expectedPageIds` is the sole-admin list the modal showed; a mismatch throws
  * AccountDeleteConflict so the caller can refetch instead of deleting more than it listed.
+ * Setup delete passes `onlyIfUnfinished` so a Looks good that won the row lock is refused.
  */
-export async function deleteAccount(userId: string, expectedPageIds: string[]): Promise<string[]> {
+export async function deleteAccount(
+	userId: string,
+	expectedPageIds: string[],
+	options?: { onlyIfUnfinished?: boolean },
+): Promise<string[]> {
 	const { deleteConversationsIfEmpty, deletePage } = await import("./page");
 	const { collectOrphanedImages, detachAllForTargets } = await import("./image-attachment");
 	return prisma.$transaction(async (tx) => {
 		// Blocks a new page or post by this user until the transaction ends. Their
 		// foreign keys need a share lock on this row.
 		await tx.$queryRaw`SELECT id FROM "users" WHERE id = ${userId} FOR UPDATE`;
+
+		// Setup delete only. Read after the lock so Looks good cannot commit in the gap.
+		// Settings omits the flag and still deletes a finished account.
+		if (options?.onlyIfUnfinished) {
+			const row = await tx.user.findUnique({
+				where: { id: userId },
+				select: { setupCompletedAt: true },
+			});
+			if (row?.setupCompletedAt != null) throw new SetupAlreadyFinished();
+		}
 
 		const initialSole = await getSoleAdminPages(userId, tx);
 		const [created, voicedPosts, voicedEvents] = await Promise.all([

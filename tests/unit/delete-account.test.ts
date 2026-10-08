@@ -12,7 +12,7 @@ const tx = {
 	image: { findMany: vi.fn() },
 	conversationParticipant: { findMany: vi.fn() },
 	emailOutbox: { deleteMany: vi.fn() },
-	user: { delete: vi.fn() },
+	user: { delete: vi.fn(), findUnique: vi.fn() },
 };
 
 vi.mock("@/lib/utils/server/prisma", () => ({
@@ -34,7 +34,7 @@ vi.mock("@/lib/utils/server/image-attachment", () => ({
 	detachAllForTargets: vi.fn(async () => []),
 }));
 
-import { AccountDeleteConflict, deleteAccount } from "@/lib/utils/server/user";
+import { AccountDeleteConflict, deleteAccount, SetupAlreadyFinished } from "@/lib/utils/server/user";
 import { getSoleAdminPages, getSuccessorAdminIds } from "@/lib/utils/server/permission";
 import { deletePage } from "@/lib/utils/server/page";
 
@@ -74,6 +74,31 @@ describe("deleteAccount decisions", () => {
 		await expect(deleteAccount("u1", [])).rejects.toBeInstanceOf(AccountDeleteConflict);
 		expect(deletePage).not.toHaveBeenCalled();
 		expect(tx.user.delete).not.toHaveBeenCalled();
+	});
+
+	test("onlyIfUnfinished refuses a finished account after the row lock and does not delete", async () => {
+		tx.user.findUnique.mockResolvedValue({ setupCompletedAt: new Date() });
+
+		await expect(deleteAccount("u1", [], { onlyIfUnfinished: true })).rejects.toBeInstanceOf(SetupAlreadyFinished);
+		expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(tx.user.findUnique.mock.invocationCallOrder[0]);
+		expect(tx.user.delete).not.toHaveBeenCalled();
+	});
+
+	test("onlyIfUnfinished deletes when setup is still open", async () => {
+		vi.mocked(getSoleAdminPages).mockResolvedValue([]);
+		tx.user.findUnique.mockResolvedValue({ setupCompletedAt: null });
+
+		await expect(deleteAccount("u1", [], { onlyIfUnfinished: true })).resolves.toEqual([]);
+		expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: "u1" } });
+	});
+
+	test("without the flag a finished account still deletes", async () => {
+		vi.mocked(getSoleAdminPages).mockResolvedValue([]);
+		tx.user.findUnique.mockResolvedValue({ setupCompletedAt: new Date() });
+
+		await expect(deleteAccount("u1", [])).resolves.toEqual([]);
+		expect(tx.user.findUnique).not.toHaveBeenCalled();
+		expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: "u1" } });
 	});
 
 	test("a page the user only spoke as, with no successor, is left in place", async () => {

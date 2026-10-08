@@ -9,7 +9,7 @@ import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
 import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
 import { logAction } from "@/lib/utils/server/log";
-import { getViewerContext, eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
+import { eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -47,15 +47,13 @@ export async function GET(request: Request) {
 	const enforcedLimit =
 		typeof limit === "number" && limit > 0 ? Math.min(limit, MAX_LIMIT) : 50;
 
-	const viewer = await getViewerContext();
-
 	try {
-		// Only show published, visible events in public listings
+		// Public listings are LISTED only, for every viewer.
 		const events = await prisma.event.findMany({
 			where: {
 				status: "PUBLISHED",
 				AND: [
-					eventListWhere(viewer),
+					eventListWhere(),
 					...(search
 						? [{
 								OR: [

@@ -34,6 +34,11 @@ export function normalizeEmail(input: unknown): string {
  * Pairs with `generateHandle` in `lib/utils/handle.ts` (the forgiving
  * normalizer used to suggest a handle from free-text input).
  */
+/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
+export function isCuid(value: string): boolean {
+	return /^c[0-9a-z]{24}$/.test(value);
+}
+
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
 	return /^[a-z0-9._-]{3,30}$/.test(handle);

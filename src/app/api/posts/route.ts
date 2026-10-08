@@ -54,7 +54,6 @@ function validatePostTitle(title: string | undefined): { valid: boolean; error?:
  */
 export async function GET(request: Request) {
 	// Rate limiting: 200 requests per minute per IP
-	// Higher limit because each collection card may fetch child posts individually
 	const limited = await enforceRateLimit(request, "search-posts", {
 		maxRequests: 200,
 		windowMs: 60 * 1000,
@@ -65,7 +64,6 @@ export async function GET(request: Request) {
 	const userId = searchParams.get("userId") || undefined;
 	const pageId = searchParams.get("pageId") || undefined;
 	const eventId = searchParams.get("eventId") || undefined;
-	const parentPostId = searchParams.get("parentPostId") || undefined;
 	const toplevel = searchParams.get("toplevel"); // "true" to exclude child/event posts
 	const search = searchParams.get("search") || undefined;
 	const limit = parseNumber(searchParams.get("limit"));
@@ -92,8 +90,8 @@ export async function GET(request: Request) {
 		andConditions.push({ status: "PUBLISHED" as const });
 	}
 
-	// Visibility: list mode only shows PUBLIC content (plus the viewer's own)
-	andConditions.push(postListWhere(viewer));
+	// List mode is the public feed: LISTED only, for every viewer.
+	andConditions.push(postListWhere());
 
 	if (search) {
 		andConditions.push({ OR: [
@@ -108,7 +106,6 @@ export async function GET(request: Request) {
 				...(userId ? { userId } : {}),
 				...(pageId ? { pageId } : {}),
 				...(eventId ? { eventId } : {}),
-				...(parentPostId ? { parentPostId } : {}),
 				// When toplevel=true, only return posts without a parent or event
 				...(toplevel === "true" ? { parentPostId: null, eventId: null } : {}),
 				...(andConditions.length > 0 ? { AND: andConditions } : {}),

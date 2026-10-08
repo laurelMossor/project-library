@@ -10,6 +10,7 @@ import { COLLECTION_TYPES } from "@/lib/types/collection";
 import type { ImageItem } from "@/lib/types/image";
 import type { ViewerContext } from "./visibility";
 import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhere } from "./visibility";
+import { withCanPin } from "./pin";
 
 /** Transform Prisma query result to EventItem */
 function toEventItem(event: EventFromQuery, images: ImageItem[]): EventItem {
@@ -52,10 +53,10 @@ export async function getEventsByUser(
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map(({ _count, updates, ...e }) => ({
+	return withCanPin(events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { userId });
 }
 
 // Fetch all events for a page
@@ -77,10 +78,10 @@ export async function getEventsByPage(
 	const eventIds = events.map(e => e.id);
 	const imagesMap = await getImagesForTargetsBatch("EVENT", eventIds);
 
-	return events.map(({ _count, updates, ...e }) => ({
+	return withCanPin(events.map(({ _count, updates, ...e }) => ({
 		...toEventItem(e, imagesMap.get(e.id) || []),
 		...toCollectionMeta({ _count, updates }),
-	}));
+	})), viewer?.userId ?? null, { pageId });
 }
 
 // NOTE: event creation/updates go through the route handlers (`POST`/`PATCH /api/events[/:id]`),

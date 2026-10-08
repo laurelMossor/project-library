@@ -65,7 +65,7 @@ test.describe("Authentication flows", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("leaving setup before confirming deletes the account", async ({ page }) => {
+  test("leaving setup keeps the account and returns to setup", async ({ page }) => {
     const unique = `tst${Date.now() % 1e7}`;
     const email = `${unique}@example.com`;
     await createUser({
@@ -82,14 +82,17 @@ test.describe("Authentication flows", () => {
       await expect(page.getByRole("heading", { name: "Set up your account" })).toBeVisible();
 
       await page.getByRole("link", { name: "Project Library" }).click();
-      await page.waitForURL(/\/explore/, { timeout: 15_000 });
-      await expect.poll(async () => prisma.user.findUnique({ where: { email } })).toBeNull();
+      await expect(page).toHaveURL(/\/setup/, { timeout: 15_000 });
+      await expect(page.getByRole("heading", { name: "Set up your account" })).toBeVisible();
+      const user = await prisma.user.findUnique({ where: { email } });
+      expect(user).not.toBeNull();
+      expect(user?.setupCompletedAt).toBeNull();
     } finally {
       await prisma.user.deleteMany({ where: { email } });
     }
   });
 
-  test("cancel on setup deletes the account", async ({ page }) => {
+  test("Delete this account deletes it after confirming", async ({ page }) => {
     const unique = `tst${Date.now() % 1e7}c`;
     const email = `${unique}@example.com`;
     await createUser({
@@ -104,7 +107,8 @@ test.describe("Authentication flows", () => {
       await submitLogin(page, email, "password123");
       await page.waitForURL(/\/setup/, { timeout: 15_000 });
 
-      await page.getByRole("button", { name: "Cancel" }).click();
+      await page.getByRole("button", { name: "Delete this account" }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Delete this account" }).click();
       await page.waitForURL(/\/welcome/, { timeout: 15_000 });
       await expect.poll(async () => prisma.user.findUnique({ where: { email } })).toBeNull();
     } finally {
