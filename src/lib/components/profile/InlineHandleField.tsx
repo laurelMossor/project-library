@@ -19,7 +19,6 @@ export function InlineHandleField({
 	highlight = false,
 	blankUntilChosen = false,
 	suggested = null,
-	handEdited = false,
 	onHandTyped,
 }: {
 	original: string;
@@ -27,10 +26,8 @@ export function InlineHandleField({
 	highlight?: boolean;
 	/** The stored handle is only there so the row can exist. The field stays empty until one is chosen. */
 	blankUntilChosen?: boolean;
-	/** While the person hasn't typed a handle, a page name's slug fills this field. */
+	/** A page name's slug. The caller clears it once the handle is typed by hand. */
 	suggested?: string | null;
-	/** Once true, `suggested` no longer overwrites what they typed. */
-	handEdited?: boolean;
 	/** Fires only for a keystroke in this field, not when a suggestion fills it. */
 	onHandTyped?: (next: string) => void;
 }) {
@@ -49,9 +46,9 @@ export function InlineHandleField({
 	}, [cancelRevision, shown]);
 
 	useEffect(() => {
-		if (handEdited || !suggested) return;
+		if (!suggested) return;
 		setDraft(suggested);
-	}, [handEdited, suggested]);
+	}, [suggested]);
 
 	return (
 		<InlineEditable
