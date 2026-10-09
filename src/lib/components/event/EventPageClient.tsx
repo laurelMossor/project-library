@@ -42,7 +42,7 @@ import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
-import type { RsvpStatus } from "@/lib/types/rsvp";
+import type { RsvpStatus, RsvpCountSummary, RsvpItem } from "@/lib/types/rsvp";
 import type { CardUser } from "@/lib/types/card";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { CommentItem } from "@/lib/types/comment";
@@ -59,6 +59,9 @@ type EventPageClientProps = {
 	initialGuestName?: string | null;
 	initialHasPlusOne?: boolean;
 	memberUser?: CardUser;
+	/** Server-rendered RSVP data: null until the event is published. `rsvps` is the organizer's attendee list only. */
+	rsvpCounts: RsvpCountSummary | null;
+	rsvps: RsvpItem[] | null;
 };
 
 /**
@@ -77,24 +80,14 @@ function EventPageContent({
 	initialGuestName,
 	initialHasPlusOne,
 	memberUser,
-}: {
-	event: EventItem;
-	canEdit: boolean;
-	canModerate: boolean;
-	isLoggedIn: boolean;
-	initialName?: string;
-	initialEmail?: string;
-	existingRsvpStatus?: RsvpStatus;
-	initialGuestName?: string | null;
-	initialHasPlusOne?: boolean;
-	memberUser?: CardUser;
-}) {
+	rsvpCounts,
+	rsvps,
+}: Omit<EventPageClientProps, "comments">) {
 	const router = useRouter();
 	const editSession = useInlineEditSession();
 	const { run: saveEvent } = useAction(updateEventAction);
 	const { run: removeEvent } = useAction(deleteEventAction);
 	const [editingField, setEditingField] = useState<string | null>(null);
-	const [rsvpRefreshKey, setRsvpRefreshKey] = useState(0);
 
 	const isDraft = event.status === "DRAFT";
 	const isPublished = event.status === "PUBLISHED";
@@ -389,10 +382,9 @@ function EventPageContent({
 				{/* RSVP section (published events only) */}
 				{isPublished && (
 					<div className="space-y-4">
-						<RsvpCounts eventId={event.id} refreshKey={rsvpRefreshKey} />
+						{rsvpCounts && <RsvpCounts counts={rsvpCounts} />}
 						<RsvpForm
 							eventId={event.id}
-							onRsvpSubmitted={() => setRsvpRefreshKey((k) => k + 1)}
 							initialName={initialName}
 							initialEmail={initialEmail}
 							existingRsvpStatus={existingRsvpStatus}
@@ -418,7 +410,7 @@ function EventPageContent({
 				<PostsList collectionId={event.id} collectionType="event" />
 
 				{/* Attendee list (owner only) */}
-				{canEdit && isPublished && <AttendeeList eventId={event.id} />}
+				{rsvps && <AttendeeList rsvps={rsvps} />}
 
 				{/* Footer actions */}
 				{(canEdit || canModerate) && (
@@ -477,6 +469,8 @@ export function EventPageClient({
 	initialGuestName,
 	initialHasPlusOne,
 	memberUser,
+	rsvpCounts,
+	rsvps,
 }: EventPageClientProps) {
 	const { run: saveEvent } = useAction(updateEventAction);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
@@ -520,6 +514,8 @@ export function EventPageClient({
 						initialGuestName={initialGuestName}
 						initialHasPlusOne={initialHasPlusOne}
 						memberUser={memberUser}
+						rsvpCounts={rsvpCounts}
+						rsvps={rsvps}
 					/>
 				</InlineEditSession>
 			</ContentCard>

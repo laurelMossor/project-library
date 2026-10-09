@@ -12,6 +12,7 @@
 import { prisma } from "./prisma";
 import { PermissionRole, ResourceType, type Page, type Prisma, type User } from "@prisma/client";
 import { ACTING_ROLES, isActingRole, mayPostToPage } from "@/lib/const/roles";
+import { DomainError } from "./domain-error";
 
 /** Check if a user has a specific permission on a resource */
 export async function hasPermission(
@@ -85,6 +86,13 @@ export async function canModerateContent(userId: string, content: ContentAuthori
 /** Check if user can manage a page (ADMIN only — page config / destructive actions). */
 export async function canManagePage(userId: string, pageId: string): Promise<boolean> {
   return hasPermission(userId, pageId, ResourceType.PAGE, [PermissionRole.ADMIN]);
+}
+
+/** `canManagePage` as a guard for server utils behind Server Actions: refuses with a `forbidden` DomainError. */
+export async function assertCanManagePage(userId: string, pageId: string): Promise<void> {
+  if (!(await canManagePage(userId, pageId))) {
+    throw new DomainError("You do not have permission to manage this page", "forbidden");
+  }
 }
 
 /** True for a role that the self-service join/leave flow may set or clear (no role yet, or plain MEMBER). */

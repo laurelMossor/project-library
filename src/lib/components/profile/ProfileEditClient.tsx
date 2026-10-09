@@ -22,6 +22,7 @@ import { getUserDisplayName } from "@/lib/types/user";
 import { authFetch } from "@/lib/utils/auth-client";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { FollowCounts } from "@/lib/types/profile";
+import type { MembershipStatus } from "@/lib/types/connections";
 
 export type ProfileEditEntity =
 	| { type: "user"; data: PublicUser }
@@ -31,6 +32,8 @@ type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
 	saveUrl: string;
 	followCounts: FollowCounts;
+	/** The viewer's standing on the page (page profiles only), for the Leave button. */
+	membership?: MembershipStatus;
 };
 
 // ─── Inner content (needs session context) ────────────────────────────────────
@@ -38,11 +41,13 @@ type ProfileEditClientProps = {
 function ProfileOwnerContent({
 	entity,
 	followCounts,
+	membership,
 	previewMode,
 	setPreviewMode,
 }: {
 	entity: ProfileEditEntity;
 	followCounts: FollowCounts;
+	membership?: MembershipStatus;
 	previewMode: boolean;
 	setPreviewMode: (v: boolean) => void;
 }) {
@@ -171,7 +176,9 @@ function ProfileOwnerContent({
 
 				{/* Right side */}
 				<div className="flex flex-col gap-2 w-36 shrink-0">
-					{entity.type === "page" && <JoinButton pageId={entity.data.id} membershipPolicy={entity.data.membershipPolicy} />}
+					{entity.type === "page" && membership && (
+						<JoinButton pageId={entity.data.id} membershipPolicy={entity.data.membershipPolicy} membership={membership} />
+					)}
 					<TransparentCTAButton
 						label={previewMode ? "Edit" : "Preview"}
 						icon={previewMode ? <PencilIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
@@ -249,7 +256,7 @@ function ProfileOwnerContent({
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
 
-export function ProfileEditClient({ entity: initialEntity, saveUrl, followCounts }: ProfileEditClientProps) {
+export function ProfileEditClient({ entity: initialEntity, saveUrl, followCounts, membership }: ProfileEditClientProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -331,6 +338,7 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl, followCounts
 			<ProfileOwnerContent
 				entity={entity}
 				followCounts={followCounts}
+				membership={membership}
 				previewMode={previewMode}
 				setPreviewMode={setPreviewMode}
 			/>

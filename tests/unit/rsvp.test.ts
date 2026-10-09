@@ -21,6 +21,9 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	};
 });
 
+// rsvp.ts also imports the visibility gate, which reaches next-auth through the session util.
+vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
+
 import { createOrUpdateRsvp } from "@/lib/utils/server/rsvp";
 import { validateRsvpGuests } from "@/lib/validations";
 import { prisma } from "@/lib/utils/server/prisma";

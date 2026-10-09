@@ -1,14 +1,6 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { fetchRsvps } from "@/lib/utils/event-client";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { RsvpIdentityChip } from "@/lib/components/event/RsvpIdentityChip";
 import type { RsvpItem } from "@/lib/types/rsvp";
-
-type AttendeeListProps = {
-	eventId: string;
-};
 
 const STATUS_LABELS: Record<string, string> = {
 	GOING: "Going",
@@ -32,31 +24,7 @@ function StatusBadge({ status }: { status: string }) {
 	);
 }
 
-export function AttendeeList({ eventId }: AttendeeListProps) {
-	const [rsvps, setRsvps] = useState<RsvpItem[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
-
-	useEffect(() => {
-		fetchRsvps(eventId)
-			.then((data) => {
-				setRsvps(data);
-				setLoading(false);
-			})
-			.catch((err) => {
-				setError(err instanceof Error ? err.message : "Failed to load attendees");
-				setLoading(false);
-			});
-	}, [eventId]);
-
-	if (loading) {
-		return <p className="text-sm text-gray-500">Loading attendees...</p>;
-	}
-
-	if (error) {
-		return <p className="text-sm text-alert-red">{error}</p>;
-	}
-
+export function AttendeeList({ rsvps }: { rsvps: RsvpItem[] }) {
 	if (rsvps.length === 0) {
 		return (
 			<div className="rounded-xl border border-gray-200 p-6">

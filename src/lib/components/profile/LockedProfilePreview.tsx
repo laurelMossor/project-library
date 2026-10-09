@@ -1,9 +1,12 @@
 import { ProfileEntity, getProfileDisplayName } from "@/lib/types/profile";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfileIdentityBlock } from "./ProfileIdentityBlock";
+import type { MembershipStatus } from "@/lib/types/connections";
 
 type LockedProfilePreviewProps = {
 	profile: ProfileEntity;
+	/** The viewer's standing on the page (page profiles only), for the Join / Leave button. */
+	membership?: MembershipStatus;
 };
 
 /**
@@ -14,14 +17,14 @@ type LockedProfilePreviewProps = {
  * PRIVATE profiles ARE discoverable in search now, so this stub is reachable by
  * anyone; it must therefore reveal nothing beyond identity (hence identityOnly).
  */
-export function LockedProfilePreview({ profile }: LockedProfilePreviewProps) {
+export function LockedProfilePreview({ profile, membership }: LockedProfilePreviewProps) {
 	const isPage = profile.type === "PAGE";
 	const displayName = getProfileDisplayName(profile);
 
 	return (
 		<CenteredLayout maxWidth="6xl">
 			<div className="flex flex-col gap-6">
-				<ProfileIdentityBlock profile={profile} identityOnly />
+				<ProfileIdentityBlock profile={profile} membership={membership} identityOnly />
 
 				<div className="rounded-lg border border-soft-grey/60 bg-soft-grey/10 px-6 py-8 text-center">
 					<p className="text-base font-semibold text-rich-brown">This profile is private</p>
