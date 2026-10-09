@@ -59,10 +59,17 @@ function ExpandableActions({
 	expanded,
 	onToggle,
 	actions,
+	onRefused,
 }: {
 	expanded: boolean;
 	onToggle: () => void;
 	actions: ActionDef[];
+	/**
+	 * Report a refusal here instead of beside the buttons. The pending-invite
+	 * row unmounts when a withdrawn invite refreshes away, and a message inside
+	 * that row would leave with it.
+	 */
+	onRefused?: (message: string | null) => void;
 }) {
 	const { run, pending, error, clearError } = useAction(invoke);
 	// Which button was pressed, so only that one shows "…" while the save runs.
@@ -71,7 +78,12 @@ function ExpandableActions({
 	function perform(action: ActionDef) {
 		setPressed(action.label);
 		clearError();
-		void run(action.perform);
+		onRefused?.(null);
+		void run(action.perform).then((result) => {
+			if (!result.ok && result.error !== "unauthorized") {
+				onRefused?.(result.message ?? "Something went wrong. Please try again.");
+			}
+		});
 	}
 
 	if (!expanded) {
@@ -88,7 +100,7 @@ function ExpandableActions({
 
 	return (
 		<div className="flex items-center gap-1.5">
-			{error && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{error}</p>}
+			{!onRefused && error && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{error}</p>}
 			{actions.map((action) => {
 				const danger = (action.tone ?? "danger") === "danger";
 				return (
@@ -197,6 +209,9 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 	// Invite-via-email modal: null = closed, else the address field's prefill.
 	const [emailInvitePrefill, setEmailInvitePrefill] = useState<string | null>(null);
 	const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+	// An invite the page's policy no longer allows is deleted on accept. The row
+	// goes away with the refresh, so the explanation has to live outside it.
+	const [inviteRefusal, setInviteRefusal] = useState<string | null>(null);
 	const roleChoices = assignableRoles(data.membershipPolicy);
 
 	const invite = useAction(inviteMemberAction);
@@ -329,9 +344,14 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 		if (entityType === "user") {
 			const items = data.memberOf;
 			const invites = data.invites.filter((inv) => inv.page);
-			if (!items.length && !invites.length) return <EmptyMessage label="Memberships" />;
+			const membershipsEmpty = !items.length && !invites.length;
+			if (membershipsEmpty && !inviteRefusal) return <EmptyMessage label="Memberships" />;
 			return (
 				<div className="p-5 space-y-2">
+					{inviteRefusal && (
+						<p role="alert" className="text-xs text-red-500">{inviteRefusal}</p>
+					)}
+					{membershipsEmpty && <EmptyMessage label="Memberships" />}
 					{invites.length > 0 && (
 						<p className="text-xs font-medium text-dusty-grey pt-1">Pending invitations</p>
 					)}
@@ -344,6 +364,7 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 									<ExpandableActions
 										expanded={expandedId === inv.id}
 										onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+										onRefused={setInviteRefusal}
 										actions={[
 											{ label: "Accept", tone: "default", perform: () => approveRequestAction({ requestId: inv.id }) },
 											{ label: "Decline", perform: () => denyRequestAction({ requestId: inv.id }) },

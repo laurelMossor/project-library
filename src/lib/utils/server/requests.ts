@@ -765,7 +765,9 @@ export async function resolveRequest(actorId: string, requestId: string, decisio
     case "not_found":
       throw new DomainError("Request not found", "not_found");
     case "unavailable":
-      throw new DomainError("That invite is no longer available", "conflict");
+      // The invite row is already deleted. Refresh so it leaves the list, and
+      // still tell them why they were not added.
+      throw new DomainError("That invite is no longer available", "conflict", { refresh: true });
     case "forbidden":
       throw new DomainError("You cannot act on this request", "forbidden");
   }
