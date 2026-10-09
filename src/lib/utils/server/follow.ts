@@ -4,28 +4,10 @@
 import { prisma } from "./prisma";
 import type { EntityRef } from "./activity";
 import type { FollowCounts } from "@/lib/types/profile";
+import type { ConnectionItem } from "@/lib/types/connections";
 import { cancelFollowRequest, requestOrCreateFollow } from "./requests";
-
-// Matches ConnectionItem type in ConnectionsView.tsx
-type ConnectionItem = {
-	id: string;
-	type: "USER" | "PAGE";
-	followedAt: string;
-	user: {
-		id: string;
-		handle: string;
-		displayName: string | null;
-		avatarImageId: string | null;
-		avatarImage?: { url: string } | null;
-	} | null;
-	page: {
-		id: string;
-		handle: string;
-		name: string;
-		avatarImageId: string | null;
-		avatarImage?: { url: string } | null;
-	} | null;
-};
+import { assertCanManagePage } from "./permission";
+import { DomainError } from "./domain-error";
 
 const followerUserSelect = {
 	id: true,
@@ -201,4 +183,25 @@ export async function unfollowTarget(userId: string, target: EntityRef): Promise
 		return { ok: true };
 	}
 	return { ok: await cancelFollowRequest(userId, target) };
+}
+
+/**
+ * Remove someone from `target`'s followers (by follow edge id). Your own profile, or a page you
+ * manage. The edge must point at `target`, so an id can't be used to delete anyone else's follow.
+ */
+export async function removeFollower(actorId: string, target: EntityRef, followId: string): Promise<void> {
+	if (target.type === "USER") {
+		if (target.id !== actorId) {
+			throw new DomainError("You can only remove followers from your own profile", "forbidden");
+		}
+	} else {
+		await assertCanManagePage(actorId, target.id);
+	}
+	const { count } = await prisma.follow.deleteMany({
+		where: {
+			id: followId,
+			...(target.type === "USER" ? { followingUserId: target.id } : { followingPageId: target.id }),
+		},
+	});
+	if (count === 0) throw new DomainError("Follow relationship not found", "not_found");
 }

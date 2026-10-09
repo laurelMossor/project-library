@@ -130,8 +130,6 @@ export const API_NOTIFICATIONS_FLUSH = "/api/notifications/flush";
 // Event API Routes
 export const API_EVENTS = "/api/events";
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
-export const API_EVENT_RSVPS = (id: string) => `/api/events/${id}/rsvps`;
-export const API_EVENT_RSVP_COUNTS = (id: string) => `/api/events/${id}/rsvps/counts`;
 
 // Post API Routes
 export const API_POSTS = "/api/posts";
@@ -150,19 +148,11 @@ export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 // Page API Routes
 export const API_PAGES = "/api/pages";
 export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
+// Membership, invites, and access requests are Server Actions in src/lib/actions/membership.ts.
 
-export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
-export const API_PAGE_MEMBERS = (pageId: string) => `/api/pages/${pageId}/members`;
-export const API_PAGE_MEMBER = (pageId: string, userId: string) => `/api/pages/${pageId}/members/${userId}`;
-export const API_PAGE_EMAIL_INVITES = (pageId: string) => `/api/pages/${pageId}/email-invites`;
-export const API_PAGE_EMAIL_INVITE = (pageId: string, inviteId: string) =>
-	`/api/pages/${pageId}/email-invites/${inviteId}`;
-
-// Access-request API Routes (Request-to-Follow / Request-to-Join)
+// Access-request reads (no longer called by the app — candidates for deletion)
 export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;
 export const API_ME_REQUESTS = "/api/me/requests";
-export const API_REQUEST_APPROVE = (id: string) => `/api/requests/${id}/approve`;
-export const API_REQUEST_DENY = (id: string) => `/api/requests/${id}/deny`;
 
 // Follow API Routes
 export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;

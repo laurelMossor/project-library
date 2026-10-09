@@ -28,6 +28,7 @@ import { getPageByHandle } from "@/lib/utils/server/page";
 import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
 import { getFollowCounts } from "@/lib/utils/server/follow";
+import { getMembershipStatus } from "@/lib/utils/server/requests";
 import { canManagePage } from "@/lib/utils/server/permission";
 import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
@@ -143,10 +144,11 @@ export default async function HandleProfilePage({ params }: Props) {
 		}
 
 		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
+		const membership = await getMembershipStatus(viewerId, page.id);
 
 		// Visibility gate: FULL renders the profile; LOCKED shows the identity-only private stub.
 		const access = await resolveProfileAccess("PAGE", page, viewer);
-		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
+		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} membership={membership} />;
 
 		// Admins get the edit chrome. Pin permission is stamped on each item by the collection query.
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
@@ -176,6 +178,7 @@ export default async function HandleProfilePage({ params }: Props) {
 							entity={{ type: "page", data: page }}
 							saveUrl={API_PAGE(page.id)}
 							followCounts={followCounts}
+							membership={membership}
 						/>
 					</div>
 
@@ -194,7 +197,7 @@ export default async function HandleProfilePage({ params }: Props) {
 		return (
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
-					<ProfileIdentityBlock profile={pageProfile} />
+					<ProfileIdentityBlock profile={pageProfile} membership={membership} />
 					<ProfileBody profile={pageProfile} followCounts={followCounts} />
 				</div>
 

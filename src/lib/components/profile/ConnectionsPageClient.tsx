@@ -1,18 +1,35 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { ConnectionsPageView } from "./ConnectionsPageView";
-import { isCardPage, getCardUserDisplayName } from "@/lib/types/card";
+import { CardEntity, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
+import type { ConnectionsData } from "@/lib/types/connections";
 
-export function ConnectionsPageClient({ initialTab }: { initialTab?: string }) {
-	const { activeEntity, currentUser, loading } = useActiveProfile();
+type ConnectionsPageClientProps = {
+	/** The identity the server rendered the lists for. */
+	entity: CardEntity;
+	currentUserId: string;
+	data: ConnectionsData;
+	initialTab?: string;
+};
 
-	if (loading || !currentUser || !activeEntity) {
-		return <p className="text-sm text-dusty-grey text-center py-12">Loading...</p>;
-	}
+export function ConnectionsPageClient({ entity, currentUserId, data, initialTab }: ConnectionsPageClientProps) {
+	const router = useRouter();
+	const { activePageId } = useActiveProfile();
+	const isPage = isCardPage(entity);
+	const displayName = isPage ? entity.name : getCardUserDisplayName(entity);
 
-	const isPage = isCardPage(activeEntity);
-	const displayName = isPage ? activeEntity.name : getCardUserDisplayName(activeEntity);
+	// Switching profiles in the nav changes the session but not this server-rendered page, so
+	// re-render it once per switch. The ref stops a stale activePageId (one the server refused
+	// and fell back to personal for) from refreshing in a loop.
+	const refreshedFor = useRef(activePageId);
+	useEffect(() => {
+		if (activePageId === (isPage ? entity.id : null) || refreshedFor.current === activePageId) return;
+		refreshedFor.current = activePageId;
+		router.refresh();
+	}, [activePageId, isPage, entity.id, router]);
 
 	return (
 		<>
@@ -21,7 +38,13 @@ export function ConnectionsPageClient({ initialTab }: { initialTab?: string }) {
 					{displayName}&apos;s Connections
 				</h1>
 			</div>
-			<ConnectionsPageView entity={activeEntity} currentUserId={currentUser.id} initialTab={initialTab} />
+			<ConnectionsPageView
+				key={entity.id}
+				entity={entity}
+				currentUserId={currentUserId}
+				data={data}
+				initialTab={initialTab}
+			/>
 		</>
 	);
 }

@@ -8,7 +8,8 @@ import { FormTextarea } from "@/lib/components/forms/FormTextarea";
 import { RoleSelector } from "./RoleSelector";
 import { parseEmailList } from "@/lib/validations";
 import { formatRole } from "@/lib/const/roles";
-import { API_PAGE_EMAIL_INVITES } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { inviteByEmailAction } from "@/lib/actions/membership";
 import { EMAIL_INVITE_DAILY_CAP, EMAIL_INVITE_NOTE_MAX } from "@/lib/const/email-invites";
 
 type EmailInviteModalProps = {
@@ -19,7 +20,7 @@ type EmailInviteModalProps = {
 	/** Prefill for the address field, e.g. an email typed into the member search. */
 	initialEmails?: string;
 	onClose: () => void;
-	/** Called after the server accepts the batch: how many were invited, and who already had a role. */
+	/** Called once the batch is saved (the page has refreshed): how many were invited, and who already had a role. */
 	onSent: (result: { sent: number; alreadyMembers: string[] }) => void;
 };
 
@@ -31,8 +32,7 @@ export function EmailInviteModal({ pageId, pageName, roleChoices, initialEmails 
 	const [emailsText, setEmailsText] = useState(initialEmails);
 	const [note, setNote] = useState("");
 	const [role, setRole] = useState<PermissionRole>(roleChoices[roleChoices.length - 1]);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { run, pending: busy, error } = useAction(inviteByEmailAction);
 
 	const { valid, invalid } = parseEmailList(emailsText);
 	const trimmedNote = note.trim();
@@ -42,33 +42,8 @@ export function EmailInviteModal({ pageId, pageName, roleChoices, initialEmails 
 
 	async function send() {
 		if (!canSend) return;
-		setBusy(true);
-		setError(null);
-		try {
-			const res = await fetch(API_PAGE_EMAIL_INVITES(pageId), {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ emails: valid, role, note: trimmedNote || null }),
-			});
-			const body = (await res.json().catch(() => ({}))) as {
-				error?: string;
-				sent?: number;
-				alreadyMembers?: unknown;
-			};
-			if (!res.ok) {
-				throw new Error(body.error ?? "Failed to send invites");
-			}
-			const alreadyMembers = Array.isArray(body.alreadyMembers)
-				? body.alreadyMembers.filter((email): email is string => typeof email === "string")
-				: [];
-			onSent({
-				sent: typeof body.sent === "number" ? body.sent : valid.length,
-				alreadyMembers,
-			});
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to send invites");
-			setBusy(false);
-		}
+		const result = await run({ pageId, emails: valid, role, note: trimmedNote || null });
+		if (result.ok) onSent(result.data);
 	}
 
 	return (

@@ -1,5 +1,5 @@
 import "./env";
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { ContentVisibility, MembershipPolicy, PermissionRole, ResourceType } from "@prisma/client";
 import { prisma } from "../src/lib/utils/server/prisma";
 import { grantPermission } from "../src/lib/utils/server/permission";
@@ -113,10 +113,11 @@ test("sam invites by email: an existing account and a new address, then the new 
 
 test("cancelling an email invite removes it from the list and leaves nothing to claim", async ({ page }) => {
   const email = `pw-cancel-${stamp}@example.com`;
-  const res = await page.request.post(`/api/pages/${pageId}/email-invites`, {
-    data: { emails: [email], role: "MEMBER" },
+  // A pending invite to cancel (sending is covered above; this one only needs to exist).
+  const sam = await prisma.user.findUniqueOrThrow({ where: { email: USERS.sam.email }, select: { id: true } });
+  await prisma.pageEmailInvite.create({
+    data: { pageId, invitedById: sam.id, email, role: PermissionRole.MEMBER },
   });
-  expect(res.status()).toBe(201);
 
   await page.goto("/explore");
   await switchToPage(page, pageName, "admin");
@@ -134,25 +135,26 @@ test("cancelling an email invite removes it from the list and leaves nothing to 
   expect(waiting).toBe(0);
 });
 
-test("guards: non-admins can't email-invite, CLOSED pages can't offer Member, the daily cap holds", async ({ page, browser }) => {
-  // Non-admin.
-  const aliceCtx = await browser.newContext({ storageState: STORAGE_STATE.alice });
-  try {
-    const res = await aliceCtx.request.post(`/api/pages/${pageId}/email-invites`, {
-      data: { emails: ["someone@example.com"], role: "MEMBER" },
-    });
-    expect(res.status()).toBe(401);
-  } finally {
-    await aliceCtx.close();
-  }
+/** Open the Membership tab as the page's admin and bring up the email-invite modal. */
+async function openEmailInviteModal(page: Page) {
+  await page.goto("/explore");
+  await switchToPage(page, pageName, "admin");
+  await page.goto(CONNECTIONS_MEMBERSHIP);
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  await page.getByRole("option", { name: "Invite via email" }).click();
+  return page.getByRole("dialog", { name: "Invite via email" });
+}
 
-  // CLOSED page, MEMBER role.
+// Non-admins have no way to reach the invite action from the UI; that refusal is covered in
+// tests/unit/membership-actions.test.ts.
+test("guards: a CLOSED page can't offer Member, the daily cap holds", async ({ page }) => {
+  // CLOSED page: the modal only offers the roles the page can give.
   await prisma.page.update({ where: { id: pageId }, data: { membershipPolicy: MembershipPolicy.CLOSED } });
   try {
-    const res = await page.request.post(`/api/pages/${pageId}/email-invites`, {
-      data: { emails: ["someone@example.com"], role: "MEMBER" },
-    });
-    expect(res.status()).toBe(400);
+    const modal = await openEmailInviteModal(page);
+    await modal.getByRole("button", { name: "Change role" }).click();
+    await expect(page.getByRole("menuitem", { name: "Editor" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Member" })).toHaveCount(0);
   } finally {
     await prisma.page.update({ where: { id: pageId }, data: { membershipPolicy: MembershipPolicy.INVITE_ONLY } });
   }
@@ -173,9 +175,10 @@ test("guards: non-admins can't email-invite, CLOSED pages can't offer Member, th
     })),
   });
 
-  const res = await page.request.post(`/api/pages/${pageId}/email-invites`, {
-    data: { emails: [`pw-over-${stamp}@example.com`], role: "MEMBER" },
-  });
-  expect(res.status()).toBe(429);
-  expect(await prisma.pageEmailInvite.count({ where: { email: `pw-over-${stamp}@example.com` } })).toBe(0);
+  const overEmail = `pw-over-${stamp}@example.com`;
+  const modal = await openEmailInviteModal(page);
+  await modal.getByLabel("Email addresses").fill(overEmail);
+  await modal.getByRole("button", { name: "Confirm" }).click();
+  await expect(modal.getByRole("alert")).toContainText(`up to ${EMAIL_INVITE_DAILY_CAP} email invites a day`);
+  expect(await prisma.pageEmailInvite.count({ where: { email: overEmail } })).toBe(0);
 });
