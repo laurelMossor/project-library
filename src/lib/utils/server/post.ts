@@ -12,6 +12,7 @@ import { canEditContent } from "./permission";
 import { withCanPin } from "./pin";
 import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "./content-placement";
 import { ContentVisibility } from "@prisma/client";
+import { DomainError } from "./domain-error";
 
 /**
  * Fetch update posts attached to an event, sorted by createdAt (newest first).
@@ -143,10 +144,14 @@ export async function getPostsByPage(
  * Thrown for caller/client-fixable problems (bad references, missing permission,
  * invariant violations). Routes map this to a 400; anything else is a 500.
  */
-export class PostInputError extends Error {}
+export class PostInputError extends DomainError {}
 
 /** Placement was refused because the caller may not post there. Routes map this to a 403. */
-export class PostForbiddenError extends PostInputError {}
+export class PostForbiddenError extends PostInputError {
+	constructor(message: string) {
+		super(message, "forbidden");
+	}
+}
 
 type CreatePostData = PostCreateInput & {
 	topics?: string[];

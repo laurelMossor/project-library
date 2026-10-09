@@ -175,7 +175,6 @@ export const API_REQUEST_APPROVE = (id: string) => `/api/requests/${id}/approve`
 export const API_REQUEST_DENY = (id: string) => `/api/requests/${id}/deny`;
 
 // Follow API Routes
-export const API_FOLLOWS = "/api/follows";
 export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 
 // Message API Routes

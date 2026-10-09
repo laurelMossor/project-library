@@ -7,6 +7,7 @@ import { AttachmentTarget, type Prisma } from "@prisma/client";
 import { imageFields } from "./fields";
 import { canActAsEntity, canEditContent } from "./permission";
 import { removeStoragePaths } from "./storage";
+import { DomainError } from "./domain-error";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -180,10 +181,9 @@ export async function collectOrphanedImages(imageIds: string[], tx: Db = prisma)
 
 const AVATAR_REJECTED = "That photo can't be used as a profile picture.";
 
-export class AvatarNotAllowed extends Error {
+export class AvatarNotAllowed extends DomainError {
 	constructor() {
 		super(AVATAR_REJECTED);
-		this.name = "AvatarNotAllowed";
 	}
 }
 

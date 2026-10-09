@@ -1,6 +1,9 @@
 import { PublicUser, getUserDisplayName } from "./user";
 import { PublicPage } from "./page";
 
+/** Follower / following counts for a profile, computed server-side. */
+export type FollowCounts = { followers: number; following: number };
+
 export type ProfileEntity =
   | { type: "USER"; data: PublicUser }
   | { type: "PAGE"; data: PublicPage };

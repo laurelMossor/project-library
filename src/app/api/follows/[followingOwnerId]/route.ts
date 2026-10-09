@@ -3,7 +3,8 @@ import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, notFound, serverError } from "@/lib/utils/errors";
 import { canManagePage } from "@/lib/utils/server/permission";
-import { hasPendingFollowRequest, cancelFollowRequest } from "@/lib/utils/server/requests";
+import { hasPendingFollowRequest } from "@/lib/utils/server/requests";
+import { unfollowTarget } from "@/lib/utils/server/follow";
 
 type Params = { params: Promise<{ followingOwnerId: string }> };
 
@@ -104,26 +105,11 @@ export async function DELETE(request: Request, { params }: Params) {
 
 		// Standard unfollow: current user unfollows targetId, OR cancels a pending
 		// follow request to it (private targets have a request, not an edge, yet).
-		const targetRef = { type: type === "user" ? ("USER" as const) : ("PAGE" as const), id: targetId };
-
-		const follow = type === "user"
-			? await prisma.follow.findUnique({
-				where: { followerId_followingUserId: { followerId: ctx.userId, followingUserId: targetId } },
-			})
-			: await prisma.follow.findUnique({
-				where: { followerId_followingPageId: { followerId: ctx.userId, followingPageId: targetId } },
-			});
-
-		if (follow) {
-			await prisma.follow.delete({ where: { id: follow.id } });
-			return NextResponse.json({ success: true });
-		}
-
-		if (await cancelFollowRequest(ctx.userId, targetRef)) {
-			return NextResponse.json({ success: true });
-		}
-
-		return notFound("Follow relationship not found");
+		const { ok } = await unfollowTarget(ctx.userId, {
+			type: type === "user" ? "USER" : "PAGE",
+			id: targetId,
+		});
+		return ok ? NextResponse.json({ success: true }) : notFound("Follow relationship not found");
 	} catch (error) {
 		console.error("DELETE /api/follows/:id error:", error);
 		return serverError();

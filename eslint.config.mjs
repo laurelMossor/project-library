@@ -53,5 +53,25 @@ export default [
 			"no-console": "off",
 		},
 	},
+	// UI saves go through Server Actions (src/lib/actions, built on authedAction), never a
+	// client fetch with a mutating method. Each Server Actions rollout phase adds the files
+	// or folders it migrated; once every phase lands this becomes src/app + src/lib/{components,hooks}.
+	{
+		files: [
+			"src/lib/hooks/useAction.ts",
+			"src/lib/hooks/useFollowState.ts",
+			"src/lib/components/profile/FollowStats.tsx",
+			"src/lib/components/profile/ProfileBody.tsx",
+		],
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector: "Property[key.name='method'][value.value=/^(POST|PATCH|PUT|DELETE)$/i]",
+					message: "Save through a Server Action in src/lib/actions (see PROJECT_GUIDELINES 'Data & saves'), not a client fetch.",
+				},
+			],
+		},
+	},
 ];
 

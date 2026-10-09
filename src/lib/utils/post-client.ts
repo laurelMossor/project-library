@@ -64,31 +64,6 @@ export async function fetchPostById(id: string): Promise<PostItem | null> {
 }
 
 /**
- * Create a new post
- */
-export async function createPost(data: {
-	content: string;
-	title?: string;
-	pageId?: string;
-	eventId?: string;
-	parentPostId?: string;
-	tags?: string[];
-}): Promise<PostItem> {
-	const res = await authFetch(API_POSTS, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(data),
-	});
-
-	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({}));
-		throw new Error(errorData.error || "Failed to create post");
-	}
-
-	return res.json();
-}
-
-/**
  * Create a minimal draft post — called from /posts/new (client component).
  */
 export async function createDraftPost(asPageId?: string, title?: string, content?: string): Promise<PostItem> {

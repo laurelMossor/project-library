@@ -52,7 +52,7 @@ export function ProfileElementList({ elements, handle, hasAboutContent }: Profil
 
 	useEffect(() => {
 		setEditingId(null);
-	}, [session?.cancelRevision, canEdit]);
+	}, [session?.closeRevision, canEdit]);
 
 	const drafts = session?.pendingCreates ?? [];
 

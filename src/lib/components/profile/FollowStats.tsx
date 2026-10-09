@@ -1,74 +1,29 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
+import type { FollowCounts } from "@/lib/types/profile";
 
 type FollowStatsProps = {
-	entityId: string;
-	entityType: "user" | "page";
+	counts: FollowCounts;
 	connectionsHref: string;
 };
 
 /**
  * FollowStats - Displays compact follower/following counts as a link
- * Shows "Followers (X) . Following (X)" format, both link to the same connections page
+ * Shows "Followers (X) . Following (X)" format, both link to the same connections page.
+ * Counts come from the server render, so a follow (which refreshes the page) updates them.
  */
-export function FollowStats({ entityId, entityType, connectionsHref }: FollowStatsProps) {
-	const [followerCount, setFollowerCount] = useState<number | null>(null);
-	const [followingCount, setFollowingCount] = useState<number | null>(null);
-	const [loading, setLoading] = useState(true);
-
-	const apiBase = entityType === "user" ? "users" : "pages";
-
-	useEffect(() => {
-		const fetchCounts = async () => {
-			try {
-				// Fetch both counts in parallel
-				const [followersRes, followingRes] = await Promise.all([
-					fetch(`/api/${apiBase}/${entityId}/followers`),
-					fetch(`/api/${apiBase}/${entityId}/following`),
-				]);
-
-				if (followersRes.ok) {
-					const data = await followersRes.json();
-					setFollowerCount(data.followers?.length ?? 0);
-				}
-
-				if (followingRes.ok) {
-					const data = await followingRes.json();
-					setFollowingCount(data.following?.length ?? 0);
-				}
-			} catch (err) {
-				// eslint-disable-next-line no-console
-				console.error("[FollowStats] Error fetching counts:", err);
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchCounts();
-	}, [entityId, apiBase]);
-
-	if (loading) {
-		return (
-			<div className="flex items-center gap-3 text-sm text-gray-500">
-				<span>Loading...</span>
-			</div>
-		);
-	}
-
+export function FollowStats({ counts, connectionsHref }: FollowStatsProps) {
 	return (
 		<Link
 			href={connectionsHref}
 			className="flex items-center gap-3 text-sm text-gray-700 hover:text-rich-brown"
 		>
 			<span>
-				<span className="font-semibold">{followerCount ?? 0}</span>{" "}
+				<span className="font-semibold">{counts.followers}</span>{" "}
 				<span className="text-gray-500">Followers</span>
 			</span>
 			<span className="text-gray-300">&middot;</span>
 			<span>
-				<span className="font-semibold">{followingCount ?? 0}</span>{" "}
+				<span className="font-semibold">{counts.following}</span>{" "}
 				<span className="text-gray-500">Following</span>
 			</span>
 		</Link>

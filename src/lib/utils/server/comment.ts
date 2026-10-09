@@ -10,12 +10,13 @@ import { getMentionedIdentities } from "./notification";
 import { NotificationObject } from "@prisma/client";
 import type { CommentItem } from "@/lib/types/comment";
 import { extractMentionHandles, MAX_MENTION_NOTIFICATIONS } from "@/lib/utils/mentions";
+import { DomainError } from "./domain-error";
 
 /**
  * Thrown for caller/client-fixable problems (missing target, missing permission,
  * invariant violations). Routes map this to a 400; anything else is a 500.
  */
-export class CommentInputError extends Error {}
+export class CommentInputError extends DomainError {}
 
 type CreateCommentData = {
 	postId?: string | null;

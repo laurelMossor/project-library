@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
-import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { authFetch } from "@/lib/utils/auth-client";
 import { API_ME_USER, API_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
@@ -27,13 +27,14 @@ function AboutEditorContent({
 	const [isEditing, setIsEditing] = useState(false);
 	const [editContent, setEditContent] = useState(aboutContent ?? "");
 
+	// Revert the draft only on cancel; close the editor whenever editing ends.
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
 		if (cancelRevision === 0) return;
 		setEditContent(aboutContent ?? "");
-		setIsEditing(false);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
+	useOnEditingClosed(() => setIsEditing(false));
 
 	const displayValue =
 		(session?.dirtyFields.aboutContent as string | undefined) ?? aboutContent;

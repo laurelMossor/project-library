@@ -7,12 +7,17 @@
 // Create and PATCH routes call this instead of branching on pageId themselves.
 
 import { canPostAsPage, canPostToPage } from "./permission";
+import { DomainError } from "./domain-error";
 
 /** Caller/client-fixable placement problem. Routes map this to a 400. */
-export class PlacementError extends Error {}
+export class PlacementError extends DomainError {}
 
 /** The caller is not allowed to post to or as this page. Routes map this to a 403. */
-export class PlacementForbiddenError extends PlacementError {}
+export class PlacementForbiddenError extends PlacementError {
+	constructor(message: string) {
+		super(message, "forbidden");
+	}
+}
 
 export type ContentPlacement = {
 	pageId: string | null;

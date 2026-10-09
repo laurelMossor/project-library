@@ -31,7 +31,7 @@ import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_C
 import { contentIdentity } from "@/lib/utils/content-identity";
 import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
-import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { ImageItem } from "@/lib/types/image";
 
@@ -110,15 +110,9 @@ function PostPageContent({
 		}
 	};
 
-	// When session cancels, close any open edit field (values revert automatically
+	// Close any open field when editing ends (cancel reverts values automatically
 	// because dirtyFields clears and useInlineField reads from it).
-	const cancelRevision = session?.cancelRevision ?? 0;
-	useEffect(() => {
-		if (cancelRevision === 0) return;
-		setEditingField(null);
-	// cancelRevision is the only intended trigger
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [cancelRevision]);
+	useOnEditingClosed(() => setEditingField(null));
 
 	// Drop out of edit mode when the post transitions to PUBLISHED
 	// (happens after Save-and-publish commits via onSaved)

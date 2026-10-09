@@ -62,32 +62,37 @@ export function checkRateLimit(
 	};
 }
 
-export function getClientIdentifier(request: Request): string {
-	// Try to get IP from headers (works with most proxies)
-	const forwarded = request.headers.get("x-forwarded-for");
-	const realIp = request.headers.get("x-real-ip");
-	const ip = forwarded?.split(",")[0]?.trim() || realIp || "unknown";
-	return ip;
+/** Client IP from proxy headers. Takes `Headers` so routes (`request.headers`) and Server Actions (`await headers()`) share it. */
+export function getClientIdentifier(headers: Headers): string {
+	const forwarded = headers.get("x-forwarded-for");
+	const realIp = headers.get("x-real-ip");
+	return forwarded?.split(",")[0]?.trim() || realIp || "unknown";
 }
 
 /**
- * Guard a route handler: derive the client id, check the limit, and return a
- * 429 NextResponse if exceeded (else null to continue). Collapses the
- * getClientIdentifier + checkRateLimit + 429 boilerplate that every rate-limited
- * route repeats. `key` is the limit's logical prefix (the client id is appended).
+ * True when this client is over the limit. `key` is the limit's logical prefix
+ * (the client id is appended). The single check behind both enforceRateLimit
+ * (routes) and the Server Action wrapper.
  *
  * Async by design so a future shared-store backend (Redis/Upstash) can swap in
  * without touching call sites — see rate-limit follow-up ticket.
  */
+export async function isRateLimited(
+	headers: Headers,
+	key: RateLimitKey,
+	options: RateLimitOptions,
+): Promise<boolean> {
+	return !checkRateLimit(`${key}:${getClientIdentifier(headers)}`, options).allowed;
+}
+
+/** Route adapter: a 429 NextResponse if exceeded, else null to continue. */
 export async function enforceRateLimit(
 	request: Request,
 	key: RateLimitKey,
 	options: RateLimitOptions,
 	message = "Too many requests. Please try again later.",
 ): Promise<NextResponse | null> {
-	const clientId = getClientIdentifier(request);
-	const { allowed } = checkRateLimit(`${key}:${clientId}`, options);
-	if (!allowed) {
+	if (await isRateLimited(request.headers, key, options)) {
 		return NextResponse.json({ error: message }, { status: 429 });
 	}
 	return null;
