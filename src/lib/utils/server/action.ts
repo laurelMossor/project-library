@@ -48,6 +48,12 @@ async function run<C, I, O>(
 	}
 }
 
+/** Action input guard: a non-empty id string, else an `invalid` refusal naming `what`. */
+export function requireId(id: unknown, what: string): string {
+	if (typeof id !== "string" || !id) throw new DomainError(`Invalid ${what}`);
+	return id;
+}
+
 /** An action that requires a signed-in user. */
 export function authedAction<I, O = void>(
 	handler: (ctx: SessionContext, input: I) => Promise<O>,

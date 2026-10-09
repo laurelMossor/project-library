@@ -53,6 +53,20 @@ export type PostCreateInput = {
  */
 export type PostUpdateInput = Partial<Pick<PostItem, "title" | "content" | "tags" | "pinnedAt">>;
 
+/** Everything a post edit may change — the input to the update Server Action. */
+export type PostUpdateData = {
+	title?: string | null;
+	content?: string;
+	tags?: string[];
+	topics?: string[];
+	/** ISO timestamp to pin, null to unpin. */
+	pinnedAt?: string | null;
+	status?: "DRAFT" | "PUBLISHED";
+	pageId?: string | null;
+	asPageId?: string | null;
+	showOnAuthorProfile?: boolean;
+};
+
 /**
  * Type guard to check if post is an event descendant
  */

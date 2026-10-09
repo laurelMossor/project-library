@@ -1,5 +1,6 @@
 import type { AttachmentType, ImageItem } from "@/lib/types/image";
-import { API_UPLOAD, API_IMAGE_ATTACHMENTS } from "@/lib/const/routes";
+import { API_UPLOAD } from "@/lib/const/routes";
+import { attachImageAction } from "@/lib/actions/image";
 
 /**
  * Client-side image upload + attachment helpers.
@@ -59,16 +60,9 @@ export async function uploadAndAttachImage({
 }: UploadAndAttachArgs): Promise<ImageItem> {
 	const image = await uploadImageOnly({ file, folder, fetchImpl });
 
-	const res = await fetchImpl(API_IMAGE_ATTACHMENTS, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ imageId: image.id, type, targetId, replace, sortOrder }),
-	});
-	if (!res.ok) {
-		const data = await res.json().catch(() => ({}));
-		throw new Error(data.error || "Failed to attach image");
-	}
-	const attachment: { id: string } = await res.json();
+	// The attach action refreshes the page, so server-rendered image lists pick the photo up.
+	const attached = await attachImageAction({ imageId: image.id, type, targetId, replace, sortOrder });
+	if (!attached.ok) throw new Error(attached.message ?? "Failed to attach image");
 
 	return {
 		id: image.id,
@@ -78,6 +72,6 @@ export async function uploadAndAttachImage({
 		caption: null,
 		uploadedByUserId: "",
 		createdAt: new Date(),
-		attachmentId: attachment.id,
+		attachmentId: attached.data,
 	};
 }

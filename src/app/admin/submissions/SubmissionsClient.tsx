@@ -8,7 +8,7 @@ import { Button } from "@/lib/components/ui/Button";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 import { LocationField } from "@/lib/components/map/LocationField";
 import { authFetch, AuthError } from "@/lib/utils/auth-client";
-import { createEvent } from "@/lib/utils/event-client";
+import { createEventAction } from "@/lib/actions/event";
 import { withDisclaimer, withSourceLine } from "@/lib/utils/text";
 import { API_ADMIN_SUBMISSIONS, API_ADMIN_SUBMISSION, EVENT_DETAIL } from "@/lib/const/routes";
 
@@ -186,10 +186,10 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 			// Reuse an Event already created for this submission on a prior (failed) attempt.
 			let eventId = createdEventIds[submission.id];
 			if (!eventId) {
-				const event = await createEvent({
+				const created = await createEventAction({
 					title: d.title.trim(),
 					content: d.content.trim(),
-					// Draft path tolerates a missing date (route fabricates one); publish requires `future`.
+					// Draft path tolerates a missing date (it fabricates one); publish requires `future`.
 					eventDateTime: future ?? new Date(),
 					eventTimezone: submission.eventTimezone,
 					location: d.location.trim(),
@@ -199,7 +199,8 @@ export function SubmissionsClient({ eventsPageId }: { eventsPageId: string | nul
 					asPageId: eventsPageId,
 					isDraft: asDraft,
 				});
-				eventId = event.id;
+				if (!created.ok) throw new Error(created.message ?? "Failed to create event");
+				eventId = created.data;
 				setCreatedEventIds((prev) => ({ ...prev, [submission.id]: eventId }));
 			}
 

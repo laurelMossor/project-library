@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, badRequest, forbidden, serverError } from "@/lib/utils/errors";
-import { validateEventData, isValidCoordinate } from "@/lib/validations";
+import { serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { eventWithUserFields, eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
+import { eventCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
-import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "@/lib/utils/server/content-placement";
-import { logAction } from "@/lib/utils/server/log";
-import { eventListWhere, resolveParentVisibility } from "@/lib/utils/server/visibility";
+import { eventListWhere } from "@/lib/utils/server/visibility";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -26,6 +22,8 @@ function parseNumber(value: unknown): number | null {
  * GET /api/events
  * List events with optional search/pagination
  * Public endpoint (no auth required)
+ *
+ * Creating an event is the `createEventAction` Server Action (src/lib/actions/event.ts).
  */
 export async function GET(request: Request) {
 	// Rate limiting: 60 requests per minute per IP
@@ -88,153 +86,5 @@ export async function GET(request: Request) {
 	} catch (error) {
 		console.error("GET /api/events error:", error);
 		return serverError("Failed to fetch events");
-	}
-}
-
-/**
- * POST /api/events
- * Create a new event
- * Protected endpoint (requires authentication)
- */
-export async function POST(request: Request) {
-	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
-			return unauthorized();
-		}
-
-		const data = await request.json();
-		const { title, content, eventDateTime, eventTimezone, location, latitude, longitude, tags, topics, isDraft, pageId, asPageId, showOnAuthorProfile } = data;
-
-		let placement;
-		try {
-			placement = await resolveContentPlacement(ctx.userId, { asPageId, pageId, showOnAuthorProfile });
-		} catch (err) {
-			if (err instanceof PlacementForbiddenError) return forbidden(err.message);
-			if (err instanceof PlacementError) return badRequest(err.message);
-			throw err;
-		}
-		const contentVisibility = await resolveParentVisibility(ctx.userId, placement.pageId);
-
-		// Process tags once — both the draft and standard paths persist them. (Draft creation
-		// used to hardcode `tags: []`, which silently dropped tags supplied at creation, e.g.
-		// the Poster Catcher approve-as-draft flow.)
-		let processedTags: string[] | undefined;
-		if (tags) {
-			if (typeof tags === "string") {
-				processedTags = tags.split(",").map((tag) => tag.trim()).filter(Boolean);
-			} else if (Array.isArray(tags)) {
-				processedTags = tags.map((tag) => (typeof tag === "string" ? tag.trim() : String(tag).trim())).filter(Boolean);
-			}
-		}
-		const processedTopics = Array.isArray(topics) ? topics : [];
-
-		// Draft creation: minimal validation, used by inline editing flow
-		if (isDraft) {
-			const parsedDateTime = eventDateTime ? new Date(eventDateTime) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-			// Coordinates are optional, but if the caller sends a pin it must be a valid,
-			// in-range pair — a lenient draft still shouldn't store a garbage location.
-			const draftLatitude = parseNumber(latitude);
-			const draftLongitude = parseNumber(longitude);
-			if (
-				(draftLatitude !== null || draftLongitude !== null) &&
-				!(draftLatitude !== null && draftLongitude !== null && isValidCoordinate(draftLatitude, draftLongitude))
-			) {
-				return badRequest("Invalid event coordinates");
-			}
-
-			const event = await prisma.event.create({
-				data: {
-					userId: ctx.userId,
-					pageId: placement.pageId,
-					asPageId: placement.asPageId,
-					showOnAuthorProfile: placement.showOnAuthorProfile,
-					title: (title || "").trim(),
-					content: (content || "").trim(),
-					eventDateTime: parsedDateTime,
-					eventTimezone: eventTimezone || null,
-					location: (location || "").trim(),
-					// Carry through coordinates when the caller has them (e.g. the Poster
-					// Catcher approve flow geocodes the location before creating the draft).
-					latitude: draftLatitude,
-					longitude: draftLongitude,
-					contentVisibility,
-					status: "DRAFT",
-					tags: processedTags || [],
-					topics: processedTopics,
-				},
-				select: eventWithUserFields,
-			});
-
-			logAction("event.created", ctx.userId, { eventId: event.id, status: "DRAFT" });
-
-			const eventItem = {
-				...event,
-				type: COLLECTION_TYPES.EVENT,
-				images: [],
-			};
-
-			return NextResponse.json(eventItem, { status: 201 });
-		}
-
-		// Standard creation: full validation
-		const parsedDateTime = eventDateTime ? new Date(eventDateTime) : null;
-
-		if (!parsedDateTime || isNaN(parsedDateTime.getTime())) {
-			return badRequest("Event date is required and must be valid");
-		}
-
-		const parsedLatitude = parseNumber(latitude);
-		const parsedLongitude = parseNumber(longitude);
-
-		// Validate event data
-		const validation = validateEventData({
-			title,
-			content,
-			eventDateTime: parsedDateTime,
-			location,
-			latitude: parsedLatitude ?? undefined,
-			longitude: parsedLongitude ?? undefined,
-			tags: processedTags,
-		});
-		if (!validation.valid) {
-			return badRequest(validation.error || "Invalid event data");
-		}
-
-		const event = await prisma.event.create({
-			data: {
-				userId: ctx.userId,
-				pageId: placement.pageId,
-				asPageId: placement.asPageId,
-				showOnAuthorProfile: placement.showOnAuthorProfile,
-				title: title.trim(),
-				content: content.trim(),
-				eventDateTime: parsedDateTime,
-				eventTimezone: eventTimezone || null,
-				location: location.trim(),
-				latitude: parsedLatitude,
-				longitude: parsedLongitude,
-				tags: processedTags || [],
-				topics: processedTopics,
-				contentVisibility,
-				status: "PUBLISHED",
-			},
-			select: eventWithUserFields,
-		});
-
-		logAction("event.created", ctx.userId, { eventId: event.id, status: "PUBLISHED" });
-
-		// Return with type and empty images (new event has no images yet)
-		const eventItem = {
-			...event,
-			type: COLLECTION_TYPES.EVENT,
-			images: [],
-		};
-
-		return NextResponse.json(eventItem, { status: 201 });
-	} catch (error) {
-		console.error("POST /api/events error:", error);
-		return serverError("Failed to create event");
 	}
 }

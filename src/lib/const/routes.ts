@@ -129,26 +129,16 @@ export const API_NOTIFICATIONS_FLUSH = "/api/notifications/flush";
 
 // Event API Routes
 export const API_EVENTS = "/api/events";
-export const API_EVENT = (id: string) => `/api/events/${id}`;
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
 export const API_EVENT_RSVPS = (id: string) => `/api/events/${id}/rsvps`;
 export const API_EVENT_RSVP_COUNTS = (id: string) => `/api/events/${id}/rsvps/counts`;
-export const API_EVENT_COMMENTS = (id: string) => `/api/events/${id}/comments`;
 
 // Post API Routes
 export const API_POSTS = "/api/posts";
-export const API_POST = (id: string) => `/api/posts/${id}`;
 export const API_POST_POSTS = (id: string) => `/api/posts/${id}/posts`;
-export const API_POST_COMMENTS = (id: string) => `/api/posts/${id}/comments`;
 
-// Comment API Routes
-export const API_COMMENT = (id: string) => `/api/comments/${id}`;
-
-// Image API Routes
+// Image API Routes (attach / caption / remove are Server Actions in src/lib/actions/image.ts)
 export const API_UPLOAD = (folder: string) => `/api/upload?folder=${folder}`;
-export const API_IMAGE_ATTACHMENTS = "/api/image-attachments";
-export const API_IMAGE_ATTACHMENT = (id: string) => `/api/image-attachments/${id}`;
-export const API_IMAGE = (id: string) => `/api/images/${id}`;
 
 // Admin API Routes (Poster Catcher review; superadmin-gated)
 export const API_ADMIN_SUBMISSIONS = "/api/admin/submissions";
