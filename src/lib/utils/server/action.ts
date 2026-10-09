@@ -4,6 +4,8 @@
 // The wrapper owns the cross-cutting steps, so an action body is only
 // "check input → call the server util":
 //   session → rate limit → handler → DomainError mapping → refresh()
+// refresh() runs on success, and also when a DomainError sets `refresh`
+// because the refusal still changed stored state.
 //
 // Server Actions are public HTTP endpoints: anyone can call them with any
 // arguments. Handlers validate their input and throw DomainError to refuse.
@@ -42,7 +44,12 @@ async function run<C, I, O>(
 		if (options.refresh !== false) refresh();
 		return { ok: true, data };
 	} catch (err) {
-		if (err instanceof DomainError) return { ok: false, error: err.code, message: err.message };
+		if (err instanceof DomainError) {
+			// A refusal normally leaves the screen alone. Refresh anyway when the
+			// refusal changed stored state, so a deleted row doesn't linger.
+			if (err.refresh) refresh();
+			return { ok: false, error: err.code, message: err.message };
+		}
 		console.error("[action] unexpected error:", err);
 		return { ok: false, error: "server", message: "Something went wrong. Please try again." };
 	}

@@ -28,6 +28,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 			findUnique: vi.fn(),
 			create: vi.fn(),
 			update: vi.fn(),
+			delete: vi.fn(),
 			deleteMany: vi.fn(),
 		},
 		pageEmailInvite: {
@@ -75,6 +76,7 @@ import { getSessionContext } from "@/lib/utils/server/session";
 import { emitActivity } from "@/lib/utils/server/activity";
 import { sendPageInviteEmails } from "@/lib/utils/server/email/emails";
 import { EMAIL_INVITE_DAILY_CAP } from "@/lib/const/email-invites";
+import { refresh } from "next/cache";
 
 // --- seam helpers -----------------------------------------------------------
 
@@ -311,6 +313,28 @@ describe("approve / deny request actions", () => {
 		vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue(null);
 		expect(await approveRequestAction({ requestId: "nope" })).toMatchObject({ ok: false, error: "not_found" });
 		expect(await denyRequestAction({ requestId: "nope" })).toMatchObject({ ok: false, error: "not_found" });
+	});
+
+	test("accepting an invite after the page closes withdraws it, explains, and refreshes", async () => {
+		asViewer("u2");
+		setPolicy("CLOSED");
+		vi.mocked(prisma.accessRequest.findUnique).mockResolvedValue({
+			id: "r1",
+			kind: "INVITE",
+			role: PermissionRole.MEMBER,
+			requesterId: null,
+			requesterPageId: "p1",
+			targetUserId: "u2",
+			targetPageId: null,
+		} as never);
+		expect(await approveRequestAction({ requestId: "r1" })).toEqual({
+			ok: false,
+			error: "conflict",
+			message: "That invite is no longer available",
+		});
+		expect(prisma.accessRequest.delete).toHaveBeenCalledWith({ where: { id: "r1" } });
+		expect(prisma.permission.upsert).not.toHaveBeenCalled();
+		expect(refresh).toHaveBeenCalled();
 	});
 
 	test("an invite addressed to someone else can't be accepted → forbidden", async () => {

@@ -119,7 +119,6 @@ export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's hand
 export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
 export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
-export const API_ME_INVITES = "/api/me/invites"; // GET role invitations waiting on the current user
 export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
 export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
 
@@ -149,10 +148,7 @@ export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 export const API_PAGES = "/api/pages";
 export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
 // Membership, invites, and access requests are Server Actions in src/lib/actions/membership.ts.
-
-// Access-request reads (no longer called by the app — candidates for deletion)
-export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;
-export const API_ME_REQUESTS = "/api/me/requests";
+// Their lists are read on the server page (connections.ts), not through GET routes.
 
 // Follow API Routes
 export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;

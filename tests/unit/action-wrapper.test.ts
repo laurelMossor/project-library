@@ -46,6 +46,14 @@ describe("authedAction", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  test("DomainError with refresh still refuses, and re-renders the page", async () => {
+    const action = authedAction(async () => {
+      throw new DomainError("Gone", "conflict", { refresh: true });
+    });
+    expect(await action(undefined)).toEqual({ ok: false, error: "conflict", message: "Gone" });
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
   test("unexpected error → generic server error, internals not leaked", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const action = authedAction(async () => {
