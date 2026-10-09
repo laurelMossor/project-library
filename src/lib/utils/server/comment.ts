@@ -38,8 +38,8 @@ async function getContentOwner(postId: string | null, eventId: string | null): P
 /**
  * Create a comment — the single guarded write path. Enforces the invariants at the choke
  * point: exactly one of postId/eventId (also a DB CHECK), non-empty content, and — when
- * commenting "as" a page — ADMIN/EDITOR on that page. Read-gating of the parent is the
- * route's job (requireViewablePost/Event); this trusts that it already passed.
+ * commenting "as" a page — ADMIN/EDITOR on that page. Read-gating of the parent is
+ * `addComment`'s job (requireViewablePost/Event); this trusts that it already passed.
  */
 export async function createComment(userId: string, data: CreateCommentData): Promise<CommentItem> {
 	const hasPost = Boolean(data.postId);
@@ -154,7 +154,7 @@ async function toCommentItems(rows: CommentFromQuery[]): Promise<CommentItem[]> 
 	return rows.map((r) => toCommentItem(r, known));
 }
 
-/** List a post's comments, oldest first (the thread reads top to bottom). Comments inherit the parent's viewability (gated by the route). */
+/** List a post's comments, oldest first (the thread reads top to bottom). The post page gates viewability before calling this. */
 export async function getPostComments(postId: string): Promise<CommentItem[]> {
 	const comments = await prisma.comment.findMany({
 		where: { postId },
@@ -210,15 +210,15 @@ export function canEditComment(comment: { authorId: string | null }, viewer: Vie
 	return viewer.userId !== null && comment.authorId !== null && viewer.userId === comment.authorId;
 }
 
-/** Delete a comment. Authorization (canModerateComment) is the route's responsibility. */
+/** Delete a comment row. `removeComment` authorizes first. */
 export async function deleteComment(id: string): Promise<void> {
 	await prisma.comment.delete({ where: { id } });
 }
 
 /**
- * Edit a comment's body. Authorization (author-only — see the route) is the caller's job;
- * this is the write. Content is trimmed; validation happens in the route. Anyone tagged in the new
- * text who hasn't already been told about this comment gets a tag notification — checked against the
+ * Edit a comment's body. `editComment` authorizes and validates; this is the write.
+ * Content is trimmed. Anyone tagged in the new text who hasn't already been told about this
+ * comment gets a tag notification — checked against the
  * stored notifications, so removing and re-adding a handle never re-notifies. The comment's lifetime
  * total stays within MAX_MENTION_NOTIFICATIONS.
  */

@@ -45,9 +45,9 @@ type UploadAndAttachArgs = UploadOnlyArgs & {
  * Upload a file, then attach it to a target (post/event/page).
  * Returns an ImageItem carrying its `attachmentId` — ready to push into carousel state.
  *
- * NOTE: the upload response `id` is the *Image* id (keyed by caption PATCH /api/images/:id),
- * and the attachment response `id` is the *ImageAttachment* id (keyed by DELETE
- * /api/image-attachments/:id). Keep these straight — crossing them breaks both.
+ * NOTE: the upload response `id` is the *Image* id (caption updates go through `updateImageAction`),
+ * and the attachment response `id` is the *ImageAttachment* id (`removeImageAttachmentAction`).
+ * Keep these straight — crossing them breaks both.
  */
 export async function uploadAndAttachImage({
 	file,

@@ -502,6 +502,7 @@ export function EventPageClient({
 						title: (current.title as string) ?? "",
 						content: (current.content as string) ?? "",
 						eventDateTime: new Date(current.eventDateTime as string | Date),
+						eventTimezone: (current.eventTimezone as string | null) ?? undefined,
 						location: (current.location as string | null) ?? "",
 						latitude: current.latitude as number | null,
 						longitude: current.longitude as number | null,

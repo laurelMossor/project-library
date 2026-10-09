@@ -294,8 +294,7 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 
 /**
  * Finite, in-range geographic coordinate check (lat ∈ [-90, 90], lng ∈ [-180, 180]).
- * Single source of the bounds so the event create paths — the publish path via
- * `validateEventData`, and the lenient draft path in `POST /api/events` — agree.
+ * Single source of the bounds so `validateEventData` and `createEvent`'s lenient draft path agree.
  */
 export function isValidCoordinate(latitude: number, longitude: number): boolean {
 	return (
@@ -337,9 +336,11 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		}
 	}
 
+	// Location is optional (a TBD event). Blank or whitespace clears it; the write trims.
+	// null is refused — the column is a required string, and the update calls `.trim()`.
 	if (data.location !== undefined) {
-		if (typeof data.location !== "string" || data.location.trim().length === 0) {
-			return { valid: false, error: "Event location must be a non-empty string" };
+		if (typeof data.location !== "string") {
+			return { valid: false, error: "Event location must be a string" };
 		}
 		if (data.location.length > 255) {
 			return { valid: false, error: "Event location must be 255 characters or less" };

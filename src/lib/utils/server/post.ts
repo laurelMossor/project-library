@@ -259,7 +259,7 @@ export async function createPost(
 			tags: data.tags || [],
 			topics: data.topics || [],
 			contentVisibility,
-			// Posts are born DRAFT (schema default) and published via PATCH /api/posts/:id;
+			// Posts are born DRAFT (schema default) and published via updatePost.
 			// isDraft is explicit only for clarity at the draft-then-edit entry point.
 			...(data.isDraft ? { status: "DRAFT" as const } : {}),
 		},
@@ -377,7 +377,7 @@ export async function removePost(viewer: ViewerContext & { userId: string }, id:
  *
  * ImageAttachment is polymorphic (no real FK to Post), so nothing cascades — without this
  * the post's attachments, Image rows, and storage blobs would all be orphaned. Callers
- * must authorize the delete first (the DELETE /api/posts/:id route does).
+ * must authorize the delete first (`removePost` does).
  */
 export async function deletePost(postId: string): Promise<void> {
 	await deleteAllAttachmentsForTarget("POST", postId);

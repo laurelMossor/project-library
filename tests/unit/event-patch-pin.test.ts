@@ -74,3 +74,10 @@ describe("updateEvent pins", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
+
+describe("updateEvent field checks", () => {
+  test("a bad timezone is refused before any write", async () => {
+    await expect(patch({ eventTimezone: "Nope" })).rejects.toMatchObject({ code: "invalid" });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});

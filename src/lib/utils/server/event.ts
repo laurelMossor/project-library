@@ -90,17 +90,6 @@ export async function getEventsByPage(
 	})), viewer?.userId ?? null, { pageId });
 }
 
-// NOTE: event creation/updates go through the route handlers (`POST`/`PATCH /api/events[/:id]`),
-// which own their own validation, permission, image, and re-parent-visibility logic. The former
-// `createEvent`/`updateEvent` server utils here were unused (the client `event-client.ts` has its
-// own same-named fetch wrappers) and were removed to avoid a second, divergent write path.
-
-/**
- * Delete an event and return storage paths to remove after commit.
- * Update posts cascade with the event, but their photos are POST attachments
- * with no foreign key, so they are detached here too. Blobs stay until the caller
- * removes the returned paths, so a failed delete does not drop the photos.
- */
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) return value;
 	if (typeof value === "string") {
@@ -212,6 +201,7 @@ export async function updateEvent(viewer: ViewerContext & { userId: string }, id
 		title,
 		content,
 		eventDateTime: parsedDateTime,
+		eventTimezone,
 		location,
 		latitude: parsedLatitude ?? undefined,
 		longitude: parsedLongitude ?? undefined,
@@ -288,6 +278,13 @@ export async function removeEvent(viewer: ViewerContext & { userId: string }, id
 	await removeStoragePaths(await deleteEvent(id));
 }
 
+/**
+ * Delete an event and return storage paths to remove after commit.
+ * Update posts cascade with the event, but their photos are POST attachments
+ * with no foreign key, so they are detached here too. Blobs stay until the caller
+ * removes the returned paths, so a failed delete does not drop the photos.
+ * `removeEvent` authorizes first.
+ */
 export async function deleteEvent(id: string): Promise<string[]> {
 	return prisma.$transaction(async (tx) => {
 		// A new update's eventId foreign key share-locks this row, so it waits.
