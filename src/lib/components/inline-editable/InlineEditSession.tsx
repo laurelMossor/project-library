@@ -2,6 +2,7 @@
 
 import {
 	createContext,
+	startTransition,
 	useCallback,
 	useContext,
 	useEffect,
@@ -244,14 +245,18 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 
 			const saved = await onSave(payload);
 
-			if (saved && onSaved) {
-				onSaved(saved as T);
-			}
-			setDirtyFields({});
-			originalValuesRef.current = {};
-			setPendingCreates([]);
-			setPendingDeletes([]);
-			setCloseRevision((n) => n + 1);
+			// A transition, so when onSave was a Server Action the cleared draft and the
+			// refreshed server props render together — no frame showing the old value.
+			startTransition(() => {
+				if (saved && onSaved) {
+					onSaved(saved as T);
+				}
+				setDirtyFields({});
+				originalValuesRef.current = {};
+				setPendingCreates([]);
+				setPendingDeletes([]);
+				setCloseRevision((n) => n + 1);
+			});
 			return true;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save");

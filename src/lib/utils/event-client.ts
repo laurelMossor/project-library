@@ -1,12 +1,11 @@
 import { EventItem } from "../types/event";
-import { API_EVENTS, API_EVENT, API_EVENT_RSVPS, API_EVENT_RSVP_COUNTS } from "../const/routes";
+import { API_EVENTS, API_EVENT_RSVPS, API_EVENT_RSVP_COUNTS } from "../const/routes";
 import type { RsvpItem, RsvpCreateInput, RsvpCountSummary, RsvpStatus } from "../types/rsvp";
 import { authFetch } from "./auth-client";
 
-// CLIENT-SIDE FETCH UTILITIES
-// These functions fetch from the API routes and can be used in client components
-// Authenticated endpoints use authFetch (throws AuthError on 401).
-// Public endpoints use plain fetch.
+// CLIENT-SIDE FETCH UTILITIES for views that still fetch on the client (Explore, RSVP).
+// Event saves are Server Actions in src/lib/actions/event.ts; RSVP moves there in Phase 2.
+// Authenticated endpoints use authFetch (throws AuthError on 401). Public endpoints use plain fetch.
 
 /**
  * Fetch all events with optional search query (public)
@@ -20,117 +19,6 @@ export async function fetchEvents(search?: string): Promise<EventItem[]> {
 
 	if (!res.ok) {
 		throw new Error("Failed to fetch events");
-	}
-
-	return res.json();
-}
-
-/**
- * Fetch a single event by ID (public for published events)
- */
-export async function fetchEventById(id: string): Promise<EventItem | null> {
-	const res = await fetch(API_EVENT(id));
-
-	if (!res.ok) {
-		if (res.status === 404) {
-			return null;
-		}
-		throw new Error("Failed to fetch event");
-	}
-
-	return res.json();
-}
-
-/**
- * Update an event by ID (authenticated)
- */
-export async function updateEvent(
-	id: string,
-	data: {
-		title?: string;
-		content?: string;
-		eventDateTime?: Date;
-		eventTimezone?: string | null;
-		location?: string;
-		latitude?: number | null;
-		longitude?: number | null;
-		tags?: string[];
-		status?: string;
-		pageId?: string | null;
-		asPageId?: string | null;
-		showOnAuthorProfile?: boolean;
-	}
-): Promise<EventItem> {
-	const res = await authFetch(API_EVENT(id), {
-		method: "PATCH",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			...data,
-			eventDateTime: data.eventDateTime?.toISOString(),
-		}),
-	});
-
-	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({}));
-		throw new Error(errorData.error || "Failed to update event");
-	}
-
-	return res.json();
-}
-
-/**
- * Publish an event (change status from DRAFT to PUBLISHED)
- */
-export async function publishEvent(id: string): Promise<EventItem> {
-	return updateEvent(id, { status: "PUBLISHED" });
-}
-
-/**
- * Create a fully-specified event (authenticated). Used by the Poster Catcher approve
- * flow to materialize a submission through the same write path the app uses. Pass
- * `isDraft: true` to create a draft (minimal validation) instead of publishing.
- */
-export async function createEvent(data: {
-	title: string;
-	content: string;
-	eventDateTime: Date;
-	eventTimezone?: string | null;
-	location?: string;
-	latitude?: number | null;
-	longitude?: number | null;
-	tags?: string[];
-		pageId?: string | null;
-		asPageId?: string | null;
-		showOnAuthorProfile?: boolean;
-		isDraft?: boolean;
-}): Promise<EventItem> {
-	const res = await authFetch(API_EVENTS, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ ...data, eventDateTime: data.eventDateTime.toISOString() }),
-	});
-
-	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({}));
-		throw new Error(errorData.error || "Failed to create event");
-	}
-
-	return res.json();
-}
-
-/**
- * Create a draft event for inline editing (authenticated)
- */
-export async function createDraftEvent(asPageId?: string, title?: string): Promise<EventItem> {
-	const res = await authFetch(API_EVENTS, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ isDraft: true, ...(asPageId ? { asPageId } : {}), ...(title ? { title } : {}) }),
-	});
-
-	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({}));
-		throw new Error(errorData.error || "Failed to create draft event");
 	}
 
 	return res.json();
@@ -181,18 +69,4 @@ export async function fetchRsvps(eventId: string): Promise<RsvpItem[]> {
 	}
 
 	return res.json();
-}
-
-/**
- * Delete an event by ID (authenticated)
- */
-export async function deleteEvent(id: string): Promise<void> {
-	const res = await authFetch(API_EVENT(id), {
-		method: "DELETE",
-	});
-
-	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({}));
-		throw new Error(errorData.error || "Failed to delete event");
-	}
 }

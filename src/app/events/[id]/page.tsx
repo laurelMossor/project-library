@@ -1,6 +1,7 @@
 import { getEventById } from "@/lib/utils/server/event";
 import { getUserById } from "@/lib/utils/server/user";
 import { getRsvpByEmail } from "@/lib/utils/server/rsvp";
+import { getEventComments } from "@/lib/utils/server/comment";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { EventPageClient } from "@/lib/components/event/EventPageClient";
@@ -70,9 +71,13 @@ export default async function EventDetailPage({ params }: Props) {
 		}
 	}
 
+	// Published events carry a comment thread; drafts can't be commented on yet.
+	const comments = event.status === "PUBLISHED" ? await getEventComments(id) : [];
+
 	return (
 		<EventPageClient
 			event={event}
+			comments={comments}
 			canEdit={canEdit}
 			canModerate={canModerate}
 			isLoggedIn={!!session?.user}

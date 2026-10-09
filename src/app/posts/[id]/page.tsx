@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { postWithUserFields } from "@/lib/utils/server/fields";
 import { getImagesForTarget } from "@/lib/utils/server/image-attachment";
+import { getPostComments } from "@/lib/utils/server/comment";
 import { PostPageClient } from "@/lib/components/post/PostPageClient";
 import { getViewerContext, canViewPost } from "@/lib/utils/server/visibility";
 import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
@@ -44,12 +45,17 @@ export default async function PostDetailPage({ params }: Props) {
 		notFound();
 	}
 
-	const images = await getImagesForTarget("POST", id);
+	// Published posts carry a comment thread; drafts can't be commented on yet.
+	const [images, comments] = await Promise.all([
+		getImagesForTarget("POST", id),
+		post.status === "PUBLISHED" ? getPostComments(id) : Promise.resolve([]),
+	]);
 
 	return (
 		<PostPageClient
 			post={post}
 			images={images}
+			comments={comments}
 			canEdit={canEdit}
 			canModerate={canModerate}
 			isLoggedIn={isLoggedIn}

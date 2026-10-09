@@ -9,12 +9,16 @@ import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
 import { MessageIcon } from "@/lib/components/icons/icons";
 import { CommentComposer } from "./CommentComposer";
 import { CommentRow } from "./CommentRow";
-import { getComments, createComment, updateComment, deleteComment, type CommentTarget } from "@/lib/utils/comment-client";
+import { addCommentAction, deleteCommentAction, editCommentAction } from "@/lib/actions/comment";
+import { useAction } from "@/lib/hooks/useAction";
 import { POST_DETAIL, EVENT_DETAIL, LOGIN_WITH_CALLBACK, COMMENT_ANCHOR, COMMENT_PARAM } from "@/lib/const/routes";
-import type { CommentItem } from "@/lib/types/comment";
+import type { CommentItem, CommentTarget } from "@/lib/types/comment";
+import type { ActionResult } from "@/lib/types/action";
 
 type CommentSectionProps = {
 	target: CommentTarget;
+	/** The thread, oldest first, from the server render. Every change refreshes the page, which updates it. */
+	comments: CommentItem[];
 	ownerUserId: string;
 	ownerPageId: string | null;
 	/** The viewer owns this post/event (author or page manager) — may delete any comment. */
@@ -33,59 +37,34 @@ function isFromOwner(comment: CommentItem, ownerUserId: string, ownerPageId: str
 		: !comment.asPageId && comment.authorId === ownerUserId;
 }
 
+/** The composer and rows report failures by throwing; turn a refused action into that. */
+function throwIfFailed(result: ActionResult<unknown>) {
+	if (!result.ok && result.error !== "unauthorized") throw new Error(result.message);
+}
+
 /**
- * The "Comments" card that sits below a post/event. Reads comments on mount, hosts the
- * composer (or a log-in prompt), and lists comments oldest-first, so the thread reads top to bottom. Comments inherit the
- * parent's viewability — the API gates that; this only renders what it's given.
+ * The "Comments" card that sits below a post/event. Renders the server-provided thread
+ * (oldest first, so it reads top to bottom) and hosts the composer or a log-in prompt.
+ * Comments inherit the parent's viewability — the server page gates that.
  */
-export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwner, isLoggedIn }: CommentSectionProps) {
+export function CommentSection({ target, comments, ownerUserId, ownerPageId, isContentOwner, isLoggedIn }: CommentSectionProps) {
 	const { currentUser } = useActiveProfile();
-	const [comments, setComments] = useState<CommentItem[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
+	const { run: add } = useAction(addCommentAction);
+	const { run: edit } = useAction(editCommentAction);
+	const { run: remove } = useAction(deleteCommentAction);
 
-	// A notification links to `?comment=<id>`. Clicking one while already on this page only changes the
-	// param, so it re-reads the list too — the comment it points at may be newer than what's shown.
+	// A notification links to `?comment=<id>`: scroll to that comment and highlight it for a moment.
 	const focusId = useSearchParams().get(COMMENT_PARAM);
-
-	useEffect(() => {
-		let active = true;
-		setLoading(true);
-		getComments(target)
-			.then((data) => { if (active) setComments(data); })
-			.catch(() => { if (active) setError("Failed to load comments"); })
-			.finally(() => { if (active) setLoading(false); });
-		return () => { active = false; };
-	// target is stable for the page lifetime
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [target.kind, target.id, focusId]);
-
-	// Once the comments are in, scroll to the linked one and highlight it for a moment.
 	const [highlightedId, setHighlightedId] = useState<string | null>(null);
 	useEffect(() => {
-		if (loading || !focusId) return;
+		if (!focusId) return;
 		const row = document.getElementById(COMMENT_ANCHOR(focusId));
 		if (!row) return;
 		row.scrollIntoView({ behavior: "smooth", block: "center" });
 		setHighlightedId(focusId);
 		const timer = window.setTimeout(() => setHighlightedId(null), 2500);
 		return () => window.clearTimeout(timer);
-	}, [loading, focusId]);
-
-	async function handleAdd(content: string, asPageId: string | null) {
-		const created = await createComment(target, { content, asPageId });
-		setComments((prev) => [...prev, created]);
-	}
-
-	async function handleEdit(id: string, content: string) {
-		const updated = await updateComment(id, content);
-		setComments((prev) => prev.map((c) => (c.id === id ? updated : c)));
-	}
-
-	async function handleDelete(id: string) {
-		await deleteComment(id);
-		setComments((prev) => prev.filter((c) => c.id !== id));
-	}
+	}, [focusId]);
 
 	const detailUrl = target.kind === "post" ? POST_DETAIL(target.id) : EVENT_DETAIL(target.id);
 	const count = comments.length;
@@ -98,11 +77,7 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 				{count > 0 && <span className="font-normal text-misty-forest">· {count}</span>}
 			</h2>
 
-			{loading ? (
-				<p className="text-sm text-misty-forest">Loading comments…</p>
-			) : error ? (
-				<p className="text-sm text-novel-red">{error}</p>
-			) : count === 0 ? (
+			{count === 0 ? (
 				<DashedPlaceholder className="p-6 text-center text-sm text-misty-forest">
 					No comments yet — be the first.
 				</DashedPlaceholder>
@@ -116,8 +91,8 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 							isFromOwner={!comment.deleted && isFromOwner(comment, ownerUserId, ownerPageId)}
 							canEdit={!comment.deleted && comment.authorId === currentUser?.id}
 							canDelete={!comment.deleted && (isContentOwner || comment.authorId === currentUser?.id)}
-							onEdit={handleEdit}
-							onDelete={handleDelete}
+							onEdit={async (id, content) => throwIfFailed(await edit({ id, content }))}
+							onDelete={async (id) => throwIfFailed(await remove({ id }))}
 						/>
 					))}
 				</div>
@@ -126,7 +101,7 @@ export function CommentSection({ target, ownerUserId, ownerPageId, isContentOwne
 			{/* Below the thread, where a new comment lands (oldest-first reads top to bottom). */}
 			<div className="mt-6">
 				{isLoggedIn ? (
-					<CommentComposer onSubmit={handleAdd} />
+					<CommentComposer onSubmit={async (content, asPageId) => throwIfFailed(await add({ parent: target, content, asPageId }))} />
 				) : (
 					<Link
 						href={LOGIN_WITH_CALLBACK(detailUrl)}

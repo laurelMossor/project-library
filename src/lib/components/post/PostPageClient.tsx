@@ -23,46 +23,51 @@ import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
 import ImageCarousel from "@/lib/components/images/ImageCarousel";
 import { PostImagesModal } from "@/lib/components/images/PostImagesModal";
-import { updatePost, deletePost } from "@/lib/utils/post-client";
+import { deletePostAction, updatePostAction } from "@/lib/actions/post";
+import type { PostUpdateData } from "@/lib/types/post";
+import { useAction } from "@/lib/hooks/useAction";
 import { postHasContent } from "@/lib/utils/content";
-import { AuthError } from "@/lib/utils/auth-client";
 import { PencilIcon } from "@/lib/components/icons/icons";
-import { EXPLORE_PAGE, EVENT_DETAIL, LOGIN_WITH_CALLBACK, POST_DETAIL, MESSAGE_CONVERSATION, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { EXPLORE_PAGE, EVENT_DETAIL, MESSAGE_CONVERSATION, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { contentIdentity } from "@/lib/utils/content-identity";
 import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
 import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import type { ImageItem } from "@/lib/types/image";
+import type { CommentItem } from "@/lib/types/comment";
 
 type PostPageClientProps = {
 	post: PostItem;
 	images: ImageItem[];
+	comments: CommentItem[];
 	canEdit: boolean;
 	canModerate: boolean;
 	isLoggedIn: boolean;
 };
 
-/** Inner content — must be inside <InlineEditSession> to access session context */
+/**
+ * Inner content — must be inside <InlineEditSession> to access session context.
+ * `post` and `images` come straight from the server render: every save is a Server Action
+ * that refreshes the page, so these props are always the current server state.
+ */
 function PostPageContent({
 	post,
-	setPost,
 	images,
-	setImages,
 	canEdit,
 	canModerate,
 	isLoggedIn,
 }: {
 	post: PostItem;
-	setPost: React.Dispatch<React.SetStateAction<PostItem>>;
 	images: ImageItem[];
-	setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
 	canEdit: boolean;
 	canModerate: boolean;
 	isLoggedIn: boolean;
 }) {
 	const router = useRouter();
 	const session = useInlineEditSession();
+	const { run: savePost } = useAction(updatePostAction);
+	const { run: removePost } = useAction(deletePostAction);
 	const [editingField, setEditingField] = useState<string | null>(null);
 
 	const isDraft = post.status === "DRAFT";
@@ -84,31 +89,13 @@ function PostPageContent({
 	const { value: content, setValue: setContent } = useInlineField("content", post.content);
 	const { value: tags, setValue: setTags } = useInlineField<string[]>("tags", post.tags);
 
-	const handleAuthError = () => {
-		router.push(LOGIN_WITH_CALLBACK(POST_DETAIL(post.id)));
-	};
+	// Speaking as a page puts the post on that page. Speaking as yourself
+	// starts on your profile; "Post to" can add a page after that.
+	const handleAuthorSwitch = (asPageId: string | null) =>
+		savePost({ id: post.id, data: asPageId ? { asPageId } : { asPageId: null, pageId: null, showOnAuthorProfile: false } });
 
-	const handleAuthorSwitch = async (asPageId: string | null) => {
-		try {
-			// Speaking as a page puts the post on that page. Speaking as yourself
-			// starts on your profile; "Post to" can add a page after that.
-			const updated = await updatePost(post.id, asPageId
-				? { asPageId }
-				: { asPageId: null, pageId: null, showOnAuthorProfile: false });
-			setPost((prev) => ({ ...prev, ...updated }));
-		} catch (err) {
-			if (err instanceof AuthError) handleAuthError();
-		}
-	};
-
-	const handlePostTo = async (next: { pageId: string | null; showOnAuthorProfile: boolean }) => {
-		try {
-			const updated = await updatePost(post.id, { asPageId: null, ...next });
-			setPost((prev) => ({ ...prev, ...updated }));
-		} catch (err) {
-			if (err instanceof AuthError) handleAuthError();
-		}
-	};
+	const handlePostTo = (next: { pageId: string | null; showOnAuthorProfile: boolean }) =>
+		savePost({ id: post.id, data: { asPageId: null, ...next } });
 
 	// Close any open field when editing ends (cancel reverts values automatically
 	// because dirtyFields clears and useInlineField reads from it).
@@ -148,7 +135,8 @@ function PostPageContent({
 		return () => {
 			clearTimeout(armTimer);
 			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
-				deletePost(postId).catch(() => {});
+				// Fire-and-forget: the component is gone, so there's nothing to report to.
+				void deletePostAction({ id: postId });
 			}
 		};
 	// post.id is stable for the lifetime of this component
@@ -307,7 +295,6 @@ function PostPageContent({
 						onClose={() => setPhotosModal({ open: false, index: 0 })}
 						postId={post.id}
 						images={images}
-						setImages={setImages}
 						initialIndex={photosModal.index}
 					/>
 				)}
@@ -336,13 +323,9 @@ function PostPageContent({
 								label="Delete Post"
 								itemTitle={post.title || post.content.substring(0, 40) + (post.content.length > 40 ? "..." : "")}
 								onDelete={async () => {
-									try {
-										await deletePost(post.id);
-										router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
-									} catch (err) {
-										if (err instanceof AuthError) { handleAuthError(); return; }
-										throw err;
-									}
+									const result = await removePost({ id: post.id });
+									if (result.ok) router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+									else if (result.error !== "unauthorized") throw new Error(result.message);
 								}}
 							/>
 						)}
@@ -375,10 +358,8 @@ function PostPageContent({
 	);
 }
 
-export function PostPageClient({ post: initialPost, images: initialImages, canEdit, canModerate, isLoggedIn }: PostPageClientProps) {
-	const [post, setPost] = useState(initialPost);
-	// Images live here (not in the carousel) so the publish gate below can see them live.
-	const [images, setImages] = useState(initialImages);
+export function PostPageClient({ post, images, comments, canEdit, canModerate, isLoggedIn }: PostPageClientProps) {
+	const { run: savePost } = useAction(updatePostAction);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
@@ -391,12 +372,9 @@ export function PostPageClient({ post: initialPost, images: initialImages, canEd
 				<InlineEditSession
 					resource={post as unknown as Record<string, unknown>}
 					onSave={async ({ fields }) => {
-						const updated = await updatePost(post.id, fields as Parameters<typeof updatePost>[1]);
-						setPost((prev) => ({ ...prev, ...updated }));
-						return updated as unknown as Record<string, unknown>;
-					}}
-					onSaved={(updated) => {
-						setPost((prev) => ({ ...prev, ...(updated as Partial<PostItem>) }));
+						// The action refreshes the page, so the saved values arrive as new props.
+						const result = await savePost({ id: post.id, data: fields as PostUpdateData });
+						if (!result.ok) throw new Error(result.message);
 					}}
 					canEdit={canEdit}
 					publishable={canEdit && isDraft}
@@ -405,9 +383,7 @@ export function PostPageClient({ post: initialPost, images: initialImages, canEd
 				>
 					<PostPageContent
 						post={post}
-						setPost={setPost}
 						images={images}
-						setImages={setImages}
 						canEdit={canEdit}
 						canModerate={canModerate}
 						isLoggedIn={isLoggedIn}
@@ -420,6 +396,7 @@ export function PostPageClient({ post: initialPost, images: initialImages, canEd
 			{isPublished && (
 				<CommentSection
 					target={{ kind: "post", id: post.id }}
+					comments={comments}
 					ownerUserId={post.userId}
 					ownerPageId={post.pageId}
 					isContentOwner={canModerate}

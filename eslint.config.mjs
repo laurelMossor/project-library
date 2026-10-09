@@ -58,10 +58,20 @@ export default [
 	// or folders it migrated; once every phase lands this becomes src/app + src/lib/{components,hooks}.
 	{
 		files: [
+			// Phase 0
 			"src/lib/hooks/useAction.ts",
 			"src/lib/hooks/useFollowState.ts",
 			"src/lib/components/profile/FollowStats.tsx",
 			"src/lib/components/profile/ProfileBody.tsx",
+			// Phase 1: posts, events, comments, photos
+			"src/app/posts/**",
+			"src/app/events/**",
+			"src/lib/components/post/**",
+			"src/lib/components/event/**",
+			"src/lib/components/comment/**",
+			"src/lib/components/collection/**",
+			"src/lib/components/images/**",
+			"src/lib/components/layout/**",
 		],
 		rules: {
 			"no-restricted-syntax": [

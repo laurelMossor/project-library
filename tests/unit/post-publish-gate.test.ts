@@ -1,5 +1,5 @@
 /**
- * Route tests for the relaxed publish gate in PATCH /api/posts/[id].
+ * The relaxed publish gate in updatePost (src/lib/utils/server/post.ts).
  * A post is publishable with a title, a body, OR at least one photo — the empty
  * case (no title, no body, zero image attachments) is the only one blocked.
  * Prisma, visibility, and permission helpers are mocked — no DB needed.
@@ -27,37 +27,22 @@ vi.mock("@/lib/utils/server/permission", () => ({
 }));
 vi.mock("@/lib/utils/server/user", () => ({ publicUserEmbedFields: {} }));
 vi.mock("@/lib/utils/server/visibility", () => ({
-	getViewerContext: vi.fn(),
 	canViewPost: vi.fn().mockResolvedValue(true),
 	isContentOwner: vi.fn().mockResolvedValue(true),
 	requireViewablePost: vi.fn(),
 	resolveParentVisibility: vi.fn(),
 	syncDescendantVisibility: vi.fn(),
 }));
-vi.mock("@/lib/utils/errors", () => ({
-	unauthorized: () => new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
-	badRequest: (msg: string) => new Response(JSON.stringify({ error: msg }), { status: 400 }),
-	notFound: (msg: string) => new Response(JSON.stringify({ error: msg }), { status: 404 }),
-	serverError: () => new Response(JSON.stringify({ error: "err" }), { status: 500 }),
-}));
 
-import { PATCH } from "@/app/api/posts/[id]/route";
+import { updatePost } from "@/lib/utils/server/post";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getViewerContext, requireViewablePost } from "@/lib/utils/server/visibility";
+import { requireViewablePost } from "@/lib/utils/server/visibility";
 
-const patch = (body: unknown) => {
-	const req = new Request("http://localhost/api/posts/post-1", {
-		method: "PATCH",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(body),
-	});
-	return PATCH(req, { params: Promise.resolve({ id: "post-1" }) });
-};
+const publish = (data: Parameters<typeof updatePost>[2]) => updatePost({ userId: "u1", memberPageIds: [] }, "post-1", data);
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	tx.post.update.mockResolvedValue({ id: "post-1", status: "PUBLISHED" });
-	vi.mocked(getViewerContext).mockResolvedValue({ userId: "u1" } as never);
 	vi.mocked(requireViewablePost).mockResolvedValue({
 		id: "post-1", userId: "u1", pageId: null, eventId: null,
 		parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
@@ -66,30 +51,30 @@ beforeEach(() => {
 	vi.mocked(prisma.post.findUnique).mockResolvedValue({ title: null, content: "" } as never);
 });
 
-describe("PATCH /api/posts/[id] — publish gate", () => {
+describe("updatePost — publish gate", () => {
 	test("publishes with body text (no images needed)", async () => {
-		const res = await patch({ status: "PUBLISHED", content: "Something to say" });
-		expect(res.status).toBe(200);
+		await publish({ status: "PUBLISHED", content: "Something to say" });
+		expect(tx.post.update).toHaveBeenCalled();
 		expect(prisma.imageAttachment.count).not.toHaveBeenCalled(); // short-circuit on text
 	});
 
 	test("publishes with a title only", async () => {
-		const res = await patch({ status: "PUBLISHED", title: "A title" });
-		expect(res.status).toBe(200);
+		await publish({ status: "PUBLISHED", title: "A title" });
+		expect(tx.post.update).toHaveBeenCalled();
 	});
 
 	test("publishes an image-only post (no title/body, one attachment)", async () => {
 		vi.mocked(prisma.imageAttachment.count).mockResolvedValue(1 as never);
-		const res = await patch({ status: "PUBLISHED" });
-		expect(res.status).toBe(200);
+		await publish({ status: "PUBLISHED" });
 		expect(prisma.imageAttachment.count).toHaveBeenCalledWith({ where: { type: "POST", targetId: "post-1" } });
 	});
 
 	test("blocks a fully empty post (no title, no body, no images)", async () => {
 		vi.mocked(prisma.imageAttachment.count).mockResolvedValue(0 as never);
-		const res = await patch({ status: "PUBLISHED" });
-		expect(res.status).toBe(400);
-		expect(await res.json()).toMatchObject({ error: expect.stringMatching(/empty post/i) });
+		await expect(publish({ status: "PUBLISHED" })).rejects.toMatchObject({
+			code: "invalid",
+			message: expect.stringMatching(/empty post/i),
+		});
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});
 });
