@@ -28,15 +28,12 @@ export type SendEmailResult = { ok: true } | { ok: false; error: string };
  */
 export async function sendEmail({ to, subject, react }: SendEmailArgs): Promise<SendEmailResult> {
 	const resend = getResendClient();
+	// Always ship a plain-text part next to the HTML. Resend renders only HTML from `react`,
+	// and a text alternative reads as ordinary mail to inbox classifiers (Gmail tabs).
+	const text = await render(react, { plainText: true });
 
 	if (!resend) {
-		const text = await render(react, { plainText: true });
-		console.log(
-			`\n📧 [email:dev] No RESEND_API_KEY — not sending. Would send:\n` +
-				`   To:      ${to}\n` +
-				`   Subject: ${subject}\n` +
-				`   ----\n${text}\n   ----\n`
-		);
+		logDevEmail(to, subject, text);
 		return { ok: true };
 	}
 
@@ -46,6 +43,7 @@ export async function sendEmail({ to, subject, react }: SendEmailArgs): Promise<
 			to,
 			subject,
 			react,
+			text,
 		});
 
 		if (error) {
@@ -65,4 +63,49 @@ export async function sendEmail({ to, subject, react }: SendEmailArgs): Promise<
 		// TODO: route to richer alerting (e.g. Sentry) once observability lands.
 		return { ok: false, error: message };
 	}
+}
+
+/**
+ * Send several distinct emails in one provider call (Resend's batch API, up to 100), so a
+ * burst — e.g. a page admin's email invites — stays under the per-second rate limit.
+ * All-or-nothing at the provider: one result for the whole batch.
+ */
+export async function sendEmailBatch(emails: SendEmailArgs[]): Promise<SendEmailResult> {
+	if (emails.length === 0) return { ok: true };
+	const resend = getResendClient();
+	const rendered = await Promise.all(
+		emails.map(async (e) => ({ ...e, text: await render(e.react, { plainText: true }) })),
+	);
+
+	if (!resend) {
+		for (const e of rendered) logDevEmail(e.to, e.subject, e.text);
+		return { ok: true };
+	}
+
+	const from = getFromAddress();
+	try {
+		const { error } = await resend.batch.send(
+			rendered.map(({ to, subject, react, text }) => ({ from, to, subject, react, text })),
+		);
+		if (error) {
+			console.error("sendEmailBatch: Resend returned an error", error);
+			logAction("email.send_failed", undefined, { count: emails.length, error: error.message });
+			return { ok: false, error: error.message };
+		}
+		return { ok: true };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		console.error("sendEmailBatch: unexpected failure", err);
+		logAction("email.send_failed", undefined, { count: emails.length, error: message });
+		return { ok: false, error: message };
+	}
+}
+
+function logDevEmail(to: string, subject: string, text: string) {
+	console.log(
+		`\n📧 [email:dev] No RESEND_API_KEY — not sending. Would send:\n` +
+			`   To:      ${to}\n` +
+			`   Subject: ${subject}\n` +
+			`   ----\n${text}\n   ----\n`
+	);
 }

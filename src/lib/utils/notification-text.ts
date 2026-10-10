@@ -23,7 +23,7 @@ function titled(title?: string | null): string {
 }
 
 /** "Admin" → "an", "Member" → "a". */
-function articleFor(word: string): "a" | "an" {
+export function articleFor(word: string): "a" | "an" {
 	return /^[aeiou]/i.test(word) ? "an" : "a";
 }
 
@@ -56,7 +56,15 @@ export function notificationText(n: NotificationTextInput): string {
 		}
 		case "ROLE_CHANGED":
 			return `${who} changed your role`;
+		case "MENTION":
+			return `${who} tagged you in a comment`;
 		default:
 			return `${who} sent you a notification`;
 	}
+}
+
+/** A second line under a bell row, when that notification asks the recipient to act. */
+export function notificationPrompt(type: NotificationType | string): string | null {
+	if (type === "MEMBER_INVITE") return "Approve or Decline?";
+	return null;
 }

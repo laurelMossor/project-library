@@ -7,6 +7,7 @@ import { AttachmentTarget, type Prisma } from "@prisma/client";
 import { imageFields } from "./fields";
 import { canActAsEntity, canEditContent } from "./permission";
 import { removeStoragePaths } from "./storage";
+import { DomainError } from "./domain-error";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -84,6 +85,71 @@ export async function attachImage(
 			},
 		},
 	});
+}
+
+const ATTACHABLE_TARGETS: AttachmentTarget[] = [AttachmentTarget.PAGE, AttachmentTarget.EVENT, AttachmentTarget.POST];
+
+/**
+ * Attach the caller's own uploaded image to a page/event/post they manage.
+ * `replace` swaps out the target's existing attachments first (a cover) — but only ones the
+ * caller uploaded, so it can never hard-delete a co-host's image. Returns the attachment id.
+ */
+export async function attachOwnImage(
+	userId: string,
+	input: { imageId: string; type: AttachmentTarget; targetId: string; sortOrder?: number; replace?: boolean },
+): Promise<string> {
+	const { imageId, type, targetId, sortOrder, replace } = input;
+	// MESSAGE / IMAGE have no ownership path — default-deny so an image can't be injected onto them.
+	if (!ATTACHABLE_TARGETS.includes(type)) throw new DomainError("Unsupported attachment target");
+
+	const image = await prisma.image.findUnique({ where: { id: imageId }, select: { uploadedByUserId: true } });
+	if (!image) throw new DomainError("Image not found", "not_found");
+	if (image.uploadedByUserId !== userId) throw new DomainError("You can only attach your own images", "forbidden");
+	if (!(await canManageAttachmentTarget(userId, type, targetId))) {
+		throw new DomainError("You can't add images here", "forbidden");
+	}
+
+	if (replace) await deleteAllAttachmentsForTarget(type, targetId, { onlyUploadedBy: userId });
+	const attachment = await prisma.imageAttachment.create({
+		data: { imageId, type, targetId, sortOrder: sortOrder ?? 0 },
+		select: { id: true },
+	});
+	return attachment.id;
+}
+
+/** Remove an attachment as its image's uploader or a manager of the target it's on. */
+export async function removeAttachmentAs(userId: string, attachmentId: string): Promise<void> {
+	const attachment = await prisma.imageAttachment.findUnique({
+		where: { id: attachmentId },
+		select: { type: true, targetId: true, image: { select: { uploadedByUserId: true } } },
+	});
+	if (!attachment) throw new DomainError("Photo not found", "not_found");
+	const allowed = attachment.image.uploadedByUserId === userId
+		|| (await canManageAttachmentTarget(userId, attachment.type, attachment.targetId));
+	if (!allowed) throw new DomainError("You can only remove photos you uploaded or manage", "forbidden");
+	// Also removes the Image row + blob when nothing else references it.
+	await deleteAttachment(attachmentId);
+}
+
+/** Update an image's caption / alt text. Only the uploader may. Empty string clears. */
+export async function updateOwnImage(
+	userId: string,
+	imageId: string,
+	data: { altText?: string | null; caption?: string | null },
+): Promise<void> {
+	const existing = await prisma.image.findUnique({ where: { id: imageId }, select: { uploadedByUserId: true } });
+	if (!existing) throw new DomainError("Image not found", "not_found");
+	if (existing.uploadedByUserId !== userId) throw new DomainError("You can only edit your own images", "forbidden");
+
+	const update: { altText?: string | null; caption?: string | null } = {};
+	for (const key of ["altText", "caption"] as const) {
+		const value = data[key];
+		if (value === undefined) continue;
+		if (value !== null && typeof value !== "string") throw new DomainError(`${key} must be text`);
+		if (value && value.length > 500) throw new DomainError(`${key === "caption" ? "Caption" : "Alt text"} must be 500 characters or less`);
+		update[key] = value || null;
+	}
+	await prisma.image.update({ where: { id: imageId }, data: update });
 }
 
 /**
@@ -180,10 +246,9 @@ export async function collectOrphanedImages(imageIds: string[], tx: Db = prisma)
 
 const AVATAR_REJECTED = "That photo can't be used as a profile picture.";
 
-export class AvatarNotAllowed extends Error {
+export class AvatarNotAllowed extends DomainError {
 	constructor() {
 		super(AVATAR_REJECTED);
-		this.name = "AvatarNotAllowed";
 	}
 }
 

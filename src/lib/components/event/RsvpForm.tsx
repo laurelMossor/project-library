@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { createRsvp } from "@/lib/utils/event-client";
+import { submitRsvpAction } from "@/lib/actions/rsvp";
+import { useAction } from "@/lib/hooks/useAction";
 import { RsvpIdentityChip } from "@/lib/components/event/RsvpIdentityChip";
 import type { RsvpStatus } from "@/lib/types/rsvp";
 import type { CardUser } from "@/lib/types/card";
 
 type RsvpFormProps = {
 	eventId: string;
-	onRsvpSubmitted?: () => void;
 	/** Anonymous path — pre-filled when logged in but only shown when memberUser is absent. */
 	initialName?: string;
 	initialEmail?: string;
@@ -27,7 +27,6 @@ const STATUS_OPTIONS: { value: RsvpStatus; label: string }[] = [
 
 export function RsvpForm({
 	eventId,
-	onRsvpSubmitted,
 	initialName,
 	initialEmail,
 	existingRsvpStatus,
@@ -40,10 +39,13 @@ export function RsvpForm({
 	const [status, setStatus] = useState<RsvpStatus | null>(existingRsvpStatus ?? null);
 	const [bringingPlusOne, setBringingPlusOne] = useState(initialHasPlusOne ?? false);
 	const [guestName, setGuestName] = useState(initialGuestName ?? "");
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState("");
-	const [submitted, setSubmitted] = useState(!!existingRsvpStatus);
-	const [submittedStatus, setSubmittedStatus] = useState<RsvpStatus | null>(existingRsvpStatus ?? null);
+	const [editing, setEditing] = useState(false);
+	// A member's saved RSVP arrives as `existingRsvpStatus` after each refresh. The server can't
+	// recognise an anonymous guest, so their confirmation is the action's own result.
+	const [guestStatus, setGuestStatus] = useState<RsvpStatus | null>(null);
+	const { run: submitRsvp, pending: submitting, error } = useAction(submitRsvpAction);
+
+	const savedStatus = memberUser ? existingRsvpStatus : guestStatus;
 
 	const guestsPayload =
 		status === "GOING" && bringingPlusOne ? [{ name: guestName.trim() || undefined }] : [];
@@ -51,36 +53,23 @@ export function RsvpForm({
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!status) return;
-		setError("");
-		setSubmitting(true);
-
-		try {
-			if (memberUser) {
-				await createRsvp(eventId, { status, guests: guestsPayload });
-			} else {
-				await createRsvp(eventId, {
-					name: name.trim(),
-					email: email.trim(),
-					status,
-					guests: guestsPayload,
-				});
-			}
-			setSubmittedStatus(status);
-			setSubmitted(true);
-			onRsvpSubmitted?.();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to submit RSVP");
-		} finally {
-			setSubmitting(false);
+		const result = await submitRsvp(
+			memberUser
+				? { eventId, status, guests: guestsPayload }
+				: { eventId, name: name.trim(), email: email.trim(), status, guests: guestsPayload },
+		);
+		if (result.ok) {
+			setEditing(false);
+			if (!memberUser) setGuestStatus(result.data.status);
 		}
 	};
 
-	if (submitted && submittedStatus) {
-		const statusLabel = STATUS_OPTIONS.find((s) => s.value === submittedStatus)?.label;
+	if (savedStatus && !editing) {
+		const statusLabel = STATUS_OPTIONS.find((s) => s.value === savedStatus)?.label;
 		return (
 			<div className="rounded-xl border border-melon-green bg-melon-green/10 p-6 text-center">
 				<p className="text-lg font-semibold text-moss-green">
-					{submittedStatus === "CANT_MAKE_IT"
+					{savedStatus === "CANT_MAKE_IT"
 						? "We'll miss you!"
 						: "You're on the list!"}
 				</p>
@@ -89,7 +78,7 @@ export function RsvpForm({
 				</p>
 				<button
 					type="button"
-					onClick={() => setSubmitted(false)}
+					onClick={() => setEditing(true)}
 					className="mt-3 text-sm text-moss-green underline underline-offset-2 hover:text-rich-brown"
 				>
 					Change response

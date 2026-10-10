@@ -53,5 +53,40 @@ export default [
 			"no-console": "off",
 		},
 	},
+	// UI saves go through Server Actions (src/lib/actions, built on authedAction), never a
+	// client fetch with a mutating method. Each Server Actions rollout phase adds the files
+	// or folders it migrated; once every phase lands this becomes src/app + src/lib/{components,hooks}.
+	{
+		files: [
+			// Phase 0
+			"src/lib/hooks/**",
+			"src/lib/components/profile/FollowStats.tsx",
+			"src/lib/components/profile/ProfileBody.tsx",
+			// Phase 1: posts, events, comments, photos
+			"src/app/posts/**",
+			"src/app/events/**",
+			"src/lib/components/post/**",
+			"src/lib/components/event/**",
+			"src/lib/components/comment/**",
+			"src/lib/components/collection/**",
+			"src/lib/components/images/**",
+			"src/lib/components/layout/**",
+			// Phase 2: membership, invites, requests, follow, RSVP
+			"src/app/connections/**",
+			"src/lib/components/profile/ConnectionsPageView.tsx",
+			"src/lib/components/profile/ConnectionsPageClient.tsx",
+			"src/lib/components/profile/JoinButton.tsx",
+			"src/lib/components/profile/EmailInviteModal.tsx",
+		],
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector: "Property[key.name='method'][value.value=/^(POST|PATCH|PUT|DELETE)$/i]",
+					message: "Save through a Server Action in src/lib/actions (see PROJECT_GUIDELINES 'Data & saves'), not a client fetch.",
+				},
+			],
+		},
+	},
 ];
 

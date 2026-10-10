@@ -158,6 +158,7 @@ async function main() {
 			"@/lib/utils/server/email/templates/InviteEmail"
 		);
 		const { Resend } = await import("resend");
+		const { render } = await import("@react-email/components");
 		const resend = new Resend(process.env.RESEND_API_KEY);
 
 		const sent: string[] = [];
@@ -180,11 +181,14 @@ async function main() {
 			// The row EXISTS from here on. Any send failure must surface the URL.
 			const url = absoluteUrl(SIGNUP_WITH_INVITE(rawToken));
 			try {
+				const react = InviteEmail({ url, expiresInDays: SIGNUP_INVITE_TTL_DAYS });
 				const { error } = await resend.emails.send({
 					from,
 					to: email,
 					subject: INVITE_EMAIL_SUBJECT,
-					react: InviteEmail({ url, expiresInDays: SIGNUP_INVITE_TTL_DAYS }),
+					react,
+					// Plain-text part alongside the HTML, same as sendEmail() — reads as ordinary mail.
+					text: await render(react, { plainText: true }),
 				});
 				if (error) throw new Error(error.message);
 				sent.push(email);

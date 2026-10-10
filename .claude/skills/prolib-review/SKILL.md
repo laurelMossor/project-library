@@ -186,6 +186,16 @@ a rename that doesn't remove an owner.
   the function → flag.
 - **Identity-aware UI** that refetches/derives identity instead of reading
   `ActiveProfileContext` (`activeEntity`, `activePageId`, `currentUser`) → flag.
+- **Data freshness** (PROJECT_GUIDELINES "Data & saves"). Flag:
+  - a client `fetch`/`authFetch` with POST/PATCH/PUT/DELETE in UI code: it should be a Server
+    Action in `src/lib/actions/` built on `authedAction`/`publicAction`
+  - an action that does its own session check, rate limit, `refresh()`, or try/catch
+    instead of leaving them to the wrapper
+  - an action that holds business logic instead of calling a `src/lib/utils/server/` util
+  - a component that copies a server prop into `useState` (`useState(initialX)`) to
+    display it, or that fetches in `useEffect` data its server page could pass as a prop
+  - hand-rolled `saving` flags or `AuthError` handling instead of `useAction`
+  - a new mutating `/api` route whose only caller is our own UI
 
 ### 6. Test coverage — does the diff leave meaningful risk untested?
 

@@ -2,8 +2,14 @@
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
 import { prisma } from "./prisma";
-import { publicUserEmbedFields } from "./user";
-import type { RsvpItem, RsvpCreateInput, RsvpCountSummary } from "@/lib/types/rsvp";
+import { getUserById, publicUserEmbedFields } from "./user";
+import { DomainError } from "./domain-error";
+import { requireViewableEvent, viewerContextFor } from "./visibility";
+import { emitActivity, type EntityRef, type ActorRef } from "./activity";
+import { validateRsvpData } from "@/lib/validations";
+import { getUserDisplayName } from "@/lib/types/user";
+import { NotificationObject } from "@prisma/client";
+import type { RsvpItem, RsvpCreateInput, RsvpCountSummary, RsvpStatus } from "@/lib/types/rsvp";
 
 const rsvpWithGuestsSelect = {
 	include: {
@@ -151,4 +157,56 @@ export async function getRsvpCounts(eventId: string): Promise<RsvpCountSummary> 
 	summary.goingTotal = summary.going + summary.guests;
 
 	return summary;
+}
+
+/**
+ * Submit an RSVP for a published event the viewer can see (members and anonymous guests alike).
+ * A member's name/email come from their account, never the client, and record `userId`; an
+ * anonymous submission can't touch an RSVP that belongs to a member account. Refusals throw
+ * DomainError. Notifies the host only on a NEW RSVP — editing must not re-notify.
+ */
+export async function submitRsvp(
+	userId: string | null,
+	eventId: string,
+	input: { status: RsvpStatus; name?: string; email?: string; guests?: RsvpCreateInput["guests"] },
+): Promise<RsvpItem> {
+	// A viewer who can't see the event (missing / PRIVATE / another owner's draft) gets not_found BEFORE
+	// the published-state check, so a non-owner can't tell an unpublished draft from a missing event.
+	const viewer = userId ? await viewerContextFor(userId) : { userId: null, memberPageIds: [] };
+	const event = await requireViewableEvent(eventId, viewer);
+	if (!event) throw new DomainError("Event not found", "not_found");
+	if (event.status !== "PUBLISHED") throw new DomainError("RSVPs are only accepted for published events");
+
+	let data: RsvpCreateInput;
+	if (userId) {
+		const user = await getUserById(userId);
+		if (!user) throw new DomainError("Please log in to continue.", "unauthorized");
+		data = { name: getUserDisplayName(user), email: user.email, status: input.status, guests: input.guests };
+	} else {
+		data = { name: input.name as string, email: input.email as string, status: input.status, guests: input.guests };
+	}
+
+	const validation = validateRsvpData(data);
+	if (!validation.valid) throw new DomainError(validation.error || "Invalid RSVP data");
+
+	if (!userId) {
+		const existing = await getRsvpByEmail(eventId, data.email);
+		if (existing?.userId) {
+			throw new DomainError("This RSVP belongs to a member account. Sign in to change it.", "forbidden");
+		}
+	}
+
+	const { rsvp, created } = await createOrUpdateRsvp(eventId, data, { userId });
+
+	if (created) {
+		const target: EntityRef = event.asPageId
+			? { type: "PAGE", id: event.asPageId }
+			: { type: "USER", id: event.userId };
+		const actor: ActorRef = rsvp.userId
+			? { type: "USER", id: rsvp.userId }
+			: { type: "ANON", label: data.name.trim() };
+		await emitActivity("rsvp.created", actor, target, { type: NotificationObject.EVENT, id: eventId });
+	}
+
+	return rsvp;
 }

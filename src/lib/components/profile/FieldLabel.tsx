@@ -14,25 +14,31 @@ function VisibilityBadge({ visibility }: { visibility: FieldVisibility }) {
 
 /**
  * A field's label row: the name, who can see it, and (at the far right) whether it can be left
- * blank. The Optional tag steps aside when the row is hovered, where the Edit hint appears.
+ * blank. The Optional or Required tag steps aside when the row is hovered, where the Edit hint appears.
  */
 export function FieldLabel({
 	label,
 	visibility,
 	optional = false,
+	required = false,
+	htmlFor,
 }: {
 	label: string;
 	visibility?: FieldVisibility;
 	optional?: boolean;
+	required?: boolean;
+	/** Makes the name a real <label> for that input. */
+	htmlFor?: string;
 }) {
+	const tag = required ? "Required" : optional ? "Optional" : null;
 	return (
 		<div className="flex items-center justify-between gap-2">
 			<span className="text-sm font-medium text-gray-500">
-				{label}
+				{htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
 				{visibility && <VisibilityBadge visibility={visibility} />}
 			</span>
-			{optional && (
-				<span className="text-[10px] font-bold text-dusty-grey group-hover:invisible">Optional</span>
+			{tag && (
+				<span className="text-[10px] font-bold text-dusty-grey group-hover:invisible">{tag}</span>
 			)}
 		</div>
 	);

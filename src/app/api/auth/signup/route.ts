@@ -9,6 +9,7 @@ import {
 } from "@/lib/validations";
 import { generateUniqueHandle, handleUnavailableReason } from "@/lib/utils/server/handle";
 import { consumeInviteAndCreateUser, type ConsumeInviteResult } from "@/lib/utils/server/signup-invite";
+import { claimPageEmailInvites } from "@/lib/utils/server/requests";
 import { isDevSignupBypassToken } from "@/lib/utils/server/dev-signup-bypass";
 import { prisma } from "@/lib/utils/server/prisma";
 import { createUser } from "@/lib/utils/server/user";
@@ -155,6 +156,16 @@ export async function POST(request: Request) {
 						error: err instanceof Error ? err.message : String(err),
 					});
 				}
+			});
+		}
+
+		// Page invites sent to this address before the account existed land in notifications now.
+		// Never fails the signup — the account is already created.
+		try {
+			await claimPageEmailInvites(responseUserId, normalizedEmail);
+		} catch (err) {
+			logAction("user.signup.claim_page_invites_failed", responseUserId, {
+				error: err instanceof Error ? err.message : String(err),
 			});
 		}
 

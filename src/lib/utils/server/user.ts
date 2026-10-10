@@ -5,22 +5,21 @@ import { AttachmentTarget } from "@prisma/client";
 import { prisma } from "./prisma";
 import { profileElementFields } from "./profile-element";
 import { getSoleAdminPages, getSuccessorAdminIds, lockPageAdminChanges } from "./permission";
+import { DomainError } from "./domain-error";
 // page.ts and image-attachment.ts reach back here through fields.ts → publicUserEmbedFields.
 // Import them inside deleteAccount so this module can finish loading first.
 
 /** The pages the confirm modal listed no longer match what deletion would remove. */
-export class AccountDeleteConflict extends Error {
+export class AccountDeleteConflict extends DomainError {
 	constructor() {
-		super("The pages that would be deleted have changed. Review the list and try again.");
-		this.name = "AccountDeleteConflict";
+		super("The pages that would be deleted have changed. Review the list and try again.", "conflict");
 	}
 }
 
 /** Setup delete lost the race: Looks good committed before this delete took the row lock. */
-export class SetupAlreadyFinished extends Error {
+export class SetupAlreadyFinished extends DomainError {
 	constructor() {
-		super("This account is already set up — delete it from Settings.");
-		this.name = "SetupAlreadyFinished";
+		super("This account is already set up — delete it from Settings.", "conflict");
 	}
 }
 

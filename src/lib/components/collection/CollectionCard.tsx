@@ -10,7 +10,10 @@ import { truncateText } from "@/lib/utils/text";
 import { formatDateTime } from "@/lib/utils/datetime";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import ImageCarousel from "../images/ImageCarousel";
-import { API_EVENT, API_POST, EVENT_DETAIL, POST_DETAIL, PROFILE_ABOUT, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { EVENT_DETAIL, POST_DETAIL, PROFILE_ABOUT, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { updatePostAction } from "@/lib/actions/post";
+import { updateEventAction } from "@/lib/actions/event";
+import { useAction } from "@/lib/hooks/useAction";
 import { MAX_PINNED_PER_PROFILE } from "@/lib/const/pin";
 import { resolveCardIdentity } from "@/lib/types/card";
 import { contentIdentity } from "@/lib/utils/content-identity";
@@ -48,6 +51,9 @@ function AboutCard({ item }: { item: AboutCollectionItem }) {
 
 export function CollectionCard({ item, truncate = true, showCaptions = false, pinConfig }: CollectionCardProps) {
 	const router = useRouter();
+	const { run: pinPost, pending: postPinPending } = useAction(updatePostAction);
+	const { run: pinEvent, pending: eventPinPending } = useAction(updateEventAction);
+	const pinPending = postPinPending || eventPinPending;
 
 	if (isAbout(item)) {
 		return <AboutCard item={item} />;
@@ -67,20 +73,12 @@ export function CollectionCard({ item, truncate = true, showCaptions = false, pi
 	const isPast = isPastEvent(ri);
 	const canPin = ri.canPin === true;
 	const atPinLimit = !!pinConfig && pinConfig.pinnedCount >= MAX_PINNED_PER_PROFILE && !isPinned;
-	const apiEndpoint = isEventItem ? API_EVENT(ri.id) : API_POST(ri.id);
 
+	// Pinning is the same update action as any other edit; it refreshes the profile, which re-sorts.
 	async function handleTogglePin() {
-		if (atPinLimit) return;
-		try {
-			const res = await fetch(apiEndpoint, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ pinnedAt: isPinned ? null : new Date().toISOString() }),
-			});
-			if (res.ok) router.refresh();
-		} catch {
-			// silent fail — user can retry
-		}
+		if (atPinLimit || pinPending) return;
+		const data = { pinnedAt: isPinned ? null : new Date().toISOString() };
+		await (isEventItem ? pinEvent({ id: ri.id, data }) : pinPost({ id: ri.id, data }));
 	}
 
 	return (

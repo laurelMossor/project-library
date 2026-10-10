@@ -33,6 +33,15 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 - **Types**: `src/lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
 - **Re-exports**: Avoid re-exports. Either move the function or just import from where it already exists.
 
+## Data & saves (keep the screen in step with the server)
+The server is the source of truth for what's on screen. There is no client-side data store.
+- **Saves are Server Actions.** Put them in `src/lib/actions/<domain>.ts` (a `"use server"` file), exported as `authedAction(...)` or `publicAction(...)` from `src/lib/utils/server/action.ts`. The wrapper owns session → rate limit → handler → error mapping → `refresh()`, so an action body is only "check input → call the server util". The logic lives in `src/lib/utils/server/`, never in the action. Reference: `src/lib/actions/follow.ts`.
+- **Refusals are `DomainError`s.** A util or action throws `DomainError(message, code)` (`src/lib/utils/server/domain-error.ts`) for anything the caller can fix. The message is shown to the user. Any other throw becomes a generic `server` error. Every action returns `ActionResult` (`src/lib/types/action.ts`).
+- **Components call actions through `useAction`** (`src/lib/hooks/useAction.ts`). It gives `pending`/`error` and the login redirect, so don't hand-roll `saving` flags or `AuthError` handling.
+- **Render server data from props.** Don't copy a server prop into `useState` to display it, because a refresh then can't update it. Local state is only for unsaved drafts (the inline-edit session) and optimistic UI (`useOptimistic`).
+- **Reads belong on the server page** when the page is a server component. `refresh()` re-renders server data only. A component that fetches its own data in `useEffect` won't see the change.
+- **HTTP routes are for outside callers only:** NextAuth, the Telegram webhook, the email-flush cron, multipart upload, and GETs still used by client-fetched views. Don't add a mutating `/api` route for our own UI. ESLint blocks client `fetch` saves in migrated folders (`eslint.config.mjs`).
+
 ## UI Component Map
 ```
 Explore page:  CollectionPage → FilteredCollection → CollectionCard

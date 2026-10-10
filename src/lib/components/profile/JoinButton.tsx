@@ -4,12 +4,15 @@ import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { UserPlusSignIcon, UserMinusSignIcon } from "@/lib/components/icons/icons";
 import { useMembership } from "@/lib/hooks/useMembership";
+import type { MembershipStatus } from "@/lib/types/connections";
 import type { MembershipPolicy } from "@prisma/client";
 
 type JoinButtonProps = {
 	pageId: string;
 	/** The page's membership policy. Request-to-join shows the button to non-members. */
 	membershipPolicy?: MembershipPolicy;
+	/** The viewer's role / pending request on this page, read on the server. */
+	membership: MembershipStatus;
 };
 
 /**
@@ -17,15 +20,12 @@ type JoinButtonProps = {
  * Shown when the viewer is logged in and acting as themselves.
  * "Request to join" appears on every REQUEST_TO_JOIN page. Members of any page see "Leave".
  */
-export function JoinButton({ pageId, membershipPolicy }: JoinButtonProps) {
+export function JoinButton({ pageId, membershipPolicy, membership }: JoinButtonProps) {
 	const { currentUser, activePageId } = useActiveProfile();
+	const { state, toggling, error, toggle } = useMembership(pageId, membership);
 
-	const loggedIn = !!currentUser;
-	const actingAsPage = !!activePageId;
-	const enabled = loggedIn && !actingAsPage;
-	const { state, loading, toggling, error, toggle } = useMembership(pageId, enabled);
-
-	if (!enabled || loading) return null;
+	const enabled = !!currentUser && !activePageId;
+	if (!enabled) return null;
 
 	const isLeavable = state === "member" || state === "privileged";
 	const canRequest = membershipPolicy === "REQUEST_TO_JOIN";

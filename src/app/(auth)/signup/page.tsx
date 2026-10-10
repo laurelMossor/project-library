@@ -7,6 +7,8 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
 import { HandleInput } from "@/lib/components/forms/HandleInput";
+import { FieldLabel } from "@/lib/components/profile/FieldLabel";
+import { useNameHandlePrefill } from "@/lib/hooks/useNameHandlePrefill";
 import { PasswordPair } from "@/lib/components/auth/PasswordPair";
 import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
 import { validatePasswordPair } from "@/lib/validations";
@@ -33,6 +35,7 @@ function SignupForm() {
 	const [handleAvailable, setHandleAvailable] = useState(false);
 	const [displayName, setDisplayName] = useState("");
 	const [error, setError] = useState("");
+	const prefill = useNameHandlePrefill({ setName: setDisplayName, setHandle });
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -44,6 +47,10 @@ function SignupForm() {
 			return;
 		}
 
+		if (!handle.trim()) {
+			setError("Choose a handle — it's your profile's web address.");
+			return;
+		}
 		if (!handleAvailable) {
 			setError("Pick an available handle.");
 			return;
@@ -110,13 +117,29 @@ function SignupForm() {
 					onPasswordChange={setPassword}
 					onConfirmChange={setConfirm}
 				/>
-				<HandleInput value={handle} onChange={setHandle} onAvailable={setHandleAvailable} />
-				<FormInput
-					type="text"
-					placeholder="Display name (optional, defaults to your handle)"
-					value={displayName}
-					onChange={(e) => setDisplayName(e.target.value)}
-					maxLength={100}
+				<div>
+					<FieldLabel label="Display name" htmlFor="display-name-input" optional />
+					<FormInput
+						id="display-name-input"
+						type="text"
+						placeholder="What people call you"
+						value={displayName}
+						onChange={(e) => {
+							setDisplayName(e.target.value);
+							prefill.onNameTyped(e.target.value);
+						}}
+						maxLength={100}
+						className="mt-1"
+					/>
+				</div>
+				<HandleInput
+					value={handle}
+					onChange={(next) => {
+						setHandle(next);
+						prefill.onHandleTyped(next);
+					}}
+					onAvailable={setHandleAvailable}
+					variant="boxed"
 				/>
 				<Button type="submit" fullWidth>
 					Sign Up

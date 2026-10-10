@@ -21,7 +21,7 @@
 import { ContentVisibility, ProfileVisibility } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getSessionContext } from "./session";
-import { canEditContent, getMemberPageIds } from "./permission";
+import { canEditContent, getMemberPageIds, getMemberPageIdsForUsers } from "./permission";
 
 type ProfileKind = "USER" | "PAGE";
 
@@ -47,11 +47,12 @@ export type ViewerContext = {
 export async function getViewerContext(): Promise<ViewerContext> {
   const session = await getSessionContext();
   if (!session) return { userId: null, memberPageIds: [] };
+  return viewerContextFor(session.userId);
+}
 
-  return {
-    userId: session.userId,
-    memberPageIds: await getMemberPageIds(session.userId),
-  };
+/** Viewer context for a known signed-in user — for Server Actions, which already hold the session. */
+export async function viewerContextFor(userId: string): Promise<ViewerContext & { userId: string }> {
+  return { userId, memberPageIds: await getMemberPageIds(userId) };
 }
 
 // ---------------------------------------------------------------------------
@@ -263,14 +264,21 @@ export async function requireViewableEvent(
   id: string,
   viewer: ViewerContext,
 ): Promise<ViewableEvent | null> {
-  const event = await prisma.event.findUnique({
+  const event = await fetchViewableEvent(id);
+  if (!event) return null;
+  return (await isEventViewable(event, viewer)) ? event : null;
+}
+
+const fetchViewableEvent = (id: string): Promise<ViewableEvent | null> =>
+  prisma.event.findUnique({
     where: { id },
     select: { id: true, userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true, status: true, contentVisibility: true },
   });
-  if (!event) return null;
-  if (event.status === "DRAFT" && !(await isContentOwner(viewer, event))) return null;
-  if (!(await canViewEvent(event, viewer))) return null;
-  return event;
+
+/** The detail gate for an already-fetched event: a DRAFT only to its owner, then the content gate. */
+async function isEventViewable(event: ViewableEvent, viewer: ViewerContext): Promise<boolean> {
+  if (event.status === "DRAFT" && !(await isContentOwner(viewer, event))) return false;
+  return canViewEvent(event, viewer);
 }
 
 type ViewablePost = {
@@ -294,14 +302,49 @@ export async function requireViewablePost(
   id: string,
   viewer: ViewerContext,
 ): Promise<ViewablePost | null> {
-  const post = await prisma.post.findUnique({
+  const post = await fetchViewablePost(id);
+  if (!post) return null;
+  return (await isPostViewable(post, viewer)) ? post : null;
+}
+
+const fetchViewablePost = (id: string): Promise<ViewablePost | null> =>
+  prisma.post.findUnique({
     where: { id },
     select: { id: true, userId: true, pageId: true, asPageId: true, showOnAuthorProfile: true, eventId: true, parentPostId: true, status: true, contentVisibility: true },
   });
-  if (!post) return null;
-  if (post.status === "DRAFT" && !(await isContentOwner(viewer, post))) return null;
-  if (!(await canViewPost(post, viewer))) return null;
-  return post;
+
+/** The detail gate for an already-fetched post: a DRAFT only to its owner, then the content gate. */
+async function isPostViewable(post: ViewablePost, viewer: ViewerContext): Promise<boolean> {
+  if (post.status === "DRAFT" && !(await isContentOwner(viewer, post))) return false;
+  return canViewPost(post, viewer);
+}
+
+/**
+ * Which of `userIds` may see this post/event, each checked as its own viewer through the same detail
+ * gate as requireViewablePost/Event (draft + content visibility) — the object is read once, then
+ * checked per viewer. For notifying someone other than the owner (a comment @-mention): a recipient
+ * who'd 404 on the object must not be told it exists.
+ */
+export async function filterUsersWhoCanView(
+  object: { type: "POST" | "EVENT"; id: string },
+  userIds: string[],
+): Promise<Set<string>> {
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return new Set();
+  const [memberPageIds, post, event] = await Promise.all([
+    getMemberPageIdsForUsers(unique),
+    object.type === "POST" ? fetchViewablePost(object.id) : null,
+    object.type === "EVENT" ? fetchViewableEvent(object.id) : null,
+  ]);
+  if (!post && !event) return new Set();
+  const checks = await Promise.all(
+    unique.map(async (userId) => {
+      const viewer: ViewerContext = { userId, memberPageIds: memberPageIds.get(userId) ?? [] };
+      const viewable = post ? await isPostViewable(post, viewer) : await isEventViewable(event!, viewer);
+      return viewable ? userId : null;
+    }),
+  );
+  return new Set(checks.filter((id): id is string => id !== null));
 }
 
 // ---------------------------------------------------------------------------
