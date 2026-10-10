@@ -10,7 +10,9 @@ import { HandleInput } from "@/lib/components/forms/HandleInput";
 import { FieldLabel } from "@/lib/components/profile/FieldLabel";
 import { useNameHandlePrefill } from "@/lib/hooks/useNameHandlePrefill";
 import { PasswordPair } from "@/lib/components/auth/PasswordPair";
-import { ACCOUNT_INTEREST_FORM, API_AUTH_SIGNUP, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import { ACCOUNT_INTEREST_FORM, CHECK_INBOX, LOGIN, SIGNUP_INVITE_QUERY } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { signupAction } from "@/lib/actions/auth";
 import { validatePasswordPair } from "@/lib/validations";
 import Link from "next/link";
 
@@ -34,12 +36,15 @@ function SignupForm() {
 	const [handle, setHandle] = useState("");
 	const [handleAvailable, setHandleAvailable] = useState(false);
 	const [displayName, setDisplayName] = useState("");
-	const [error, setError] = useState("");
+	const [formError, setError] = useState("");
+	const signup = useAction(signupAction);
+	const error = formError || signup.error || "";
 	const prefill = useNameHandlePrefill({ setName: setDisplayName, setHandle });
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
+		signup.clearError();
 
 		const pairError = validatePasswordPair(password, confirm);
 		if (pairError) {
@@ -56,23 +61,14 @@ function SignupForm() {
 			return;
 		}
 
-		const res = await fetch(API_AUTH_SIGNUP, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				email,
-				password,
-				invite: inviteToken,
-				handle: handle.trim().toLowerCase(),
-				displayName: displayName.trim() || undefined,
-			}),
+		const result = await signup.run({
+			email,
+			password,
+			invite: inviteToken,
+			handle: handle.trim().toLowerCase(),
+			displayName: displayName.trim() || undefined,
 		});
-
-		if (!res.ok) {
-			const data = await res.json();
-			setError(data.error || "Signup failed");
-			return;
-		}
+		if (!result.ok) return;
 
 		// Account created but unverified — send them to verify their email.
 		router.push(`${CHECK_INBOX}?email=${encodeURIComponent(email)}`);
@@ -141,7 +137,7 @@ function SignupForm() {
 					onAvailable={setHandleAvailable}
 					variant="boxed"
 				/>
-				<Button type="submit" fullWidth>
+				<Button type="submit" fullWidth loading={signup.pending}>
 					Sign Up
 				</Button>
 

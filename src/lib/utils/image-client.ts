@@ -10,8 +10,8 @@ import { attachImageAction } from "@/lib/actions/image";
  * *what* the image becomes (a direct avatar FK vs. a polymorphic ImageAttachment)
  * — these helpers only own the shared upload/attach network dance.
  *
- * `fetchImpl` lets a caller inject `authFetch` (which throws AuthError on 401)
- * where that handling is wanted; it defaults to the global `fetch`.
+ * `fetchImpl` defaults to the global `fetch` (tests inject a stub). A failed
+ * upload — including a 401 from an expired session — throws with the route's message.
  */
 
 type UploadOnlyArgs = {

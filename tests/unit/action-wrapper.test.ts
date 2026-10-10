@@ -72,6 +72,13 @@ describe("authedAction", () => {
     expect(handler).not.toHaveBeenCalled();
     expect(isRateLimited).toHaveBeenCalledWith(expect.any(Headers), "k", { maxRequests: 1, windowMs: 1000 });
   });
+
+  test("a rate limit can carry its own message (and it isn't passed to the limiter)", async () => {
+    vi.mocked(isRateLimited).mockResolvedValue(true);
+    const action = authedAction(vi.fn(), { rateLimit: { key: "k", maxRequests: 1, windowMs: 1000, message: "Slow down" } });
+    expect(await action(undefined)).toEqual({ ok: false, error: "rate_limited", message: "Slow down" });
+    expect(isRateLimited).toHaveBeenCalledWith(expect.any(Headers), "k", { maxRequests: 1, windowMs: 1000 });
+  });
 });
 
 describe("publicAction", () => {

@@ -14,6 +14,7 @@ import { prisma } from "./prisma";
 import { CATEGORY_EMAIL_DEFAULT } from "./notification-category";
 import { canPostAsPage } from "./permission";
 import { DomainError } from "./domain-error";
+import { verifyUnsubscribeToken } from "./unsubscribe-token";
 import type { NotificationPrefs, NotificationPrefsPatch } from "@/lib/types/settings";
 
 /**
@@ -153,6 +154,22 @@ export async function updatePrefs(id: EmailIdentity, patch: NotificationPrefsPat
 /** Flip an identity's per-context email master (the unsubscribe / settings kill-switch). */
 export function setMaster(id: EmailIdentity, enabled: boolean): Promise<void> {
 	return writePref(id, null, enabled);
+}
+
+/**
+ * The confirm step of an email unsubscribe link. The signed token is the authorization (no session):
+ * it names the identity whose email master to switch off (idempotent). Returns the context's label
+ * for the confirmation copy ("your personal" or the page's name).
+ */
+export async function unsubscribeByToken(token: unknown): Promise<string> {
+	const target = verifyUnsubscribeToken(typeof token === "string" ? token : "");
+	if (!target) throw new DomainError("This unsubscribe link is invalid or expired.");
+
+	await setMaster({ recipientUserId: target.recipientUserId, contextPageId: target.contextPageId }, false);
+
+	if (!target.contextPageId) return "your personal";
+	const page = await prisma.page.findUnique({ where: { id: target.contextPageId }, select: { name: true } });
+	return page ? page.name : "this page's";
 }
 
 /** Set one category preference for an identity. */

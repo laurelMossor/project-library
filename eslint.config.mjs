@@ -53,37 +53,13 @@ export default [
 			"no-console": "off",
 		},
 	},
-	// UI saves go through Server Actions (src/lib/actions, built on authedAction), never a
-	// client fetch with a mutating method. Each Server Actions rollout phase adds the files
-	// or folders it migrated; once every phase lands this becomes src/app + src/lib/{components,hooks}.
+	// UI saves go through Server Actions (src/lib/actions, built on authedAction/publicAction),
+	// never a client fetch with a mutating method. Covers all UI code; route handlers are the
+	// HTTP surface for outside callers. The one sanctioned client POST, the multipart image
+	// upload, lives in src/lib/utils/image-client.ts.
 	{
-		files: [
-			// Phase 0
-			"src/lib/hooks/**",
-			// Phase 1: posts, events, comments, photos
-			"src/app/posts/**",
-			"src/app/events/**",
-			"src/lib/components/post/**",
-			"src/lib/components/event/**",
-			"src/lib/components/comment/**",
-			"src/lib/components/collection/**",
-			"src/lib/components/images/**",
-			"src/lib/components/layout/**",
-			// Phase 2: membership, invites, requests, follow, RSVP
-			"src/app/connections/**",
-			// Phase 3: profile, settings, setup, page create, identity switch
-			"src/lib/components/profile/**",
-			"src/lib/contexts/**",
-			"src/app/[[]handle]/**",
-			"src/app/settings/**",
-			"src/app/setup/**",
-			"src/app/pages/**",
-			// Phase 4: messaging, notifications, admin
-			"src/lib/components/messages/**",
-			"src/lib/components/notifications/**",
-			"src/app/messages/**",
-			"src/app/admin/**",
-		],
+		files: ["src/app/**", "src/lib/components/**", "src/lib/hooks/**", "src/lib/contexts/**"],
+		ignores: ["src/app/api/**"],
 		rules: {
 			"no-restricted-syntax": [
 				"error",
