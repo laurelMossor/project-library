@@ -83,6 +83,16 @@ describe("createPageAction", () => {
 		const result = await createPageAction({ name: "Makers", handle: "makers" });
 		expect(result).toMatchObject({ ok: false, error: "conflict", message: "That handle is already taken" });
 	});
+
+	test("a private page with no content visibility is refused, and nothing is created", async () => {
+		const result = await createPageAction({ name: "Makers", handle: "makers", profileVisibility: "PRIVATE" });
+		expect(result).toMatchObject({
+			ok: false,
+			error: "invalid",
+			message: "A private profile can't have listed content — choose Unlisted or Private for your posts.",
+		});
+		expect(createPage).not.toHaveBeenCalled();
+	});
 });
 
 describe("deletePageAction", () => {

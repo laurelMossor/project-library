@@ -16,7 +16,7 @@ import { isReservedHandle } from "@/lib/const/reserved-handles";
 import { DomainError } from "./domain-error";
 import { createPage } from "./page";
 import { generateUniqueHandle, isHandleTaken } from "./handle";
-import { pickProfileFields, validateProfileFields } from "./profile-update";
+import { pickProfileFields, profileContentPairingError, validateProfileFields } from "./profile-update";
 import { logAction } from "./log";
 
 /** Prisma P2002 `meta.target`, or null when this error is not a unique violation. */
@@ -51,9 +51,9 @@ export async function createPageFromInput(userId: string, data: PageCreateInput)
 	if (fieldError) throw new DomainError(fieldError);
 	const profileVisibility = picked.profileVisibility as ProfileVisibility | undefined;
 	const contentVisibility = picked.contentVisibility as ContentVisibility | undefined;
-	if (profileVisibility === "PRIVATE" && (contentVisibility ?? "LISTED") === "LISTED") {
-		throw new DomainError("A private profile can't have listed content — choose Unlisted or Private for your posts.");
-	}
+	// Omitted content visibility is the LISTED default createPage would store.
+	const pairingError = profileContentPairingError(profileVisibility, contentVisibility ?? "LISTED");
+	if (pairingError) throw new DomainError(pairingError);
 
 	const membership = validateMembershipFields({ membershipPolicy, allowMemberPosts });
 	if (!membership.valid) throw new DomainError(membership.error || "Invalid membership settings");

@@ -244,6 +244,21 @@ export async function changeProfileHandle(
   return result.handle;
 }
 
+const PRIVATE_LISTED =
+  "A private profile can't have listed content — choose Unlisted or Private for your posts.";
+
+/** The one PRIVATE + LISTED rejection. Callers decide what "omitted" means: a save merges
+ *  with the stored profile first; page create passes the LISTED default `createPage` would store. */
+export function profileContentPairingError(
+  profileVisibility: ProfileVisibility | null | undefined,
+  contentVisibility: ContentVisibility | null | undefined,
+): string | null {
+  if (profileVisibility === ProfileVisibility.PRIVATE && contentVisibility === ContentVisibility.LISTED) {
+    return PRIVATE_LISTED;
+  }
+  return null;
+}
+
 /** Reject the PRIVATE-profile + LISTED-content default combination, evaluated on the merged
  *  (stored + incoming) state. Returns an error string or null. Exported for unit testing. */
 export async function assertProfileContentPairing(
@@ -263,10 +278,7 @@ export async function assertProfileContentPairing(
 
   const mergedProfileVis = incomingProfileVis ?? current?.profileVisibility;
   const mergedContentVis = incomingContentVis ?? current?.contentVisibility;
-  if (mergedProfileVis === ProfileVisibility.PRIVATE && mergedContentVis === ContentVisibility.LISTED) {
-    return "A private profile can't have listed content — choose Unlisted or Private for your posts.";
-  }
-  return null;
+  return profileContentPairingError(mergedProfileVis, mergedContentVis);
 }
 
 /**
