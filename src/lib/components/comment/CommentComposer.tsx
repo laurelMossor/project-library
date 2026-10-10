@@ -16,9 +16,15 @@ type CommentComposerProps = {
  * (so they can comment "as" a page); otherwise just their avatar.
  */
 export function CommentComposer({ onSubmit }: CommentComposerProps) {
-	const { currentUser, pages, fetchPages } = useActiveProfile();
+	const { currentUser, pages, fetchPages, activePageId } = useActiveProfile();
 	const [content, setContent] = useState("");
-	const [asPageId, setAsPageId] = useState<string | null>(null);
+	// Starts on whoever the nav says is acting; an explicit pick in the picker wins after that.
+	const [picked, setPicked] = useState<{ pageId: string | null } | undefined>(undefined);
+	const wantedPageId = picked ? picked.pageId : activePageId;
+	// Only a page the user can act as (ADMIN/EDITOR — what `pages` holds) may speak; anything else
+	// (not loaded yet, role since removed) falls back to personal so the form never submits as a
+	// page the picker isn't showing.
+	const asPageId = wantedPageId && pages.some((p) => p.id === wantedPageId) ? wantedPageId : null;
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
 
@@ -48,7 +54,7 @@ export function CommentComposer({ onSubmit }: CommentComposerProps) {
 			{!hasPages && currentUser && <ProfilePicture entity={currentUser} size="sm" />}
 			<div className="flex-1 space-y-2">
 				{hasPages && (
-					<DropdownProfileSelector label="Commenting as" initialPageId={null} onChange={setAsPageId} />
+					<DropdownProfileSelector label="Commenting as" initialPageId={asPageId} onChange={(pageId) => setPicked({ pageId })} />
 				)}
 				<CommentTextArea
 					value={content}

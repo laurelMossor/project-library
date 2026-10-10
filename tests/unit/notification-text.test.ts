@@ -27,4 +27,9 @@ describe("notificationText MENTION", () => {
 		expect(notificationText({ type: "MENTION", actorName: "alice", objectType: "POST", objectTitle: "Loom" }))
 			.toBe("alice tagged you in a comment");
 	});
+
+	test("names the page when the recipient is a page", () => {
+		expect(notificationText({ type: "MENTION", actorName: "alice", recipientPageName: "Portland Makers Guild" }))
+			.toBe("alice tagged Portland Makers Guild in a comment");
+	});
 });

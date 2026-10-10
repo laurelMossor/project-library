@@ -10,6 +10,8 @@ export interface NotificationTextInput {
 	actorName: string;
 	objectType?: NotificationObject | null;
 	objectTitle?: string | null;
+	/** Set when the recipient is a page (the bell is scoped to it): names who was addressed instead of "you". */
+	recipientPageName?: string | null;
 }
 
 /** `"post"` / `"event"`; defaults to post. */
@@ -57,7 +59,7 @@ export function notificationText(n: NotificationTextInput): string {
 		case "ROLE_CHANGED":
 			return `${who} changed your role`;
 		case "MENTION":
-			return `${who} tagged you in a comment`;
+			return `${who} tagged ${n.recipientPageName ?? "you"} in a comment`;
 		default:
 			return `${who} sent you a notification`;
 	}

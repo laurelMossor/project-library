@@ -6,6 +6,8 @@ import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { notificationPrompt } from "@/lib/utils/notification-text";
+import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
+import { resolveCardIdentity } from "@/lib/types/card";
 import { notificationMessage } from "./notification-copy";
 
 /**
@@ -15,6 +17,9 @@ import { notificationMessage } from "./notification-copy";
  */
 export function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavigate: () => void }) {
 	const prompt = notificationPrompt(n.type);
+	// The bell is scoped to the acting identity; when that's a page, copy names it.
+	const { activePageId, activeEntity } = useActiveProfile();
+	const recipientPageName = activePageId && activeEntity ? resolveCardIdentity(activeEntity).name : null;
 	return (
 		<Link
 			href={n.href}
@@ -34,7 +39,7 @@ export function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavi
 
 			<span className="min-w-0 flex-1">
 				<span className={`block text-sm text-rich-brown ${n.readAt ? "" : "font-semibold"}`}>
-					{notificationMessage(n)}
+					{notificationMessage(n, recipientPageName)}
 				</span>
 				{prompt && <span className="block text-sm font-bold text-rich-brown">{prompt}</span>}
 				<LocalDate value={n.createdAt} mode="relative" className="block text-xs text-ash-green mt-0.5" />

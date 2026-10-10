@@ -24,7 +24,11 @@ function activeMentionAt(el: HTMLTextAreaElement): ActiveMention | null {
 	const pos = el.selectionStart;
 	if (pos !== el.selectionEnd) return null; // a selection, not a cursor
 	const match = ACTIVE_MENTION.exec(el.value.slice(0, pos));
-	return match ? { start: pos - match[2].length - 1, query: match[2] } : null;
+	if (!match) return null;
+	// A trailing `.`/`-`/`_` is sentence punctuation, not part of a handle (the server parser drops it too):
+	// the handle is finished, so there's nothing left to pick. Typing on reopens the picker.
+	if (/[._-]$/.test(match[2])) return null;
+	return { start: pos - match[2].length - 1, query: match[2] };
 }
 
 /**
@@ -125,7 +129,8 @@ export function CommentTextArea({ value, onChange, className = "", onKeyDown, on
 				aria-autocomplete="list"
 				aria-expanded={showResults}
 			/>
-			{open && (
+			{/* No "No matches" panel: a finished or unknown handle shouldn't leave a box over the Comment button. */}
+			{open && (tooShort || pending || showResults) && (
 				<div className="absolute z-50 left-0 right-0 -mt-1 border border-soft-grey rounded-lg bg-white shadow-lg overflow-hidden">
 					{showResults ? (
 						<ProfileResultList
@@ -136,7 +141,7 @@ export function CommentTextArea({ value, onChange, className = "", onKeyDown, on
 						/>
 					) : (
 						<p className="px-3 py-2 text-xs text-dusty-grey">
-							{tooShort ? "Type a name or handle" : pending ? "Searching..." : "No matches"}
+							{tooShort ? "Type a name or handle" : "Searching..."}
 						</p>
 					)}
 				</div>
