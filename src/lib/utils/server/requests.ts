@@ -11,11 +11,22 @@
 
 import { prisma } from "./prisma";
 import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility, ResourceType } from "@prisma/client";
-import { canManagePage, getUserPermission, grantPermission, revokePermission } from "./permission";
-import { assignableRoles } from "@/lib/const/roles";
+import {
+  assertCanManagePage,
+  canManagePage,
+  getUserPermission,
+  grantPermission,
+  isSelfServiceRole,
+  lockPageAdminChanges,
+  revokePermission,
+  wouldRemoveLastAdmin,
+} from "./permission";
+import { assignableRoles, isAdminRole } from "@/lib/const/roles";
+import { DomainError } from "./domain-error";
+import type { MembershipStatus } from "@/lib/types/connections";
 import { emitActivity, type EntityRef } from "./activity";
 import { createSignupInvite } from "./signup-invite";
-import { normalizeEmail, validateEmail } from "@/lib/validations";
+import { normalizeEmail, parsePermissionRole, validateEmail } from "@/lib/validations";
 import { EMAIL_INVITE_DAILY_CAP, EMAIL_INVITE_NOTE_MAX } from "@/lib/const/email-invites";
 
 type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
@@ -72,13 +83,18 @@ export async function addMember(userId: string, pageId: string, role: Permission
  * membership created it or the person followed first, so both go.
  * Voluntary leave does not call this.
  */
-export async function removeMember(userId: string, pageId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
-    await tx.follow.deleteMany({
+export async function removeMember(userId: string, pageId: string, tx?: Client): Promise<void> {
+  const drop = async (db: Client) => {
+    await revokePermission(userId, pageId, ResourceType.PAGE, db);
+    await db.follow.deleteMany({
       where: { followerId: userId, followingPageId: pageId },
     });
-  });
+  };
+  if (tx) {
+    await drop(tx);
+    return;
+  }
+  await prisma.$transaction(drop);
 }
 
 /** Does `userId` have a pending FOLLOW request to `target`? (Drives the "Requested" button state.) */
@@ -637,5 +653,182 @@ export async function autoApprovePendingOnUnlock(entity: EntityRef, tx: Client =
   }
   if (pending.length > 0) {
     await tx.accessRequest.deleteMany({ where });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Guarded entry points — what the membership Server Actions call. Each authorizes the actor,
+// maps the result-returning functions above onto DomainErrors (the message is shown to the
+// user), and enforces the role rules once: last-admin, the page's assignable roles, no
+// self-downgrade through the join flow.
+// ---------------------------------------------------------------------------
+
+/** Narrow client-supplied input to a PermissionRole. The enum check lives in validations. */
+export function parseRole(role: unknown): PermissionRole {
+  const parsed = parsePermissionRole(role);
+  if (!parsed) throw new DomainError("Invalid role");
+  return parsed;
+}
+
+/** The viewer's own role on a page and whether a join request of theirs is pending (none when signed out). */
+export async function getMembershipStatus(userId: string | null, pageId: string): Promise<MembershipStatus> {
+  if (!userId) return { role: null, requested: false };
+  const role = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  return { role, requested: role ? false : await hasPendingJoinRequest(userId, pageId) };
+}
+
+/** Page ADMIN: invite someone to a role. They must accept; nothing is granted here. */
+export async function inviteMember(actorId: string, pageId: string, userId: string, role: unknown): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  const result = await invitePageMember(pageId, userId, parseRole(role));
+  if (result.ok) return;
+  switch (result.reason) {
+    case "not_found":
+      throw new DomainError("Page not found", "not_found");
+    case "user_not_found":
+      throw new DomainError("User not found", "not_found");
+    case "already_member":
+      throw new DomainError("That person already has a role on this page", "conflict");
+    case "invalid_role":
+      throw new DomainError("That role isn't available for this page");
+  }
+}
+
+/**
+ * Page ADMIN: change an existing member's role. New people are invited, not granted. The role
+ * must be one the page's policy offers, and the page's last admin can't be demoted.
+ */
+export async function changeMemberRole(actorId: string, pageId: string, userId: string, role: unknown): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  const next = parseRole(role);
+
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { membershipPolicy: true } });
+  if (!page) throw new DomainError("Page not found", "not_found");
+
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  if (!existing) throw new DomainError("That person is not a member of this page");
+
+  if (!assignableRoles(page.membershipPolicy).includes(next)) throw new DomainError("Invalid role");
+
+  // Lock, re-check, and write together. The check outside the lock lets two demotions both pass.
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (!isAdminRole(next) && (await wouldRemoveLastAdmin(pageId, userId, tx))) {
+      throw new DomainError("Cannot remove the last admin from a page");
+    }
+    await grantPermission(userId, pageId, ResourceType.PAGE, next, tx);
+  });
+  if (existing !== next) {
+    await emitActivity("role.changed", { type: "PAGE", id: pageId }, { type: "USER", id: userId });
+  }
+}
+
+/** Page ADMIN: remove a member (role and follow). Covers self-removal; the last admin stays. */
+export async function removePageMember(actorId: string, pageId: string, userId: string): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (await wouldRemoveLastAdmin(pageId, userId, tx)) {
+      throw new DomainError("Cannot remove the last admin from a page");
+    }
+    await removeMember(userId, pageId, tx);
+  });
+}
+
+/** Ask to join. Only a REQUEST_TO_JOIN page accepts this; every other policy reads as not found. */
+export async function joinPage(userId: string, pageId: string): Promise<void> {
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    select: { id: true, membershipPolicy: true },
+  });
+  if (!page) throw new DomainError("Page not found", "not_found");
+
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  // Privileged roles can't self-downgrade through the join flow.
+  if (!isSelfServiceRole(existing)) throw new DomainError("You already have a role on this page", "conflict");
+  if (existing) return; // already a plain member
+
+  const result = await requestToJoinPage(userId, page);
+  if (result.status === "unavailable") throw new DomainError("Page not found", "not_found");
+}
+
+/**
+ * Leave a page (any role), or withdraw a pending join request. The last admin can't leave: it
+ * would orphan the page, so they hand off admin first. Leaving does not unfollow.
+ */
+export async function leavePage(userId: string, pageId: string): Promise<void> {
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  if (!existing) {
+    await cancelJoinRequest(userId, pageId);
+    return;
+  }
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (await wouldRemoveLastAdmin(pageId, userId, tx)) {
+      throw new DomainError("You are the last admin — assign another admin before leaving");
+    }
+    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
+  });
+}
+
+/** Approve or deny a pending request (who may act is decided per kind in approve/denyRequest). */
+export async function resolveRequest(actorId: string, requestId: string, decision: "approve" | "deny"): Promise<void> {
+  const result = decision === "approve" ? await approveRequest(actorId, requestId) : await denyRequest(actorId, requestId);
+  if (result.ok) return;
+  switch (result.reason) {
+    case "not_found":
+      throw new DomainError("Request not found", "not_found");
+    case "unavailable":
+      // The invite row is already deleted. Refresh so it leaves the list, and
+      // still tell them why they were not added.
+      throw new DomainError("That invite is no longer available", "conflict", { refresh: true });
+    case "forbidden":
+      throw new DomainError("You cannot act on this request", "forbidden");
+  }
+}
+
+/** Page ADMIN: withdraw a pending email invite. */
+export async function cancelEmailInvite(actorId: string, pageId: string, inviteId: string): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  if (!(await cancelPageEmailInvite(pageId, inviteId))) throw new DomainError("Invite not found", "not_found");
+}
+
+/**
+ * Page ADMIN: validate an invite-by-email batch and create the invites. Returns the successful
+ * result, which still lists the signup emails for the caller to send.
+ */
+export async function inviteMembersByEmail(
+  actorId: string,
+  pageId: string,
+  input: { emails: unknown; role: unknown; note?: unknown },
+): Promise<Extract<EmailInviteResult, { ok: true }>> {
+  await assertCanManagePage(actorId, pageId);
+
+  const { emails, note } = input;
+  if (!Array.isArray(emails) || !emails.every((e) => typeof e === "string")) {
+    throw new DomainError("emails must be a list of addresses");
+  }
+  const role = parseRole(input.role);
+  if (note != null && typeof note !== "string") throw new DomainError("Invalid note");
+  if (typeof note === "string" && note.trim().length > EMAIL_INVITE_NOTE_MAX) {
+    throw new DomainError(`Keep the note under ${EMAIL_INVITE_NOTE_MAX} characters`);
+  }
+
+  const result = await invitePageMembersByEmail({ pageId, inviterId: actorId, emails, role, note });
+  if (result.ok) return result;
+  switch (result.reason) {
+    case "not_found":
+      throw new DomainError("Page not found", "not_found");
+    case "invalid_role":
+      throw new DomainError("That role isn't available for this page");
+    case "no_emails":
+      throw new DomainError("Add at least one email address");
+    case "invalid_emails":
+      throw new DomainError("Some of those email addresses aren't valid");
+    case "over_cap":
+      throw new DomainError(
+        `You can send up to ${EMAIL_INVITE_DAILY_CAP} email invites a day. You have ${result.remaining} left today.`,
+        "rate_limited",
+      );
   }
 }

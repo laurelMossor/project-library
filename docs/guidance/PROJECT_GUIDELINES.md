@@ -33,6 +33,17 @@ The Project Library is a website dedicated to creativity, mutuality, and lifelon
 - **Types**: `src/lib/types/` — schema-derived interfaces (PostItem, EventItem, CardUser, etc.)
 - **Re-exports**: Avoid re-exports. Either move the function or just import from where it already exists.
 
+## Data & saves (keep the screen in step with the server)
+The server is the source of truth for what's on screen. There is no client-side data store.
+- **Saves are Server Actions.** Put them in `src/lib/actions/<domain>.ts` (a `"use server"` file), exported as `authedAction(...)` or `publicAction(...)` from `src/lib/utils/server/action.ts`. The wrapper owns session → rate limit → handler → error mapping → `refresh()`, so an action body is only "check input → call the server util". The logic lives in `src/lib/utils/server/`, never in the action. Reference: `src/lib/actions/follow.ts`.
+- **Refusals are `DomainError`s.** A util or action throws `DomainError(message, code)` (`src/lib/utils/server/domain-error.ts`) for anything the caller can fix. The message is shown to the user. Any other throw becomes a generic `server` error. Every action returns `ActionResult` (`src/lib/types/action.ts`).
+- **Components call actions through `useAction`** (`src/lib/hooks/useAction.ts`). It gives `pending`/`error` and the login redirect, so don't hand-roll `saving` flags or 401 handling. A control whose save isn't one fixed action (row buttons that each bind a different action, or a button that runs several in order) uses `useActionThunk()` from the same file.
+- **Client-polled views skip the refresh.** Messaging and the notification bell read through polled GETs, so their actions pass `{ refresh: false }` and the caller refetches. The same goes for a create or delete whose caller navigates away.
+- **Render server data from props.** Don't copy a server prop into `useState` to display it, because a refresh then can't update it. Local state is only for unsaved drafts (the inline-edit session) and optimistic UI (`useOptimistic`).
+- **Reads belong on the server page** when the page is a server component. `refresh()` re-renders server data only. A component that fetches its own data in `useEffect` won't see the change.
+- **HTTP routes are for outside callers only:** NextAuth, the Telegram webhook, the email-flush cron, multipart upload, and GETs still used by client-fetched views. Don't add a mutating `/api` route for our own UI. ESLint blocks client `fetch` saves in all UI code (`src/app` outside `api/`, plus `src/lib/{components,hooks,contexts}`; see `eslint.config.mjs`). The multipart upload in `src/lib/utils/image-client.ts` is the one sanctioned client POST.
+- **Signed-out flows use `publicAction`** (signup, password reset, email verification, unsubscribe in `src/lib/actions/auth.ts`). Flows that take an email (forgot password, resend verification) must succeed the same way whether or not the account exists, and send mail in `after()` so timing doesn't leak it either.
+
 ## UI Component Map
 ```
 Explore page:  CollectionPage → FilteredCollection → CollectionCard
@@ -44,7 +55,8 @@ Messaging:     MessagesPageView (TabbedPanel inbox of DMs + groups, scoped to th
                ConversationThread (thread by conversationId + send form, receives asPageId)
                StandaloneThreadPage (deep-link thread pages /messages/c/:id and /messages/u|p/:id)
                NewGroupModal / MembersModal (on ModalShell) + MemberPicker, AvatarStack
-               Server: utils/server/message.ts owns access, read state, groups; message-routes.ts is the route prelude
+               Server: utils/server/message.ts owns access, read state, groups; message-routes.ts is the read-route
+               prelude; message-commands.ts guards the writes behind actions/message.ts
 Image display: ImageCarousel (multi-image carousel on cards)
 Posts on cards: PostsList (fetches child posts/updates for a parent post or event)
 Layout:        CenteredLayout, FormLayout, TabbedPanel (dual-axis tabbed container)

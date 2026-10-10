@@ -87,7 +87,7 @@ export default async function HandleAboutPage({ params }: Props) {
 							entityType={entityType}
 							entityId={entityId}
 							handle={handle}
-							initialAboutContent={aboutContent}
+							aboutContent={aboutContent}
 							canEdit
 						/>
 					) : (

@@ -13,8 +13,9 @@ function actorName(n: NotificationItem): string {
  * the viewer is acting as the notification's recipient identity. Wording lives in the shared
  * `notificationText` builder so the bell and the email channel never drift.
  */
-export function notificationMessage(n: NotificationItem): string {
+export function notificationMessage(n: NotificationItem, recipientPageName?: string | null): string {
 	return notificationText({
+		recipientPageName,
 		type: n.type,
 		actorName: actorName(n),
 		objectType: n.objectType,

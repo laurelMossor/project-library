@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import {
 	HamburgerIcon,
 	CollectionsIcon,
@@ -24,23 +24,21 @@ import {
 } from "@/lib/const/routes";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
 import { hasSession } from "@/lib/utils/auth-client";
+import { Session } from "next-auth";
 import { MenuItem } from "./MenuItem";
 import { DropdownMenu, dropdownMenuStyles } from "../../ui/DropdownMenu";
 
 
 interface HamburgerMenuProps {
-	session: ReturnType<typeof useSession>["data"] | null;
+	session: Session | null;
 }
 
 const iconClass = "w-6 h-6 shrink-0";
 
 export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
-	const { data: session, status } = useSession();
 	const router = useRouter();
-	// SSR prop only while loading; once loaded, trust the live session (see NavProfileTag) so a
-	// signed-out/invalidated session isn't masked by the stale prop.
-	const activeSession = status === "loading" ? sessionProp : session;
-	const isLoggedIn = hasSession(activeSession);
+	// Same rule as NavProfileTag: the server session decides Log In vs Log Out.
+	const isLoggedIn = hasSession(sessionProp);
 
 	const { activeCount: unreadCount } = useUnreadCount();
 

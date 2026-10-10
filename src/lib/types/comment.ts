@@ -30,6 +30,9 @@ export type CommentCreateInput = {
 	asPageId?: string | null;
 };
 
+/** What a comment hangs off — a post or an event. */
+export type CommentTarget = { kind: "post" | "event"; id: string };
+
 /** The identity a comment speaks as: the page when set, else the author. Null for a tombstone. */
 export function commentIdentity(comment: CommentItem): CardUser | CardPage | null {
 	if (comment.deleted) return null;

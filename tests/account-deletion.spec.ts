@@ -8,7 +8,8 @@ import { grantPermission } from "../src/lib/utils/server/permission";
 import { submitLogin } from "./helpers/auth";
 
 /**
- * Real-database check of the co-admin handover, driven through DELETE /api/me/user.
+ * Real-database check of the co-admin handover, driven through the Delete Account button
+ * on /settings (the deleteAccountAction Server Action).
  * Throwaway users, so the seeded alice/sam data the rest of the suite uses stays put.
  * Setup stays in Prisma; the delete itself goes through the running app so this
  * process never imports the page module (that pulls next-auth, which Node can't resolve).
@@ -69,8 +70,14 @@ test("deleting a co-admin keeps the page, its post, and tombstones their DM", as
     await submitLogin(page, `del-owner-${stamp}@example.com`, "password123");
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 10_000 });
 
-    const res = await page.request.delete("/api/me/user", { data: { expectedPageIds: [] } });
-    expect(res.ok(), await res.text()).toBeTruthy();
+    // Delete through the Settings UI. The owner shares the page with a co-admin, so the modal lists
+    // no pages to be deleted. Confirming signs the user out to /, which redirects to /welcome.
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Delete Account", exact: true }).click();
+    await expect(page.getByText("Pages you share with another admin will stay")).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: "Delete account", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/welcome", { timeout: 15_000 });
+    await expect.poll(() => prisma.user.findUnique({ where: { id: owner.userId } }), { timeout: 10_000 }).toBeNull();
 
     const surviving = await prisma.page.findUnique({ where: { id: created.id } });
     expect(surviving?.createdByUserId).toBe(coadmin.userId);

@@ -4,18 +4,20 @@
 import { prisma } from "./prisma";
 import { commentWithAuthorFields, type CommentFromQuery } from "./fields";
 import { canModerateContent, canPostAsPage } from "./permission";
-import type { ViewerContext } from "./visibility";
+import { requireViewableEvent, requireViewablePost, type ViewerContext } from "./visibility";
+import { validateCommentContent } from "@/lib/validations";
 import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
 import { getMentionedIdentities } from "./notification";
 import { NotificationObject } from "@prisma/client";
-import type { CommentItem } from "@/lib/types/comment";
+import type { CommentItem, CommentTarget } from "@/lib/types/comment";
 import { extractMentionHandles, MAX_MENTION_NOTIFICATIONS } from "@/lib/utils/mentions";
+import { DomainError } from "./domain-error";
 
 /**
  * Thrown for caller/client-fixable problems (missing target, missing permission,
  * invariant violations). Routes map this to a 400; anything else is a 500.
  */
-export class CommentInputError extends Error {}
+export class CommentInputError extends DomainError {}
 
 type CreateCommentData = {
 	postId?: string | null;
@@ -36,8 +38,8 @@ async function getContentOwner(postId: string | null, eventId: string | null): P
 /**
  * Create a comment — the single guarded write path. Enforces the invariants at the choke
  * point: exactly one of postId/eventId (also a DB CHECK), non-empty content, and — when
- * commenting "as" a page — ADMIN/EDITOR on that page. Read-gating of the parent is the
- * route's job (requireViewablePost/Event); this trusts that it already passed.
+ * commenting "as" a page — ADMIN/EDITOR on that page. Read-gating of the parent is
+ * `addComment`'s job (requireViewablePost/Event); this trusts that it already passed.
  */
 export async function createComment(userId: string, data: CreateCommentData): Promise<CommentItem> {
 	const hasPost = Boolean(data.postId);
@@ -152,7 +154,7 @@ async function toCommentItems(rows: CommentFromQuery[]): Promise<CommentItem[]> 
 	return rows.map((r) => toCommentItem(r, known));
 }
 
-/** List a post's comments, oldest first (the thread reads top to bottom). Comments inherit the parent's viewability (gated by the route). */
+/** List a post's comments, oldest first (the thread reads top to bottom). The post page gates viewability before calling this. */
 export async function getPostComments(postId: string): Promise<CommentItem[]> {
 	const comments = await prisma.comment.findMany({
 		where: { postId },
@@ -208,15 +210,15 @@ export function canEditComment(comment: { authorId: string | null }, viewer: Vie
 	return viewer.userId !== null && comment.authorId !== null && viewer.userId === comment.authorId;
 }
 
-/** Delete a comment. Authorization (canModerateComment) is the route's responsibility. */
+/** Delete a comment row. `removeComment` authorizes first. */
 export async function deleteComment(id: string): Promise<void> {
 	await prisma.comment.delete({ where: { id } });
 }
 
 /**
- * Edit a comment's body. Authorization (author-only — see the route) is the caller's job;
- * this is the write. Content is trimmed; validation happens in the route. Anyone tagged in the new
- * text who hasn't already been told about this comment gets a tag notification — checked against the
+ * Edit a comment's body. `editComment` authorizes and validates; this is the write.
+ * Content is trimmed. Anyone tagged in the new text who hasn't already been told about this
+ * comment gets a tag notification — checked against the
  * stored notifications, so removing and re-adding a handle never re-notifies. The comment's lifetime
  * total stays within MAX_MENTION_NOTIFICATIONS.
  */
@@ -239,6 +241,68 @@ export async function updateComment(comment: CommentForEdit, content: string): P
 	}
 
 	return toCommentItem(updated, new Set(mentions.map((m) => m.handle)));
+}
+
+// ─── Guarded entry points (Server Actions call these) ─────────────────────────
+// 404-before-403 (VISIBILITY_RULES §7): a viewer who can't see the parent learns nothing.
+
+function requireViewableParent(parent: CommentTarget, viewer: ViewerContext) {
+	return parent.kind === "post" ? requireViewablePost(parent.id, viewer) : requireViewableEvent(parent.id, viewer);
+}
+
+/** The comment plus its already-gated parent, or not_found. */
+async function viewableCommentWithParent(id: string, viewer: ViewerContext) {
+	const comment = await getCommentForModeration(id);
+	const parent = comment?.postId
+		? await requireViewablePost(comment.postId, viewer)
+		: comment?.eventId ? await requireViewableEvent(comment.eventId, viewer) : null;
+	if (!comment || !parent) throw new CommentInputError("Comment not found", "not_found");
+	return { comment, parent };
+}
+
+/** Comment on a viewable post/event, optionally speaking as a page the viewer manages. */
+export async function addComment(
+	viewer: ViewerContext & { userId: string },
+	parent: CommentTarget,
+	input: { content: string; asPageId?: string | null },
+): Promise<void> {
+	if (!(await requireViewableParent(parent, viewer))) {
+		throw new CommentInputError(parent.kind === "post" ? "Post not found" : "Event not found", "not_found");
+	}
+	const validation = validateCommentContent(input.content);
+	if (!validation.valid) throw new CommentInputError(validation.error ?? "Invalid comment");
+	const asPageId = input.asPageId || null;
+	if (asPageId !== null && typeof asPageId !== "string") throw new CommentInputError("Invalid page");
+	// Commenting "as" a page requires ADMIN/EDITOR, verified from the session, never the client.
+	if (asPageId && !(await canPostAsPage(viewer.userId, asPageId))) {
+		throw new CommentInputError("You don't have permission to comment as this page", "forbidden");
+	}
+	const target = parent.kind === "post" ? { postId: parent.id } : { eventId: parent.id };
+	await createComment(viewer.userId, { ...target, asPageId, content: input.content });
+}
+
+/**
+ * Edit your own comment. Author-only: a content owner may delete a comment but never rewrite
+ * someone else's words. Words spoken as a page stay the page's once the author stops managing it.
+ */
+export async function editComment(viewer: ViewerContext & { userId: string }, id: string, content: string): Promise<void> {
+	const { comment } = await viewableCommentWithParent(id, viewer);
+	if (!canEditComment(comment, viewer)) throw new CommentInputError("You can only edit your own comment", "forbidden");
+	if (comment.asPageId && !(await canPostAsPage(viewer.userId, comment.asPageId))) {
+		throw new CommentInputError("You can no longer edit a comment made as this page", "forbidden");
+	}
+	const validation = validateCommentContent(content);
+	if (!validation.valid) throw new CommentInputError(validation.error ?? "Invalid comment");
+	await updateComment(comment, content);
+}
+
+/** Delete a comment as its author, the content owner, or a manager of the owning page. */
+export async function removeComment(viewer: ViewerContext & { userId: string }, id: string): Promise<void> {
+	const { comment, parent } = await viewableCommentWithParent(id, viewer);
+	if (!(await canModerateComment(comment, parent, viewer))) {
+		throw new CommentInputError("You don't have permission to delete this comment", "forbidden");
+	}
+	await deleteComment(id);
 }
 
 /** `known` =the handles (lowercase) that resolved; the client bolds only these. */

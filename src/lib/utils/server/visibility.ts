@@ -47,11 +47,12 @@ export type ViewerContext = {
 export async function getViewerContext(): Promise<ViewerContext> {
   const session = await getSessionContext();
   if (!session) return { userId: null, memberPageIds: [] };
+  return viewerContextFor(session.userId);
+}
 
-  return {
-    userId: session.userId,
-    memberPageIds: await getMemberPageIds(session.userId),
-  };
+/** Viewer context for a known signed-in user — for Server Actions, which already hold the session. */
+export async function viewerContextFor(userId: string): Promise<ViewerContext & { userId: string }> {
+  return { userId, memberPageIds: await getMemberPageIds(userId) };
 }
 
 // ---------------------------------------------------------------------------

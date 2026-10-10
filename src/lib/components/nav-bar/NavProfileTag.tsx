@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
@@ -23,12 +22,10 @@ interface NavProfileTagProps {
 }
 
 export function NavProfileTag({ session: sessionProp }: NavProfileTagProps) {
-	const { data: session, status } = useSession();
-	// Use the SSR prop only while the client session is still loading (avoids a logged-out
-	// flash on hydration). Once loaded, trust the live value — including a logged-out result —
-	// so an invalidated session isn't masked by the now-stale SSR prop.
-	const activeSession = status === "loading" ? sessionProp : session;
-	const isLoggedIn = hasSession(activeSession);
+	// The server render is the login chrome. A client refetch can come back with no user while
+	// the cookie is still valid; trusting that painted "Log in" until a reload. A real logout
+	// updates this prop (SessionRecheck refreshes when the session read confirms it).
+	const isLoggedIn = hasSession(sessionProp);
 
 	const { activeEntity, activePageId, activeRole, currentUser, pages, switchProfile, fetchPages, loading } = useActiveProfile();
 	const { unreadData } = useUnreadCount();

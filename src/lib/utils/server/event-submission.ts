@@ -6,6 +6,8 @@ import { prisma } from "./prisma";
 import { AttachmentTarget, type EventSubmission, type EventSubmissionStatus } from "@prisma/client";
 import { parseFutureEventDate } from "../event-date";
 import { attachImage } from "./image-attachment";
+import { DomainError } from "./domain-error";
+import type { SubmissionEdits } from "@/lib/types/event-submission";
 
 /** A submission plus its poster image url, as the review surface consumes it. */
 export type SubmissionWithImage = EventSubmission & { rawImage: { url: string } | null };
@@ -36,18 +38,6 @@ export async function createSubmission(input: SubmissionCreateInput): Promise<{ 
 
 // Non-terminal states the review queue shows. PUBLISHED/REJECTED are closed out.
 const OPEN_STATUSES: EventSubmissionStatus[] = ["PENDING", "READY", "NEEDS_FIX", "FAILED"];
-
-/** Fields the operator may edit in review. All optional; date is ISO string or null. */
-export type SubmissionEdits = {
-	title?: string | null;
-	content?: string | null;
-	eventDate?: string | null;
-	eventTimezone?: string | null;
-	location?: string | null;
-	latitude?: number | null;
-	longitude?: number | null;
-	tags?: string[];
-};
 
 /** List open (non-terminal) submissions, newest first, with poster image url. */
 export async function listOpenSubmissions(): Promise<SubmissionWithImage[]> {
@@ -103,12 +93,13 @@ export async function applySubmissionEdits(id: string, edits: SubmissionEdits): 
 	return getSubmissionById(id);
 }
 
-/** Mark a submission rejected (terminal). */
-export async function rejectSubmission(id: string): Promise<void> {
-	await prisma.eventSubmission.update({
+/** Mark a submission rejected (terminal). Returns false when there is no such submission. */
+export async function rejectSubmission(id: string): Promise<boolean> {
+	const { count } = await prisma.eventSubmission.updateMany({
 		where: { id },
 		data: { status: "REJECTED", reviewedAt: new Date() },
 	});
+	return count > 0;
 }
 
 /**
@@ -131,7 +122,7 @@ export async function materializeSubmission(id: string, eventId: string): Promis
 
 	// Guard against marking a submission published against a phantom event id.
 	const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
-	if (!event) throw new Error(`Event ${eventId} not found`);
+	if (!event) throw new DomainError(`Event ${eventId} not found`, "not_found");
 
 	if (submission.rawImageId) {
 		const existing = await prisma.imageAttachment.findFirst({

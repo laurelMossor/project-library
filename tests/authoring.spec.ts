@@ -19,21 +19,15 @@ test.describe("Authoring — create content", () => {
 
   test("navigating away from a draft event deletes it", async ({ page }) => {
     const url = await startDraft(page, "event");
-    const eventId = url.split("/events/")[1];
-
-    const cleanupFired = page.waitForEvent("console", {
-      predicate: (msg) => msg.text().includes("deleting draft event on navigation away"),
-      timeout: 10_000,
-    });
 
     // SPA navigation unmounts EventPageClient, triggering the empty-draft cleanup.
     await page.getByRole("link", { name: "Explore" }).click();
     await page.waitForURL(/\/explore/, { timeout: 10_000 });
-    await cleanupFired;
 
+    // The draft's own page 404s once the cleanup action has deleted it.
     await page.waitForFunction(
-      async (id) => (await fetch(`/api/events/${id}`)).status === 404,
-      eventId,
+      async (draftUrl) => (await fetch(draftUrl)).status === 404,
+      url,
       { timeout: 10_000, polling: 500 },
     );
   });
@@ -53,8 +47,13 @@ test.describe("Authoring — create content", () => {
       await anonContext.close();
     }
 
-    // Clean up the draft (no publish/delete UI exercised here).
-    await page.request.delete(`/api/posts/${postUrl.split("/posts/")[1]}`);
+    // Clean up: leaving an empty draft discards it.
+    await page.getByRole("link", { name: "Explore" }).click();
+    await page.waitForFunction(
+      async (draftUrl) => (await fetch(draftUrl)).status === 404,
+      postUrl,
+      { timeout: 10_000, polling: 500 },
+    );
   });
 
   // ─── Pages ─────────────────────────────────────────────────────────────────

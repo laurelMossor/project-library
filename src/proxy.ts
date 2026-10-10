@@ -107,7 +107,7 @@ export default function proxy(req: NextRequest) {
 	// before the browser sends cookies, so redirecting here would cache a stale
 	// redirect that later bounces a legitimately logged-in user. Because this skip
 	// exists, every protected page MUST keep its own server-side auth guard
-	// (auth() + redirect / AuthError); this edge check is defense-in-depth only.
+	// (auth() + redirect); this edge check is defense-in-depth only.
 	const isPrefetch =
 		req.headers.get("next-router-prefetch") === "1" ||
 		req.headers.get("rsc") === "1" ||

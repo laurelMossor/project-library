@@ -1,7 +1,7 @@
 /**
- * Route tests for PATCH /api/posts/[id] — the INV-3 wiring the unit tests for
+ * updatePost (src/lib/utils/server/post.ts) — the INV-3 wiring the unit tests for
  * syncDescendantVisibility don't cover:
- *  - a reply (parentPostId set) cannot have its pageId re-pointed → 400, no write.
+ *  - a reply (parentPostId set) cannot have its pageId re-pointed → invalid, no write.
  *  - re-parenting a top-level post cascades the new pageId to its replies AND runs the
  *    POST-type visibility cascade, both inside the transaction.
  * Prisma, visibility, and permission helpers are mocked — no DB needed.
@@ -31,52 +31,39 @@ vi.mock("@/lib/utils/server/permission", () => ({
 }));
 vi.mock("@/lib/utils/server/user", () => ({ publicUserEmbedFields: {} }));
 vi.mock("@/lib/utils/server/visibility", () => ({
-  getViewerContext: vi.fn(),
   canViewPost: vi.fn().mockResolvedValue(true),
   isContentOwner: vi.fn().mockResolvedValue(true),
   requireViewablePost: vi.fn(),
   resolveParentVisibility: vi.fn().mockResolvedValue("PRIVATE"),
   syncDescendantVisibility: vi.fn(),
 }));
-vi.mock("@/lib/utils/errors", () => ({
-  unauthorized: () => new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
-  badRequest: (msg: string) => new Response(JSON.stringify({ error: msg }), { status: 400 }),
-  notFound: (msg: string) => new Response(JSON.stringify({ error: msg }), { status: 404 }),
-  serverError: () => new Response(JSON.stringify({ error: "err" }), { status: 500 }),
-}));
 
-import { PATCH } from "@/app/api/posts/[id]/route";
+import { updatePost } from "@/lib/utils/server/post";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getViewerContext, requireViewablePost, syncDescendantVisibility } from "@/lib/utils/server/visibility";
+import { requireViewablePost, syncDescendantVisibility } from "@/lib/utils/server/visibility";
 import { canEditContent, canPostAsPage } from "@/lib/utils/server/permission";
 
-const patch = (id: string, body: unknown) => {
-  const req = new Request(`http://localhost/api/posts/${id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return PATCH(req, { params: Promise.resolve({ id }) });
-};
+const viewer = { userId: "u1", memberPageIds: [] };
+const patch = (id: string, data: Parameters<typeof updatePost>[2]) => updatePost(viewer, id, data);
 
 beforeEach(() => {
   vi.clearAllMocks();
   tx.post.update.mockResolvedValue({ id: "post-1" });
   tx.post.updateMany.mockResolvedValue({ count: 1 });
-  vi.mocked(getViewerContext).mockResolvedValue({ userId: "u1" } as never);
   vi.mocked(canPostAsPage).mockResolvedValue(true as never);
   vi.mocked(canEditContent).mockResolvedValue(true);
 });
 
-describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
-  test("a reply cannot be re-pointed to a different page → 400, no write", async () => {
+describe("updatePost — INV-3 re-parent wiring", () => {
+  test("a reply cannot be re-pointed to a different page → invalid, no write", async () => {
     vi.mocked(requireViewablePost).mockResolvedValue({
       id: "reply-1", userId: "u1", pageId: "page-A", eventId: null,
       parentPostId: "parent-1", status: "PUBLISHED", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("reply-1", { pageId: "page-B" });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/reply inherits its page/i) });
+    await expect(patch("reply-1", { pageId: "page-B" })).rejects.toMatchObject({
+      code: "invalid",
+      message: expect.stringMatching(/reply inherits its page/i),
+    });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -85,8 +72,7 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "u1", pageId: "page-A", asPageId: "page-A", eventId: null,
       parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("post-1", { pageId: "page-B" });
-    expect(res.status).toBe(400);
+    await expect(patch("post-1", { pageId: "page-B" })).rejects.toMatchObject({ code: "invalid" });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -95,8 +81,7 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "u1", pageId: "page-A", asPageId: null, showOnAuthorProfile: false, eventId: null,
       parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("post-1", { pageId: "page-B" });
-    expect(res.status).toBe(200);
+    await patch("post-1", { pageId: "page-B" });
     // pageId cascade to the post's replies, with the NEW page
     expect(tx.post.updateMany).toHaveBeenCalledWith({
       where: { parentPostId: "post-1" },
@@ -113,8 +98,7 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "alice", pageId: "page-A", asPageId: null, eventId: null,
       parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("post-1", { pinnedAt: "2026-10-03T00:00:00.000Z" });
-    expect(res.status).toBe(200);
+    await expect(patch("post-1", { pinnedAt: "2026-10-03T00:00:00.000Z" })).resolves.toBeUndefined();
   });
 
   test("a page manager cannot edit a member post's words", async () => {
@@ -124,8 +108,7 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "alice", pageId: "page-A", asPageId: null, eventId: null,
       parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("post-1", { content: "rewritten" });
-    expect(res.status).toBe(403);
+    await expect(patch("post-1", { content: "rewritten" })).rejects.toMatchObject({ code: "forbidden" });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -134,8 +117,7 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "u1", pageId: "page-A", asPageId: "page-A", showOnAuthorProfile: false, eventId: null,
       parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("post-1", { asPageId: null, showOnAuthorProfile: true });
-    expect(res.status).toBe(200);
+    await patch("post-1", { asPageId: null, showOnAuthorProfile: true });
     expect(tx.post.updateMany).toHaveBeenCalledWith({
       where: { parentPostId: "post-1" },
       data: { pageId: "page-A", asPageId: null, showOnAuthorProfile: true },
@@ -148,9 +130,10 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "u1", pageId: null, asPageId: null, eventId: "e1",
       parentPostId: null, status: "DRAFT", contentVisibility: "PRIVATE",
     } as never);
-    const res = await patch("post-1", { pageId: "public-page" });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/event update/i) });
+    await expect(patch("post-1", { pageId: "public-page" })).rejects.toMatchObject({
+      code: "invalid",
+      message: expect.stringMatching(/event update/i),
+    });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -160,8 +143,7 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "post-1", userId: "u1", pageId: "page-A", asPageId: null, eventId: null,
       parentPostId: null, status: "PUBLISHED", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("post-1", { pinnedAt: null });
-    expect(res.status).toBe(400);
+    await expect(patch("post-1", { pinnedAt: null })).rejects.toMatchObject({ code: "forbidden" });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -170,10 +152,14 @@ describe("PATCH /api/posts/[id] — INV-3 re-parent wiring", () => {
       id: "reply-1", userId: "u1", pageId: "page-A", eventId: null,
       parentPostId: "parent-1", status: "PUBLISHED", contentVisibility: "LISTED",
     } as never);
-    const res = await patch("reply-1", { content: "edited" });
-    expect(res.status).toBe(200);
+    await patch("reply-1", { content: "edited" });
     // no re-parent → no pageId cascade, no visibility cascade
     expect(tx.post.updateMany).not.toHaveBeenCalled();
     expect(syncDescendantVisibility).not.toHaveBeenCalled();
+  });
+
+  test("a post the viewer can't see → not_found, never a forbidden that confirms it exists", async () => {
+    vi.mocked(requireViewablePost).mockResolvedValue(null);
+    await expect(patch("hidden", { content: "x" })).rejects.toMatchObject({ code: "not_found" });
   });
 });

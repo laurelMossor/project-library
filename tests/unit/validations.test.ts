@@ -11,6 +11,7 @@ import {
   validatePostData,
   validateEventData,
   validateEventPublishable,
+  validateEventUpdateData,
   validatePageData,
   isValidCoordinate,
   validateGroupName,
@@ -465,6 +466,25 @@ describe("validateEventPublishable", () => {
     expect(validateEventPublishable({
       title: "Stale", content: "Details", eventDateTime: new Date(2000, 1, 1), location: "Portland, OR",
     })).toMatchObject({ valid: false });
+  });
+});
+
+describe("validateEventUpdateData", () => {
+  test("accepts a blank or whitespace location (TBD)", () => {
+    expect(validateEventUpdateData({ location: "" })).toEqual({ valid: true });
+    expect(validateEventUpdateData({ location: "   " })).toEqual({ valid: true });
+  });
+
+  test("rejects a location over 255 characters", () => {
+    expect(validateEventUpdateData({ location: "x".repeat(256) })).toMatchObject({ valid: false });
+  });
+
+  test("accepts a real timezone and rejects a fake one", () => {
+    expect(validateEventUpdateData({ eventTimezone: "America/Los_Angeles" })).toEqual({ valid: true });
+    expect(validateEventUpdateData({ eventTimezone: "Nope" })).toMatchObject({
+      valid: false,
+      error: "Invalid timezone",
+    });
   });
 });
 

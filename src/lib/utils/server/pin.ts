@@ -3,7 +3,8 @@
 
 import { prisma } from "./prisma";
 import { canPostAsPage } from "./permission";
-import { inPinScope, type PinScope } from "@/lib/const/pin";
+import { inPinScope, MAX_PINNED_PER_PROFILE, PIN_CAP_MESSAGE, type PinScope } from "@/lib/const/pin";
+import { DomainError } from "./domain-error";
 
 /** How many other items are already pinned on this profile. Excludes the item being pinned. */
 export async function otherPinnedCount(
@@ -36,6 +37,30 @@ export async function canPinContent(
 	if (!viewerId) return false;
 	if (content.pageId) return canPostAsPage(viewerId, content.pageId);
 	return content.userId === viewerId;
+}
+
+/**
+ * Refuse a pin change the viewer may not make, or a pin past the profile's cap.
+ * The one pin guard behind both post and event edits. `pageId` is where the item
+ * lives after this edit (placement may be changing in the same save).
+ */
+export async function assertPinChange(
+	viewerId: string,
+	item: { kind: "post" | "event"; id: string; userId: string; pageId: string | null },
+	pinnedAt: string | null,
+): Promise<void> {
+	if (!(await canPinContent(viewerId, item))) {
+		throw new DomainError(
+			item.pageId ? `Only page editors can pin ${item.kind}s on this page` : `You can only pin your own ${item.kind}s`,
+			"forbidden",
+		);
+	}
+	if (pinnedAt === null) return;
+	const scope: PinScope = item.pageId ? { pageId: item.pageId } : { userId: item.userId };
+	const exclude = item.kind === "post" ? { postId: item.id } : { eventId: item.id };
+	if ((await otherPinnedCount(scope, exclude)) >= MAX_PINNED_PER_PROFILE) {
+		throw new DomainError(PIN_CAP_MESSAGE);
+	}
 }
 
 /**

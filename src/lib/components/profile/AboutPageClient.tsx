@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { DeleteConfirmButton } from "@/lib/components/ui/DeleteConfirmButton";
-import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
-import { authFetch } from "@/lib/utils/auth-client";
-import { API_ME_USER, API_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
+import { useAction } from "@/lib/hooks/useAction";
+import { saveProfileAction } from "@/lib/actions/profile";
+import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import type { ProfileTarget } from "@/lib/types/profile";
 
 type AboutPageClientProps = {
 	entityType: "user" | "page";
 	entityId: string;
 	handle: string;
-	initialAboutContent: string | null;
+	aboutContent: string | null;
 	canEdit: boolean;
 };
 
@@ -27,13 +29,14 @@ function AboutEditorContent({
 	const [isEditing, setIsEditing] = useState(false);
 	const [editContent, setEditContent] = useState(aboutContent ?? "");
 
+	// Revert the draft only on cancel; close the editor whenever editing ends.
 	const cancelRevision = session?.cancelRevision ?? 0;
 	useEffect(() => {
 		if (cancelRevision === 0) return;
 		setEditContent(aboutContent ?? "");
-		setIsEditing(false);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cancelRevision]);
+	useOnEditingClosed(() => setIsEditing(false));
 
 	const displayValue =
 		(session?.dirtyFields.aboutContent as string | undefined) ?? aboutContent;
@@ -79,46 +82,30 @@ export function AboutPageClient({
 	entityType,
 	entityId,
 	handle,
-	initialAboutContent,
+	aboutContent,
 	canEdit,
 }: AboutPageClientProps) {
 	const router = useRouter();
-	const [aboutContent, setAboutContent] = useState(initialAboutContent);
+	const { run: saveProfile } = useAction(saveProfileAction);
 
-	const saveUrl = entityType === "user" ? API_ME_USER : API_PAGE(entityId);
+	const target: ProfileTarget = entityType === "user" ? { type: "user" } : { type: "page", id: entityId };
 
+	// The action refreshes the page, so the saved text arrives as the `aboutContent` prop.
 	const handleSave = async (payload: SavePayload) => {
-		const res = await authFetch(saveUrl, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-		});
-		if (!res.ok) {
-			const data = await res.json().catch(() => ({}));
-			throw new Error(data.error || "Failed to save");
-		}
-		const updated = await res.json();
-		setAboutContent(updated.aboutContent);
-		return updated;
+		const result = await saveProfile({ target, payload });
+		if (!result.ok) throw new Error(result.message);
 	};
 
 	const handleDeleteAbout = async () => {
-		const res = await authFetch(saveUrl, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ fields: { aboutContent: null } }),
-		});
-		if (!res.ok) {
-			const data = await res.json().catch(() => ({}));
-			throw new Error(data.error || "Failed to delete about page");
-		}
+		const result = await saveProfile({ target, payload: { fields: { aboutContent: null } } });
+		if (!result.ok) throw new Error(result.message);
 		router.push(PUBLIC_PROFILE(handle));
 	};
 
 	return (
 		<InlineEditSession
 			resource={{ aboutContent: aboutContent ?? "" } as Record<string, unknown>}
-			onSave={handleSave as (payload: SavePayload) => Promise<Record<string, unknown> | void>}
+			onSave={handleSave}
 			canEdit={canEdit}
 		>
 			<AboutEditorContent aboutContent={aboutContent} />

@@ -3,9 +3,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
-import { authFetch } from "@/lib/utils/auth-client";
-import { API_ME_USER, API_ME_PAGE, API_ME_HANDLE, API_ME_PAGE_HANDLE } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { saveProfileAction, setHandleAction } from "@/lib/actions/profile";
+import { API_ME_USER, API_ME_PAGE } from "@/lib/const/routes";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import type { ProfileTarget } from "@/lib/types/profile";
 import type { PublicUser } from "@/lib/types/user";
 import type { PublicPage } from "@/lib/types/page";
 
@@ -27,12 +29,18 @@ export function ActiveIdentityEditor({ footer = "bar", children }: ActiveIdentit
 	const [entity, setEntity] = useState<IdentityEntity | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	const isPage = !!activePageId;
-	const saveUrl = isPage ? API_ME_PAGE : API_ME_USER;
+	const { run: saveProfile } = useAction(saveProfileAction);
+	const { run: setHandle } = useAction(setHandleAction);
 
+	const isPage = !!activePageId;
+
+	// The read stays client-side: the acting identity switches in the browser session
+	// (ActiveProfileContext) without a server navigation, and Setup mounts this with no props.
+	// Saves are Server Actions that refresh the page (the nav's identity updates with it);
+	// the saved profile they return is merged below because this copy is not server-rendered.
 	useEffect(() => {
 		setLoading(true);
-		fetch(saveUrl)
+		fetch(isPage ? API_ME_PAGE : API_ME_USER)
 			.then((r) => {
 				// The page we were acting as is gone (deleted elsewhere). Fall back to the
 				// personal profile instead of leaving settings with nothing to load.
@@ -64,32 +72,21 @@ export function ActiveIdentityEditor({ footer = "bar", children }: ActiveIdentit
 	// endpoint. The session treats it as an ordinary field; this is where it's split out.
 	// Re-saving a handle that already took effect is a no-op, so a retry after a later
 	// failure is safe.
+	const target: ProfileTarget = entity.type === "page" ? { type: "page", id: entity.data.id } : { type: "user" };
 	const handleSave = async (payload: SavePayload) => {
 		const { handle, ...otherFields } = payload.fields;
 		let savedHandle: string | null = null;
 		if (typeof handle === "string") {
-			const res = await authFetch(isPage ? API_ME_PAGE_HANDLE : API_ME_HANDLE, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ handle }),
-			});
-			const body = await res.json().catch(() => ({}));
-			if (!res.ok) throw new Error(body.error || "Failed to update handle");
-			savedHandle = body.handle ?? handle;
+			const result = await setHandle({ target, handle });
+			if (!result.ok) throw new Error(result.message);
+			savedHandle = result.data;
 		}
 
 		let saved: Record<string, unknown> = {};
 		if (Object.keys(otherFields).length > 0 || payload.elements) {
-			const res = await authFetch(saveUrl, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ...payload, fields: otherFields }),
-			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				throw new Error(data.error || "Failed to save");
-			}
-			saved = await res.json();
+			const result = await saveProfile({ target, payload: { ...payload, fields: otherFields } });
+			if (!result.ok) throw new Error(result.message);
+			saved = result.data;
 		}
 		return savedHandle ? { ...saved, handle: savedHandle } : saved;
 	};

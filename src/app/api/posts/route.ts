@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/server/prisma";
-import { getSessionContext } from "@/lib/utils/server/session";
 import { getViewerContext, postListWhere } from "@/lib/utils/server/visibility";
-import { unauthorized, badRequest, forbidden, serverError } from "@/lib/utils/errors";
+import { serverError } from "@/lib/utils/errors";
 import { enforceRateLimit } from "@/lib/utils/server/rate-limit";
-import { createPost, PostForbiddenError, PostInputError } from "@/lib/utils/server/post";
 import { getImagesForTargetsBatch } from "@/lib/utils/server/image-attachment";
 import { postCollectionFields, toCollectionMeta } from "@/lib/utils/server/fields";
 import { COLLECTION_TYPES } from "@/lib/types/collection";
-import { logAction } from "@/lib/utils/server/log";
 
 function parseNumber(value: unknown): number | null {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -21,36 +18,12 @@ function parseNumber(value: unknown): number | null {
 	return null;
 }
 
-// Post content validation
-function validatePostContent(content: string): { valid: boolean; error?: string } {
-	if (!content || typeof content !== "string") {
-		return { valid: false, error: "Post content is required" };
-	}
-	if (content.trim().length === 0) {
-		return { valid: false, error: "Post content cannot be empty" };
-	}
-	if (content.length > 10000) {
-		return { valid: false, error: "Post content must be 10000 characters or less" };
-	}
-	return { valid: true };
-}
-
-function validatePostTitle(title: string | undefined): { valid: boolean; error?: string } {
-	if (title !== undefined && title !== null) {
-		if (typeof title !== "string") {
-			return { valid: false, error: "Post title must be a string" };
-		}
-		if (title.length > 200) {
-			return { valid: false, error: "Post title must be 200 characters or less" };
-		}
-	}
-	return { valid: true };
-}
-
 /**
  * GET /api/posts
  * List posts with optional filters
  * Public endpoint
+ *
+ * Creating a post is the `createDraftPostAction` Server Action (src/lib/actions/post.ts).
  */
 export async function GET(request: Request) {
 	// Rate limiting: 200 requests per minute per IP
@@ -132,88 +105,5 @@ export async function GET(request: Request) {
 	} catch (error) {
 		console.error("GET /api/posts error:", error);
 		return serverError("Failed to fetch posts");
-	}
-}
-
-/**
- * POST /api/posts
- * Create a new post
- * Protected endpoint (requires authentication)
- *
- * Body: { content: string, title?: string, pageId?: string, eventId?: string, parentPostId?: string, tags?: string[], topics?: string[] }
- */
-export async function POST(request: Request) {
-	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
-			return unauthorized();
-		}
-
-		const data = await request.json();
-		const { content, title, pageId, asPageId, showOnAuthorProfile, eventId, parentPostId, tags, topics, isDraft } = data;
-
-		// HTTP-shape validation (length limits) stays at the edge; createPost owns the
-		// data invariants (XOR, nesting, page permission, child pageId — INV-1/2/3/8).
-		if (!isDraft) {
-			const contentValidation = validatePostContent(content);
-			if (!contentValidation.valid) {
-				return badRequest(contentValidation.error || "Invalid post content");
-			}
-		}
-		const titleValidation = validatePostTitle(title);
-		if (!titleValidation.valid) {
-			return badRequest(titleValidation.error || "Invalid post title");
-		}
-
-		// Normalize tags (accept comma-string or array) before handing to the util.
-		let processedTags: string[] = [];
-		if (tags) {
-			if (typeof tags === "string") {
-				processedTags = tags
-					.split(",")
-					.map((tag: string) => tag.trim())
-					.filter(Boolean);
-			} else if (Array.isArray(tags)) {
-				processedTags = tags
-					.map((tag: unknown) => (typeof tag === "string" ? tag.trim() : String(tag).trim()))
-					.filter(Boolean);
-			}
-		}
-
-		let post;
-		try {
-			post = await createPost(ctx.userId, {
-				content,
-				title,
-				pageId: pageId || null,
-				asPageId: asPageId || null,
-				showOnAuthorProfile: showOnAuthorProfile === true,
-				eventId: eventId || null,
-				parentPostId: parentPostId || null,
-				tags: processedTags,
-				topics: Array.isArray(topics) ? topics : [],
-				isDraft: !!isDraft,
-			});
-		} catch (err) {
-			if (err instanceof PostForbiddenError) {
-				return forbidden(err.message);
-			}
-			if (err instanceof PostInputError) {
-				return badRequest(err.message);
-			}
-			throw err;
-		}
-
-		logAction("post.created", ctx.userId, {
-			postId: post.id,
-			pageId: post.pageId ?? undefined,
-			eventId: post.eventId ?? undefined,
-			isReply: post.parentPostId != null,
-		});
-
-		return NextResponse.json(post, { status: 201 });
-	} catch (error) {
-		console.error("POST /api/posts error:", error);
-		return serverError("Failed to create post");
 	}
 }

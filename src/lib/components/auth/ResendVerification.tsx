@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button } from "@/lib/components/ui/Button";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
-import { API_AUTH_RESEND_VERIFICATION } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { resendVerificationAction } from "@/lib/actions/auth";
 
 interface ResendVerificationProps {
 	/** Pre-fill the email (e.g. from the signup flow). */
@@ -12,30 +13,22 @@ interface ResendVerificationProps {
 }
 
 /**
- * Email input + "Resend verification" button. Posts to the resend endpoint,
- * which always responds neutrally (no account enumeration), so the UI shows a
- * generic confirmation regardless of whether the account existed.
+ * Email input + "Resend verification" button. The action succeeds the same way
+ * whether or not the account exists (no account enumeration), so the UI shows a
+ * generic confirmation either way.
  */
 export function ResendVerification({ initialEmail = "" }: ResendVerificationProps) {
 	const [email, setEmail] = useState(initialEmail);
-	const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+	const [sent, setSent] = useState(false);
+	const { run, pending, error } = useAction(resendVerificationAction);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setStatus("sending");
-		try {
-			const res = await fetch(API_AUTH_RESEND_VERIFICATION, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email }),
-			});
-			setStatus(res.ok ? "sent" : "error");
-		} catch {
-			setStatus("error");
-		}
+		const result = await run({ email });
+		if (result.ok) setSent(true);
 	};
 
-	if (status === "sent") {
+	if (sent) {
 		return (
 			<p className="text-sm text-misty-forest">
 				If that account needs verification, we&apos;ve sent a new link. Check
@@ -53,12 +46,10 @@ export function ResendVerification({ initialEmail = "" }: ResendVerificationProp
 				onChange={(e) => setEmail(e.target.value)}
 				required
 			/>
-			<Button type="submit" fullWidth disabled={status === "sending"}>
-				{status === "sending" ? "Sending…" : "Resend verification email"}
+			<Button type="submit" fullWidth disabled={pending}>
+				{pending ? "Sending…" : "Resend verification email"}
 			</Button>
-			{status === "error" && (
-				<FormError error="Something went wrong. Please try again." />
-			)}
+			{error && <FormError error={error} />}
 		</form>
 	);
 }

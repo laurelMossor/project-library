@@ -34,10 +34,12 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	};
 });
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 
 import { GET as listGET } from "@/app/api/notifications/route";
 import { GET as countGET } from "@/app/api/notifications/unread-count/route";
-import { PATCH as readPATCH } from "@/app/api/notifications/read/route";
+import { markNotificationsReadAction } from "@/lib/actions/notification";
 import { getNotificationsForUser } from "@/lib/utils/server/notification";
 import { createOrUpdateRsvp } from "@/lib/utils/server/rsvp";
 import { prisma } from "@/lib/utils/server/prisma";
@@ -89,21 +91,17 @@ describe("notification routes — auth + scoping", () => {
 
 	test("mark-read only touches the caller's own unread rows for the given context", async () => {
 		asUser("me");
-		const req = new Request("http://x/api/notifications/read", {
-			method: "PATCH",
-			body: JSON.stringify({ context: "pageY" }),
-		});
-		await readPATCH(req);
+		expect(await markNotificationsReadAction({ context: "pageY" })).toEqual({ ok: true, data: undefined });
 		expect(notif.updateMany).toHaveBeenCalledWith({
 			where: { recipientUserId: "me", contextPageId: "pageY", readAt: null },
 			data: { readAt: expect.any(Date) },
 		});
 	});
 
-	test("mark-read 401 when anonymous", async () => {
+	test("mark-read unauthorized when anonymous", async () => {
 		asUser(null);
-		const req = new Request("http://x/api/notifications/read", { method: "PATCH", body: "{}" });
-		expect((await readPATCH(req)).status).toBe(401);
+		expect(await markNotificationsReadAction({})).toMatchObject({ ok: false, error: "unauthorized" });
+		expect(notif.updateMany).not.toHaveBeenCalled();
 	});
 });
 

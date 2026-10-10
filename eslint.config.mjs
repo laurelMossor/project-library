@@ -53,5 +53,22 @@ export default [
 			"no-console": "off",
 		},
 	},
+	// UI saves go through Server Actions (src/lib/actions, built on authedAction/publicAction),
+	// never a client fetch with a mutating method. Covers all UI code; route handlers are the
+	// HTTP surface for outside callers. The one sanctioned client POST, the multipart image
+	// upload, lives in src/lib/utils/image-client.ts.
+	{
+		files: ["src/app/**", "src/lib/components/**", "src/lib/hooks/**", "src/lib/contexts/**"],
+		ignores: ["src/app/api/**"],
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					selector: "Property[key.name='method'][value.value=/^(POST|PATCH|PUT|DELETE)$/i]",
+					message: "Save through a Server Action in src/lib/actions (see PROJECT_GUIDELINES 'Data & saves'), not a client fetch.",
+				},
+			],
+		},
+	},
 ];
 
