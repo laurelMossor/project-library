@@ -1,14 +1,16 @@
 /**
- * Route-level authorization for the conversation-id messaging routes. Runs the REAL route prelude
- * (message-routes.ts) and server layer (message.ts) over mocked Prisma/session/permissions, so a route
- * that skips the identity or participation gate fails here:
- *   - a non-participant gets 404 on every method (never 403 — no existence leak);
- *   - a page identity the caller can't act as (e.g. plain MEMBER) is rejected before any data is read;
+ * Authorization for conversation-id messaging. Runs the REAL guarded writes (message-commands.ts), the
+ * read-route prelude (message-routes.ts), and the server layer (message.ts) over mocked
+ * Prisma/session/permissions, so an action or route that skips the identity or participation gate fails:
+ *   - a non-participant gets not_found on every write and 404 on the thread read (no existence leak);
+ *   - a page identity the caller can't act as (e.g. plain MEMBER) is refused before any data is read;
  *   - leaving as a page is ADMIN-only; DMs can't be left or edited;
  *   - group inputs are validated (blank name, bad member refs).
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 vi.mock("@/lib/utils/server/permission", () => ({
 	canPostAsPage: vi.fn(),
@@ -17,7 +19,7 @@ vi.mock("@/lib/utils/server/permission", () => ({
 }));
 vi.mock("@/lib/utils/server/email-outbox", () => ({ enqueueEmails: vi.fn() }));
 vi.mock("@/lib/utils/server/log", () => ({ logAction: vi.fn() }));
-vi.mock("@/lib/utils/server/rate-limit", () => ({ enforceRateLimit: vi.fn(async () => null) }));
+vi.mock("@/lib/utils/server/rate-limit", () => ({ isRateLimited: vi.fn(async () => false) }));
 vi.mock("@/lib/utils/server/prisma", () => {
 	const prisma: any = {
 		conversationParticipant: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn(), createMany: vi.fn() },
@@ -31,18 +33,23 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	return { prisma };
 });
 
-import { GET as getThread, PATCH as editGroup } from "@/app/api/messages/conversations/[conversationId]/route";
-import { POST as send } from "@/app/api/messages/conversations/[conversationId]/messages/route";
-import { POST as leave } from "@/app/api/messages/conversations/[conversationId]/leave/route";
-import { POST as createGroup } from "@/app/api/messages/conversations/route";
+import { refresh } from "next/cache";
+import { GET as getThread } from "@/app/api/messages/conversations/[conversationId]/route";
+import {
+	createGroupAction,
+	editGroupAction,
+	leaveGroupAction,
+	resolveDirectConversationAction,
+	sendMessageAction,
+} from "@/lib/actions/message";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { canPostAsPage, canManagePage } from "@/lib/utils/server/permission";
+import { isRateLimited } from "@/lib/utils/server/rate-limit";
 import { prisma } from "@/lib/utils/server/prisma";
 
 const p = prisma as any;
 const params = { params: Promise.resolve({ conversationId: "g1" }) };
 const url = "http://test/api/messages/conversations/g1";
-const body = (b: unknown, method = "POST") => new Request(url, { method, body: JSON.stringify(b) });
 const participation = (kind: "GROUP" | "DIRECT") => ({ createdAt: new Date(0), lastReadAt: null, conversation: { id: "g1", kind, name: null } });
 
 beforeEach(() => {
@@ -50,6 +57,7 @@ beforeEach(() => {
 	p.$transaction.mockImplementation(async (fn: any) => fn(p));
 	vi.mocked(getSessionContext).mockResolvedValue({ userId: "sam", activePageId: null } as never);
 	vi.mocked(canPostAsPage).mockResolvedValue(true);
+	vi.mocked(isRateLimited).mockResolvedValue(false);
 	p.conversationParticipant.findFirst.mockResolvedValue(participation("GROUP"));
 	p.conversationParticipant.updateMany.mockResolvedValue({ count: 1 });
 	p.conversationParticipant.findMany.mockResolvedValue([]);
@@ -58,74 +66,108 @@ beforeEach(() => {
 	p.conversationParticipant.count.mockResolvedValue(1);
 });
 
-describe("non-participant → 404 on every method", () => {
+describe("signed out", () => {
+	test("every write is unauthorized and touches nothing", async () => {
+		vi.mocked(getSessionContext).mockResolvedValue(null);
+		expect(await sendMessageAction({ conversationId: "g1", content: "hi" })).toMatchObject({ ok: false, error: "unauthorized" });
+		expect(await leaveGroupAction({ conversationId: "g1" })).toMatchObject({ ok: false, error: "unauthorized" });
+		expect(p.message.create).not.toHaveBeenCalled();
+		expect(p.conversationParticipant.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("non-participant → not found everywhere", () => {
 	beforeEach(() => {
 		p.conversationParticipant.findFirst.mockResolvedValue(null);
 		p.conversationParticipant.updateMany.mockResolvedValue({ count: 0 });
 	});
 	test("GET thread", async () => expect((await getThread(new Request(url), params)).status).toBe(404));
-	test("POST message", async () => {
-		expect((await send(body({ content: "hi" }), params)).status).toBe(404);
+	test("send", async () => {
+		expect(await sendMessageAction({ conversationId: "g1", content: "hi" })).toMatchObject({ ok: false, error: "not_found" });
 		expect(p.message.create).not.toHaveBeenCalled();
 	});
-	test("PATCH rename/add", async () => expect((await editGroup(body({ name: "x" }, "PATCH"), params)).status).toBe(404));
-	test("POST leave", async () => expect((await leave(body({}), params)).status).toBe(404));
+	test("rename/add", async () =>
+		expect(await editGroupAction({ conversationId: "g1", name: "x" })).toMatchObject({ ok: false, error: "not_found" }));
+	test("leave", async () =>
+		expect(await leaveGroupAction({ conversationId: "g1" })).toMatchObject({ ok: false, error: "not_found" }));
 });
 
-describe("acting as a page the caller can't act as (plain MEMBER) → 400 before any read", () => {
+describe("acting as a page the caller can't act as (plain MEMBER) → refused before any read", () => {
 	beforeEach(() => vi.mocked(canPostAsPage).mockResolvedValue(false));
 	test("GET thread", async () => {
 		expect((await getThread(new Request(`${url}?asPageId=guild`), params)).status).toBe(400);
 		expect(p.conversationParticipant.findFirst).not.toHaveBeenCalled();
 	});
-	test("POST message", async () => expect((await send(body({ content: "hi", asPageId: "guild" }), params)).status).toBe(400));
-	test("POST leave", async () => expect((await leave(body({ asPageId: "guild" }), params)).status).toBe(400));
-	test("POST create group", async () => {
-		const res = await createGroup(new Request("http://test", { method: "POST", body: JSON.stringify({ asPageId: "guild", members: [{ type: "user", id: "pat" }] }) }));
-		expect(res.status).toBe(400);
+	test("send", async () => {
+		expect(await sendMessageAction({ conversationId: "g1", content: "hi", asPageId: "guild" })).toMatchObject({ ok: false, error: "invalid" });
+		expect(p.conversationParticipant.findFirst).not.toHaveBeenCalled();
 	});
+	test("leave", async () =>
+		expect(await leaveGroupAction({ conversationId: "g1", asPageId: "guild" })).toMatchObject({ ok: false, error: "invalid" }));
+	test("create group", async () =>
+		expect(await createGroupAction({ asPageId: "guild", members: [{ type: "user", id: "pat" }] })).toMatchObject({ ok: false, error: "invalid" }));
 });
 
 describe("leave", () => {
 	test("page EDITOR can't remove the page from a group (ADMIN-only)", async () => {
 		vi.mocked(canManagePage).mockResolvedValue(false);
-		const res = await leave(body({ asPageId: "guild" }), params);
-		expect(res.status).toBe(403);
+		expect(await leaveGroupAction({ conversationId: "g1", asPageId: "guild" })).toMatchObject({ ok: false, error: "forbidden" });
 		expect(p.conversationParticipant.deleteMany).not.toHaveBeenCalled();
 	});
 	test("page ADMIN can", async () => {
 		vi.mocked(canManagePage).mockResolvedValue(true);
-		const res = await leave(body({ asPageId: "guild" }), params);
-		expect(res.status).toBe(200);
+		expect(await leaveGroupAction({ conversationId: "g1", asPageId: "guild" })).toEqual({
+			ok: true,
+			data: { deletedConversation: false },
+		});
 		expect(p.conversationParticipant.deleteMany.mock.calls[0][0].where).toEqual({ conversationId: "g1", pageId: "guild" });
 	});
 	test("a DM can't be left", async () => {
 		p.conversationParticipant.findFirst.mockResolvedValue(participation("DIRECT"));
-		expect((await leave(body({}), params)).status).toBe(400);
+		expect(await leaveGroupAction({ conversationId: "g1" })).toMatchObject({ ok: false, error: "invalid" });
 	});
 });
 
 describe("group edits", () => {
 	test("a DM can't be renamed", async () => {
 		p.conversationParticipant.findFirst.mockResolvedValue(participation("DIRECT"));
-		expect((await editGroup(body({ name: "x" }, "PATCH"), params)).status).toBe(400);
+		expect(await editGroupAction({ conversationId: "g1", name: "x" })).toMatchObject({ ok: false, error: "invalid" });
+	});
+	test("nothing to update is refused", async () => {
+		expect(await editGroupAction({ conversationId: "g1" })).toMatchObject({ ok: false, error: "invalid" });
 	});
 	test("a blank name clears the name (optional field) rather than erroring", async () => {
-		expect((await editGroup(body({ name: "   " }, "PATCH"), params)).status).toBe(200);
+		expect(await editGroupAction({ conversationId: "g1", name: "   " })).toMatchObject({ ok: true });
 		expect(p.conversation.update).toHaveBeenCalledWith({ where: { id: "g1" }, data: { name: null } });
 	});
 	test("an over-long name is rejected", async () => {
-		expect((await editGroup(body({ name: "x".repeat(200) }, "PATCH"), params)).status).toBe(400);
+		expect(await editGroupAction({ conversationId: "g1", name: "x".repeat(200) })).toMatchObject({ ok: false, error: "invalid" });
 		expect(p.conversation.update).not.toHaveBeenCalled();
 	});
 	test("an EDITOR acting as the page may rename (not a manage action)", async () => {
 		vi.mocked(canManagePage).mockResolvedValue(false);
-		expect((await editGroup(body({ name: "Crew", asPageId: "guild" }, "PATCH"), params)).status).toBe(200);
+		expect(await editGroupAction({ conversationId: "g1", name: "Crew", asPageId: "guild" })).toMatchObject({ ok: true });
 		expect(p.conversation.update).toHaveBeenCalledWith({ where: { id: "g1" }, data: { name: "Crew" } });
 	});
-	test("create with malformed members → 400", async () => {
-		const res = await createGroup(new Request("http://test", { method: "POST", body: JSON.stringify({ members: [{ type: "robot", id: "x" }] }) }));
-		expect(res.status).toBe(400);
+	test("create with malformed members is refused", async () => {
+		const result = await createGroupAction({ members: [{ type: "robot" as never, id: "x" }] });
+		expect(result).toMatchObject({ ok: false, error: "invalid" });
+	});
+	test("resolving a DM with a bad target is refused before any lookup", async () => {
+		expect(await resolveDirectConversationAction({ target: { type: "robot" as never, id: "x" } })).toMatchObject({
+			ok: false,
+			error: "invalid",
+		});
+		expect(await resolveDirectConversationAction({ target: { type: "user", id: "" } })).toMatchObject({
+			ok: false,
+			error: "invalid",
+		});
+		expect(p.$transaction).not.toHaveBeenCalled();
+	});
+	test("rate-limited group creation never writes", async () => {
+		vi.mocked(isRateLimited).mockResolvedValue(true);
+		expect(await createGroupAction({ members: [{ type: "user", id: "pat" }] })).toMatchObject({ ok: false, error: "rate_limited" });
+		expect(p.conversation.create).not.toHaveBeenCalled();
 	});
 });
 
@@ -154,8 +196,8 @@ describe("GET thread marks read for the acting identity", () => {
 
 describe("participant send", () => {
 	test("advances only the sending identity's read marker", async () => {
-		const res = await send(body({ content: "hi", asPageId: "guild" }), params);
-		expect(res.status).toBe(201);
+		const result = await sendMessageAction({ conversationId: "g1", content: "hi", asPageId: "guild" });
+		expect(result).toMatchObject({ ok: true, data: { id: "m1", conversationId: "g1", content: "hi" } });
 		const createdAt = (await p.message.create.mock.results[0].value).createdAt;
 		expect(p.conversationParticipant.updateMany.mock.calls[0][0].where).toEqual({
 			conversationId: "g1",
@@ -163,5 +205,15 @@ describe("participant send", () => {
 			OR: [{ lastReadAt: null }, { lastReadAt: { lt: createdAt } }],
 		});
 		expect(p.message.create.mock.calls[0][0].data).toMatchObject({ senderId: "sam", asPageId: "guild" });
+	});
+
+	test("an empty message is refused before it's written", async () => {
+		expect(await sendMessageAction({ conversationId: "g1", content: "   " })).toMatchObject({ ok: false, error: "invalid" });
+		expect(p.message.create).not.toHaveBeenCalled();
+	});
+
+	test("messaging writes never refresh the server tree (its views are client-polled)", async () => {
+		await sendMessageAction({ conversationId: "g1", content: "hi" });
+		expect(refresh).not.toHaveBeenCalled();
 	});
 });

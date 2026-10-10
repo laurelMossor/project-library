@@ -1,11 +1,14 @@
 /**
- * Unit tests for message email fan-out (`enqueueMessageEmails`) and its wiring into POST /api/messages.
+ * Unit tests for message email fan-out (`enqueueMessageEmails`) and its wiring into `sendMessageAction`.
  * Asserts the identity-scoping a generic reviewer can't see: every other participant is notified — users
  * personally, pages via their ADMIN/EDITOR managers tagged with the page context — while the sending
  * identity and the human who sent it never are; and an enqueue failure never fails the 201.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+vi.mock("next/cache", () => ({ refresh: vi.fn() }));
+vi.mock("@/lib/utils/server/rate-limit", () => ({ isRateLimited: vi.fn(async () => false) }));
 vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 vi.mock("@/lib/utils/server/permission", () => ({
 	canPostAsPage: vi.fn(),
@@ -18,7 +21,7 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	const prisma: any = {
 		user: { findUnique: vi.fn() },
 		page: { findUnique: vi.fn() },
-		conversationParticipant: { findMany: vi.fn(), updateMany: vi.fn() },
+		conversationParticipant: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
 		conversation: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
 		message: { create: vi.fn() },
 		$executeRaw: vi.fn(),
@@ -27,7 +30,7 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	return { prisma };
 });
 
-import { POST } from "@/app/api/messages/route";
+import { sendMessageAction } from "@/lib/actions/message";
 import { enqueueMessageEmails } from "@/lib/utils/server/message";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { canPostAsPage, getActingManagerIdsByPage } from "@/lib/utils/server/permission";
@@ -78,22 +81,23 @@ describe("enqueueMessageEmails", () => {
 	});
 });
 
-describe("POST /api/messages (DM by recipient)", () => {
-	const req = (body: unknown) => new Request("http://test/api/messages", { method: "POST", body: JSON.stringify(body) });
+describe("sendMessageAction into a DM", () => {
+	const send = (input: { content: string; asPageId?: string }) => sendMessageAction({ conversationId: "c1", ...input });
 
 	beforeEach(() => {
 		vi.mocked(getSessionContext).mockResolvedValue({ userId: "alice", activePageId: null } as never);
-		p.user.findUnique.mockResolvedValue({ id: "bob" });
-		p.page.findUnique.mockResolvedValue({ id: "guild" });
-		p.conversation.findFirst.mockResolvedValue(null);
-		p.conversation.create.mockResolvedValue({ id: "c1" });
+		vi.mocked(canPostAsPage).mockResolvedValue(true);
+		p.conversationParticipant.findFirst.mockResolvedValue({
+			createdAt: new Date(0),
+			lastReadAt: null,
+			conversation: { id: "c1", kind: "DIRECT", name: null },
+		});
 		p.message.create.mockResolvedValue({ id: "m1", conversationId: "c1", senderId: "alice", asPageId: null, content: "Hi", createdAt: new Date() });
 		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "alice", pageId: null }, { userId: "bob", pageId: null }]);
 	});
 
 	test("sends into the DM, advances the sender's read marker, and emails the recipient", async () => {
-		const res = await POST(req({ recipientUserId: "bob", content: "Hi" }));
-		expect(res.status).toBe(201);
+		expect(await send({ content: "Hi" })).toMatchObject({ ok: true });
 		const createdAt = (await p.message.create.mock.results[0].value).createdAt;
 		expect(p.conversationParticipant.updateMany.mock.calls[0][0].where).toEqual({
 			conversationId: "c1",
@@ -105,20 +109,18 @@ describe("POST /api/messages (DM by recipient)", () => {
 
 	test("to a page: fans out to its managers with the page context", async () => {
 		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "alice", pageId: null }, { userId: null, pageId: "guild" }]);
-		await POST(req({ recipientPageId: "guild", content: "Hi" }));
+		await send({ content: "Hi" });
 		expect(recipients()).toEqual(["sam@guild"]);
 	});
 
-	test("asPageId the caller can't act as → 400, nothing sent", async () => {
+	test("asPageId the caller can't act as → refused, nothing sent", async () => {
 		vi.mocked(canPostAsPage).mockResolvedValue(false);
-		const res = await POST(req({ recipientUserId: "bob", content: "Hi", asPageId: "guild" }));
-		expect(res.status).toBe(400);
+		expect(await send({ content: "Hi", asPageId: "guild" })).toMatchObject({ ok: false, error: "invalid" });
 		expect(p.message.create).not.toHaveBeenCalled();
 	});
 
-	test("an enqueue failure never fails the 201 (message still sent)", async () => {
+	test("an enqueue failure never fails the send (message still sent)", async () => {
 		enqueue.mockRejectedValueOnce(new Error("outbox down"));
-		const res = await POST(req({ recipientUserId: "bob", content: "Hi" }));
-		expect(res.status).toBe(201);
+		expect(await send({ content: "Hi" })).toMatchObject({ ok: true });
 	});
 });

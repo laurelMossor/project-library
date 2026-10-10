@@ -11,8 +11,8 @@ until you approve.
 ## Flow
 
 **Core principle:** the bot *captures and stages*; your approval *creates* the event. Event creation
-stays on the existing `POST /api/events` write path — the review page just calls it in your session,
-so there is a single write path and no divergent event-creation logic.
+goes through `createEventAction`, the same write path as the rest of the app — the review page
+calls it in your session, so there is a single write path and no divergent event-creation logic.
 
 ## Pieces
 
@@ -23,7 +23,7 @@ so there is a single write path and no divergent event-creation logic.
 | Extraction (LLM + link/OG fetch + status) | [`src/lib/utils/server/poster-extract.ts`](../src/lib/utils/server/poster-extract.ts) |
 | Staging model | `EventSubmission` in [`prisma/schema.prisma`](../prisma/schema.prisma) |
 | Submission queries | [`src/lib/utils/server/event-submission.ts`](../src/lib/utils/server/event-submission.ts) |
-| Review API (superadmin) | [`src/app/api/admin/submissions/`](../src/app/api/admin/submissions/) |
+| Review actions (superadmin) | [`src/lib/actions/admin.ts`](../src/lib/actions/admin.ts) |
 | Review UI | [`src/app/admin/submissions/`](../src/app/admin/submissions/) + [`admin/layout.tsx`](../src/app/admin/layout.tsx) |
 | Superadmin gate | [`src/lib/utils/server/superadmin.ts`](../src/lib/utils/server/superadmin.ts) |
 | Shared image store/create | [`storage.ts`](../src/lib/utils/server/storage.ts) + [`image-attachment.ts`](../src/lib/utils/server/image-attachment.ts) |
@@ -76,18 +76,17 @@ before publish.
 
 ## Review + materialize (`/admin/submissions`)
 
-- Superadmin-only surface (first `admin/` route). Gated by `isSuperAdmin` in the server layout **and**
-  re-checked in every submission API route.
+- Superadmin-only surface (first `admin/` route). The layout 404s anyone who isn't a superadmin, and
+  each review action re-checks with `assertSuperAdmin`.
 - Lists open submissions with the extracted fields + poster. Per item: **edit**, **approve (publish
   or save as draft)**, or **reject**.
 - **Disclaimer + source line:** extraction bakes a community-share disclaimer into the editable
   `content` (always), plus an `Original source: {url}` line when a `sourceUrl` exists. Both are
   visible/adjustable and publish as shown. No contact email is included; the source line points
   at the real organizer.
-- **Approve** runs in your session and reuses the app's normal write path: `createEvent` →
-  `POST /api/events` (hosted by the "PL Events" page), then attach the stored poster via
-  `POST /api/image-attachments`, then `PATCH` the submission to `PUBLISHED`. (The poster `Image` is
-  owned by the author account, so approve must run while logged in as that account.)
+- **Approve** calls `createEventAction`, then `publishSubmissionAction`. That action attaches the
+  poster in `materializeSubmission` and marks the submission `PUBLISHED`. Any superadmin can
+  approve. The poster `Image` stays owned by the author account.
 
 ## Environment variables
 

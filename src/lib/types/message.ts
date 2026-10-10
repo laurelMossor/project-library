@@ -61,3 +61,6 @@ export type ConversationThreadData<D = string> = {
 	deletedCounterpart: DeletedSpeaker | null;
 	messages: ThreadMessage<D>[];
 };
+
+/** A conversation addressed as the acting identity: the page the viewer acts as (verified server-side). */
+export type ConversationRef = { conversationId: string; asPageId?: string | null };

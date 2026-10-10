@@ -134,9 +134,8 @@ export const API_POST_POSTS = (id: string) => `/api/posts/${id}/posts`;
 // Image API Routes (attach / caption / remove are Server Actions in src/lib/actions/image.ts)
 export const API_UPLOAD = (folder: string) => `/api/upload?folder=${folder}`;
 
-// Admin API Routes (Poster Catcher review; superadmin-gated)
-export const API_ADMIN_SUBMISSIONS = "/api/admin/submissions";
-export const API_ADMIN_SUBMISSION = (id: string) => `/api/admin/submissions/${id}`;
+// Poster Catcher review is server-rendered at /admin/submissions with Server Actions in
+// src/lib/actions/admin.ts (superadmin-gated).
 
 // Telegram intake webhook (Poster Catcher)
 export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
@@ -148,25 +147,20 @@ export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 // Follow API Routes
 export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 
-// Message API Routes
-export const API_MESSAGES = "/api/messages";
+// Message API Routes (reads only — sends, DM resolve, and group create/edit/leave are Server
+// Actions in src/lib/actions/message.ts)
 export const API_SEARCH_PROFILES = (q: string, type: "user" | "page" | "all" = "all") =>
 	`/api/search/profiles?q=${encodeURIComponent(q)}&type=${type}`;
-export const API_MESSAGES_DIRECT = "/api/messages/direct"; // POST resolve/create the DM with a user/page
 export const API_MESSAGES_SUGGESTIONS = (asPageId?: string | null) =>
 	asPageId ? `/api/messages/suggestions?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/suggestions";
-export const API_CONVERSATIONS = "/api/messages/conversations"; // POST create a group
-/** GET a thread (pass `asPageId` for a page identity), PATCH rename/add members. */
+/** GET a thread (pass `asPageId` for a page identity). */
 export const API_CONVERSATION = (id: string, asPageId?: string | null) =>
 	`/api/messages/conversations/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
-export const API_CONVERSATION_MESSAGES = (id: string) => `/api/messages/conversations/${id}/messages`;
-export const API_CONVERSATION_LEAVE = (id: string) => `/api/messages/conversations/${id}/leave`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 
-// Activity notifications
+// Activity notifications (mark-read is a Server Action in src/lib/actions/notification.ts)
 export const API_NOTIFICATIONS = "/api/notifications"; // GET list (?context=personal|<pageId>)
 export const API_NOTIFICATIONS_UNREAD_COUNT = "/api/notifications/unread-count"; // GET { personal, pages }
-export const API_NOTIFICATIONS_READ = "/api/notifications/read"; // PATCH mark a context's unread read
 /** Inbox for the active identity — pass `asPageId` to scope to a managed page, omit for personal. */
 export const API_MESSAGES_INBOX = (asPageId?: string | null) =>
 	asPageId ? `/api/messages/inbox?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/inbox";

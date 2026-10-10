@@ -7,7 +7,8 @@ import { BellIcon } from "@/lib/components/icons/icons";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { hasSession } from "@/lib/utils/auth-client";
-import { API_NOTIFICATIONS, API_NOTIFICATIONS_READ } from "@/lib/const/routes";
+import { API_NOTIFICATIONS } from "@/lib/const/routes";
+import { markNotificationsReadAction } from "@/lib/actions/notification";
 import type { NotificationItem } from "@/lib/types/notification";
 import { useNotificationCount } from "./NotificationContext";
 import { NotificationRow } from "./NotificationRow";
@@ -34,11 +35,7 @@ export function NotificationBell() {
 			setItems(data.items ?? []);
 			// Mark this identity's unread as read on open, then let the shared hook refresh the badge.
 			if (activeCount > 0) {
-				await fetch(API_NOTIFICATIONS_READ, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ context }),
-				});
+				await markNotificationsReadAction({ context });
 				window.dispatchEvent(new Event("notifications:read"));
 			}
 		} catch {
