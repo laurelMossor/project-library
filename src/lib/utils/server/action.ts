@@ -18,8 +18,11 @@ import { isRateLimited, type RateLimitOptions } from "./rate-limit";
 import { DomainError } from "./domain-error";
 
 type ActionOptions = {
-	/** Per-client limit. `key` is the limit's name (e.g. "comment-create"). */
-	rateLimit?: { key: string } & RateLimitOptions;
+	/**
+	 * Per-client limit. `key` is the limit's name (e.g. "comment-create"); `message`
+	 * replaces the generic "Too many requests" copy shown when it trips.
+	 */
+	rateLimit?: { key: string; message?: string } & RateLimitOptions;
 	/**
 	 * Re-render the current page from the server after success (default true),
 	 * so every server-rendered value on screen reflects the change.
@@ -35,9 +38,9 @@ async function run<C, I, O>(
 ): Promise<ActionResult<O>> {
 	try {
 		if (options.rateLimit) {
-			const { key, ...limit } = options.rateLimit;
+			const { key, message = "Too many requests. Please try again later.", ...limit } = options.rateLimit;
 			if (await isRateLimited(await headers(), key, limit)) {
-				return { ok: false, error: "rate_limited", message: "Too many requests. Please try again later." };
+				return { ok: false, error: "rate_limited", message };
 			}
 		}
 		const data = await handler(ctx, input);

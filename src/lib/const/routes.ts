@@ -102,13 +102,10 @@ export const MESSAGE_THREAD = (conversationId: string, asPageId?: string | null)
 // ============================================================================
 // API Routes
 // ============================================================================
+// Signup, password reset, email verification/resend, and unsubscribe are Server Actions in
+// src/lib/actions/auth.ts.
 export const API_AUTH_SESSION = "/api/auth/session";
-export const API_AUTH_SIGNUP = "/api/auth/signup";
 export const API_HANDLE_AVAILABLE = "/api/handles/available"; // GET ?handle= — public, rate-limited
-export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
-export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
-export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
-export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
 // Profile, handle, setup, account/page delete, notification prefs, and the active-identity
@@ -119,8 +116,7 @@ export const API_ME_PAGE = "/api/me/page"; // GET current active page profile
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
 export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET email prefs for the active identity
 
-// Unsubscribe + the scheduled email flush (pinged by a GitHub Action)
-export const API_UNSUBSCRIBE = "/api/unsubscribe";
+// The scheduled email flush (pinged by a GitHub Action)
 export const API_NOTIFICATIONS_FLUSH = "/api/notifications/flush";
 
 // Event API Routes

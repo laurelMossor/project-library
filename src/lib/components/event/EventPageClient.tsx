@@ -25,7 +25,6 @@ import { useAction } from "@/lib/hooks/useAction";
 import { validateEventPublishable } from "@/lib/validations";
 import { uploadAndAttachImage } from "@/lib/utils/image-client";
 import { eventHasContent } from "@/lib/utils/content";
-import { authFetch } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
@@ -101,7 +100,7 @@ function EventPageContent({
 	// any existing cover in one call, and the attach action refreshes the banner from the server.
 	async function handleCoverSave({ file }: { file: File | null }) {
 		if (!file) return;
-		await uploadAndAttachImage({ file, folder: "event-covers", type: "EVENT", targetId: event.id, replace: true, fetchImpl: authFetch });
+		await uploadAndAttachImage({ file, folder: "event-covers", type: "EVENT", targetId: event.id, replace: true });
 	}
 
 	// Session-backed fields — dirtyFields is the single source of truth.

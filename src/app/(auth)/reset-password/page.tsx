@@ -7,13 +7,10 @@ import { Button } from "@/lib/components/ui/Button";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
 import { PasswordPair } from "@/lib/components/auth/PasswordPair";
-import {
-	API_AUTH_RESET_PASSWORD,
-	FORGOT_PASSWORD,
-	LOGIN,
-	RESET_PASSWORD_TOKEN_QUERY,
-} from "@/lib/const/routes";
+import { FORGOT_PASSWORD, LOGIN, RESET_PASSWORD_TOKEN_QUERY } from "@/lib/const/routes";
 import { validatePasswordPair } from "@/lib/validations";
+import { useAction } from "@/lib/hooks/useAction";
+import { resetPasswordAction } from "@/lib/actions/auth";
 
 function ResetPasswordForm() {
 	const router = useRouter();
@@ -22,12 +19,17 @@ function ResetPasswordForm() {
 
 	const [password, setPassword] = useState("");
 	const [confirm, setConfirm] = useState("");
-	const [error, setError] = useState("");
-	const [submitting, setSubmitting] = useState(false);
+	const [formError, setError] = useState("");
+	// Stays set once the reset lands, so the button can't resubmit the spent token while navigating.
+	const [done, setDone] = useState(false);
+	const reset = useAction(resetPasswordAction);
+	const error = formError || reset.error || "";
+	const submitting = reset.pending || done;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
+		reset.clearError();
 
 		const pairError = validatePasswordPair(password, confirm);
 		if (pairError) {
@@ -35,24 +37,10 @@ function ResetPasswordForm() {
 			return;
 		}
 
-		setSubmitting(true);
-		try {
-			const res = await fetch(API_AUTH_RESET_PASSWORD, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ token, password }),
-			});
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				setError(data.error || "Failed to reset password");
-				setSubmitting(false);
-				return;
-			}
-			router.push(`${LOGIN}?reset=1`);
-		} catch {
-			setError("Something went wrong. Please try again.");
-			setSubmitting(false);
-		}
+		const result = await reset.run({ token, password });
+		if (!result.ok) return;
+		setDone(true);
+		router.push(`${LOGIN}?reset=1`);
 	};
 
 	if (!token) {
