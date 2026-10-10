@@ -6,7 +6,7 @@ import { isSuperAdmin } from "@/lib/utils/server/superadmin";
 /**
  * Server gate for all /admin/* operator surfaces. Superadmin-only; anyone else gets a
  * 404 (existence-deny — don't reveal the surface). This is the first `admin/` route.
- * Each admin API route re-checks superadmin independently (defense-in-depth).
+ * Review actions re-check via `assertSuperAdmin` (defense-in-depth).
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
 	const session = await auth();

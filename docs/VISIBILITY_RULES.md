@@ -96,10 +96,11 @@ where an author-voiced, to-page post also appears. It never changes who can see 
 
 9. **Messaging is identity-scoped, ADMIN/EDITOR for pages.** Page conversation access uses
    `getManagedPageIds` / `canPostAsPage` (ADMIN/EDITOR) — **never** `getPagesForUser` (which
-   includes plain MEMBER). Acting as a page is verified from the session on every method (GET *and*
-   PATCH), never trusted from a client `asPageId`. All of this lives in
-   `src/lib/utils/server/message.ts` (+ the `message-routes.ts` prelude); routes apply it, never
-   re-derive it. For DMs **and groups**:
+   includes plain MEMBER). Acting as a page is verified from the session on the thread GET and on
+   every write action, never trusted from a client `asPageId`. Access, read state, and the writes
+   live in `src/lib/utils/server/message.ts`. The read-route prelude is `message-routes.ts`. The
+   write guard is `message-commands.ts`, behind `src/lib/actions/message.ts`. Callers apply those,
+   never re-derive the check. For DMs **and groups**:
    - **Participant-only.** A conversation is reachable only by an identity that is a participant;
      everyone else gets **404** on every method (never 403 — no existence leak).
    - **History from join time.** A participant sees only messages sent at/after it joined (its

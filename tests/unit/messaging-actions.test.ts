@@ -39,6 +39,7 @@ import {
 	createGroupAction,
 	editGroupAction,
 	leaveGroupAction,
+	resolveDirectConversationAction,
 	sendMessageAction,
 } from "@/lib/actions/message";
 import { getSessionContext } from "@/lib/utils/server/session";
@@ -151,6 +152,17 @@ describe("group edits", () => {
 	test("create with malformed members is refused", async () => {
 		const result = await createGroupAction({ members: [{ type: "robot" as never, id: "x" }] });
 		expect(result).toMatchObject({ ok: false, error: "invalid" });
+	});
+	test("resolving a DM with a bad target is refused before any lookup", async () => {
+		expect(await resolveDirectConversationAction({ target: { type: "robot" as never, id: "x" } })).toMatchObject({
+			ok: false,
+			error: "invalid",
+		});
+		expect(await resolveDirectConversationAction({ target: { type: "user", id: "" } })).toMatchObject({
+			ok: false,
+			error: "invalid",
+		});
+		expect(p.$transaction).not.toHaveBeenCalled();
 	});
 	test("rate-limited group creation never writes", async () => {
 		vi.mocked(isRateLimited).mockResolvedValue(true);

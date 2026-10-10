@@ -114,11 +114,11 @@ export function MembersModal({ thread, asPageId, onClose, onChanged, onLeft }: P
 						confirmLeave ? (
 							<span className="flex items-center gap-2 text-sm">
 								<span className="text-rich-brown">Leave this group?</span>
-								<Button variant="danger" size="sm" onClick={leave} loading={leaveAction.pending}>Leave</Button>
+								<Button variant="danger" size="sm" onClick={leave} loading={leaveAction.pending} disabled={saveAction.pending}>Leave</Button>
 								<Button variant="tertiary" size="sm" onClick={() => setConfirmLeave(false)}>Cancel</Button>
 							</span>
 						) : (
-							<Button variant="tertiary" size="sm" className="!text-novel-red" onClick={() => setConfirmLeave(true)}>
+							<Button variant="tertiary" size="sm" className="!text-novel-red" onClick={() => setConfirmLeave(true)} disabled={saveAction.pending}>
 								Leave group
 							</Button>
 						)
@@ -127,7 +127,7 @@ export function MembersModal({ thread, asPageId, onClose, onChanged, onLeft }: P
 							{you?.type === "page" ? "Only a page admin can remove the page from a group." : ""}
 						</span>
 					)}
-					<Button size="sm" onClick={save} disabled={!dirty} loading={saveAction.pending}>Save</Button>
+					<Button size="sm" onClick={save} disabled={!dirty || leaveAction.pending} loading={saveAction.pending}>Save</Button>
 				</div>
 			</div>
 		</ModalShell>

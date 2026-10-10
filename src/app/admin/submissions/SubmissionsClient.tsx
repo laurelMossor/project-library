@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { EventSubmissionStatus } from "@prisma/client";
 import { FormField } from "@/lib/components/forms/FormField";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormTextarea } from "@/lib/components/forms/FormTextarea";
@@ -12,7 +13,7 @@ import { createEventAction } from "@/lib/actions/event";
 import { publishSubmissionAction, rejectSubmissionAction, saveSubmissionEditsAction } from "@/lib/actions/admin";
 import { withDisclaimer, withSourceLine } from "@/lib/utils/text";
 import { EVENT_DETAIL } from "@/lib/const/routes";
-import type { ReviewSubmission as Submission, SubmissionStatus } from "@/lib/types/event-submission";
+import type { ReviewSubmission as Submission } from "@/lib/types/event-submission";
 
 // Editable field state, seeded from the submission (source line pre-filled on hand-fill).
 type Draft = {
@@ -48,7 +49,7 @@ function seedDraft(s: Submission): Draft {
 	};
 }
 
-const STATUS_LABEL: Record<SubmissionStatus, string> = {
+const STATUS_LABEL: Record<EventSubmissionStatus, string> = {
 	PENDING: "Extracting…",
 	READY: "Ready",
 	NEEDS_FIX: "Needs a date",

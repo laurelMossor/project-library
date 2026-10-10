@@ -1,9 +1,9 @@
-export type SubmissionStatus = "PENDING" | "READY" | "NEEDS_FIX" | "FAILED" | "PUBLISHED" | "REJECTED";
+import type { EventSubmissionStatus } from "@prisma/client";
 
 /** A Poster Catcher submission as the review surface renders it (poster url included). */
 export type ReviewSubmission = {
 	id: string;
-	status: SubmissionStatus;
+	status: EventSubmissionStatus;
 	submittedAt: Date;
 	sourceUrl: string | null;
 	rawCaption: string | null;
