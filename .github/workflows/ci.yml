@@ -7,10 +7,11 @@ name: CI
 # Check names (these are what branch protection must require — the old single
 # `validate` check no longer exists):
 #   Lint, Typecheck, Reserved handles, Unit tests, E2E tests, Build
+#
+# Pull requests only. A push trigger as well ran every check a second time
+# whenever the branch was also the head of an open PR (develop → main).
 on:
   pull_request:
-    branches: [develop, main]
-  push:
     branches: [develop, main]
 
 # A newer commit on the same ref cancels the older in-flight run.
@@ -39,6 +40,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: npm run lint
 
@@ -46,6 +48,7 @@ jobs:
     name: Typecheck
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: npm run typecheck
 
@@ -53,6 +56,7 @@ jobs:
     name: Reserved handles
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: npm run check:reserved-handles
 
@@ -60,6 +64,7 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: npm run test:unit
 
@@ -82,6 +87,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
 
       - name: Apply database schema
@@ -106,5 +112,6 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - run: npm run build
