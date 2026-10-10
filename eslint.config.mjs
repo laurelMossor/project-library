@@ -78,6 +78,11 @@ export default [
 			"src/app/settings/**",
 			"src/app/setup/**",
 			"src/app/pages/**",
+			// Phase 4: messaging, notifications, admin
+			"src/lib/components/messages/**",
+			"src/lib/components/notifications/**",
+			"src/app/messages/**",
+			"src/app/admin/**",
 		],
 		rules: {
 			"no-restricted-syntax": [

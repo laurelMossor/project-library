@@ -9,10 +9,9 @@ import { EmailInviteModal } from "./EmailInviteModal";
 import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import type { ConnectionItem, ConnectionsData } from "@/lib/types/connections";
-import type { ActionResult } from "@/lib/types/action";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
 import { assignableRoles, formatRole, isAdminRole } from "@/lib/const/roles";
-import { useAction } from "@/lib/hooks/useAction";
+import { useAction, useActionThunk, type ActionThunk } from "@/lib/hooks/useAction";
 import { removeFollowerAction, unfollowEdgeAction } from "@/lib/actions/follow";
 import {
 	approveRequestAction,
@@ -42,15 +41,10 @@ type ConnectionsPageViewProps = {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-/** A save to run through `useAction`: the row's buttons and the role chips hand over a ready-to-call action. */
-type Perform = () => Promise<ActionResult<unknown>>;
-
-/** `useAction` runs a one-argument action; here the argument is the action to run. */
-const invoke = (perform: Perform) => perform();
-
 type ActionDef = {
 	label: string;
-	perform: Perform;
+	/** The row's buttons and the role chips hand over a ready-to-call action. */
+	perform: ActionThunk;
 	/** Visual emphasis — "danger" (default) hints red on hover; "default" stays neutral. */
 	tone?: "danger" | "default";
 };
@@ -71,7 +65,7 @@ function ExpandableActions({
 	 */
 	onRefused?: (message: string | null) => void;
 }) {
-	const { run, pending, error, clearError } = useAction(invoke);
+	const { run, pending, error, clearError } = useActionThunk();
 	// Which button was pressed, so only that one shows "…" while the save runs.
 	const [pressed, setPressed] = useState<string | null>(null);
 
@@ -145,7 +139,7 @@ function ConnectionList({
 	expandedId: string | null;
 	onToggle: (id: string | null) => void;
 	/** Omitted when this viewer can't change the list (a page editor). */
-	action?: { label: string; perform: (item: ConnectionItem) => Perform };
+	action?: { label: string; perform: (item: ConnectionItem) => ActionThunk };
 }) {
 	if (!items.length) return <EmptyMessage label={emptyLabel} />;
 	return (
@@ -219,7 +213,7 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 
 	const invite = useAction(inviteMemberAction);
 	// Role chips run a save from inside a menu; one runner reports their pending/error.
-	const roleSave = useAction(invoke);
+	const roleSave = useActionThunk();
 
 	// ProfileSearchDropdown's onSelect is fire-and-forget: just capture the picked user
 	// and default the role; the admin confirms an explicit role before we invite. (Adding

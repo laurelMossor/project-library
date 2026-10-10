@@ -38,3 +38,17 @@ export function useAction<I, O>(action: (input: I) => Promise<ActionResult<O>>) 
 
 	return { run, pending, error, clearError };
 }
+
+/** A ready-to-call save: one action with its input bound, or a short sequence of actions. */
+export type ActionThunk = () => Promise<ActionResult<unknown>>;
+
+const invokeThunk = (perform: ActionThunk) => perform();
+
+/**
+ * `useAction` for a control whose save isn't one fixed action: a row whose buttons each hand over a
+ * different bound action, or a button that runs several actions in order. `run(thunk)` gets the same
+ * transition, `pending`, `error`, and login redirect; the thunk returns the result that decides them.
+ */
+export function useActionThunk() {
+	return useAction(invokeThunk);
+}

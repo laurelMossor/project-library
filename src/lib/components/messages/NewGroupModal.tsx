@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { ModalShell } from "@/lib/components/ui/ModalShell";
 import { Button } from "@/lib/components/ui/Button";
-import { API_CONVERSATIONS } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { createGroupAction } from "@/lib/actions/message";
 import { MAX_GROUP_PARTICIPANTS } from "@/lib/const/messaging";
 import { validateGroupName } from "@/lib/validations";
 import type { SearchResultItem } from "@/lib/types/search";
@@ -23,32 +24,21 @@ type Props = {
 export function NewGroupModal({ actingKey, asPageId, actingName, onClose, onCreated }: Props) {
 	const [members, setMembers] = useState<SearchResultItem[]>([]);
 	const [name, setName] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
+	const [localError, setLocalError] = useState<string | null>(null);
+	const { run, pending, error: actionError, clearError } = useAction(createGroupAction);
+	const error = localError ?? actionError;
 
 	async function create() {
-		setError(null);
+		setLocalError(null);
+		clearError();
 		// Blank (or only spaces) = unnamed group — the field is optional.
 		const nameValue = name.trim() || null;
 		const nameCheck = validateGroupName(nameValue);
-		if (!nameCheck.valid) { setError(nameCheck.error!); return; }
-		if (members.length === 0) { setError("Add at least one member"); return; }
+		if (!nameCheck.valid) { setLocalError(nameCheck.error!); return; }
+		if (members.length === 0) { setLocalError("Add at least one member"); return; }
 
-		setSaving(true);
-		try {
-			const res = await fetch(API_CONVERSATIONS, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ members: members.map(toRef), name: nameValue, asPageId }),
-			});
-			const data = await res.json().catch(() => ({}));
-			if (!res.ok) { setError(data.error || "Couldn't create the group"); return; }
-			onCreated(data.conversationId);
-		} catch {
-			setError("Couldn't create the group");
-		} finally {
-			setSaving(false);
-		}
+		const result = await run({ members: members.map(toRef), name: nameValue, asPageId });
+		if (result.ok) onCreated(result.data);
 	}
 
 	return (
@@ -71,7 +61,7 @@ export function NewGroupModal({ actingKey, asPageId, actingName, onClose, onCrea
 					<span className="text-xs text-dusty-grey">{members.length + 1} / {MAX_GROUP_PARTICIPANTS} members</span>
 					<div className="flex gap-2">
 						<Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-						<Button size="sm" onClick={create} loading={saving} disabled={members.length === 0}>Create group</Button>
+						<Button size="sm" onClick={create} loading={pending} disabled={members.length === 0}>Create group</Button>
 					</div>
 				</div>
 			</div>

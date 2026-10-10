@@ -1,8 +1,9 @@
 // ⚠️ SERVER-ONLY: Messaging — the single owner of conversation access, read state, and group lifecycle.
 //
 // Everything is addressed by conversation id and scoped to ONE acting identity: the user personally, or
-// a page they may act as (ADMIN/EDITOR, verified from the session by `resolveMessagingIdentity`). Routes
-// stay thin: resolve the identity, call in here, map the result to a response.
+// a page they may act as (ADMIN/EDITOR, verified from the session by `resolveMessagingIdentity`). Callers
+// stay thin: the read routes (message-routes.ts) and the write commands behind the Server Actions
+// (message-commands.ts) resolve the identity, call in here, and map the result.
 //
 // Read state is per participant (`ConversationParticipant.lastReadAt`) and a participant only sees
 // messages sent at/after it joined (its `createdAt`). A page participant's marker is shared by all of its
