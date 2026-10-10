@@ -5,7 +5,8 @@ import Image from "next/image";
 import type { ImageItem } from "@/lib/types/image";
 import { uploadAndAttachImage } from "@/lib/utils/image-client";
 import { validateImageFile, compressImage, MAX_IMAGE_SIZE } from "@/lib/utils/image";
-import { API_IMAGE, API_IMAGE_ATTACHMENT } from "@/lib/const/routes";
+import { removeImageAttachmentAction, updateImageAction } from "@/lib/actions/image";
+import { useAction } from "@/lib/hooks/useAction";
 import { ModalShell } from "@/lib/components/ui/ModalShell";
 import { ModalButton } from "@/lib/components/ui/ModalButton";
 import { CaptionInput } from "@/lib/components/images/CaptionInput";
@@ -14,23 +15,28 @@ type Props = {
 	isOpen: boolean;
 	onClose: () => void;
 	postId: string;
+	/** The post's photos, from the server render. Each change refreshes the page, which updates this. */
 	images: ImageItem[];
-	setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
 	initialIndex?: number;
 };
 
 /**
  * Carousel-preview editor for a post's photos. Shows the whole set, lets the owner
  * caption the current photo, add more, or remove one — all committed immediately
- * (matching the avatar/cover modals). The page carousel reads the same `images`
- * state, so it reflects changes as soon as the modal closes.
+ * (matching the avatar/cover modals). Every change is a Server Action that refreshes
+ * the page, so this modal and the page carousel both re-render from the server.
  */
-export function PostImagesModal({ isOpen, onClose, postId, images, setImages, initialIndex = 0 }: Props) {
+export function PostImagesModal({ isOpen, onClose, postId, images, initialIndex = 0 }: Props) {
 	const fileRef = useRef<HTMLInputElement>(null);
 	const [index, setIndex] = useState(initialIndex);
 	const [caption, setCaption] = useState("");
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState("");
+	// Upload is a plain route (multipart); the rest go through actions.
+	const [uploading, setUploading] = useState(false);
+	const [uploadError, setUploadError] = useState("");
+	const captionAction = useAction(updateImageAction);
+	const removeAction = useAction(removeImageAttachmentAction);
+	const busy = uploading || captionAction.pending || removeAction.pending;
+	const error = uploadError || captionAction.error || removeAction.error || "";
 	// Last caption we've persisted per image id. Set synchronously before the PATCH so a
 	// second saveCaption for the same photo (e.g. onBlur firing right before a Done/nav
 	// click that also flushes) short-circuits instead of firing a duplicate request —
@@ -56,22 +62,8 @@ export function PostImagesModal({ isOpen, onClose, postId, images, setImages, in
 		const lastSaved = savedCaptionRef.current[imageId] ?? (current.caption ?? null);
 		if (next === lastSaved) return;
 		savedCaptionRef.current[imageId] = next; // mark before the await so a concurrent call no-ops
-		setBusy(true);
-		try {
-			const res = await fetch(API_IMAGE(imageId), {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ caption: next }),
-			});
-			if (!res.ok) throw new Error("Failed to save caption");
-			const updated: ImageItem = await res.json();
-			setImages((prev) => prev.map((img) => (img.id === imageId ? { ...img, caption: updated.caption } : img)));
-		} catch (err) {
-			savedCaptionRef.current[imageId] = lastSaved; // revert so a retry can re-attempt
-			setError(err instanceof Error ? err.message : "Failed to save caption");
-		} finally {
-			setBusy(false);
-		}
+		const result = await captionAction.run({ imageId, caption: next });
+		if (!result.ok) savedCaptionRef.current[imageId] = lastSaved; // revert so a retry can re-attempt
 	}
 
 	async function goTo(next: number) {
@@ -83,53 +75,40 @@ export function PostImagesModal({ isOpen, onClose, postId, images, setImages, in
 		const file = e.target.files?.[0];
 		if (fileRef.current) fileRef.current.value = "";
 		if (!file) return;
-		setError("");
+		setUploadError("");
 
 		let processed = file;
 		const validation = validateImageFile(file);
 		if (!validation.valid) {
 			if (file.size <= MAX_IMAGE_SIZE) {
-				setError(validation.error || "Invalid image file");
+				setUploadError(validation.error || "Invalid image file");
 				return;
 			}
 			try {
 				processed = await compressImage(file);
 			} catch {
-				setError("Failed to compress image");
+				setUploadError("Failed to compress image");
 				return;
 			}
 		}
 
-		setBusy(true);
+		setUploading(true);
 		try {
 			await saveCaption(); // flush any pending caption before appending
-			const item = await uploadAndAttachImage({ file: processed, folder: "post-photos", type: "POST", targetId: postId, sortOrder: images.length });
-			const newIndex = images.length;
-			setImages((prev) => [...prev, item]);
-			setIndex(newIndex);
+			await uploadAndAttachImage({ file: processed, folder: "post-photos", type: "POST", targetId: postId, sortOrder: images.length });
+			setIndex(images.length); // the refreshed set ends with the new photo
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to add photo");
+			setUploadError(err instanceof Error ? err.message : "Failed to add photo");
 		} finally {
-			setBusy(false);
+			setUploading(false);
 		}
 	}
 
 	async function handleRemove() {
-		if (!current) return;
-		setBusy(true);
-		setError("");
-		try {
-			if (current.attachmentId) {
-				const res = await fetch(API_IMAGE_ATTACHMENT(current.attachmentId), { method: "DELETE" });
-				if (!res.ok) throw new Error("Failed to remove photo");
-			}
-			setImages((prev) => prev.filter((img) => img.id !== current.id));
-			setIndex((i) => Math.max(0, Math.min(i, images.length - 2)));
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to remove photo");
-		} finally {
-			setBusy(false);
-		}
+		if (!current?.attachmentId) return;
+		setUploadError("");
+		const result = await removeAction.run({ attachmentId: current.attachmentId });
+		if (result.ok) setIndex((i) => Math.max(0, Math.min(i, images.length - 2)));
 	}
 
 	async function handleClose() {

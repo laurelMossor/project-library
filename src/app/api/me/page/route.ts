@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { getPageById } from "@/lib/utils/server/page";
-import { canPostAsPage, canManagePage, getActingRole } from "@/lib/utils/server/permission";
-import { unauthorized, notFound, badRequest, serverError } from "@/lib/utils/errors";
-import { saveMyProfile } from "@/lib/utils/server/profile-update";
-import type { SavePayload } from "@/lib/types/inline-edit";
+import { getActingRole } from "@/lib/utils/server/permission";
+import { unauthorized, notFound, serverError } from "@/lib/utils/errors";
 
 /**
  * GET /api/me/page
@@ -38,54 +36,6 @@ export async function GET() {
 		return NextResponse.json({ ...page, role });
 	} catch (error) {
 		console.error("GET /api/me/page error:", error);
-		return serverError();
-	}
-}
-
-/**
- * PUT /api/me/page
- * Update the active page profile. Accepts a structured SavePayload with scalar
- * fields and optional element operations, all in one transaction.
- * Protected endpoint.
- */
-export async function PUT(request: Request) {
-	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
-			return unauthorized();
-		}
-
-		if (!ctx.activePageId) {
-			return badRequest("No active page set. Cannot update page profile.");
-		}
-
-		const allowed = await canPostAsPage(ctx.userId, ctx.activePageId);
-		if (!allowed) {
-			return NextResponse.json(
-				{ error: "You don't have permission to manage this page" },
-				{ status: 403 }
-			);
-		}
-
-		const body = (await request.json()) as SavePayload;
-
-		// Privacy and membership settings are ADMIN-only, even though an EDITOR may
-		// edit the rest of the profile (canPostAsPage above).
-		const isAdmin = await canManagePage(ctx.userId, ctx.activePageId);
-
-		const result = await saveMyProfile("PAGE", ctx.activePageId, body, {
-			allowManageChange: isAdmin,
-			actorUserId: ctx.userId,
-		});
-		if (!result.ok) {
-			// A non-admin attempting a visibility change is a permission failure (403),
-			// not a validation error (400). The util flags that case via `forbidden`.
-			const status = result.forbidden ? 403 : 400;
-			return NextResponse.json({ error: result.error }, { status });
-		}
-		return NextResponse.json(result.profile);
-	} catch (error) {
-		console.error("PUT /api/me/page error:", error);
 		return serverError();
 	}
 }

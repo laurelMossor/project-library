@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
 import {
   validateEmail,
+  parseEmailList,
   validateHandle,
   validatePassword,
   validatePasswordPair,
@@ -10,6 +11,7 @@ import {
   validatePostData,
   validateEventData,
   validateEventPublishable,
+  validateEventUpdateData,
   validatePageData,
   isValidCoordinate,
   validateGroupName,
@@ -17,6 +19,26 @@ import {
 } from "@/lib/validations";
 import { generateHandle, handleFromName, nameFromHandle, sanitizeHandleTyping } from "@/lib/utils/handle";
 import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS } from "@/lib/const/messaging";
+
+// ---------------------------------------------------------------------------
+// parseEmailList (the invite-by-email field)
+// ---------------------------------------------------------------------------
+describe("parseEmailList", () => {
+  test("splits on commas, spaces, semicolons, and newlines; normalizes and dedupes", () => {
+    expect(parseEmailList(" A@x.com, b@x.com;c@x.com\nd@x.com  a@X.com,, ")).toEqual({
+      valid: ["a@x.com", "b@x.com", "c@x.com", "d@x.com"],
+      invalid: [],
+    });
+  });
+
+  test("collects invalid entries separately", () => {
+    expect(parseEmailList("a@x.com, nope, also@bad")).toEqual({ valid: ["a@x.com"], invalid: ["nope", "also@bad"] });
+  });
+
+  test("empty input → nothing", () => {
+    expect(parseEmailList("  ,  ")).toEqual({ valid: [], invalid: [] });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // validateEmail
@@ -444,6 +466,25 @@ describe("validateEventPublishable", () => {
     expect(validateEventPublishable({
       title: "Stale", content: "Details", eventDateTime: new Date(2000, 1, 1), location: "Portland, OR",
     })).toMatchObject({ valid: false });
+  });
+});
+
+describe("validateEventUpdateData", () => {
+  test("accepts a blank or whitespace location (TBD)", () => {
+    expect(validateEventUpdateData({ location: "" })).toEqual({ valid: true });
+    expect(validateEventUpdateData({ location: "   " })).toEqual({ valid: true });
+  });
+
+  test("rejects a location over 255 characters", () => {
+    expect(validateEventUpdateData({ location: "x".repeat(256) })).toMatchObject({ valid: false });
+  });
+
+  test("accepts a real timezone and rejects a fake one", () => {
+    expect(validateEventUpdateData({ eventTimezone: "America/Los_Angeles" })).toEqual({ valid: true });
+    expect(validateEventUpdateData({ eventTimezone: "Nope" })).toMatchObject({
+      valid: false,
+      error: "Invalid timezone",
+    });
   });
 });
 

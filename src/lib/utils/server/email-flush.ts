@@ -65,7 +65,7 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 					where: { id: { in: notifIds } },
 					select: {
 						id: true, type: true, actorUserId: true, actorPageId: true, actorName: true,
-						objectType: true, objectId: true, createdAt: true, readAt: true,
+						objectType: true, objectId: true, commentId: true, createdAt: true, readAt: true,
 					},
 				})
 			: Promise.resolve([]),

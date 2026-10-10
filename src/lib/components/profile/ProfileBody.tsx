@@ -2,9 +2,9 @@
 
 import {
 	ProfileEntity,
+	type FollowCounts,
 	getProfileBio,
 	getProfileInterests,
-	getProfileEntityId,
 } from "@/lib/types/profile";
 import { Tag } from "@/lib/components/tag/Tag";
 import { FollowStats } from "./FollowStats";
@@ -13,12 +13,10 @@ import { ProfileElementList } from "@/lib/components/profile/ProfileElementList"
 
 type ProfileBodyProps = {
 	profile: ProfileEntity;
+	followCounts: FollowCounts;
 };
 
-export function ProfileBody({ profile }: ProfileBodyProps) {
-	const entityId = getProfileEntityId(profile);
-	const entityType = profile.type === "PAGE" ? "page" : "user";
-
+export function ProfileBody({ profile, followCounts }: ProfileBodyProps) {
 	const connectionsHref = PUBLIC_PROFILE(profile.data.handle);
 
 	const bio = getProfileBio(profile);
@@ -42,11 +40,7 @@ export function ProfileBody({ profile }: ProfileBodyProps) {
 
 			<ProfileElementList elements={elements} />
 
-			<FollowStats
-				entityId={entityId}
-				entityType={entityType}
-				connectionsHref={connectionsHref}
-			/>
+			<FollowStats counts={followCounts} connectionsHref={connectionsHref} />
 		</div>
 	);
 }

@@ -78,6 +78,13 @@ export const EVENT_DETAIL = (id: string) => `/events/${id}`;
 export const POSTS = "/posts";
 export const POST_NEW = "/posts/new";
 export const POST_DETAIL = (id: string) => `/posts/${id}`;
+/** DOM id of one comment row on a post/event detail page. */
+export const COMMENT_ANCHOR = (commentId: string) => `comment-${commentId}`;
+/** Query param naming the comment a detail page should scroll to and highlight (notification links). */
+export const COMMENT_PARAM = "comment";
+/** A post/event detail URL that lands on one of its comments. */
+export const COMMENT_LINK = (detailUrl: string, commentId: string) =>
+	`${detailUrl}?${COMMENT_PARAM}=${encodeURIComponent(commentId)}`;
 
 // ============================================================================
 // Message Routes
@@ -95,98 +102,61 @@ export const MESSAGE_THREAD = (conversationId: string, asPageId?: string | null)
 // ============================================================================
 // API Routes
 // ============================================================================
+// Signup, password reset, email verification/resend, and unsubscribe are Server Actions in
+// src/lib/actions/auth.ts.
 export const API_AUTH_SESSION = "/api/auth/session";
-export const API_AUTH_SIGNUP = "/api/auth/signup";
 export const API_HANDLE_AVAILABLE = "/api/handles/available"; // GET ?handle= — public, rate-limited
-export const API_AUTH_VERIFY_EMAIL = "/api/auth/verify-email";
-export const API_AUTH_RESEND_VERIFICATION = "/api/auth/resend-verification";
-export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
-export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
-export const API_ME_USER = "/api/me/user"; // GET/PUT/DELETE current user profile
+// Profile, handle, setup, account/page delete, notification prefs, and the active-identity
+// switch are Server Actions in src/lib/actions/{profile,account,page,settings,session}.ts.
+export const API_ME_USER = "/api/me/user"; // GET current user profile
 export const API_ME_USER_DELETE_PREVIEW = "/api/me/user/delete-preview"; // GET pages deleted with the account
-export const API_ME_SETUP = "/api/me/setup"; // DELETE an account that has not finished setup
-export const API_ME_SETUP_COMPLETE = "/api/me/setup-complete"; // POST mark the settings review done
-export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
-export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
-export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle
+export const API_ME_PAGE = "/api/me/page"; // GET current active page profile
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
-export const API_ME_INVITES = "/api/me/invites"; // GET role invitations waiting on the current user
-export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
-export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
+export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET email prefs for the active identity
 
-// Unsubscribe + the scheduled email flush (pinged by a GitHub Action)
-export const API_UNSUBSCRIBE = "/api/unsubscribe";
+// The scheduled email flush (pinged by a GitHub Action)
 export const API_NOTIFICATIONS_FLUSH = "/api/notifications/flush";
 
 // Event API Routes
 export const API_EVENTS = "/api/events";
-export const API_EVENT = (id: string) => `/api/events/${id}`;
 export const API_EVENT_POSTS = (id: string) => `/api/events/${id}/posts`;
-export const API_EVENT_RSVPS = (id: string) => `/api/events/${id}/rsvps`;
-export const API_EVENT_RSVP_COUNTS = (id: string) => `/api/events/${id}/rsvps/counts`;
-export const API_EVENT_COMMENTS = (id: string) => `/api/events/${id}/comments`;
 
 // Post API Routes
 export const API_POSTS = "/api/posts";
-export const API_POST = (id: string) => `/api/posts/${id}`;
 export const API_POST_POSTS = (id: string) => `/api/posts/${id}/posts`;
-export const API_POST_COMMENTS = (id: string) => `/api/posts/${id}/comments`;
 
-// Comment API Routes
-export const API_COMMENT = (id: string) => `/api/comments/${id}`;
-
-// Image API Routes
+// Image API Routes (attach / caption / remove are Server Actions in src/lib/actions/image.ts)
 export const API_UPLOAD = (folder: string) => `/api/upload?folder=${folder}`;
-export const API_IMAGE_ATTACHMENTS = "/api/image-attachments";
-export const API_IMAGE_ATTACHMENT = (id: string) => `/api/image-attachments/${id}`;
-export const API_IMAGE = (id: string) => `/api/images/${id}`;
 
-// Admin API Routes (Poster Catcher review; superadmin-gated)
-export const API_ADMIN_SUBMISSIONS = "/api/admin/submissions";
-export const API_ADMIN_SUBMISSION = (id: string) => `/api/admin/submissions/${id}`;
+// Poster Catcher review is server-rendered at /admin/submissions with Server Actions in
+// src/lib/actions/admin.ts (superadmin-gated).
 
 // Telegram intake webhook (Poster Catcher)
 export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 
-// Page API Routes
-export const API_PAGES = "/api/pages";
-export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
-
-export const API_PAGE_MEMBERSHIP = (pageId: string) => `/api/pages/${pageId}/membership`;
-export const API_PAGE_MEMBERS = (pageId: string) => `/api/pages/${pageId}/members`;
-export const API_PAGE_MEMBER = (pageId: string, userId: string) => `/api/pages/${pageId}/members/${userId}`;
-
-// Access-request API Routes (Request-to-Follow / Request-to-Join)
-export const API_PAGE_REQUESTS = (pageId: string) => `/api/pages/${pageId}/requests`;
-export const API_ME_REQUESTS = "/api/me/requests";
-export const API_REQUEST_APPROVE = (id: string) => `/api/requests/${id}/approve`;
-export const API_REQUEST_DENY = (id: string) => `/api/requests/${id}/deny`;
+// Page create/delete are Server Actions in src/lib/actions/page.ts.
+// Membership, invites, and access requests are Server Actions in src/lib/actions/membership.ts.
+// Their lists are read on the server page (connections.ts), not through GET routes.
 
 // Follow API Routes
-export const API_FOLLOWS = "/api/follows";
 export const API_FOLLOW = (targetId: string) => `/api/follows/${targetId}`;
 
-// Message API Routes
-export const API_MESSAGES = "/api/messages";
+// Message API Routes (reads only — sends, DM resolve, and group create/edit/leave are Server
+// Actions in src/lib/actions/message.ts)
 export const API_SEARCH_PROFILES = (q: string, type: "user" | "page" | "all" = "all") =>
 	`/api/search/profiles?q=${encodeURIComponent(q)}&type=${type}`;
-export const API_MESSAGES_DIRECT = "/api/messages/direct"; // POST resolve/create the DM with a user/page
 export const API_MESSAGES_SUGGESTIONS = (asPageId?: string | null) =>
 	asPageId ? `/api/messages/suggestions?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/suggestions";
-export const API_CONVERSATIONS = "/api/messages/conversations"; // POST create a group
-/** GET a thread (pass `asPageId` for a page identity), PATCH rename/add members. */
+/** GET a thread (pass `asPageId` for a page identity). */
 export const API_CONVERSATION = (id: string, asPageId?: string | null) =>
 	`/api/messages/conversations/${id}${asPageId ? `?asPageId=${encodeURIComponent(asPageId)}` : ""}`;
-export const API_CONVERSATION_MESSAGES = (id: string) => `/api/messages/conversations/${id}/messages`;
-export const API_CONVERSATION_LEAVE = (id: string) => `/api/messages/conversations/${id}/leave`;
 export const API_MESSAGES_UNREAD_COUNT = "/api/messages/unread-count";
 
-// Activity notifications
+// Activity notifications (mark-read is a Server Action in src/lib/actions/notification.ts)
 export const API_NOTIFICATIONS = "/api/notifications"; // GET list (?context=personal|<pageId>)
 export const API_NOTIFICATIONS_UNREAD_COUNT = "/api/notifications/unread-count"; // GET { personal, pages }
-export const API_NOTIFICATIONS_READ = "/api/notifications/read"; // PATCH mark a context's unread read
 /** Inbox for the active identity — pass `asPageId` to scope to a managed page, omit for personal. */
 export const API_MESSAGES_INBOX = (asPageId?: string | null) =>
 	asPageId ? `/api/messages/inbox?asPageId=${encodeURIComponent(asPageId)}` : "/api/messages/inbox";

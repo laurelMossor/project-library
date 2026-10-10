@@ -5,7 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageLayout } from "@/lib/components/layout/PageLayout";
 import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import { API_MESSAGES_DIRECT, MESSAGES } from "@/lib/const/routes";
+import { MESSAGES } from "@/lib/const/routes";
+import { resolveDirectConversationAction } from "@/lib/actions/message";
 import { ConversationThread } from "./ConversationThread";
 
 type Target =
@@ -81,13 +82,10 @@ function useResolvedConversationId(target: Target, activePageId: string | null, 
 	useEffect(() => {
 		if (direct || paused || !dmType || !dmId) return;
 		let cancelled = false;
-		fetch(API_MESSAGES_DIRECT, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ targetType: dmType, targetId: dmId, asPageId: activePageId }),
-		})
-			.then((r) => (r.ok ? r.json() : { conversationId: null }))
-			.then((d) => { if (!cancelled) setResolved({ key, id: d.conversationId ?? null }); })
+		// Called directly (not through useAction): this resolves on mount, and any failure
+		// (including a signed-out session) renders as "not available" rather than an error.
+		resolveDirectConversationAction({ target: { type: dmType, id: dmId }, asPageId: activePageId })
+			.then((r) => { if (!cancelled) setResolved({ key, id: r.ok ? r.data : null }); })
 			.catch(() => { if (!cancelled) setResolved({ key, id: null }); });
 		return () => { cancelled = true; };
 	}, [direct, paused, dmType, dmId, activePageId, key]);

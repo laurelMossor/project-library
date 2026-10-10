@@ -6,32 +6,26 @@ import { Button } from "@/lib/components/ui/Button";
 import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
-import { API_AUTH_FORGOT_PASSWORD, LOGIN } from "@/lib/const/routes";
+import { LOGIN } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { requestPasswordResetAction } from "@/lib/actions/auth";
 
 export default function ForgotPasswordPage() {
 	const [email, setEmail] = useState("");
-	const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+	const [sent, setSent] = useState(false);
+	const { run, pending, error } = useAction(requestPasswordResetAction);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setStatus("sending");
-		try {
-			const res = await fetch(API_AUTH_FORGOT_PASSWORD, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email }),
-			});
-			setStatus(res.ok ? "sent" : "error");
-		} catch {
-			setStatus("error");
-		}
+		const result = await run({ email });
+		if (result.ok) setSent(true);
 	};
 
 	return (
 		<AuthCard>
 			<h1 className="text-2xl font-bold">Reset your password</h1>
 
-			{status === "sent" ? (
+			{sent ? (
 				<p className="text-misty-forest">
 					If an account exists for that email, we&apos;ve sent a reset link.
 					Check your inbox.
@@ -49,12 +43,10 @@ export default function ForgotPasswordPage() {
 						onChange={(e) => setEmail(e.target.value)}
 						required
 					/>
-					<Button type="submit" fullWidth disabled={status === "sending"}>
-						{status === "sending" ? "Sending…" : "Send reset link"}
+					<Button type="submit" fullWidth disabled={pending}>
+						{pending ? "Sending…" : "Send reset link"}
 					</Button>
-					{status === "error" && (
-						<FormError error="Something went wrong. Please try again." />
-					)}
+					{error && <FormError error={error} />}
 				</form>
 			)}
 

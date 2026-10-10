@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { EventItem } from "@/lib/types/event";
+import type { EventItem, EventUpdateData } from "@/lib/types/event";
 import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSession";
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
@@ -20,14 +20,15 @@ import { TagsField } from "@/lib/components/tag/TagsField";
 import { EventMap } from "@/lib/components/map/EventMap";
 import { PostsList } from "@/lib/components/post/PostsList";
 import { LocationField } from "@/lib/components/map/LocationField";
-import { updateEvent, deleteEvent } from "@/lib/utils/event-client";
+import { deleteEventAction, updateEventAction } from "@/lib/actions/event";
+import { useAction } from "@/lib/hooks/useAction";
+import { validateEventPublishable } from "@/lib/validations";
 import { uploadAndAttachImage } from "@/lib/utils/image-client";
 import { eventHasContent } from "@/lib/utils/content";
-import { AuthError, authFetch } from "@/lib/utils/auth-client";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
 import { PencilIcon } from "@/lib/components/icons/icons";
-import { MESSAGE_CONVERSATION, EXPLORE_PAGE, LOGIN_WITH_CALLBACK, EVENT_DETAIL, PUBLIC_PROFILE } from "@/lib/const/routes";
+import { MESSAGE_CONVERSATION, EXPLORE_PAGE, PUBLIC_PROFILE } from "@/lib/const/routes";
 import { contentIdentity } from "@/lib/utils/content-identity";
 import { PostToSelector } from "@/lib/components/profile/PostToSelector";
 import { getPersistedFilterUrl } from "@/lib/hooks/useFilterParams";
@@ -38,14 +39,16 @@ import { PostContentArea } from "@/lib/components/layout/PostContentArea";
 import { DashedPlaceholder } from "@/lib/components/ui/DashedPlaceholder";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { CommentSection } from "@/lib/components/comment/CommentSection";
-import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
-import type { RsvpStatus } from "@/lib/types/rsvp";
+import type { RsvpStatus, RsvpCountSummary, RsvpItem } from "@/lib/types/rsvp";
 import type { CardUser } from "@/lib/types/card";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import type { CommentItem } from "@/lib/types/comment";
 
 type EventPageClientProps = {
 	event: EventItem;
+	comments: CommentItem[];
 	canEdit: boolean;
 	canModerate: boolean;
 	isLoggedIn: boolean;
@@ -55,12 +58,18 @@ type EventPageClientProps = {
 	initialGuestName?: string | null;
 	initialHasPlusOne?: boolean;
 	memberUser?: CardUser;
+	/** Server-rendered RSVP data: null until the event is published. `rsvps` is the organizer's attendee list only. */
+	rsvpCounts: RsvpCountSummary | null;
+	rsvps: RsvpItem[] | null;
 };
 
-/** Inner content — must be inside <InlineEditSession> to access editSession context */
+/**
+ * Inner content — must be inside <InlineEditSession> to access editSession context.
+ * `event` comes straight from the server render: every save is a Server Action that
+ * refreshes the page, so this prop is always the current server state.
+ */
 function EventPageContent({
 	event,
-	setEvent,
 	canEdit,
 	canModerate,
 	isLoggedIn,
@@ -70,23 +79,14 @@ function EventPageContent({
 	initialGuestName,
 	initialHasPlusOne,
 	memberUser,
-}: {
-	event: EventItem;
-	setEvent: React.Dispatch<React.SetStateAction<EventItem>>;
-	canEdit: boolean;
-	canModerate: boolean;
-	isLoggedIn: boolean;
-	initialName?: string;
-	initialEmail?: string;
-	existingRsvpStatus?: RsvpStatus;
-	initialGuestName?: string | null;
-	initialHasPlusOne?: boolean;
-	memberUser?: CardUser;
-}) {
+	rsvpCounts,
+	rsvps,
+}: Omit<EventPageClientProps, "comments">) {
 	const router = useRouter();
 	const editSession = useInlineEditSession();
+	const { run: saveEvent } = useAction(updateEventAction);
+	const { run: removeEvent } = useAction(deleteEventAction);
 	const [editingField, setEditingField] = useState<string | null>(null);
-	const [rsvpRefreshKey, setRsvpRefreshKey] = useState(0);
 
 	const isDraft = event.status === "DRAFT";
 	const isPublished = event.status === "PUBLISHED";
@@ -96,12 +96,11 @@ function EventPageContent({
 	const page = event.page;
 	const coverImageUrl = event.images?.[0]?.url || null;
 
-	// Cover upload is immediate (like avatars): attach on modal Save, then refresh the banner.
-	// replace:true swaps out any existing cover in one call.
+	// Cover upload is immediate (like avatars): attach on modal Save. replace:true swaps out
+	// any existing cover in one call, and the attach action refreshes the banner from the server.
 	async function handleCoverSave({ file }: { file: File | null }) {
 		if (!file) return;
-		const item = await uploadAndAttachImage({ file, folder: "event-covers", type: "EVENT", targetId: event.id, replace: true, fetchImpl: authFetch });
-		setEvent((prev) => ({ ...prev, images: [item] }));
+		await uploadAndAttachImage({ file, folder: "event-covers", type: "EVENT", targetId: event.id, replace: true });
 	}
 
 	// Session-backed fields — dirtyFields is the single source of truth.
@@ -114,15 +113,9 @@ function EventPageContent({
 	const { value: latValue, setValue: setLat } = useInlineField<number | null>("latitude", event.latitude);
 	const { value: lngValue, setValue: setLng } = useInlineField<number | null>("longitude", event.longitude);
 
-	// When editSession cancels, close any open edit field (values revert automatically
+	// Close any open field when editing ends (cancel reverts values automatically
 	// because dirtyFields clears and useInlineField reads from it).
-	const cancelRevision = editSession?.cancelRevision ?? 0;
-	useEffect(() => {
-		if (cancelRevision === 0) return;
-		setEditingField(null);
-	// cancelRevision is the only intended trigger
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [cancelRevision]);
+	useOnEditingClosed(() => setEditingField(null));
 
 	// Drop out of edit mode when the event transitions to PUBLISHED
 	useEffect(() => {
@@ -160,18 +153,13 @@ function EventPageContent({
 		return () => {
 			clearTimeout(armTimer);
 			if (armed && shouldDiscardOnLeaveRef.current && !hasContentRef.current) {
-				// eslint-disable-next-line no-console
-				console.log("deleting draft event on navigation away:", eventId);
-				deleteEvent(eventId).catch(() => {});
+				// Fire-and-forget: the component is gone, so there's nothing to report to.
+				void deleteEventAction({ id: eventId });
 			}
 		};
 	// event.id is stable for the lifetime of this component
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-
-	const handleAuthError = () => {
-		router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id)));
-	};
 
 	const { voice, placedIn } = contentIdentity({
 		user: event.user,
@@ -179,25 +167,13 @@ function EventPageContent({
 		asPageId: event.asPageId ?? null,
 	});
 
-	const handleAuthorSwitch = async (asPageId: string | null) => {
-		try {
-			const updated = await updateEvent(event.id, asPageId
-				? { asPageId }
-				: { asPageId: null, pageId: null, showOnAuthorProfile: false });
-			setEvent((prev) => ({ ...prev, ...updated }));
-		} catch (err) {
-			if (err instanceof AuthError) handleAuthError();
-		}
-	};
+	// Speaking as a page puts the event on that page. Speaking as yourself
+	// starts on your profile; "Post to" can add a page after that.
+	const handleAuthorSwitch = (asPageId: string | null) =>
+		saveEvent({ id: event.id, data: asPageId ? { asPageId } : { asPageId: null, pageId: null, showOnAuthorProfile: false } });
 
-	const handlePostTo = async (next: { pageId: string | null; showOnAuthorProfile: boolean }) => {
-		try {
-			const updated = await updateEvent(event.id, { asPageId: null, ...next });
-			setEvent((prev) => ({ ...prev, ...updated }));
-		} catch (err) {
-			if (err instanceof AuthError) handleAuthError();
-		}
-	};
+	const handlePostTo = (next: { pageId: string | null; showOnAuthorProfile: boolean }) =>
+		saveEvent({ id: event.id, data: { asPageId: null, ...next } });
 
 	return (
 		<>
@@ -405,10 +381,9 @@ function EventPageContent({
 				{/* RSVP section (published events only) */}
 				{isPublished && (
 					<div className="space-y-4">
-						<RsvpCounts eventId={event.id} refreshKey={rsvpRefreshKey} />
+						{rsvpCounts && <RsvpCounts counts={rsvpCounts} />}
 						<RsvpForm
 							eventId={event.id}
-							onRsvpSubmitted={() => setRsvpRefreshKey((k) => k + 1)}
 							initialName={initialName}
 							initialEmail={initialEmail}
 							existingRsvpStatus={existingRsvpStatus}
@@ -434,7 +409,7 @@ function EventPageContent({
 				<PostsList collectionId={event.id} collectionType="event" />
 
 				{/* Attendee list (owner only) */}
-				{canEdit && isPublished && <AttendeeList eventId={event.id} />}
+				{rsvps && <AttendeeList rsvps={rsvps} />}
 
 				{/* Footer actions */}
 				{(canEdit || canModerate) && (
@@ -444,13 +419,9 @@ function EventPageContent({
 								label="Delete Event"
 								itemTitle={event.title || "Untitled Event"}
 								onDelete={async () => {
-									try {
-										await deleteEvent(event.id);
-										router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
-									} catch (err) {
-										if (err instanceof AuthError) { router.push(LOGIN_WITH_CALLBACK(EVENT_DETAIL(event.id))); return; }
-										throw err;
-									}
+									const result = await removeEvent({ id: event.id });
+									if (result.ok) router.push(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE));
+									else if (result.error !== "unauthorized") throw new Error(result.message);
 								}}
 							/>
 						)}
@@ -486,7 +457,8 @@ function EventPageContent({
 }
 
 export function EventPageClient({
-	event: initialEvent,
+	event,
+	comments,
 	canEdit,
 	canModerate,
 	isLoggedIn,
@@ -496,8 +468,10 @@ export function EventPageClient({
 	initialGuestName,
 	initialHasPlusOne,
 	memberUser,
+	rsvpCounts,
+	rsvps,
 }: EventPageClientProps) {
-	const [event, setEvent] = useState(initialEvent);
+	const { run: saveEvent } = useAction(updateEventAction);
 	const [exploreHref, setExploreHref] = useState(EXPLORE_PAGE);
 	useEffect(() => { setExploreHref(getPersistedFilterUrl(EXPLORE_PAGE, EXPLORE_PAGE)); }, []);
 
@@ -510,21 +484,27 @@ export function EventPageClient({
 				<InlineEditSession
 					resource={event as unknown as Record<string, unknown>}
 					onSave={async ({ fields }: SavePayload) => {
-						const updated = await updateEvent(event.id, fields as Parameters<typeof updateEvent>[1]);
-						setEvent((prev) => ({ ...prev, ...updated }));
-						return updated as unknown as Record<string, unknown>;
-					}}
-					onSaved={(updated) => {
-						setEvent((prev) => ({ ...prev, ...(updated as Partial<EventItem>) }));
+						// The action refreshes the page, so the saved values arrive as new props.
+						const result = await saveEvent({ id: event.id, data: fields as EventUpdateData });
+						if (!result.ok) throw new Error(result.message);
 					}}
 					canEdit={canEdit}
 					publishable={canEdit && isDraft}
-					canPublish={(current) => Boolean((current.title as string)?.trim())}
-					publishHint="Add an event name to publish"
+					// The same rule the server enforces on publish, so the button never offers a publish it would refuse.
+					canPublish={(current) => validateEventPublishable({
+						title: (current.title as string) ?? "",
+						content: (current.content as string) ?? "",
+						eventDateTime: new Date(current.eventDateTime as string | Date),
+						eventTimezone: (current.eventTimezone as string | null) ?? undefined,
+						location: (current.location as string | null) ?? "",
+						latitude: current.latitude as number | null,
+						longitude: current.longitude as number | null,
+						tags: current.tags as string[],
+					}).valid}
+					publishHint="Add a name, a description, and a future date to publish"
 				>
 					<EventPageContent
 						event={event}
-						setEvent={setEvent}
 						canEdit={canEdit}
 						canModerate={canModerate}
 						isLoggedIn={isLoggedIn}
@@ -534,6 +514,8 @@ export function EventPageClient({
 						initialGuestName={initialGuestName}
 						initialHasPlusOne={initialHasPlusOne}
 						memberUser={memberUser}
+						rsvpCounts={rsvpCounts}
+						rsvps={rsvps}
 					/>
 				</InlineEditSession>
 			</ContentCard>
@@ -542,6 +524,7 @@ export function EventPageClient({
 			{isPublished && (
 				<CommentSection
 					target={{ kind: "event", id: event.id }}
+					comments={comments}
 					ownerUserId={event.userId}
 					ownerPageId={event.pageId}
 					isContentOwner={canModerate}

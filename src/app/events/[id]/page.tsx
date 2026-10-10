@@ -1,6 +1,7 @@
 import { getEventById } from "@/lib/utils/server/event";
 import { getUserById } from "@/lib/utils/server/user";
-import { getRsvpByEmail } from "@/lib/utils/server/rsvp";
+import { getRsvpByEmail, getRsvpCounts, getRsvpsByEvent } from "@/lib/utils/server/rsvp";
+import { getEventComments } from "@/lib/utils/server/comment";
 import { auth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { EventPageClient } from "@/lib/components/event/EventPageClient";
@@ -70,9 +71,19 @@ export default async function EventDetailPage({ params }: Props) {
 		}
 	}
 
+	// Published events carry a comment thread and RSVPs; drafts can't be commented on or RSVPed to yet.
+	// The attendee list (names + emails) follows canEditContent, same as the organizer's view always did.
+	const isPublished = event.status === "PUBLISHED";
+	const [comments, rsvpCounts, rsvps] = await Promise.all([
+		isPublished ? getEventComments(id) : [],
+		isPublished ? getRsvpCounts(id) : null,
+		isPublished && canEdit ? getRsvpsByEvent(id) : null,
+	]);
+
 	return (
 		<EventPageClient
 			event={event}
+			comments={comments}
 			canEdit={canEdit}
 			canModerate={canModerate}
 			isLoggedIn={!!session?.user}
@@ -82,6 +93,8 @@ export default async function EventDetailPage({ params }: Props) {
 			initialGuestName={initialGuestName}
 			initialHasPlusOne={initialHasPlusOne}
 			memberUser={memberUser}
+			rsvpCounts={rsvpCounts}
+			rsvps={rsvps}
 		/>
 	);
 }

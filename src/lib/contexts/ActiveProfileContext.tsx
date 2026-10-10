@@ -3,7 +3,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { CardEntity, CardUser, CardPage, CardPageWithRole } from "@/lib/types/card";
-import { API_ME_PAGE, API_ME_PAGES, API_SESSION_ACTIVE_PAGE } from "@/lib/const/routes";
+import { API_ME_PAGE, API_ME_PAGES } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { setActivePageAction } from "@/lib/actions/session";
 import { isActingRole } from "@/lib/const/roles";
 
 interface ActiveProfileContextValue {
@@ -19,7 +21,7 @@ interface ActiveProfileContextValue {
 	activeRole: string | null;
 	/**
 	 * Switch active profile. Pass null for personal identity, a pageId for a page.
-	 * Internally calls PUT /api/session/active-page (page) or DELETE (personal).
+	 * Runs `setActivePageAction`, which rewrites the session cookie and refreshes server data.
 	 */
 	switchProfile: (pageId: string | null) => Promise<boolean>;
 	/** Explicitly load the pages list. Call this when opening a profile switcher. */
@@ -58,7 +60,13 @@ interface ActiveProfileProviderProps {
 
 export function ActiveProfileProvider({ children, initialCurrentUser, initialActivePage }: ActiveProfileProviderProps) {
 	const { data: session, update: updateSession } = useSession();
-	const activePageId = session?.user?.activePageId ?? null;
+	// A client refetch can drop `user.id` while the server render still has this user. Keep the
+	// server identity in that case so the nav tag doesn't blank. A real logout re-renders with
+	// no initial user, and the effect below clears.
+	const clientUserId = session?.user?.id ?? null;
+	const activePageId = clientUserId
+		? (session?.user?.activePageId ?? null)
+		: (initialActivePage?.id ?? null);
 
 	const [currentUser, setCurrentUser] = useState<CardUser | null>(initialCurrentUser);
 	// Seed from the server props so the acting-identity tag paints correctly on the first
@@ -68,14 +76,15 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 		resolveActiveEntity(initialCurrentUser, activePageId, initialActivePage, null),
 	);
 	const [pages, setPages] = useState<CardPageWithRole[]>([]);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { run, pending: loading, error: actionError } = useAction(setActivePageAction);
+	// Failures after the switch itself succeeded (re-reading the session or the page).
+	const [syncError, setSyncError] = useState<string | null>(null);
+	const error = syncError ?? actionError;
 
 	// Sync currentUser from the server prop. The layout re-runs getActingIdentity on every
 	// server render — including router.refresh() after an avatar/profile edit — so a fresh
-	// prop is how the nav learns about the change (this replaces the old client fetch-cache
-	// that never invalidated). Still gated on the *client* session id so an out-of-band
-	// session loss (logout, token-version bump) clears the identity without a reload.
+	// prop is how the nav learns about the change. A missing client user is not a logout
+	// while this prop still has one (a refetch can drop the id and a reload brings it back).
 	// Keyed on a primitive signature, not the object reference, so it fires exactly when the
 	// identity's displayed fields change — never on an incidental re-render.
 	const userSig = initialCurrentUser
@@ -83,8 +92,10 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 		: null;
 	useEffect(() => {
 		if (!session?.user?.id) {
-			setCurrentUser(null);
-			setPages([]); // drop the lazy-loaded switcher list on logout
+			if (!initialCurrentUser) {
+				setCurrentUser(null);
+				setPages([]); // drop the lazy-loaded switcher list on logout
+			}
 			return;
 		}
 		setCurrentUser(initialCurrentUser);
@@ -129,22 +140,17 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 	}
 
 	const switchProfile = async (pageId: string | null) => {
-		setLoading(true);
-		setError(null);
+		setSyncError(null);
+
+		// The action rewrites the session cookie on the server and refreshes, so the nav and every
+		// viewer-dependent server page re-render as the new identity.
+		const result = await run({ pageId });
+		if (!result.ok) return false;
 
 		try {
+			// Re-read the session so the client's `useSession` sees the new activePageId.
+			await updateSession();
 			if (pageId) {
-				const res = await fetch(API_SESSION_ACTIVE_PAGE, {
-					method: "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ activePageId: pageId }),
-				});
-				if (!res.ok) {
-					const data = await res.json().catch(() => ({}));
-					setError((data as { error?: string }).error || "Failed to switch profile");
-					return false;
-				}
-				await updateSession({ activePageId: pageId });
 				// Optimistically set the new active page entity for an instant switch. This also
 				// feeds the resolver's keep-prior branch: on the next server render the fresh
 				// initialActivePage prop confirms this value. Keep this fetch and that branch in
@@ -155,20 +161,12 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 					if (page?.id) setActiveEntity(page as CardPageWithRole);
 				}
 			} else {
-				const res = await fetch(API_SESSION_ACTIVE_PAGE, { method: "DELETE" });
-				if (!res.ok) {
-					setError("Failed to switch profile");
-					return false;
-				}
-				await updateSession({ activePageId: null });
 				setActiveEntity(currentUser);
 			}
 			return true;
 		} catch {
-			setError("Failed to switch profile");
+			setSyncError("Failed to switch profile");
 			return false;
-		} finally {
-			setLoading(false);
 		}
 	};
 

@@ -3,8 +3,9 @@
  *
  * The acting identity is seeded from server props (initialCurrentUser / initialActivePage)
  * and re-synced when those props change — this is how a router.refresh() after an avatar/
- * profile edit reaches the nav. switchProfile still round-trips fetch for the interactive
- * switch. fetch and next-auth/react are mocked — no network or session required.
+ * profile edit reaches the nav. switchProfile runs setActivePageAction (a Server Action that
+ * rewrites the session cookie). The action, fetch, and next-auth/react are mocked — no network
+ * or session required.
  */
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
@@ -14,6 +15,10 @@ import type { CardUser, CardPageWithRole } from "@/lib/types/card";
 import { useSession } from "next-auth/react";
 
 vi.mock("next-auth/react", () => ({ useSession: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/lib/actions/session", () => ({ setActivePageAction: vi.fn() }));
+
+import { setActivePageAction } from "@/lib/actions/session";
 
 const mockUpdateSession = vi.fn().mockResolvedValue(undefined);
 
@@ -49,9 +54,6 @@ function mockSession(activePageId: string | null = null) {
 /** Build a minimal Response-like mock for global.fetch */
 function fetchOk(data: unknown) {
   return Promise.resolve({ ok: true, json: () => Promise.resolve(data) } as Response);
-}
-function fetchFail(data: unknown) {
-  return Promise.resolve({ ok: false, json: () => Promise.resolve(data) } as Response);
 }
 
 // ---------------------------------------------------------------------------
@@ -118,55 +120,52 @@ describe("ActiveProfileContext", () => {
 
   // -- switchProfile (unchanged: optimistic round-trip) ---------------------
 
-  test("switchProfile(pageId) success → calls PUT, updates session, sets activeEntity to page", async () => {
+  test("switchProfile(pageId) success → runs the action, re-reads the session, sets activeEntity to page", async () => {
     mockSession(null);
-    global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk({ activePageId: "page-1" }))     // PUT /api/session/active-page
-      .mockReturnValueOnce(fetchOk(mockPage));                       // fetch page after switch
+    vi.mocked(setActivePageAction).mockResolvedValue({ ok: true, data: undefined });
+    global.fetch = vi.fn().mockReturnValueOnce(fetchOk(mockPage)); // fetch page after switch
 
     const { result } = renderWithProps(mockUser);
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
 
     await act(async () => { await result.current.switchProfile("page-1"); });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/session/active-page",
-      expect.objectContaining({ method: "PUT" })
-    );
-    expect(mockUpdateSession).toHaveBeenCalledWith({ activePageId: "page-1" });
+    expect(setActivePageAction).toHaveBeenCalledWith({ pageId: "page-1" });
+    expect(mockUpdateSession).toHaveBeenCalledTimes(1);
     expect(result.current.activeEntity).toEqual(mockPage);
     expect(result.current.error).toBeNull();
   });
 
-  test("switchProfile(pageId) → 403 sets error and does not update session", async () => {
+  test("switchProfile(pageId) refused → sets error and does not re-read the session", async () => {
     mockSession(null);
-    global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchFail({ error: "You cannot act as this page" }));    // PUT → 403
+    vi.mocked(setActivePageAction).mockResolvedValue({
+      ok: false,
+      error: "forbidden",
+      message: "You cannot act as this page",
+    });
 
     const { result } = renderWithProps(mockUser);
     await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
 
-    await act(async () => { await result.current.switchProfile("page-1"); });
+    let switched = true;
+    await act(async () => { switched = await result.current.switchProfile("page-1"); });
 
+    expect(switched).toBe(false);
     expect(result.current.error).toBe("You cannot act as this page");
     expect(mockUpdateSession).not.toHaveBeenCalled();
   });
 
-  test("switchProfile(null) → calls DELETE, updates session, resets activeEntity to currentUser", async () => {
+  test("switchProfile(null) → runs the action with null, re-reads the session, resets activeEntity to currentUser", async () => {
     mockSession("page-1");
-    global.fetch = vi.fn()
-      .mockReturnValueOnce(fetchOk({ activePageId: null })); // DELETE /api/session/active-page
+    vi.mocked(setActivePageAction).mockResolvedValue({ ok: true, data: undefined });
 
     const { result } = renderWithProps(mockUser, mockPage);
     await waitFor(() => expect(result.current.activeEntity).toEqual(mockPage));
 
     await act(async () => { await result.current.switchProfile(null); });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "/api/session/active-page",
-      expect.objectContaining({ method: "DELETE" })
-    );
-    expect(mockUpdateSession).toHaveBeenCalledWith({ activePageId: null });
+    expect(setActivePageAction).toHaveBeenCalledWith({ pageId: null });
+    expect(mockUpdateSession).toHaveBeenCalledTimes(1);
     expect(result.current.activeEntity).toEqual(mockUser);
   });
 

@@ -3,7 +3,8 @@ import { prisma } from "./prisma";
 import { AttachmentTarget, MembershipPolicy, PermissionRole, ResourceType, type ContentVisibility, type ProfileVisibility, type Prisma } from "@prisma/client";
 
 import { profileElementFields } from "./profile-element";
-import { grantPermission, lockPageAdminChanges, revokeAllForResource } from "./permission";
+import { assertCanManagePage, grantPermission, lockPageAdminChanges, revokeAllForResource } from "./permission";
+import { removeStoragePaths } from "./storage";
 import { upsertFollow } from "./requests";
 import { collectOrphanedImages, detachAllForTargets, avatarAssignmentError, AvatarNotAllowed } from "./image-attachment";
 
@@ -228,4 +229,11 @@ export async function deletePage(pageId: string, tx: Prisma.TransactionClient): 
 	if (page.avatarImageId) paths.push(...await collectOrphanedImages([page.avatarImageId], tx));
 	await deleteConversationsIfEmpty(participations.map((row) => row.conversationId), tx);
 	return paths;
+}
+
+/** Delete a page you administer, then remove the files it owned. Refuses with `forbidden` for non-admins. */
+export async function removePage(userId: string, pageId: string): Promise<void> {
+	await assertCanManagePage(userId, pageId);
+	const paths = await prisma.$transaction((tx) => deletePage(pageId, tx), { timeout: 30_000, maxWait: 10_000 });
+	await removeStoragePaths(paths);
 }

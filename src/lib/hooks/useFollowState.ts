@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { API_FOLLOWS, API_FOLLOW } from "@/lib/const/routes";
-
-export type FollowState = "none" | "following" | "requested";
+import { API_FOLLOW } from "@/lib/const/routes";
+import { setFollow, type FollowState } from "@/lib/actions/follow";
+import { useAction } from "./useAction";
 
 /**
- * Single source of truth for the follow/request toggle, shared by ProfileButtons
- * and the connections Followers/Following surfaces. Reads the current state
+ * Single source of truth for the follow/request toggle (ProfileButtons). Reads the current state
  * (following / pending request / none) and toggles it:
  *   - PUBLIC/UNLISTED target → instant follow
  *   - PRIVATE target         → pending request ("requested")
@@ -20,7 +19,7 @@ export function useFollowState(
 ) {
 	const [state, setState] = useState<FollowState>("none");
 	const [loading, setLoading] = useState(true);
-	const [toggling, setToggling] = useState(false);
+	const { run, pending } = useAction(setFollow);
 
 	useEffect(() => {
 		if (!enabled) {
@@ -43,30 +42,12 @@ export function useFollowState(
 	}, [entityId, entityType, enabled]);
 
 	const toggle = async () => {
-		if (toggling) return;
-		setToggling(true);
-		try {
-			if (state === "following" || state === "requested") {
-				// Unfollow, or cancel a pending request — both DELETE the follow target.
-				await fetch(`${API_FOLLOW(entityId)}?type=${entityType}`, { method: "DELETE" });
-				setState("none");
-			} else {
-				const body =
-					entityType === "user" ? { followingUserId: entityId } : { followingPageId: entityId };
-				const res = await fetch(API_FOLLOWS, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(body),
-				});
-				const data = await res.json().catch(() => ({}));
-				setState(data.status === "requested" ? "requested" : "following");
-			}
-		} catch {
-			// Leave state unchanged on error
-		} finally {
-			setToggling(false);
-		}
+		if (pending) return;
+		// Unfollow also cancels a pending request. The action refreshes the page,
+		// so server-rendered follower counts update in the same round trip.
+		const result = await run({ target: { type: entityType, id: entityId }, follow: state === "none" });
+		if (result.ok) setState(result.data);
 	};
 
-	return { state, loading, toggling, toggle };
+	return { state, loading, toggling: pending, toggle };
 }

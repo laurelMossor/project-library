@@ -6,12 +6,9 @@ import { Button } from "@/lib/components/ui/Button";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import {
-	API_CONVERSATION,
-	API_CONVERSATION_MESSAGES,
-	LOGIN_WITH_CALLBACK,
-	MESSAGES,
-} from "@/lib/const/routes";
+import { API_CONVERSATION, LOGIN_WITH_CALLBACK, MESSAGES } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { sendMessageAction } from "@/lib/actions/message";
 import { resolveCardIdentity } from "@/lib/types/card";
 import type { ConversationThreadData, ThreadMessage } from "@/lib/types/message";
 import { AvatarStack } from "./AvatarStack";
@@ -55,7 +52,7 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [content, setContent] = useState("");
-	const [sending, setSending] = useState(false);
+	const { run: send, pending: sending, error: sendError } = useAction(sendMessageAction);
 	const [membersOpen, setMembersOpen] = useState(false);
 
 	// Parent callbacks live in a ref so an inline handler never re-triggers the fetch effects.
@@ -115,27 +112,11 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!content.trim() || sending) return;
-		setSending(true);
 		setError("");
-		try {
-			const res = await fetch(API_CONVERSATION_MESSAGES(conversationId), {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ content: content.trim(), asPageId }),
-			});
-			if (res.status === 401) { router.push(LOGIN_WITH_CALLBACK(MESSAGES)); return; }
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				setError(data.error || "Failed to send message");
-				return;
-			}
-			setContent("");
-			await fetchThread(true);
-		} catch {
-			setError("Failed to send message");
-		} finally {
-			setSending(false);
-		}
+		const result = await send({ conversationId, content: content.trim(), asPageId });
+		if (!result.ok) return;
+		setContent("");
+		await fetchThread(true);
 	};
 
 	if (loading) {
@@ -187,7 +168,7 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 				)}
 			</div>
 
-			{error && <p className="text-novel-red text-sm px-4 pb-1">{error}</p>}
+			{(error || sendError) && <p className="text-novel-red text-sm px-4 pb-1">{error || sendError}</p>}
 
 			{thread.deletedCounterpart ? (
 				<p className="border-t border-soft-grey px-4 py-3 text-sm text-dusty-grey">

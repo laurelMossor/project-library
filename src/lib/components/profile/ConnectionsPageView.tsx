@@ -1,129 +1,50 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
+import { useState } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/layout/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
+import { RoleSelector } from "./RoleSelector";
+import { EmailInviteTag } from "./EmailInviteTag";
+import { EmailInviteModal } from "./EmailInviteModal";
 import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
-import { DropdownMenu } from "@/lib/components/ui/DropdownMenu";
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
+import type { ConnectionItem, ConnectionsData } from "@/lib/types/connections";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
-import {
-	API_PAGE,
-	API_PAGE_REQUESTS,
-	API_PAGE_MEMBERS,
-	API_PAGE_MEMBER,
-	API_PAGE_MEMBERSHIP,
-	API_ME_REQUESTS,
-	API_ME_INVITES,
-	API_REQUEST_APPROVE,
-	API_REQUEST_DENY,
-} from "@/lib/const/routes";
 import { assignableRoles, formatRole, isAdminRole } from "@/lib/const/roles";
+import { useAction, useActionThunk, type ActionThunk } from "@/lib/hooks/useAction";
+import { removeFollowerAction, unfollowEdgeAction } from "@/lib/actions/follow";
+import {
+	approveRequestAction,
+	cancelEmailInviteAction,
+	changeMemberRoleAction,
+	denyRequestAction,
+	inviteMemberAction,
+	leavePageAction,
+	removeMemberAction,
+} from "@/lib/actions/membership";
 import type { PermissionRole } from "@prisma/client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type TopTab = "Followers" | "Following" | "Membership" | "Requests";
 
-type RequesterUser = {
-	id: string;
-	handle: string;
-	displayName: string | null;
-	avatarImageId: string | null;
-};
-
-type RequesterPage = {
-	id: string;
-	handle: string;
-	name: string;
-	avatarImageId: string | null;
-};
-
-type RequestItem = {
-	id: string;
-	kind: "FOLLOW" | "JOIN";
-	requester: RequesterUser | null;
-	requesterPage: RequesterPage | null;
-};
-
-type ConnectionItem = {
-	id: string;
-	type: "USER" | "PAGE";
-	followedAt: string;
-	user: {
-		id: string;
-		handle: string;
-		displayName: string | null;
-		avatarImageId: string | null;
-	} | null;
-	page: {
-		id: string;
-		handle: string;
-		name: string;
-		avatarImageId: string | null;
-	} | null;
-};
-
-type MemberItem = {
-	id: string;
-	role: string;
-	/** True for an invitation that hasn't been accepted. The row's id is the request id. */
-	pending?: boolean;
-	user: {
-		id: string;
-		handle: string;
-		displayName: string | null;
-		avatarImageId: string | null;
-	};
-};
-
-type InviteItem = {
-	id: string;
-	role: string | null;
-	page: {
-		id: string;
-		handle: string;
-		name: string;
-		avatarImageId: string | null;
-	} | null;
-};
-
-type PageMembershipItem = {
-	id: string;
-	role: string;
-	page: {
-		id: string;
-		handle: string;
-		name: string;
-		avatarImageId: string | null;
-	};
-};
-
-type ConnectionsData = {
-	followers: ConnectionItem[];
-	following: ConnectionItem[];
-	membership: MemberItem[];
-	memberOf: PageMembershipItem[];
-	requests: RequestItem[];
-	invites: InviteItem[];
-};
-
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 type ConnectionsPageViewProps = {
 	entity: CardEntity;
 	currentUserId: string;
+	/** Everything the tabs list, read on the server. A saved action refreshes it. */
+	data: ConnectionsData;
 	/** Tab to open on load (e.g. from a `?tab=Requests` notification deep-link). Ignored if not a visible tab. */
 	initialTab?: string;
 };
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 type ActionDef = {
 	label: string;
-	onAction: () => Promise<void>;
+	/** The row's buttons and the role chips hand over a ready-to-call action. */
+	perform: ActionThunk;
 	/** Visual emphasis — "danger" (default) hints red on hover; "default" stays neutral. */
 	tone?: "danger" | "default";
 };
@@ -132,26 +53,31 @@ function ExpandableActions({
 	expanded,
 	onToggle,
 	actions,
-	extra,
+	onRefused,
 }: {
 	expanded: boolean;
 	onToggle: () => void;
 	actions: ActionDef[];
-	/** Optional leading control revealed alongside the actions (e.g. a role selector). */
-	extra?: ReactNode;
+	/**
+	 * Report a refusal here instead of beside the buttons. The pending-invite
+	 * row unmounts when a withdrawn invite refreshes away, and a message inside
+	 * that row would leave with it.
+	 */
+	onRefused?: (message: string | null) => void;
 }) {
-	const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const { run, pending, error, clearError } = useActionThunk();
+	// Which button was pressed, so only that one shows "…" while the save runs.
+	const [pressed, setPressed] = useState<string | null>(null);
 
-	async function run(action: ActionDef) {
-		setLoadingLabel(action.label);
-		setError(null);
-		try {
-			await action.onAction();
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Something went wrong");
-			setLoadingLabel(null);
-		}
+	function perform(action: ActionDef) {
+		setPressed(action.label);
+		clearError();
+		onRefused?.(null);
+		void run(action.perform).then((result) => {
+			if (!result.ok && result.error !== "unauthorized") {
+				onRefused?.(result.message ?? "Something went wrong. Please try again.");
+			}
+		});
 	}
 
 	if (!expanded) {
@@ -168,22 +94,21 @@ function ExpandableActions({
 
 	return (
 		<div className="flex items-center gap-1.5">
-			{error && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{error}</p>}
-			{extra}
+			{!onRefused && error && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{error}</p>}
 			{actions.map((action) => {
 				const danger = (action.tone ?? "danger") === "danger";
 				return (
 					<button
 						key={action.label}
-						onClick={() => run(action)}
-						disabled={loadingLabel !== null}
+						onClick={() => perform(action)}
+						disabled={pending}
 						className={`text-xs px-3 py-1 rounded-md font-medium transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 ${
 							danger
 								? "bg-white border border-red-300 text-red-600 hover:bg-red-50"
 								: "bg-moss-green text-white hover:opacity-90"
 						}`}
 					>
-						{loadingLabel === action.label ? "..." : action.label}
+						{pending && pressed === action.label ? "..." : action.label}
 					</button>
 				);
 			})}
@@ -198,49 +123,6 @@ function ExpandableActions({
 	);
 }
 
-const ROLE_CHIP =
-	"text-xs px-2 py-0.5 rounded border border-soft-grey/60 bg-white text-dusty-grey";
-
-// Role selector rendered as the same chip the row's role badge uses, so changing a
-// role doesn't look like one of the action buttons next to it.
-function RoleSelector({
-	current,
-	roles,
-	onChange,
-}: {
-	current: string;
-	roles: readonly string[];
-	onChange: (role: string) => Promise<void>;
-}) {
-	const [open, setOpen] = useState(false);
-	return (
-		<DropdownMenu
-			isOpen={open}
-			onClose={() => setOpen(!open)}
-			triggerAriaLabel="Change role"
-			triggerClassName={`${ROLE_CHIP} hover:border-misty-forest transition-colors cursor-pointer whitespace-nowrap`}
-			trigger={<span>{formatRole(current)} ▾</span>}
-			containerClassName="min-w-[140px]"
-		>
-			{roles.map((role) => (
-				<button
-					key={role}
-					role="menuitem"
-					onClick={async () => {
-						setOpen(false);
-						if (role !== current) await onChange(role);
-					}}
-					className="w-full text-left px-3 py-1.5 hover:bg-soft-grey/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20"
-				>
-					<span className={`${ROLE_CHIP} ${role === current ? "border-moss-green text-rich-brown" : ""}`}>
-						{formatRole(role)}
-					</span>
-				</button>
-			))}
-		</DropdownMenu>
-	);
-}
-
 function EmptyMessage({ label }: { label: string }) {
 	return <p className="text-sm text-dusty-grey text-center py-12">No {label.toLowerCase()} yet.</p>;
 }
@@ -250,51 +132,36 @@ function ConnectionList({
 	emptyLabel,
 	expandedId,
 	onToggle,
-	actionLabel,
-	onAction,
+	action,
 }: {
 	items: ConnectionItem[];
 	emptyLabel: string;
 	expandedId: string | null;
 	onToggle: (id: string | null) => void;
-	actionLabel: string;
-	onAction: (item: ConnectionItem) => Promise<void>;
+	/** Omitted when this viewer can't change the list (a page editor). */
+	action?: { label: string; perform: (item: ConnectionItem) => ActionThunk };
 }) {
 	if (!items.length) return <EmptyMessage label={emptyLabel} />;
 	return (
 		<div className="p-5 space-y-2">
 			{items.map((item) => {
-				if (item.type === "USER" && item.user) {
-					return (
-						<ProfileTag
-							key={item.id}
-							entity={item.user}
-							actions={
+				const entity = item.type === "USER" ? item.user : item.page;
+				if (!entity) return null;
+				return (
+					<ProfileTag
+						key={item.id}
+						entity={entity}
+						actions={
+							action ? (
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => onToggle(expandedId === item.id ? null : item.id)}
-									actions={[{ label: actionLabel, onAction: () => onAction(item) }]}
+									actions={[{ label: action.label, perform: action.perform(item) }]}
 								/>
-							}
-						/>
-					);
-				}
-				if (item.type === "PAGE" && item.page) {
-					return (
-						<ProfileTag
-							key={item.id}
-							entity={item.page}
-							actions={
-								<ExpandableActions
-									expanded={expandedId === item.id}
-									onToggle={() => onToggle(expandedId === item.id ? null : item.id)}
-									actions={[{ label: actionLabel, onAction: () => onAction(item) }]}
-								/>
-							}
-						/>
-					);
-				}
-				return null;
+							) : undefined
+						}
+					/>
+				);
 			})}
 		</div>
 	);
@@ -302,7 +169,7 @@ function ConnectionList({
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ConnectionsPageView({ entity, currentUserId, initialTab }: ConnectionsPageViewProps) {
+export function ConnectionsPageView({ entity, currentUserId, data, initialTab }: ConnectionsPageViewProps) {
 	const isPage = isCardPage(entity);
 	const entityType = isPage ? "page" : "user";
 	const role = isPage ? (entity as CardPageWithRole).role : undefined;
@@ -310,120 +177,49 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 
 	const leftTabs: TabDef<string>[] = [{ id: entity.id, label: displayName }];
 
-	const [data, setData] = useState<ConnectionsData | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	// Who may act on requests: a page ADMIN, or a user on their own profile.
+	// Page requests are ADMIN-only (matching member management), so this mirrors
+	// the server gate — an EDITOR sees no Requests tab.
+	const isAdmin = isAdminRole(role);
+	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
+	// Follow edges are admin-only on a page. An editor still sees the lists.
+	const canManageFollows = !isPage || isAdmin;
+
+	const topTabs: TabDef<TopTab>[] = [
+		{ id: "Followers", label: "Followers" },
+		{ id: "Following", label: "Following" },
+		{ id: "Membership", label: "Membership" },
+		...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
+	];
+
 	// Active top tab. Left `undefined` so TabbedPanel stays uncontrolled (defaults to Followers)
-	// until either the user clicks a tab or the deep-link latch below resolves it.
-	const [activeTop, setActiveTop] = useState<TopTab | undefined>(undefined);
+	// unless a deep-link names a tab this viewer can see.
+	const [activeTop, setActiveTop] = useState<TopTab | undefined>(() =>
+		topTabs.find((t) => t.id === initialTab)?.id,
+	);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [showAddMember, setShowAddMember] = useState(false);
-	const [addMemberError, setAddMemberError] = useState<string | null>(null);
 	// Explicit-pick add flow: hold the selected user + chosen role until confirmed,
 	// rather than granting MEMBER immediately on select.
 	const [pendingUser, setPendingUser] = useState<SearchResultUser | null>(null);
 	const [pendingRole, setPendingRole] = useState<PermissionRole>("EDITOR");
-	const [pagePolicy, setPagePolicy] = useState<string>("CLOSED");
-	const roleChoices = assignableRoles(pagePolicy);
+	// Invite-via-email modal: null = closed, else the address field's prefill.
+	const [emailInvitePrefill, setEmailInvitePrefill] = useState<string | null>(null);
+	const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+	// An invite the page's policy no longer allows is deleted on accept. The row
+	// goes away with the refresh, so the explanation has to live outside it.
+	const [inviteRefusal, setInviteRefusal] = useState<string | null>(null);
+	const roleChoices = assignableRoles(data.membershipPolicy);
 
-	// Load every connections slice in one pass. `silent` skips the loading/error toggles so a
-	// post-mutation refresh doesn't flash the panel's "Loading…" state or wipe it on a transient
-	// failure — it just swaps in fresh data. Used both for the initial mount and to reconcile
-	// cross-slice effects (e.g. approving a request materializes a follower/member the narrow
-	// optimistic update can't see).
-	const loadConnections = useCallback(
-		async (opts?: { silent?: boolean }) => {
-			const silent = opts?.silent ?? false;
-			if (!silent) {
-				setLoading(true);
-				setError(null);
-			}
-			try {
-				const base = entityType === "user" ? "users" : "pages";
-				const [followersRes, followingRes, membershipRes, invitesRes, pageRes] = await Promise.all([
-					fetch(`/api/${base}/${entity.id}/followers`),
-					fetch(`/api/${base}/${entity.id}/following`),
-					entityType === "page"
-						? fetch(API_PAGE_MEMBERS(entity.id))
-						: fetch(`/api/users/${entity.id}/memberships`),
-					entityType === "user" ? fetch(API_ME_INVITES) : Promise.resolve(null),
-					entityType === "page" ? fetch(API_PAGE(entity.id)) : Promise.resolve(null),
-				]);
-
-				const followers = followersRes.ok ? (await followersRes.json()).followers ?? [] : [];
-				const following = followingRes.ok ? (await followingRes.json()).following ?? [] : [];
-				let membership: MemberItem[] = [];
-				let memberOf: PageMembershipItem[] = [];
-
-				if (entityType === "page" && membershipRes.ok) {
-					membership = (await membershipRes.json()) as MemberItem[];
-				} else if (entityType === "user" && membershipRes.ok) {
-					memberOf = (await membershipRes.json()).memberships ?? [];
-				}
-
-				// Pending requests: page admins/editors see the page's; a user sees their
-				// own incoming follow requests. Both endpoints gate, so a 401 → [].
-				const requestsRes = await fetch(
-					entityType === "page" ? API_PAGE_REQUESTS(entity.id) : API_ME_REQUESTS,
-				);
-				const requests: RequestItem[] = requestsRes.ok
-					? (await requestsRes.json()).requests ?? []
-					: [];
-
-				const invites: InviteItem[] = invitesRes?.ok
-					? (await invitesRes.json()).invites ?? []
-					: [];
-
-				if (pageRes?.ok) {
-					const page = await pageRes.json();
-					if (typeof page.membershipPolicy === "string") setPagePolicy(page.membershipPolicy);
-				}
-
-				setData({ followers, following, membership, memberOf, requests, invites });
-			} catch {
-				// Keep the already-loaded panel intact on a silent refresh failure; only the
-				// initial load surfaces the error.
-				if (!silent) setError("Failed to load connections");
-			} finally {
-				if (!silent) setLoading(false);
-			}
-		},
-		[entity.id, entityType],
-	);
-
-	// Initial load (shows the loading state); re-runs if the viewed entity changes.
-	useEffect(() => {
-		loadConnections();
-	}, [loadConnections]);
-
-	// TODO: These should be shared utilities, add if they don't already exist and use the existing one if it does. All instances of add/remove follower should share utilities. 
-	async function removeFollower(item: ConnectionItem) {
-		const type = isPage ? "page" : "user";
-		const res = await fetch(
-			`/api/follows/${entity.id}?type=${type}&removeFollower=${item.user!.id}`,
-			{ method: "DELETE" }
-		);
-		if (!res.ok) throw new Error("Failed to remove follower");
-		setData((prev) =>
-			prev ? { ...prev, followers: prev.followers.filter((f) => f.id !== item.id) } : prev
-		);
-	}
-
-	async function unfollow(item: ConnectionItem) {
-		const type = item.type === "USER" ? "user" : "page";
-		const targetId = item.type === "USER" ? item.user!.id : item.page!.id;
-		const res = await fetch(`/api/follows/${targetId}?type=${type}`, { method: "DELETE" });
-		if (!res.ok) throw new Error("Failed to unfollow");
-		setData((prev) =>
-			prev ? { ...prev, following: prev.following.filter((f) => f.id !== item.id) } : prev
-		);
-	}
+	const invite = useAction(inviteMemberAction);
+	// Role chips run a save from inside a menu; one runner reports their pending/error.
+	const roleSave = useActionThunk();
 
 	// ProfileSearchDropdown's onSelect is fire-and-forget: just capture the picked user
-	// and default the role; the admin confirms an explicit role before we POST. (Adding
+	// and default the role; the admin confirms an explicit role before we invite. (Adding
 	// a person is now a real ADMIN/EDITOR grant, so it must be a deliberate choice.)
 	function selectPendingUser(user: SearchResultUser) {
-		setAddMemberError(null);
+		invite.clearError();
 		setPendingRole(roleChoices[roleChoices.length - 1]);
 		setPendingUser(user);
 	}
@@ -431,139 +227,52 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 	function cancelAddMember() {
 		setShowAddMember(false);
 		setPendingUser(null);
-		setAddMemberError(null);
+		invite.clearError();
+	}
+
+	function openEmailInvite(query: string) {
+		invite.clearError();
+		setInviteNotice(null);
+		// Carry over an address typed into the search; anything else isn't worth prefilling.
+		setEmailInvitePrefill(query.includes("@") ? query : "");
+	}
+
+	// The invites are saved and the page refreshed by the modal's action; this only closes the
+	// modal and says what happened.
+	function onEmailInvitesSent(result: { sent: number; alreadyMembers: string[] }) {
+		setEmailInvitePrefill(null);
+		setShowAddMember(false);
+		const parts: string[] = [];
+		if (result.sent > 0) {
+			parts.push(`Invites sent to ${result.sent} ${result.sent === 1 ? "address" : "addresses"}.`);
+		}
+		if (result.alreadyMembers.length === 1) {
+			parts.push(`${result.alreadyMembers[0]} already has a role on this page.`);
+		} else if (result.alreadyMembers.length > 1) {
+			parts.push(`${result.alreadyMembers.join(", ")} already have a role on this page.`);
+		}
+		setInviteNotice(parts.join(" "));
 	}
 
 	async function confirmAddMember() {
 		if (!pendingUser) return;
-		setAddMemberError(null);
-		try {
-			const res = await fetch(API_PAGE_MEMBERS(entity.id), {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: pendingUser.id, role: pendingRole }),
-			});
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				throw new Error(body.error ?? "Failed to add member");
-			}
-			const updated = await fetch(API_PAGE_MEMBERS(entity.id));
-			if (updated.ok) {
-				const members = await updated.json();
-				setData((prev) => (prev ? { ...prev, membership: members } : prev));
-			}
+		const result = await invite.run({ pageId: entity.id, userId: pendingUser.id, role: pendingRole });
+		if (result.ok) {
 			setShowAddMember(false);
 			setPendingUser(null);
-		} catch (e) {
-			setAddMemberError(e instanceof Error ? e.message : "Failed to add member");
 		}
 	}
-
-	async function changeInviteRole(item: MemberItem, role: string) {
-		const res = await fetch(API_PAGE_MEMBERS(entity.id), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ userId: item.user.id, role }),
-		});
-		if (!res.ok) {
-			const body = await res.json().catch(() => ({}));
-			throw new Error(body.error ?? "Failed to change invite role");
-		}
-		setData((prev) =>
-			prev
-				? { ...prev, membership: prev.membership.map((m) => (m.id === item.id ? { ...m, role } : m)) }
-				: prev,
-		);
-	}
-
-	async function changeMemberRole(item: MemberItem, role: string) {
-		const res = await fetch(API_PAGE_MEMBER(entity.id, item.user.id), {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ role }),
-		});
-		if (!res.ok) {
-			const body = await res.json().catch(() => ({}));
-			throw new Error(body.error ?? "Failed to change role");
-		}
-		setData((prev) =>
-			prev
-				? { ...prev, membership: prev.membership.map((m) => (m.id === item.id ? { ...m, role } : m)) }
-				: prev,
-		);
-	}
-
-	async function actOnRequest(reqId: string, action: "approve" | "deny") {
-		const res = await fetch(action === "approve" ? API_REQUEST_APPROVE(reqId) : API_REQUEST_DENY(reqId), {
-			method: "POST",
-		});
-		if (!res.ok) {
-			const body = await res.json().catch(() => ({}));
-			throw new Error(body.error ?? `Failed to ${action} request`);
-		}
-		if (action === "approve") {
-			// Approving materializes a Follow (→ followers) or Permission (→ membership) in a
-			// slice this handler doesn't own, so a narrow filter would leave those counts/lists
-			// stale until reload. Refresh every slice silently instead.
-			await loadConnections({ silent: true });
-		} else {
-			// Denying only drops the pending row — no cross-slice effect, so stay optimistic.
-			setData((prev) => (prev ? { ...prev, requests: prev.requests.filter((r) => r.id !== reqId) } : prev));
-		}
-	}
-
-	// Who may act on requests: a page ADMIN, or a user on their own profile.
-	// Page requests are ADMIN-only (matching member management), so this mirrors
-	// the server gate — an EDITOR sees no Requests tab.
-	const myRole = isPage && data ? data.membership.find((m) => m.user.id === currentUserId)?.role : undefined;
-	const isAdmin = isAdminRole(myRole);
-	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
-
-	// Memoized so its identity only changes when the Requests tab appears/disappears — the
-	// deep-link latch effect below depends on it and shouldn't re-run every render.
-	const topTabs: TabDef<TopTab>[] = useMemo(
-		() => [
-			{ id: "Followers", label: "Followers" },
-			{ id: "Following", label: "Following" },
-			{ id: "Membership", label: "Membership" },
-			...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
-		],
-		[canManageRequests],
-	);
-
-	// Honor a deep-link tab (?tab=Requests) once it's an actually-visible tab for this viewer.
-	// For a page, the Requests tab only appears after membership loads and admin status is known,
-	// so applying the deep-link at mount would lose it (the tab defaults to Followers before
-	// Requests exists). Apply it in an effect, latched once so it never fights a later manual
-	// tab click.
-	const appliedInitialTabRef = useRef(false);
-	useEffect(() => {
-		if (appliedInitialTabRef.current) return;
-		if (!initialTab) {
-			appliedInitialTabRef.current = true;
-			return;
-		}
-		if (topTabs.some((t) => t.id === initialTab)) {
-			setActiveTop(initialTab as TopTab);
-			appliedInitialTabRef.current = true;
-		}
-	}, [initialTab, topTabs]);
 
 	function getCount(_leftId: string, top: TopTab): number {
-		if (!data) return 0;
 		if (top === "Followers") return data.followers.length;
 		if (top === "Following") return data.following.length;
 		if (top === "Requests") return data.requests.length;
 		return entityType === "user"
 			? data.memberOf.length + data.invites.length
-			: data.membership.length;
+			: data.members.length + data.emailInvites.length;
 	}
 
 	function renderContent(_leftId: string, top: TopTab) {
-		if (loading) return <p className="text-sm text-dusty-grey text-center py-12">Loading...</p>;
-		if (error) return <p className="text-sm text-red-500 text-center py-12">{error}</p>;
-		if (!data) return null;
-
 		if (top === "Followers") {
 			return (
 				<ConnectionList
@@ -571,8 +280,15 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					emptyLabel="Followers"
 					expandedId={expandedId}
 					onToggle={setExpandedId}
-					actionLabel="Remove Follower"
-					onAction={removeFollower}
+					action={
+						canManageFollows
+							? {
+									label: "Remove Follower",
+									perform: (item) => () =>
+										removeFollowerAction({ target: { type: entityType, id: entity.id }, followId: item.id }),
+								}
+							: undefined
+					}
 				/>
 			);
 		}
@@ -584,8 +300,15 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 					emptyLabel="Following"
 					expandedId={expandedId}
 					onToggle={setExpandedId}
-					actionLabel="Unfollow"
-					onAction={unfollow}
+					action={
+						canManageFollows
+							? {
+									label: "Unfollow",
+									perform: (item) => () =>
+										unfollowEdgeAction({ target: { type: entityType, id: entity.id }, followId: item.id }),
+								}
+							: undefined
+					}
 				/>
 			);
 		}
@@ -599,20 +322,22 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 						const requesterEntity = req.requesterPage ?? req.requester;
 						if (!requesterEntity) return null;
 						const badge = req.kind === "JOIN" ? "wants to join" : "wants to follow";
-						const requestActions = (
-							<ExpandableActions
-								expanded={expandedId === req.id}
-								onToggle={() => setExpandedId(expandedId === req.id ? null : req.id)}
-								actions={[
-									{ label: "Approve", tone: "default", onAction: () => actOnRequest(req.id, "approve") },
-									{ label: "Deny", onAction: () => actOnRequest(req.id, "deny") },
-								]}
+						return (
+							<ProfileTag
+								key={req.id}
+								entity={requesterEntity}
+								badge={badge}
+								actions={
+									<ExpandableActions
+										expanded={expandedId === req.id}
+										onToggle={() => setExpandedId(expandedId === req.id ? null : req.id)}
+										actions={[
+											{ label: "Approve", tone: "default", perform: () => approveRequestAction({ requestId: req.id }) },
+											{ label: "Deny", perform: () => denyRequestAction({ requestId: req.id }) },
+										]}
+									/>
+								}
 							/>
-						);
-						return req.requesterPage ? (
-							<ProfileTag key={req.id} entity={req.requesterPage} badge={badge} actions={requestActions} />
-						) : (
-							<ProfileTag key={req.id} entity={req.requester!} badge={badge} actions={requestActions} />
 						);
 					})}
 				</div>
@@ -623,36 +348,40 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		if (entityType === "user") {
 			const items = data.memberOf;
 			const invites = data.invites.filter((inv) => inv.page);
-			if (!items.length && !invites.length) return <EmptyMessage label="Memberships" />;
+			const membershipsEmpty = !items.length && !invites.length;
+			if (membershipsEmpty && !inviteRefusal) return <EmptyMessage label="Memberships" />;
 			return (
 				<div className="p-5 space-y-2">
+					{inviteRefusal && (
+						<p role="alert" className="text-xs text-red-500">{inviteRefusal}</p>
+					)}
+					{membershipsEmpty && <EmptyMessage label="Memberships" />}
 					{invites.length > 0 && (
 						<p className="text-xs font-medium text-dusty-grey pt-1">Pending invitations</p>
 					)}
 					{invites.map((inv) => (
-						<ProfileTag
-							key={inv.id}
-							entity={inv.page!}
-							badge={`Pending · invited as ${formatRole(inv.role)}`}
-							actions={
-								<ExpandableActions
-									expanded={expandedId === inv.id}
-									onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
-									actions={[
-										{ label: "Accept", tone: "default", onAction: () => actOnRequest(inv.id, "approve") },
-										{
-											label: "Decline",
-											onAction: async () => {
-												await actOnRequest(inv.id, "deny");
-												setData((prev) =>
-													prev ? { ...prev, invites: prev.invites.filter((i) => i.id !== inv.id) } : prev,
-												);
-											},
-										},
-									]}
-								/>
-							}
-						/>
+						<div key={inv.id} className="space-y-1">
+							<ProfileTag
+								entity={inv.page!}
+								badge={`Pending · invited as ${formatRole(inv.role)}`}
+								actions={
+									<ExpandableActions
+										expanded={expandedId === inv.id}
+										onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+										onRefused={setInviteRefusal}
+										actions={[
+											{ label: "Accept", tone: "default", perform: () => approveRequestAction({ requestId: inv.id }) },
+											{ label: "Decline", perform: () => denyRequestAction({ requestId: inv.id }) },
+										]}
+									/>
+								}
+							/>
+							{inv.note && (
+								<p className="px-3 text-xs text-dusty-grey whitespace-pre-wrap">
+									&ldquo;{inv.note}&rdquo;
+								</p>
+							)}
+						</div>
 					))}
 					{items.map((item) => (
 						<ProfileTag
@@ -663,23 +392,7 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 								<ExpandableActions
 									expanded={expandedId === item.id}
 									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-									actions={[{
-										label: "Leave",
-										onAction: async () => {
-											const res = await fetch(API_PAGE_MEMBERSHIP(item.page.id), {
-												method: "DELETE",
-											});
-											if (!res.ok) {
-												const body = await res.json().catch(() => ({}));
-												throw new Error(body.error ?? "Failed to leave");
-											}
-											setData((prev) =>
-												prev
-													? { ...prev, memberOf: prev.memberOf.filter((m) => m.id !== item.id) }
-													: prev
-											);
-										},
-									}]}
+									actions={[{ label: "Leave", perform: () => leavePageAction({ pageId: item.page.id }) }]}
 								/>
 							}
 						/>
@@ -689,25 +402,31 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 		}
 
 		// Membership tab — page profile. `isAdmin` is hoisted to component scope.
-		const items = data.membership;
+		const items = data.members;
+		const emailInvites = data.emailInvites;
 
 		return (
 			<div className="p-5 space-y-2">
-				{!items.length && <EmptyMessage label="Members" />}
+				{!items.length && !emailInvites.length && <EmptyMessage label="Members" />}
+				{roleSave.error && <p role="alert" className="text-xs text-red-500 text-center">{roleSave.error}</p>}
 				{items.map((item) => {
 					if (item.pending) {
-						const canChange = isAdmin;
 						return (
 							<ProfileTag
 								key={item.id}
 								entity={item.user}
-								badge={canChange ? (
+								badge={isAdmin ? (
 									<span className="inline-flex items-center gap-1.5">
 										<span className="text-xs text-dusty-grey">Pending</span>
 										<RoleSelector
 											current={item.role}
 											roles={roleChoices}
-											onChange={(role) => changeInviteRole(item, role)}
+											onChange={async (next) => {
+												// Re-inviting someone updates the role on their open invite.
+												await roleSave.run(() =>
+													inviteMemberAction({ pageId: entity.id, userId: item.user.id, role: next }),
+												);
+											}}
 										/>
 									</span>
 								) : `Pending · invited as ${formatRole(item.role)}`}
@@ -716,69 +435,64 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 										<ExpandableActions
 											expanded={expandedId === item.id}
 											onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-											actions={[{
-												label: "Cancel",
-												onAction: async () => {
-													const res = await fetch(API_REQUEST_DENY(item.id), { method: "POST" });
-													if (!res.ok) {
-														const body = await res.json().catch(() => ({}));
-														throw new Error(body.error ?? "Failed to cancel invite");
-													}
-													setData((prev) =>
-														prev
-															? { ...prev, membership: prev.membership.filter((m) => m.id !== item.id) }
-															: prev,
-													);
-												},
-											}]}
+											actions={[{ label: "Cancel", perform: () => denyRequestAction({ requestId: item.id }) }]}
 										/>
 									) : undefined
 								}
 							/>
 						);
 					}
+					const manageable = isAdmin && item.user.id !== currentUserId;
 					return (
-					<ProfileTag
-						key={item.id}
-						entity={item.user}
-						badge={
-							isAdmin && item.user.id !== currentUserId ? (
-								<RoleSelector
-									current={item.role}
-									roles={roleChoices}
-									onChange={(role) => changeMemberRole(item, role)}
-								/>
-							) : formatRole(item.role)
-						}
-						actions={
-							isAdmin && item.user.id !== currentUserId ? (
-								<ExpandableActions
-									expanded={expandedId === item.id}
-									onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
-									actions={[{
-										label: "Remove from group",
-										onAction: async () => {
-											const res = await fetch(API_PAGE_MEMBER(entity.id, item.user.id), { method: "DELETE" });
-											if (!res.ok) {
-												const body = await res.json().catch(() => ({}));
-												throw new Error(body.error ?? "Failed to remove member");
-											}
-											setData((prev) =>
-												prev
-													? {
-															...prev,
-															membership: prev.membership.filter((m) => m.id !== item.id),
-														}
-													: prev
+						<ProfileTag
+							key={item.id}
+							entity={item.user}
+							badge={
+								manageable ? (
+									<RoleSelector
+										current={item.role}
+										roles={roleChoices}
+										onChange={async (next) => {
+											await roleSave.run(() =>
+												changeMemberRoleAction({ pageId: entity.id, userId: item.user.id, role: next }),
 											);
-										},
-									}]}
-								/>
-							) : undefined
-						}
-					/>
+										}}
+									/>
+								) : formatRole(item.role)
+							}
+							actions={
+								manageable ? (
+									<ExpandableActions
+										expanded={expandedId === item.id}
+										onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
+										actions={[{
+											label: "Remove from group",
+											perform: () => removeMemberAction({ pageId: entity.id, userId: item.user.id }),
+										}]}
+									/>
+								) : undefined
+							}
+						/>
 					);
 				})}
+				{/* Sent by email: listed by address until accepted, never by profile (admin-only rows). */}
+				{emailInvites.map((inv) => (
+					<EmailInviteTag
+						key={inv.id}
+						email={inv.email}
+						badge={`Pending · invited as ${formatRole(inv.role)}`}
+						actions={
+							<ExpandableActions
+								expanded={expandedId === inv.id}
+								onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+								actions={[{
+									label: "Cancel",
+									perform: () => cancelEmailInviteAction({ pageId: entity.id, inviteId: inv.id }),
+								}]}
+							/>
+						}
+					/>
+				))}
 				{isAdmin && (
 					<div className="pt-3">
 						{showAddMember ? (
@@ -792,13 +506,14 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 												<RoleSelector
 													current={pendingRole}
 													roles={roleChoices}
-													onChange={async (role) => setPendingRole(role as PermissionRole)}
+													onChange={async (next) => setPendingRole(next as PermissionRole)}
 												/>
 												<button
 													onClick={confirmAddMember}
-													className="text-xs px-3 py-1 rounded-md font-medium bg-moss-green text-white hover:opacity-90 transition-colors cursor-pointer whitespace-nowrap"
+													disabled={invite.pending}
+													className="text-xs px-3 py-1 rounded-md font-medium bg-moss-green text-white hover:opacity-90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40"
 												>
-													Invite
+													{invite.pending ? "..." : "Invite"}
 												</button>
 												<button
 													onClick={() => setPendingUser(null)}
@@ -812,13 +527,14 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 								) : (
 									// Step 1: pick a person.
 									<ProfileSearchDropdown
-										excludeUserIds={data.membership.map((m) => m.user.id)}
+										excludeUserIds={data.members.map((m) => m.user.id)}
 										onSelect={selectPendingUser}
 										placeholder="Search by name or handle..."
+										extraOption={{ label: "Invite via email", onSelect: openEmailInvite }}
 									/>
 								)}
-								{addMemberError && (
-									<p className="text-xs text-red-500 text-center">{addMemberError}</p>
+								{invite.error && (
+									<p className="text-xs text-red-500 text-center">{invite.error}</p>
 								)}
 								<div className="flex justify-center">
 									<button
@@ -830,14 +546,28 @@ export function ConnectionsPageView({ entity, currentUserId, initialTab }: Conne
 								</div>
 							</div>
 						) : (
-							<div className="flex justify-center">
+							<div className="flex flex-col items-center gap-2">
+								{inviteNotice && <p role="status" className="text-xs text-misty-forest">{inviteNotice}</p>}
 								<button
-									onClick={() => setShowAddMember(true)}
+									onClick={() => {
+										setInviteNotice(null);
+										setShowAddMember(true);
+									}}
 									className="text-xs px-4 py-1.5 rounded border border-soft-grey/60 text-dusty-grey hover:border-misty-forest hover:text-misty-forest transition-colors cursor-pointer"
 								>
 									Invite
 								</button>
 							</div>
+						)}
+						{emailInvitePrefill !== null && isPage && (
+							<EmailInviteModal
+								pageId={entity.id}
+								pageName={entity.name}
+								roleChoices={roleChoices}
+								initialEmails={emailInvitePrefill}
+								onClose={() => setEmailInvitePrefill(null)}
+								onSent={onEmailInvitesSent}
+							/>
 						)}
 					</div>
 				)}

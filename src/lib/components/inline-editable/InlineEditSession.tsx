@@ -2,6 +2,7 @@
 
 import {
 	createContext,
+	startTransition,
 	useCallback,
 	useContext,
 	useEffect,
@@ -28,6 +29,12 @@ export type InlineEditSessionContextType = {
 	 * Parent components watch this to close any open editingField / reset local input state.
 	 */
 	cancelRevision: number;
+	/**
+	 * Increments when editing ends: on cancelAll() and after a successful save or publish.
+	 * Watch this to close an open editingField. Use cancelRevision instead to revert
+	 * local input to the original value — after a save, the original is stale.
+	 */
+	closeRevision: number;
 	/** True while a full-screen editor is open; the save bar hides so it doesn't show through. */
 	overlayOpen: boolean;
 	setOverlayOpen: (open: boolean) => void;
@@ -94,6 +101,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 	const savingRef = useRef(false);
 	const [error, setError] = useState<string | null>(null);
 	const [cancelRevision, setCancelRevision] = useState(0);
+	const [closeRevision, setCloseRevision] = useState(0);
 	// A full-screen editor (e.g. the photo modal) sets this to hide the save bar,
 	// which otherwise pokes through the modal's translucent backdrop.
 	const [overlayOpen, setOverlayOpen] = useState(false);
@@ -237,13 +245,18 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 
 			const saved = await onSave(payload);
 
-			if (saved && onSaved) {
-				onSaved(saved as T);
-			}
-			setDirtyFields({});
-			originalValuesRef.current = {};
-			setPendingCreates([]);
-			setPendingDeletes([]);
+			// A transition, so when onSave was a Server Action the cleared draft and the
+			// refreshed server props render together — no frame showing the old value.
+			startTransition(() => {
+				if (saved && onSaved) {
+					onSaved(saved as T);
+				}
+				setDirtyFields({});
+				originalValuesRef.current = {};
+				setPendingCreates([]);
+				setPendingDeletes([]);
+				setCloseRevision((n) => n + 1);
+			});
 			return true;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to save");
@@ -264,6 +277,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 		setPendingDeletes([]);
 		setError(null);
 		setCancelRevision((n) => n + 1);
+		setCloseRevision((n) => n + 1);
 	}, []);
 
 	// Warn before unload if there are unsaved changes
@@ -286,6 +300,7 @@ export function InlineEditSession<T extends Record<string, unknown>>({
 		saving,
 		error,
 		cancelRevision,
+		closeRevision,
 		overlayOpen,
 		setOverlayOpen,
 		setDirty,

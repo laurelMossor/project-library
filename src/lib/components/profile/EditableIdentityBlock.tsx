@@ -5,8 +5,8 @@ import { ClickableProfilePicture } from "./ClickableProfilePicture";
 import { InlineHandleField } from "./InlineHandleField";
 import { InlineNameField } from "./InlineNameField";
 import { OptionalTitle } from "@/lib/components/inline-editable/OptionalTitle";
-import { handleFromName, nameFromHandle } from "@/lib/utils/handle";
 import { useInlineField } from "@/lib/hooks/useInlineField";
+import { useNameHandlePrefill } from "@/lib/hooks/useNameHandlePrefill";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import type { IdentityEntity } from "./ActiveIdentityEditor";
 import type { CardEntity } from "@/lib/types/card";
@@ -32,19 +32,18 @@ export function EditableIdentityBlock({
 	const isPage = entity.type === "page";
 	const { value: handle } = useInlineField<string>("handle", entity.data.handle);
 	// Each field is filled from the other once, until that field is typed by hand.
-	const [nameTouched, setNameTouched] = useState(false);
-	const [handleTouched, setHandleTouched] = useState(false);
 	const [suggestedHandle, setSuggestedHandle] = useState<string | null>(null);
 	const [suggestedName, setSuggestedName] = useState<string | null>(null);
+	const prefill = useNameHandlePrefill({ setName: setSuggestedName, setHandle: setSuggestedHandle });
 	const cancelRevision = session?.cancelRevision ?? 0;
+	const resetPrefill = prefill.reset;
 
 	useEffect(() => {
 		if (cancelRevision === 0) return;
-		setNameTouched(false);
-		setHandleTouched(false);
+		resetPrefill();
 		setSuggestedHandle(null);
 		setSuggestedName(null);
-	}, [cancelRevision]);
+	}, [cancelRevision, resetPrefill]);
 
 	const card: CardEntity = isPage
 		? {
@@ -76,10 +75,11 @@ export function EditableIdentityBlock({
 			<div className="min-w-0 flex-1 space-y-3">
 				{draft && isPage ? (
 					<PageDraftName
-						suggestedName={nameTouched ? null : suggestedName}
+						suggestedName={suggestedName}
 						onNameTyped={(next) => {
-							setNameTouched(true);
-							if (!handleTouched) setSuggestedHandle(handleFromName(next));
+							// What they typed wins over any pending suggestion for this field.
+							setSuggestedName(null);
+							prefill.onNameTyped(next);
 						}}
 					/>
 				) : (
@@ -98,12 +98,9 @@ export function EditableIdentityBlock({
 					highlight={draft || followHandle}
 					blankUntilChosen={draft && isPage}
 					suggested={draft && isPage ? suggestedHandle : null}
-					handEdited={handleTouched}
 					onHandTyped={draft && isPage ? (next) => {
-						setHandleTouched(true);
-						if (nameTouched) return;
-						const suggested = nameFromHandle(next);
-						if (suggested) setSuggestedName(suggested);
+						setSuggestedHandle(null);
+						prefill.onHandleTyped(next);
 					} : undefined}
 				/>
 			</div>

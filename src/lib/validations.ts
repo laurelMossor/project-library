@@ -1,8 +1,9 @@
 import { ProfileData } from "./types/user";
-import type { ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
+import type { PermissionRole, ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
+import { ALL_ROLES } from "./const/roles";
 import { isReservedHandle } from "./const/reserved-handles";
 import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS, type MessagingIdentityRef } from "./const/messaging";
 
@@ -24,6 +25,47 @@ export function normalizeEmail(input: unknown): string {
 }
 
 /**
+ * Parse a comma/whitespace/semicolon-separated list of addresses (the email-invite field).
+ * Normalized and de-duplicated, in input order; anything that fails validateEmail lands in `invalid`.
+ */
+export function parseEmailList(input: string): { valid: string[]; invalid: string[] } {
+	const valid: string[] = [];
+	const invalid: string[] = [];
+	for (const part of input.split(/[\s,;]+/)) {
+		const email = normalizeEmail(part);
+		if (!email) continue;
+		const bucket = validateEmail(email) ? valid : invalid;
+		if (!bucket.includes(email)) bucket.push(email);
+	}
+	return { valid, invalid };
+}
+
+const PERMISSION_ROLES = new Set<string>(ALL_ROLES);
+
+/**
+ * A client-supplied role, or null when it isn't one of `ALL_ROLES`.
+ * Which roles a page may offer is `assignableRoles`, not this check.
+ */
+export function parsePermissionRole(role: unknown): PermissionRole | null {
+	if (typeof role !== "string" || !PERMISSION_ROLES.has(role)) return null;
+	return role as PermissionRole;
+}
+
+/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
+export function isCuid(value: string): boolean {
+	return /^c[0-9a-z]{24}$/.test(value);
+}
+
+/**
+ * The characters a handle may contain, as a regex character-class body. The single owner of the
+ * handle alphabet — validateHandle and the comment @-mention parser/picker all build from it.
+ */
+export const HANDLE_CHARS = "a-z0-9._-";
+export const HANDLE_MIN_LENGTH = 3;
+export const HANDLE_MAX_LENGTH = 30;
+const HANDLE_REGEX = new RegExp(`^[${HANDLE_CHARS}]{${HANDLE_MIN_LENGTH},${HANDLE_MAX_LENGTH}}$`);
+
+/**
  * Strict handle validator: lowercase letters, numbers, periods, underscores, and hyphens, 3–30 chars.
  *
  * Replaces the old `validateUsername` (User-only, uppercase-tolerant, 3–20)
@@ -34,14 +76,9 @@ export function normalizeEmail(input: unknown): string {
  * Pairs with `generateHandle` in `lib/utils/handle.ts` (the forgiving
  * normalizer used to suggest a handle from free-text input).
  */
-/** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */
-export function isCuid(value: string): boolean {
-	return /^c[0-9a-z]{24}$/.test(value);
-}
-
 export function validateHandle(handle: string): boolean {
 	if (!handle || typeof handle !== "string") return false;
-	return /^[a-z0-9._-]{3,30}$/.test(handle);
+	return HANDLE_REGEX.test(handle);
 }
 
 export function validatePassword(password: string): boolean {
@@ -269,8 +306,7 @@ export function validateEventData(data: EventCreateInput): { valid: boolean; err
 
 /**
  * Finite, in-range geographic coordinate check (lat ∈ [-90, 90], lng ∈ [-180, 180]).
- * Single source of the bounds so the event create paths — the publish path via
- * `validateEventData`, and the lenient draft path in `POST /api/events` — agree.
+ * Single source of the bounds so `validateEventData` and `createEvent`'s lenient draft path agree.
  */
 export function isValidCoordinate(latitude: number, longitude: number): boolean {
 	return (
@@ -312,9 +348,11 @@ export function validateEventUpdateData(data: EventUpdateInput): { valid: boolea
 		}
 	}
 
+	// Location is optional (a TBD event). Blank or whitespace clears it; the write trims.
+	// null is refused — the column is a required string, and the update calls `.trim()`.
 	if (data.location !== undefined) {
-		if (typeof data.location !== "string" || data.location.trim().length === 0) {
-			return { valid: false, error: "Event location must be a non-empty string" };
+		if (typeof data.location !== "string") {
+			return { valid: false, error: "Event location must be a string" };
 		}
 		if (data.location.length > 255) {
 			return { valid: false, error: "Event location must be 255 characters or less" };

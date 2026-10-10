@@ -4,15 +4,21 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/lib/components/ui/Button";
 import { ConfirmModal } from "@/lib/components/ui/ConfirmModal";
-import { API_ME_USER, API_ME_USER_DELETE_PREVIEW, HOME } from "@/lib/const/routes";
+import { API_ME_USER_DELETE_PREVIEW, HOME } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { deleteAccountAction } from "@/lib/actions/account";
 
 type PreviewPage = { id: string; name: string; handle: string };
 
 export function DeleteAccountButton() {
 	const [open, setOpen] = useState(false);
 	const [pages, setPages] = useState<PreviewPage[] | null>(null);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { run, pending, error: actionError, clearError } = useAction(deleteAccountAction);
+	const [signingOut, setSigningOut] = useState(false);
+	const [previewError, setPreviewError] = useState<string | null>(null);
+	const busy = pending || signingOut;
+	// A conflict shows the "list changed" note rather than the raw action message.
+	const error = previewError ?? actionError;
 
 	async function loadPreview() {
 		const res = await fetch(API_ME_USER_DELETE_PREVIEW);
@@ -23,40 +29,36 @@ export function DeleteAccountButton() {
 	}
 
 	async function openModal() {
-		setError(null);
+		setPreviewError(null);
+		clearError();
 		setPages(null);
 		setOpen(true);
 		try {
 			await loadPreview();
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Couldn't load what would be deleted");
+			setPreviewError(e instanceof Error ? e.message : "Couldn't load what would be deleted");
 		}
 	}
 
 	async function confirm() {
 		if (!pages) return;
-		setBusy(true);
-		setError(null);
-		try {
-			const res = await fetch(API_ME_USER, {
-				method: "DELETE",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ expectedPageIds: pages.map((page) => page.id) }),
-			});
-			if (res.status === 409) {
-				setError("That list changed. Review it and confirm again.");
-				await loadPreview();
-				return;
-			}
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				throw new Error(data.error || "Couldn't delete the account");
-			}
+		setPreviewError(null);
+		clearError();
+		const result = await run({ expectedPageIds: pages.map((page) => page.id) });
+		if (result.ok) {
+			// Stay busy through the sign-out redirect.
+			setSigningOut(true);
 			await signOut({ callbackUrl: HOME });
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Couldn't delete the account");
-		} finally {
-			setBusy(false);
+			return;
+		}
+		if (result.error === "conflict") {
+			// The sole-admin list changed under us: show the fresh one and ask again.
+			setPreviewError("That list changed. Review it and confirm again.");
+			try {
+				await loadPreview();
+			} catch (e) {
+				setPreviewError(e instanceof Error ? e.message : "Couldn't load what would be deleted");
+			}
 		}
 	}
 

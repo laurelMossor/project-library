@@ -1,5 +1,6 @@
 import type { AttachmentType, ImageItem } from "@/lib/types/image";
-import { API_UPLOAD, API_IMAGE_ATTACHMENTS } from "@/lib/const/routes";
+import { API_UPLOAD } from "@/lib/const/routes";
+import { attachImageAction } from "@/lib/actions/image";
 
 /**
  * Client-side image upload + attachment helpers.
@@ -9,8 +10,8 @@ import { API_UPLOAD, API_IMAGE_ATTACHMENTS } from "@/lib/const/routes";
  * *what* the image becomes (a direct avatar FK vs. a polymorphic ImageAttachment)
  * — these helpers only own the shared upload/attach network dance.
  *
- * `fetchImpl` lets a caller inject `authFetch` (which throws AuthError on 401)
- * where that handling is wanted; it defaults to the global `fetch`.
+ * `fetchImpl` defaults to the global `fetch` (tests inject a stub). A failed
+ * upload — including a 401 from an expired session — throws with the route's message.
  */
 
 type UploadOnlyArgs = {
@@ -44,9 +45,9 @@ type UploadAndAttachArgs = UploadOnlyArgs & {
  * Upload a file, then attach it to a target (post/event/page).
  * Returns an ImageItem carrying its `attachmentId` — ready to push into carousel state.
  *
- * NOTE: the upload response `id` is the *Image* id (keyed by caption PATCH /api/images/:id),
- * and the attachment response `id` is the *ImageAttachment* id (keyed by DELETE
- * /api/image-attachments/:id). Keep these straight — crossing them breaks both.
+ * NOTE: the upload response `id` is the *Image* id (caption updates go through `updateImageAction`),
+ * and the attachment response `id` is the *ImageAttachment* id (`removeImageAttachmentAction`).
+ * Keep these straight — crossing them breaks both.
  */
 export async function uploadAndAttachImage({
 	file,
@@ -59,16 +60,9 @@ export async function uploadAndAttachImage({
 }: UploadAndAttachArgs): Promise<ImageItem> {
 	const image = await uploadImageOnly({ file, folder, fetchImpl });
 
-	const res = await fetchImpl(API_IMAGE_ATTACHMENTS, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ imageId: image.id, type, targetId, replace, sortOrder }),
-	});
-	if (!res.ok) {
-		const data = await res.json().catch(() => ({}));
-		throw new Error(data.error || "Failed to attach image");
-	}
-	const attachment: { id: string } = await res.json();
+	// The attach action refreshes the page, so server-rendered image lists pick the photo up.
+	const attached = await attachImageAction({ imageId: image.id, type, targetId, replace, sortOrder });
+	if (!attached.ok) throw new Error(attached.message ?? "Failed to attach image");
 
 	return {
 		id: image.id,
@@ -78,6 +72,6 @@ export async function uploadAndAttachImage({
 		caption: null,
 		uploadedByUserId: "",
 		createdAt: new Date(),
-		attachmentId: attachment.id,
+		attachmentId: attached.data,
 	};
 }

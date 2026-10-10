@@ -11,7 +11,9 @@ import { PageMembershipSettings } from "@/lib/components/profile/PageMembershipS
 import { VisibilityField } from "@/lib/components/visibility/VisibilityField";
 import { Button } from "@/lib/components/ui/Button";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
-import { API_PAGES, PUBLIC_PROFILE, SETTINGS } from "@/lib/const/routes";
+import { PUBLIC_PROFILE, SETTINGS } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { createPageAction } from "@/lib/actions/page";
 import type { SavePayload } from "@/lib/types/inline-edit";
 import type { PublicPage } from "@/lib/types/page";
 import { nameOrHandle } from "@/lib/utils/identity-name";
@@ -44,6 +46,7 @@ const BLANK_PAGE = {
  */
 export function PageCreateClient({ id }: { id: string }) {
 	const router = useRouter();
+	const { run } = useAction(createPageAction);
 	const [entity, setEntity] = useState<IdentityEntity>({
 		type: "page",
 		data: { ...BLANK_PAGE, id },
@@ -53,15 +56,10 @@ export function PageCreateClient({ id }: { id: string }) {
 		const fields = { ...payload.fields };
 		const handle = typeof fields.handle === "string" ? fields.handle : "";
 		const name = nameOrHandle(typeof fields.name === "string" ? fields.name : null, handle);
-		const res = await fetch(API_PAGES, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ ...fields, id: entity.data.id, name, handle }),
-		});
-		const body = await res.json().catch(() => ({}));
-		if (!res.ok) throw new Error(body.error || "Failed to create page");
-		router.push(PUBLIC_PROFILE(body.handle ?? handle));
-		return body;
+		const result = await run({ ...fields, id: entity.data.id, name, handle });
+		if (!result.ok) throw new Error(result.message || "Failed to create page");
+		router.push(PUBLIC_PROFILE(result.data.handle ?? handle));
+		return result.data;
 	}
 
 	function merge(patch: Record<string, unknown>) {

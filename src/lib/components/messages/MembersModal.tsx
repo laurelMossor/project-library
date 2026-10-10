@@ -4,7 +4,8 @@ import { useState } from "react";
 import { ModalShell } from "@/lib/components/ui/ModalShell";
 import { Button } from "@/lib/components/ui/Button";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
-import { API_CONVERSATION, API_CONVERSATION_LEAVE } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { editGroupAction, leaveGroupAction } from "@/lib/actions/message";
 import { MAX_GROUP_PARTICIPANTS, identityKey } from "@/lib/const/messaging";
 import { validateGroupName } from "@/lib/validations";
 import type { ConversationThreadData } from "@/lib/types/message";
@@ -30,58 +31,43 @@ type Props = {
 export function MembersModal({ thread, asPageId, onClose, onChanged, onLeft }: Props) {
 	const [name, setName] = useState(thread.name ?? "");
 	const [adding, setAdding] = useState<SearchResultItem[]>([]);
-	const [error, setError] = useState<string | null>(null);
-	const [busy, setBusy] = useState<"save" | "leave" | null>(null);
+	const [localError, setLocalError] = useState<string | null>(null);
 	const [confirmLeave, setConfirmLeave] = useState(false);
+	const saveAction = useAction(editGroupAction);
+	const leaveAction = useAction(leaveGroupAction);
+	const error = localError ?? saveAction.error ?? leaveAction.error;
 
 	const nameChanged = (name.trim() || null) !== (thread.name ?? null);
 	const dirty = nameChanged || adding.length > 0;
 
+	function clearErrors() {
+		setLocalError(null);
+		saveAction.clearError();
+		leaveAction.clearError();
+	}
+
 	async function save() {
-		setError(null);
+		clearErrors();
 		const nameValue = name.trim() || null;
 		if (nameChanged) {
 			const check = validateGroupName(nameValue);
-			if (!check.valid) { setError(check.error!); return; }
+			if (!check.valid) { setLocalError(check.error!); return; }
 		}
-		setBusy("save");
-		try {
-			const body: Record<string, unknown> = { asPageId };
-			if (nameChanged) body.name = nameValue;
-			if (adding.length) body.addMembers = adding.map(toRef);
-			const res = await fetch(API_CONVERSATION(thread.id), {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			const data = await res.json().catch(() => ({}));
-			if (!res.ok) { setError(data.error || "Couldn't save changes"); return; }
-			setAdding([]);
-			onChanged();
-		} catch {
-			setError("Couldn't save changes");
-		} finally {
-			setBusy(null);
-		}
+		const result = await saveAction.run({
+			conversationId: thread.id,
+			asPageId,
+			...(nameChanged ? { name: nameValue } : {}),
+			...(adding.length ? { addMembers: adding.map(toRef) } : {}),
+		});
+		if (!result.ok) return;
+		setAdding([]);
+		onChanged();
 	}
 
 	async function leave() {
-		setError(null);
-		setBusy("leave");
-		try {
-			const res = await fetch(API_CONVERSATION_LEAVE(thread.id), {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ asPageId }),
-			});
-			const data = await res.json().catch(() => ({}));
-			if (!res.ok) { setError(data.error || "Couldn't leave the group"); return; }
-			onLeft();
-		} catch {
-			setError("Couldn't leave the group");
-		} finally {
-			setBusy(null);
-		}
+		clearErrors();
+		const result = await leaveAction.run({ conversationId: thread.id, asPageId });
+		if (result.ok) onLeft();
 	}
 
 	const you = thread.members.find((m) => m.isYou);
@@ -128,11 +114,11 @@ export function MembersModal({ thread, asPageId, onClose, onChanged, onLeft }: P
 						confirmLeave ? (
 							<span className="flex items-center gap-2 text-sm">
 								<span className="text-rich-brown">Leave this group?</span>
-								<Button variant="danger" size="sm" onClick={leave} loading={busy === "leave"}>Leave</Button>
+								<Button variant="danger" size="sm" onClick={leave} loading={leaveAction.pending} disabled={saveAction.pending}>Leave</Button>
 								<Button variant="tertiary" size="sm" onClick={() => setConfirmLeave(false)}>Cancel</Button>
 							</span>
 						) : (
-							<Button variant="tertiary" size="sm" className="!text-novel-red" onClick={() => setConfirmLeave(true)}>
+							<Button variant="tertiary" size="sm" className="!text-novel-red" onClick={() => setConfirmLeave(true)} disabled={saveAction.pending}>
 								Leave group
 							</Button>
 						)
@@ -141,7 +127,7 @@ export function MembersModal({ thread, asPageId, onClose, onChanged, onLeft }: P
 							{you?.type === "page" ? "Only a page admin can remove the page from a group." : ""}
 						</span>
 					)}
-					<Button size="sm" onClick={save} disabled={!dirty} loading={busy === "save"}>Save</Button>
+					<Button size="sm" onClick={save} disabled={!dirty || leaveAction.pending} loading={saveAction.pending}>Save</Button>
 				</div>
 			</div>
 		</ModalShell>

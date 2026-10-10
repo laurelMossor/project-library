@@ -117,6 +117,7 @@ enum NotificationType {
   REQUEST_APPROVED
   MEMBER_INVITE // a page invited this user to a role
   ROLE_CHANGED // an admin changed this member's role
+  MENTION // someone tagged this identity's @handle in a comment
 }
 
 // What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
@@ -213,6 +214,7 @@ model User {
   // Pending access requests (Request-to-Follow / Request-to-Join)
   accessRequestsMade     AccessRequest[] @relation("RequestsMade")
   accessRequestsReceived AccessRequest[] @relation("RequestsForUser")
+  pageEmailInvitesSent   PageEmailInvite[]
 
   // Messaging
   sentMessages            Message[]                 @relation("SentMessages")
@@ -351,6 +353,7 @@ model Page {
   // Pending access requests (Request-to-Follow / Request-to-Join)
   accessRequestsMade     AccessRequest[] @relation("RequestsMadeAs")
   accessRequestsReceived AccessRequest[] @relation("RequestsForPage")
+  emailInvites           PageEmailInvite[]
 
   // Messaging (Page as conversation participant)
   conversations ConversationParticipant[]
@@ -694,6 +697,8 @@ model AccessRequest {
 
   // Set only for INVITE: the role the invitee is offered. JOIN always materializes MEMBER.
   role PermissionRole?
+  // Set only for INVITE: an optional short note from the inviting admin (plain text).
+  note String?
 
   requester     User? @relation("RequestsMade", fields: [requesterId], references: [id], onDelete: Cascade)
   requesterPage Page? @relation("RequestsMadeAs", fields: [requesterPageId], references: [id], onDelete: Cascade)
@@ -708,6 +713,33 @@ model AccessRequest {
   @@index([targetPageId])
   @@index([targetUserId])
   @@map("access_requests")
+}
+
+// A page admin's invite-by-email. Append-only: one row per address per send, never deleted on
+// accept/cancel, so it doubles as the audit log ("who invited whom") and the durable source for
+// the per-admin daily cap. An unclaimed, uncancelled row is a pending invite waiting for an
+// account with that email; claiming it (at signup, or immediately when the address already has
+// an account) opens the normal AccessRequest INVITE. See invitePageMembersByEmail in requests.ts.
+model PageEmailInvite {
+  id          String         @id @default(cuid())
+  createdAt   DateTime       @default(now())
+  pageId      String
+  invitedById String
+  email       String // normalized (normalizeEmail), matched against User.email at signup
+  role        PermissionRole
+  note        String?
+
+  claimedAt     DateTime? // an AccessRequest INVITE was opened for claimedUserId
+  claimedUserId String?
+  cancelledAt   DateTime? // admin cancelled, or superseded by a newer send to the same address
+
+  page      Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  invitedBy User @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([invitedById, createdAt])
+  @@index([email])
+  @@index([pageId])
+  @@map("page_email_invites")
 }
 
 // ========================
@@ -870,9 +902,13 @@ model Notification {
   // static Requests tab.
   objectType NotificationObject?
   objectId   String?
+  // The comment within that object to scroll to (COMMENT / MENTION). Anchor only — loose id, no FK,
+  // so a deleted comment just leaves the link landing on its post/event.
+  commentId  String?
 
   @@index([recipientUserId, contextPageId, readAt])
   @@index([recipientUserId, contextPageId, createdAt])
+  @@index([commentId]) // who's already been tagged in a comment (edits never re-notify)
   @@map("notifications")
 }
 

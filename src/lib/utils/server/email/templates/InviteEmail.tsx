@@ -1,4 +1,4 @@
-import { ActionEmail } from "./ActionEmail";
+import { LetterEmail } from "./LetterEmail";
 
 // Beta invitation email. Unlike VerifyEmail / PasswordReset, this one is sent
 // only by scripts/send-signup-invites.ts, which cannot import emails.ts (that
@@ -15,14 +15,15 @@ interface InviteEmailProps {
 
 export function InviteEmail({ url, expiresInDays }: InviteEmailProps) {
 	return (
-		<ActionEmail
-			preview="An early invitation to The Project Library"
-			title="You're invited!"
-			intro="The Project Library is in the early beginnings of building a small, intentional home for the things people are making: grounded in creativity, mutuality, and lifelong learning. Welcome. Love, Laurel"
-			buttonLabel="Sign up now"
+		<LetterEmail
+			preview="An invitation to The Project Library"
+			paragraphs={[
+				"Hi! You're invited to The Project Library.",
+				"It's in the early beginnings of becoming a small, intentional home for the things people are making, grounded in creativity, mutuality, and lifelong learning.",
+			]}
 			url={url}
-			expiryNote={`This invitation is just for you and expires in ${expiresInDays} days.`}
-			footnote="Your invite code is tied to this email address. Use it to create your account or reach out for another invitation."
+			expiryNote={`This invitation is tied to your email address and expires in ${expiresInDays} days. If it runs out, reach out for another one.`}
+			signoff="Welcome. Love, Laurel"
 		/>
 	);
 }

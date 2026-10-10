@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { ProfilePicture } from "@/lib/components/profile/ProfilePicture";
 import { DropdownProfileSelector } from "@/lib/components/profile/DropdownProfileSelector";
+import { CommentTextArea } from "./CommentTextArea";
 
 type CommentComposerProps = {
 	/** Add the comment. Resolves on success (clears the box); throws with a message on failure. */
@@ -15,9 +16,15 @@ type CommentComposerProps = {
  * (so they can comment "as" a page); otherwise just their avatar.
  */
 export function CommentComposer({ onSubmit }: CommentComposerProps) {
-	const { currentUser, pages, fetchPages } = useActiveProfile();
+	const { currentUser, pages, fetchPages, activePageId } = useActiveProfile();
 	const [content, setContent] = useState("");
-	const [asPageId, setAsPageId] = useState<string | null>(null);
+	// Starts on whoever the nav says is acting; an explicit pick in the picker wins after that.
+	const [picked, setPicked] = useState<{ pageId: string | null } | undefined>(undefined);
+	const wantedPageId = picked ? picked.pageId : activePageId;
+	// Only a page the user can act as (ADMIN/EDITOR — what `pages` holds) may speak; anything else
+	// (not loaded yet, role since removed) falls back to personal so the form never submits as a
+	// page the picker isn't showing.
+	const asPageId = wantedPageId && pages.some((p) => p.id === wantedPageId) ? wantedPageId : null;
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
 
@@ -47,11 +54,11 @@ export function CommentComposer({ onSubmit }: CommentComposerProps) {
 			{!hasPages && currentUser && <ProfilePicture entity={currentUser} size="sm" />}
 			<div className="flex-1 space-y-2">
 				{hasPages && (
-					<DropdownProfileSelector label="Commenting as" initialPageId={null} onChange={setAsPageId} />
+					<DropdownProfileSelector label="Commenting as" initialPageId={asPageId} onChange={(pageId) => setPicked({ pageId })} />
 				)}
-				<textarea
+				<CommentTextArea
 					value={content}
-					onChange={(e) => setContent(e.target.value)}
+					onChange={setContent}
 					placeholder="Add a comment…"
 					rows={3}
 					maxLength={5000}

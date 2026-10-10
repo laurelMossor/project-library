@@ -18,6 +18,8 @@ export interface CommentItem {
 	updatedAt: Date | string;
 	/** Set when the speaker was removed and the words were cleared. */
 	deleted: "USER" | "PAGE" | null;
+	/** Lowercase handles in `content` that name a real user or page — rendered bold (see splitMentions). */
+	mentions: string[];
 	author: (CardUser & { firstName: string | null; lastName: string | null }) | null;
 	asPage: CardPage | null;
 }
@@ -27,6 +29,9 @@ export type CommentCreateInput = {
 	content: string;
 	asPageId?: string | null;
 };
+
+/** What a comment hangs off — a post or an event. */
+export type CommentTarget = { kind: "post" | "event"; id: string };
 
 /** The identity a comment speaks as: the page when set, else the author. Null for a tombstone. */
 export function commentIdentity(comment: CommentItem): CardUser | CardPage | null {

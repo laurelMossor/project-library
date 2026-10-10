@@ -45,6 +45,24 @@ test.describe("Authentication flows", () => {
     await page.waitForURL(/\/verify-email\/check-inbox/, { timeout: 15_000 });
   });
 
+  test("signup with only a display name fills the handle from it", async ({ page }) => {
+    // The name slugs to "tst-<n>", which the teardown's "tst" prefix still catches.
+    const n = Date.now() % 1e7;
+    const email = `tst${n}@example.com`;
+    const { rawToken } = await createSignupInvite(email);
+
+    await page.goto(SIGNUP_WITH_INVITE(rawToken));
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByLabel("Display name").fill(`Tst ${n}`);
+    await expect(page.getByLabel("Handle")).toHaveValue(`tst-${n}`);
+    await expect(page.getByText("Available")).toBeVisible();
+    await page.getByPlaceholder("Password", { exact: true }).fill("password123");
+    await page.getByPlaceholder("Confirm password").fill("password123");
+    await page.getByRole("button", { name: "Sign Up" }).click();
+
+    await page.waitForURL(/\/verify-email\/check-inbox/, { timeout: 15_000 });
+  });
+
   test("signup with mismatched passwords stays on signup and shows an error", async ({ page }) => {
     const unique = `tst${Date.now() % 1e7}`;
     const email = `${unique}@example.com`;

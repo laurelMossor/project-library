@@ -12,6 +12,7 @@
 import { prisma } from "./prisma";
 import { PermissionRole, ResourceType, type Page, type Prisma, type User } from "@prisma/client";
 import { ACTING_ROLES, isActingRole, mayPostToPage } from "@/lib/const/roles";
+import { DomainError } from "./domain-error";
 
 /** Check if a user has a specific permission on a resource */
 export async function hasPermission(
@@ -87,14 +88,21 @@ export async function canManagePage(userId: string, pageId: string): Promise<boo
   return hasPermission(userId, pageId, ResourceType.PAGE, [PermissionRole.ADMIN]);
 }
 
+/** `canManagePage` as a guard for server utils behind Server Actions: refuses with a `forbidden` DomainError. */
+export async function assertCanManagePage(userId: string, pageId: string): Promise<void> {
+  if (!(await canManagePage(userId, pageId))) {
+    throw new DomainError("You do not have permission to manage this page", "forbidden");
+  }
+}
+
 /** True for a role that the self-service join/leave flow may set or clear (no role yet, or plain MEMBER). */
 export function isSelfServiceRole(role: PermissionRole | null): boolean {
   return role === null || role === PermissionRole.MEMBER;
 }
 
-/** Count ADMIN permissions on a page. */
-export async function getAdminCount(pageId: string): Promise<number> {
-  return prisma.permission.count({
+/** Count ADMIN permissions on a page. Pass `tx` to read inside the caller's transaction. */
+export async function getAdminCount(pageId: string, tx: PermissionDb = prisma): Promise<number> {
+  return tx.permission.count({
     where: { resourceId: pageId, resourceType: ResourceType.PAGE, role: PermissionRole.ADMIN },
   });
 }
@@ -105,10 +113,14 @@ export async function getAdminCount(pageId: string): Promise<number> {
  * admin remove, role-change (demote), and self-leave. Returns false when the
  * target isn't currently an ADMIN (removing/demoting a MEMBER/EDITOR can't orphan).
  */
-export async function wouldRemoveLastAdmin(pageId: string, targetUserId: string): Promise<boolean> {
-  const targetRole = await getUserPermission(targetUserId, pageId, ResourceType.PAGE);
+export async function wouldRemoveLastAdmin(
+  pageId: string,
+  targetUserId: string,
+  tx: PermissionDb = prisma,
+): Promise<boolean> {
+  const targetRole = await getUserPermission(targetUserId, pageId, ResourceType.PAGE, tx);
   if (targetRole !== PermissionRole.ADMIN) return false;
-  return (await getAdminCount(pageId)) <= 1;
+  return (await getAdminCount(pageId, tx)) <= 1;
 }
 
 /** Page IDs the user can manage (ADMIN or EDITOR). */

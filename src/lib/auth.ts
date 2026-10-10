@@ -17,7 +17,7 @@ export class EmailNotVerifiedError extends CredentialsSignin {
 	code = "email_not_verified";
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const { handlers, signIn, signOut, auth, unstable_update } = NextAuth({
 	secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
 	providers: [
 		Credentials({

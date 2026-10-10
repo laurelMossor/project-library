@@ -16,6 +16,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 
 vi.mock("@/lib/contexts/ActiveProfileContext", () => ({ useActiveProfile: vi.fn() }));
+// The identity editor's saves are Server Actions; this test never saves, so stub them
+// rather than load the server code behind them.
+vi.mock("@/lib/actions/profile", () => ({ saveProfileAction: vi.fn(), setHandleAction: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/app/settings/profile/NotificationSettingsForm", () => ({
   NotificationSettingsForm: () => <div>NOTIFICATIONS_SECTION</div>,
 }));
@@ -27,8 +31,13 @@ import { ProfileSettingsClient } from "@/app/settings/profile/ProfileSettingsCli
 
 /** useActiveProfile stub — only the fields ProfileSettingsClient reads. */
 function mockProfile(activePageId: string | null, role?: string) {
-  const pages = activePageId ? [{ id: activePageId, name: "Makers", handle: "makers", role, avatarImageId: null, avatarImage: null }] : [];
-  vi.mocked(useActiveProfile).mockReturnValue({ activePageId, pages, loading: false } as never);
+  // The switcher list is empty until that menu opens. The gate must use activeRole.
+  vi.mocked(useActiveProfile).mockReturnValue({
+    activePageId,
+    activeRole: role ?? null,
+    pages: [],
+    loading: false,
+  } as never);
 }
 
 beforeEach(() => {

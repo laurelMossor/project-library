@@ -9,6 +9,7 @@
 // queryable data, this is the single seam to swap to a DB lookup.
 
 import type { SessionContext } from "./session";
+import { DomainError } from "./domain-error";
 
 /** Parse SUPERADMIN_USER_IDS into a set of trimmed, non-empty user ids. */
 function superAdminIds(): Set<string> {
@@ -24,6 +25,14 @@ function superAdminIds(): Set<string> {
 export function isSuperAdmin(userId: string | null | undefined): boolean {
 	if (!userId) return false;
 	return superAdminIds().has(userId);
+}
+
+/**
+ * Server Action gate: refuse anyone who isn't a superadmin. Reported as not_found, matching the
+ * /admin layout's existence-deny, so the surface isn't revealed.
+ */
+export function assertSuperAdmin(userId: string): void {
+	if (!isSuperAdmin(userId)) throw new DomainError("Not found", "not_found");
 }
 
 /**

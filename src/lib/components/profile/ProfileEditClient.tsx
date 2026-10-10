@@ -16,11 +16,14 @@ import { EyeIcon, PencilIcon } from "@/lib/components/icons/icons";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
-import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
+import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { getUserDisplayName } from "@/lib/types/user";
-import { authFetch } from "@/lib/utils/auth-client";
+import { useAction } from "@/lib/hooks/useAction";
+import { saveProfileAction } from "@/lib/actions/profile";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import type { FollowCounts, ProfileTarget } from "@/lib/types/profile";
+import type { MembershipStatus } from "@/lib/types/connections";
 
 export type ProfileEditEntity =
 	| { type: "user"; data: PublicUser }
@@ -28,17 +31,23 @@ export type ProfileEditEntity =
 
 type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
-	saveUrl: string;
+	followCounts: FollowCounts;
+	/** The viewer's standing on the page (page profiles only), for the Leave button. */
+	membership?: MembershipStatus;
 };
 
 // ─── Inner content (needs session context) ────────────────────────────────────
 
 function ProfileOwnerContent({
 	entity,
+	followCounts,
+	membership,
 	previewMode,
 	setPreviewMode,
 }: {
 	entity: ProfileEditEntity;
+	followCounts: FollowCounts;
+	membership?: MembershipStatus;
 	previewMode: boolean;
 	setPreviewMode: (v: boolean) => void;
 }) {
@@ -62,16 +71,8 @@ function ProfileOwnerContent({
 		if (!canEdit) setEditingField(null);
 	}, [canEdit]);
 
-	// When session cancels, also close open fields (values revert automatically via session).
-	const cancelRevision = session?.cancelRevision ?? 0;
-	useEffect(() => {
-		if (cancelRevision === 0) return;
-		setEditingField(null);
-	// cancelRevision is the only intended trigger
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [cancelRevision]);
-	const entityId = entity.data.id;
-	const entityType = entity.type === "user" ? "user" : "page";
+	// Close open fields when editing ends (cancel reverts values automatically via session).
+	useOnEditingClosed(() => setEditingField(null));
 	const connectionsHref = PUBLIC_PROFILE(entity.data.handle);
 
 	const avatarEntity =
@@ -175,7 +176,9 @@ function ProfileOwnerContent({
 
 				{/* Right side */}
 				<div className="flex flex-col gap-2 w-36 shrink-0">
-					{entity.type === "page" && <JoinButton pageId={entity.data.id} membershipPolicy={entity.data.membershipPolicy} />}
+					{entity.type === "page" && membership && (
+						<JoinButton pageId={entity.data.id} membershipPolicy={entity.data.membershipPolicy} membership={membership} />
+					)}
 					<TransparentCTAButton
 						label={previewMode ? "Edit" : "Preview"}
 						icon={previewMode ? <PencilIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
@@ -245,7 +248,7 @@ function ProfileOwnerContent({
 				/>
 
 				{/* Follow stats — always last */}
-				<FollowStats entityId={entityId} entityType={entityType} connectionsHref={connectionsHref} />
+				<FollowStats counts={followCounts} connectionsHref={connectionsHref} />
 			</div>
 		</div>
 	);
@@ -253,29 +256,15 @@ function ProfileOwnerContent({
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
 
-export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEditClientProps) {
+/**
+ * The owner's profile. `entity` comes straight from the server render: every save is a
+ * Server Action that refreshes the page, so the saved values arrive as new props.
+ */
+export function ProfileEditClient({ entity, followCounts, membership }: ProfileEditClientProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const [entity, setEntity] = useState(initialEntity);
-
-	// Re-seed the avatar from the server after a router.refresh() (avatar save/remove goes
-	// through ClickableProfilePicture, which persists then refreshes). Same source-of-truth
-	// pattern as the nav: the server is authoritative, and local state re-syncs from the fresh
-	// prop rather than each mutator poking it. Keyed on the avatar signature so an inline text
-	// save (already merged locally via onSaved) never triggers a clobbering re-seed.
-	const avatarSig = `${initialEntity.data.avatarImageId ?? ""}|${initialEntity.data.avatarImage?.url ?? ""}`;
-	useEffect(() => {
-		setEntity((prev) => ({
-			...prev,
-			data: {
-				...prev.data,
-				avatarImageId: initialEntity.data.avatarImageId,
-				avatarImage: initialEntity.data.avatarImage,
-			},
-		} as ProfileEditEntity));
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [avatarSig]);
+	const { run: saveProfile } = useAction(saveProfileAction);
 
 	// URL is the source of truth for edit/preview state
 	const previewMode = searchParams.get("edit") !== "true";
@@ -302,38 +291,23 @@ export function ProfileEditClient({ entity: initialEntity, saveUrl }: ProfileEdi
 			// For page, "name" is already the correct field name
 		}
 
-		const res = await authFetch(saveUrl, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ ...payload, fields }),
-		});
-		if (!res.ok) {
-			const data = await res.json().catch(() => ({}));
-			throw new Error(data.error || "Failed to save");
-		}
-		return res.json();
+		const target: ProfileTarget = entity.type === "user" ? { type: "user" } : { type: "page", id: entity.data.id };
+		const result = await saveProfile({ target, payload: { ...payload, fields } });
+		if (!result.ok) throw new Error(result.message);
+		// Return to preview mode after a successful save.
+		setPreviewMode(true);
 	};
 
 	return (
 		<InlineEditSession
 			resource={entity.data as unknown as Record<string, unknown>}
-			onSave={handleSave as (payload: SavePayload) => Promise<Record<string, unknown> | void>}
-			onSaved={(updated) => {
-				setEntity((prev) =>
-					prev.type === "user"
-						? { type: "user", data: { ...prev.data, ...(updated as Partial<PublicUser>) } }
-						: { type: "page", data: { ...prev.data, ...(updated as Partial<PublicPage>) } }
-				);
-				// Bug #1 fix: return to preview/view mode after a successful save
-				setPreviewMode(true);
-				// Re-run server components so the nav's server-seeded identity picks up an
-				// edited name/handle (same mechanism the avatar save already relies on).
-				router.refresh();
-			}}
+			onSave={handleSave}
 			canEdit={!previewMode}
 		>
 			<ProfileOwnerContent
 				entity={entity}
+				followCounts={followCounts}
+				membership={membership}
 				previewMode={previewMode}
 				setPreviewMode={setPreviewMode}
 			/>

@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
 import { DropdownMenu, dropdownMenuStyles } from "@/lib/components/ui/DropdownMenu";
 import { BellIcon } from "@/lib/components/icons/icons";
 import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import { hasSession } from "@/lib/utils/auth-client";
-import { API_NOTIFICATIONS, API_NOTIFICATIONS_READ } from "@/lib/const/routes";
+import { API_NOTIFICATIONS } from "@/lib/const/routes";
+import { markNotificationsReadAction } from "@/lib/actions/notification";
 import type { NotificationItem } from "@/lib/types/notification";
 import { useNotificationCount } from "./NotificationContext";
 import { NotificationRow } from "./NotificationRow";
@@ -18,7 +17,6 @@ import { NotificationRow } from "./NotificationRow";
  * latest notifications and marks them read.
  */
 export function NotificationBell() {
-	const { data: session, status } = useSession();
 	const { activeCount } = useNotificationCount();
 	const { activePageId } = useActiveProfile();
 	const [isOpen, setIsOpen] = useState(false);
@@ -34,11 +32,7 @@ export function NotificationBell() {
 			setItems(data.items ?? []);
 			// Mark this identity's unread as read on open, then let the shared hook refresh the badge.
 			if (activeCount > 0) {
-				await fetch(API_NOTIFICATIONS_READ, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ context }),
-				});
+				await markNotificationsReadAction({ context });
 				window.dispatchEvent(new Event("notifications:read"));
 			}
 		} catch {
@@ -55,10 +49,8 @@ export function NotificationBell() {
 		});
 	};
 
-	// Mounted only when the SSR session was authed. Once the client session loads, trust it so an
-	// out-of-band invalidation hides the bell live, matching NavProfileTag/HamburgerMenu.
-	if (status !== "loading" && !hasSession(session)) return null;
-
+	// Mounted only while the server session has a user (NavigationBar). Hiding on a hollow
+	// client session dropped the bell while the profile tag was still the logged-in one.
 	return (
 		<DropdownMenu
 			isOpen={isOpen}

@@ -27,6 +27,8 @@ import { getUserByHandle } from "@/lib/utils/server/user";
 import { getPageByHandle } from "@/lib/utils/server/page";
 import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
+import { getFollowCounts } from "@/lib/utils/server/follow";
+import { getMembershipStatus } from "@/lib/utils/server/requests";
 import { canManagePage } from "@/lib/utils/server/permission";
 import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
@@ -38,7 +40,6 @@ import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 import { getUserDisplayName } from "@/lib/types/user";
-import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
 import { truncateText } from "@/lib/utils/text";
 import type { AboutCollectionItem } from "@/lib/types/collection";
 
@@ -76,9 +77,10 @@ export default async function HandleProfilePage({ params }: Props) {
 		const isOwnProfile = viewerId === user.id;
 		const userDisplayName = getUserDisplayName(user);
 
-		const [events, posts] = await Promise.all([
+		const [events, posts, followCounts] = await Promise.all([
 			getEventsByUser(user.id, { includeDrafts: isOwnProfile, viewer }),
 			getPostsByUser(user.id, { includeDrafts: isOwnProfile, viewer }),
+			getFollowCounts({ type: "USER", id: user.id }),
 		]);
 		const collectionItems = [...events, ...posts];
 
@@ -97,7 +99,7 @@ export default async function HandleProfilePage({ params }: Props) {
 					<div className="mb-8">
 						<ProfileEditClient
 							entity={{ type: "user", data: user }}
-							saveUrl={API_ME_USER}
+							followCounts={followCounts}
 						/>
 					</div>
 
@@ -117,7 +119,7 @@ export default async function HandleProfilePage({ params }: Props) {
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
 					<ProfileIdentityBlock profile={profile} />
-					<ProfileBody profile={profile} />
+					<ProfileBody profile={profile} followCounts={followCounts} />
 				</div>
 
 				<ProfileCollectionSection
@@ -140,17 +142,19 @@ export default async function HandleProfilePage({ params }: Props) {
 		}
 
 		const pageProfile: ProfileEntity = { type: "PAGE", data: page };
+		const membership = await getMembershipStatus(viewerId, page.id);
 
 		// Visibility gate: FULL renders the profile; LOCKED shows the identity-only private stub.
 		const access = await resolveProfileAccess("PAGE", page, viewer);
-		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} />;
+		if (access === "LOCKED") return <LockedProfilePreview profile={pageProfile} membership={membership} />;
 
 		// Admins get the edit chrome. Pin permission is stamped on each item by the collection query.
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
-		const [events, posts] = await Promise.all([
+		const [events, posts, followCounts] = await Promise.all([
 			getEventsByPage(page.id, { includeDrafts: isOwner, viewer }),
 			getPostsByPage(page.id, { includeDrafts: isOwner, viewer }),
+			getFollowCounts({ type: "PAGE", id: page.id }),
 		]);
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);
@@ -170,7 +174,8 @@ export default async function HandleProfilePage({ params }: Props) {
 					<div className="mb-8">
 						<ProfileEditClient
 							entity={{ type: "page", data: page }}
-							saveUrl={API_PAGE(page.id)}
+							followCounts={followCounts}
+							membership={membership}
 						/>
 					</div>
 
@@ -189,8 +194,8 @@ export default async function HandleProfilePage({ params }: Props) {
 		return (
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
-					<ProfileIdentityBlock profile={pageProfile} />
-					<ProfileBody profile={pageProfile} />
+					<ProfileIdentityBlock profile={pageProfile} membership={membership} />
+					<ProfileBody profile={pageProfile} followCounts={followCounts} />
 				</div>
 
 				<ProfileCollectionSection

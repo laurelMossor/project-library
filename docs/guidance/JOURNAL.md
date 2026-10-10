@@ -11,6 +11,25 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sat 10/10/2026 13:50 PDT
+Finished the Server Actions rollout across all six phases, each reviewed, tested, and QA'd live. It started from a beta report that screens didn't show saved changes. The cause was app-wide. Pages rendered on the server, but saves went through client fetches that never asked the server again.
+
+Every save in the app is now a Server Action built on one shared wrapper. The wrapper owns auth, rate limits, errors, and the refresh, so the screen updates in the same round trip. Components render from server data instead of frozen local copies. Posts, events, comments, photos, membership, RSVP, profiles, settings, messaging, admin review, and the signup and password flows all moved.
+
+48 API route files are gone and 8 more were trimmed to reads only, along with their duplicated checks. A lint rule now blocks any new client-side save.
+
+#### Entry: Fri 10/09/2026 13:00 PDT
+Phases 0, 1, and 2 of the Server Actions rollout are done. Phase 0 puts every save through one wrapper, so the screen re-renders from the server. Phase 1 covers posts and events. Phase 2 covers membership, invites, RSVP, and Connections.
+
+#### Entry: Thu 10/08/2026 16:44 PDT
+Built invite by email (PR #59). A page admin can invite people by address from Connections, with an optional note, up to 20 a day. Someone with an account gets the usual in-app invite. Anyone else gets a signup link and finds the invite waiting once they join. The pending list shows these invites by address, so it never reveals who has an account. Invite emails are now a short plain note with the link written out, to stay out of Gmail Promotions.
+
+#### Entry: Thu 10/08/2026 16:43 PDT
+Built comment tagging on `comment-mentions`. Typing @ opens a people-and-pages search, and any real handle in a comment shows in bold. The tagged person or page gets a notification that opens the comment. Only people who can see the post are told, and an edit never tags someone twice. Comments now read oldest to newest with the box below the thread.
+
+#### Entry: Thu 10/08/2026 12:00 PDT
+Triaged the four in-progress P0 bugs live and planned their fixes. Traced the setup and new-page discard flow and found that closing a second setup tab could delete a finished account. Planned the redesign so nothing is created until Looks good and nothing is deleted on leave. Found Explore showing your own unlisted posts and planned it back to listed only. Signup now fills the name and handle from each other, and the handle reads as a required field.
+
 #### Entry: Mon 10/05/2026 17:43 PDT
 QA'd the open column live in the app. Delete Page passed and is Done. Profile and page setup, members posting, page membership, and group messaging failed and went back to In progress. Settings page issues stayed in QA.
 

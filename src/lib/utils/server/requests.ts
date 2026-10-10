@@ -11,9 +11,23 @@
 
 import { prisma } from "./prisma";
 import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility, ResourceType } from "@prisma/client";
-import { canManagePage, getUserPermission, grantPermission, revokePermission } from "./permission";
-import { assignableRoles } from "@/lib/const/roles";
+import {
+  assertCanManagePage,
+  canManagePage,
+  getUserPermission,
+  grantPermission,
+  isSelfServiceRole,
+  lockPageAdminChanges,
+  revokePermission,
+  wouldRemoveLastAdmin,
+} from "./permission";
+import { assignableRoles, isAdminRole } from "@/lib/const/roles";
+import { DomainError } from "./domain-error";
+import type { MembershipStatus } from "@/lib/types/connections";
 import { emitActivity, type EntityRef } from "./activity";
+import { createSignupInvite } from "./signup-invite";
+import { normalizeEmail, parsePermissionRole, validateEmail } from "@/lib/validations";
+import { EMAIL_INVITE_DAILY_CAP, EMAIL_INVITE_NOTE_MAX } from "@/lib/const/email-invites";
 
 type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
 
@@ -69,13 +83,18 @@ export async function addMember(userId: string, pageId: string, role: Permission
  * membership created it or the person followed first, so both go.
  * Voluntary leave does not call this.
  */
-export async function removeMember(userId: string, pageId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
-    await tx.follow.deleteMany({
+export async function removeMember(userId: string, pageId: string, tx?: Client): Promise<void> {
+  const drop = async (db: Client) => {
+    await revokePermission(userId, pageId, ResourceType.PAGE, db);
+    await db.follow.deleteMany({
       where: { followerId: userId, followingPageId: pageId },
     });
-  });
+  };
+  if (tx) {
+    await drop(tx);
+    return;
+  }
+  await prisma.$transaction(drop);
 }
 
 /** Does `userId` have a pending FOLLOW request to `target`? (Drives the "Requested" button state.) */
@@ -109,17 +128,23 @@ async function upsertAccessRequest(
   kind: AccessRequestKind,
   requester: EntityRef,
   target: EntityRef,
-  extra?: { role?: PermissionRole },
+  extra?: { role?: PermissionRole; note?: string | null },
 ) {
   const data = requestWhere(kind, requester, target);
   const existing = await prisma.accessRequest.findFirst({ where: data });
   if (existing) {
-    if (extra?.role && existing.role !== extra.role) {
-      return prisma.accessRequest.update({ where: { id: existing.id }, data: { role: extra.role } });
+    // A re-invite refreshes the offered role, and the note when one is sent.
+    const roleChanged = !!extra?.role && existing.role !== extra.role;
+    const noteChanged = !!extra?.note && existing.note !== extra.note;
+    if (roleChanged || noteChanged) {
+      return prisma.accessRequest.update({
+        where: { id: existing.id },
+        data: { ...(roleChanged && { role: extra!.role }), ...(noteChanged && { note: extra!.note }) },
+      });
     }
     return existing;
   }
-  return prisma.accessRequest.create({ data: { ...data, role: extra?.role } });
+  return prisma.accessRequest.create({ data: { ...data, role: extra?.role, note: extra?.note ?? null } });
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +200,12 @@ export type InviteResult =
  * granted here. Re-inviting the same person updates the offered role.
  * MEMBER is only offered when the page's policy is not CLOSED.
  */
-export async function invitePageMember(pageId: string, userId: string, role: PermissionRole): Promise<InviteResult> {
+export async function invitePageMember(
+  pageId: string,
+  userId: string,
+  role: PermissionRole,
+  note?: string | null,
+): Promise<InviteResult> {
   const page = await prisma.page.findUnique({
     where: { id: pageId },
     select: { id: true, membershipPolicy: true },
@@ -196,10 +226,215 @@ export async function invitePageMember(pageId: string, userId: string, role: Per
     AccessRequestKind.INVITE,
     { type: "PAGE", id: pageId },
     { type: "USER", id: userId },
-    { role },
+    { role, note },
   );
   await emitActivity("membership.invited", { type: "PAGE", id: pageId }, { type: "USER", id: userId }, { role });
   return { ok: true, status: "invited" };
+}
+
+// ---------------------------------------------------------------------------
+// Invite by email — reaches people who may not have an account yet.
+//
+// Every address becomes a PageEmailInvite row (the durable send log + daily cap). An address that
+// already has an account is claimed at once into the normal AccessRequest INVITE above; any other
+// address gets a signup token and stays pending until an account with that email is created
+// (claimPageEmailInvites, called from signup). The result never says which addresses had accounts.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export type EmailInviteResult =
+  | {
+      ok: true;
+      /** Addresses that became an invite (in-app or signup email). */
+      sent: number;
+      /** Addresses without an account: the caller emails each a signup link. */
+      signupInvites: { email: string; rawToken: string }[];
+      /**
+       * Addresses that already belong to a member of this page. Nothing was created for them.
+       * Naming them is safe: it says the address matches a current member, not which other
+       * addresses have accounts.
+       */
+      alreadyMembers: string[];
+      page: { id: string; name: string };
+    }
+  | { ok: false; reason: "not_found" | "invalid_role" | "no_emails" | "invalid_emails" }
+  | { ok: false; reason: "over_cap"; remaining: number };
+
+export async function invitePageMembersByEmail(args: {
+  pageId: string;
+  inviterId: string;
+  emails: string[];
+  role: PermissionRole;
+  note?: string | null;
+}): Promise<EmailInviteResult> {
+  const page = await prisma.page.findUnique({
+    where: { id: args.pageId },
+    select: { id: true, name: true, membershipPolicy: true },
+  });
+  if (!page) return { ok: false, reason: "not_found" };
+  if (!assignableRoles(page.membershipPolicy).includes(args.role)) {
+    return { ok: false, reason: "invalid_role" };
+  }
+
+  const emails = [...new Set(args.emails.map(normalizeEmail))].filter(Boolean);
+  if (emails.length === 0) return { ok: false, reason: "no_emails" };
+  if (!emails.every(validateEmail)) return { ok: false, reason: "invalid_emails" };
+  const note = args.note?.trim().slice(0, EMAIL_INVITE_NOTE_MAX) || null;
+
+  const users = await prisma.user.findMany({
+    where: { email: { in: emails } },
+    select: { id: true, email: true },
+  });
+  const userIdByEmail = new Map(users.map((u) => [u.email, u.id]));
+
+  // Someone who already has a role is not invited again: no row, no email, no bell, and
+  // they don't spend a slot of the daily cap. Checked before the write so a no-op batch
+  // never touches the invite table.
+  const alreadyMembers: string[] = [];
+  const toInvite: string[] = [];
+  for (const email of emails) {
+    const userId = userIdByEmail.get(email);
+    const existing = userId ? await getUserPermission(userId, page.id, ResourceType.PAGE) : null;
+    if (existing) alreadyMembers.push(email);
+    else toInvite.push(email);
+  }
+
+  const pageInfo = { id: page.id, name: page.name };
+  if (toInvite.length === 0) {
+    return { ok: true, sent: 0, signupInvites: [], alreadyMembers, page: pageInfo };
+  }
+
+  // Cap check + rows in one transaction (DB writes only — no notifications in here, so a
+  // rollback can't leave a stray bell). Two concurrent batches can overshoot slightly under
+  // READ COMMITTED; acceptable for an anti-spam cap.
+  const rows = await prisma.$transaction(async (tx) => {
+    const used = await tx.pageEmailInvite.count({
+      where: { invitedById: args.inviterId, createdAt: { gte: new Date(Date.now() - DAY_MS) } },
+    });
+    if (used + toInvite.length > EMAIL_INVITE_DAILY_CAP) {
+      return { remaining: Math.max(0, EMAIL_INVITE_DAILY_CAP - used) };
+    }
+    // A newer send to the same address supersedes the older row (one email row per page+address).
+    await tx.pageEmailInvite.updateMany({
+      where: { pageId: page.id, email: { in: toInvite }, cancelledAt: null },
+      data: { cancelledAt: new Date() },
+    });
+    return tx.pageEmailInvite.createManyAndReturn({
+      data: toInvite.map((email) => ({
+        pageId: page.id,
+        invitedById: args.inviterId,
+        email,
+        role: args.role,
+        note,
+      })),
+      select: { id: true, pageId: true, email: true, role: true, note: true },
+    });
+  });
+  if (!Array.isArray(rows)) return { ok: false, reason: "over_cap", remaining: rows.remaining };
+
+  const signupInvites: { email: string; rawToken: string }[] = [];
+  let sent = 0;
+  for (const row of rows) {
+    const userId = userIdByEmail.get(row.email);
+    if (userId) {
+      const outcome = await claimEmailInvite(row, userId);
+      // Joined between the check above and this claim: drop the row we just wrote.
+      if (outcome === "already_member") alreadyMembers.push(row.email);
+      else if (outcome === "claimed") sent += 1;
+    } else {
+      const { rawToken } = await createSignupInvite(row.email);
+      signupInvites.push({ email: row.email, rawToken });
+      sent += 1;
+    }
+  }
+
+  return { ok: true, sent, signupInvites, alreadyMembers, page: pageInfo };
+}
+
+type EmailInviteRow = { id: string; pageId: string; role: PermissionRole; note: string | null };
+
+/**
+ * Turn a pending email invite into the real AccessRequest INVITE for `userId` (which notifies them).
+ * If the page can no longer offer the role, or they already have one, the row is cancelled.
+ */
+async function claimEmailInvite(
+  row: EmailInviteRow,
+  userId: string,
+): Promise<"claimed" | "already_member" | "cancelled"> {
+  const result = await invitePageMember(row.pageId, userId, row.role, row.note);
+  if (!result.ok && result.reason === "already_member") {
+    await prisma.pageEmailInvite.update({
+      where: { id: row.id },
+      data: { cancelledAt: new Date() },
+    });
+    return "already_member";
+  }
+  await prisma.pageEmailInvite.update({
+    where: { id: row.id },
+    data: result.ok ? { claimedAt: new Date(), claimedUserId: userId } : { cancelledAt: new Date() },
+  });
+  return result.ok ? "claimed" : "cancelled";
+}
+
+/**
+ * A new account was created for `email`: open every page invite waiting on that address.
+ * Idempotent (claimed rows are skipped; invitePageMember upserts). Safe to key on email because
+ * signup requires a token that was mailed to that address.
+ */
+export async function claimPageEmailInvites(userId: string, email: string): Promise<void> {
+  const rows = await prisma.pageEmailInvite.findMany({
+    where: { email: normalizeEmail(email), claimedAt: null, cancelledAt: null },
+    select: { id: true, pageId: true, role: true, note: true },
+    orderBy: { createdAt: "asc" },
+  });
+  for (const row of rows) {
+    await claimEmailInvite(row, userId);
+  }
+}
+
+/**
+ * Pending email invites a page has sent, oldest first. An invite sent by email stays an email row
+ * until it's accepted — even once claimed for an account (at send time or at signup) — so the
+ * admin's list never reveals which addresses have accounts. `claimedUserId` is for the members
+ * route to hide the matching profile invite; never send it to the client.
+ */
+export async function listPageEmailInvites(pageId: string) {
+  const pendingInvites = await prisma.accessRequest.findMany({
+    where: { requesterPageId: pageId, kind: AccessRequestKind.INVITE },
+    select: { targetUserId: true },
+  });
+  const pendingUserIds = pendingInvites.map((r) => r.targetUserId).filter((id): id is string => !!id);
+  return prisma.pageEmailInvite.findMany({
+    where: {
+      pageId,
+      cancelledAt: null,
+      OR: [{ claimedAt: null }, { claimedUserId: { in: pendingUserIds } }],
+    },
+    select: { id: true, email: true, role: true, createdAt: true, claimedUserId: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Cancel a page's pending email invite. If it was already claimed for an account, the open
+ * AccessRequest INVITE is withdrawn too. The caller has checked canManagePage.
+ */
+export async function cancelPageEmailInvite(pageId: string, inviteId: string): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.pageEmailInvite.findFirst({
+      where: { id: inviteId, pageId, cancelledAt: null },
+      select: { id: true, claimedUserId: true },
+    });
+    if (!row) return false;
+    await tx.pageEmailInvite.update({ where: { id: row.id }, data: { cancelledAt: new Date() } });
+    if (row.claimedUserId) {
+      await tx.accessRequest.deleteMany({
+        where: { kind: AccessRequestKind.INVITE, requesterPageId: pageId, targetUserId: row.claimedUserId },
+      });
+    }
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -418,5 +653,182 @@ export async function autoApprovePendingOnUnlock(entity: EntityRef, tx: Client =
   }
   if (pending.length > 0) {
     await tx.accessRequest.deleteMany({ where });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Guarded entry points — what the membership Server Actions call. Each authorizes the actor,
+// maps the result-returning functions above onto DomainErrors (the message is shown to the
+// user), and enforces the role rules once: last-admin, the page's assignable roles, no
+// self-downgrade through the join flow.
+// ---------------------------------------------------------------------------
+
+/** Narrow client-supplied input to a PermissionRole. The enum check lives in validations. */
+export function parseRole(role: unknown): PermissionRole {
+  const parsed = parsePermissionRole(role);
+  if (!parsed) throw new DomainError("Invalid role");
+  return parsed;
+}
+
+/** The viewer's own role on a page and whether a join request of theirs is pending (none when signed out). */
+export async function getMembershipStatus(userId: string | null, pageId: string): Promise<MembershipStatus> {
+  if (!userId) return { role: null, requested: false };
+  const role = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  return { role, requested: role ? false : await hasPendingJoinRequest(userId, pageId) };
+}
+
+/** Page ADMIN: invite someone to a role. They must accept; nothing is granted here. */
+export async function inviteMember(actorId: string, pageId: string, userId: string, role: unknown): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  const result = await invitePageMember(pageId, userId, parseRole(role));
+  if (result.ok) return;
+  switch (result.reason) {
+    case "not_found":
+      throw new DomainError("Page not found", "not_found");
+    case "user_not_found":
+      throw new DomainError("User not found", "not_found");
+    case "already_member":
+      throw new DomainError("That person already has a role on this page", "conflict");
+    case "invalid_role":
+      throw new DomainError("That role isn't available for this page");
+  }
+}
+
+/**
+ * Page ADMIN: change an existing member's role. New people are invited, not granted. The role
+ * must be one the page's policy offers, and the page's last admin can't be demoted.
+ */
+export async function changeMemberRole(actorId: string, pageId: string, userId: string, role: unknown): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  const next = parseRole(role);
+
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { membershipPolicy: true } });
+  if (!page) throw new DomainError("Page not found", "not_found");
+
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  if (!existing) throw new DomainError("That person is not a member of this page");
+
+  if (!assignableRoles(page.membershipPolicy).includes(next)) throw new DomainError("Invalid role");
+
+  // Lock, re-check, and write together. The check outside the lock lets two demotions both pass.
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (!isAdminRole(next) && (await wouldRemoveLastAdmin(pageId, userId, tx))) {
+      throw new DomainError("Cannot remove the last admin from a page");
+    }
+    await grantPermission(userId, pageId, ResourceType.PAGE, next, tx);
+  });
+  if (existing !== next) {
+    await emitActivity("role.changed", { type: "PAGE", id: pageId }, { type: "USER", id: userId });
+  }
+}
+
+/** Page ADMIN: remove a member (role and follow). Covers self-removal; the last admin stays. */
+export async function removePageMember(actorId: string, pageId: string, userId: string): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (await wouldRemoveLastAdmin(pageId, userId, tx)) {
+      throw new DomainError("Cannot remove the last admin from a page");
+    }
+    await removeMember(userId, pageId, tx);
+  });
+}
+
+/** Ask to join. Only a REQUEST_TO_JOIN page accepts this; every other policy reads as not found. */
+export async function joinPage(userId: string, pageId: string): Promise<void> {
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    select: { id: true, membershipPolicy: true },
+  });
+  if (!page) throw new DomainError("Page not found", "not_found");
+
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  // Privileged roles can't self-downgrade through the join flow.
+  if (!isSelfServiceRole(existing)) throw new DomainError("You already have a role on this page", "conflict");
+  if (existing) return; // already a plain member
+
+  const result = await requestToJoinPage(userId, page);
+  if (result.status === "unavailable") throw new DomainError("Page not found", "not_found");
+}
+
+/**
+ * Leave a page (any role), or withdraw a pending join request. The last admin can't leave: it
+ * would orphan the page, so they hand off admin first. Leaving does not unfollow.
+ */
+export async function leavePage(userId: string, pageId: string): Promise<void> {
+  const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
+  if (!existing) {
+    await cancelJoinRequest(userId, pageId);
+    return;
+  }
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (await wouldRemoveLastAdmin(pageId, userId, tx)) {
+      throw new DomainError("You are the last admin — assign another admin before leaving");
+    }
+    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
+  });
+}
+
+/** Approve or deny a pending request (who may act is decided per kind in approve/denyRequest). */
+export async function resolveRequest(actorId: string, requestId: string, decision: "approve" | "deny"): Promise<void> {
+  const result = decision === "approve" ? await approveRequest(actorId, requestId) : await denyRequest(actorId, requestId);
+  if (result.ok) return;
+  switch (result.reason) {
+    case "not_found":
+      throw new DomainError("Request not found", "not_found");
+    case "unavailable":
+      // The invite row is already deleted. Refresh so it leaves the list, and
+      // still tell them why they were not added.
+      throw new DomainError("That invite is no longer available", "conflict", { refresh: true });
+    case "forbidden":
+      throw new DomainError("You cannot act on this request", "forbidden");
+  }
+}
+
+/** Page ADMIN: withdraw a pending email invite. */
+export async function cancelEmailInvite(actorId: string, pageId: string, inviteId: string): Promise<void> {
+  await assertCanManagePage(actorId, pageId);
+  if (!(await cancelPageEmailInvite(pageId, inviteId))) throw new DomainError("Invite not found", "not_found");
+}
+
+/**
+ * Page ADMIN: validate an invite-by-email batch and create the invites. Returns the successful
+ * result, which still lists the signup emails for the caller to send.
+ */
+export async function inviteMembersByEmail(
+  actorId: string,
+  pageId: string,
+  input: { emails: unknown; role: unknown; note?: unknown },
+): Promise<Extract<EmailInviteResult, { ok: true }>> {
+  await assertCanManagePage(actorId, pageId);
+
+  const { emails, note } = input;
+  if (!Array.isArray(emails) || !emails.every((e) => typeof e === "string")) {
+    throw new DomainError("emails must be a list of addresses");
+  }
+  const role = parseRole(input.role);
+  if (note != null && typeof note !== "string") throw new DomainError("Invalid note");
+  if (typeof note === "string" && note.trim().length > EMAIL_INVITE_NOTE_MAX) {
+    throw new DomainError(`Keep the note under ${EMAIL_INVITE_NOTE_MAX} characters`);
+  }
+
+  const result = await invitePageMembersByEmail({ pageId, inviterId: actorId, emails, role, note });
+  if (result.ok) return result;
+  switch (result.reason) {
+    case "not_found":
+      throw new DomainError("Page not found", "not_found");
+    case "invalid_role":
+      throw new DomainError("That role isn't available for this page");
+    case "no_emails":
+      throw new DomainError("Add at least one email address");
+    case "invalid_emails":
+      throw new DomainError("Some of those email addresses aren't valid");
+    case "over_cap":
+      throw new DomainError(
+        `You can send up to ${EMAIL_INVITE_DAILY_CAP} email invites a day. You have ${result.remaining} left today.`,
+        "rate_limited",
+      );
   }
 }

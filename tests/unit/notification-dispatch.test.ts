@@ -10,6 +10,10 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 	prisma: {
 		permission: { findMany: vi.fn() },
 		notification: { createManyAndReturn: vi.fn() },
+		// Read only by the MENTION visibility gate (the real visibility layer runs).
+		post: { findUnique: vi.fn() },
+		event: { findUnique: vi.fn() },
+		follow: { findFirst: vi.fn() },
 	},
 }));
 vi.mock("@/lib/utils/server/email-outbox", () => ({ enqueueEmails: vi.fn() }));
@@ -106,6 +110,87 @@ describe("emitActivity fan-out", () => {
 		await expect(
 			emitActivity("follow.created", { type: "USER", id: "a" }, { type: "USER", id: "b" }),
 		).resolves.toBeUndefined();
+	});
+});
+
+describe("comment.mentioned — only recipients who can see the post", () => {
+	const post = (contentVisibility: "LISTED" | "PRIVATE") =>
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			id: "p1", userId: "owner", pageId: null, asPageId: null, showOnAuthorProfile: true,
+			eventId: null, parentPostId: null, status: "PUBLISHED", contentVisibility,
+		} as never);
+	const object = { type: "POST" as const, id: "p1", commentId: "c1" };
+
+	beforeEach(() => {
+		permFindMany.mockResolvedValue([] as never);
+		vi.mocked(prisma.follow.findFirst).mockResolvedValue(null as never);
+	});
+
+	test("a tag on a listed post notifies the tagged user and anchors the comment", async () => {
+		post("LISTED");
+		await emitActivity("comment.mentioned", { type: "USER", id: "alice" }, { type: "USER", id: "sam" }, object);
+		expect(writtenRows()).toHaveLength(1);
+		expect(writtenRows()[0]).toMatchObject({
+			recipientUserId: "sam", type: "MENTION", objectType: "POST", objectId: "p1", commentId: "c1",
+		});
+		expect(enqueuedEntries()[0]).toMatchObject({ recipientUserId: "sam", category: "COMMENTS" });
+	});
+
+	test("a tag on a PRIVATE post the tagged user can't see notifies nobody", async () => {
+		post("PRIVATE"); // sam doesn't follow the owner → can't see it
+		await emitActivity("comment.mentioned", { type: "USER", id: "alice" }, { type: "USER", id: "sam" }, object);
+		expect(createManyAndReturn).not.toHaveBeenCalled();
+		expect(enqueue).not.toHaveBeenCalled();
+	});
+
+	test("a tag on a PRIVATE post reaches a tagged follower of the owner", async () => {
+		post("PRIVATE");
+		vi.mocked(prisma.follow.findFirst).mockResolvedValue({ id: "f1" } as never);
+		await emitActivity("comment.mentioned", { type: "USER", id: "alice" }, { type: "USER", id: "sam" }, object);
+		expect(writtenRows().map((r) => r.recipientUserId)).toEqual(["sam"]);
+	});
+
+	test("tagging a page fans out to its ADMIN + EDITOR", async () => {
+		post("LISTED");
+		pageManagers([
+			{ userId: "admin", role: "ADMIN" },
+			{ userId: "editor", role: "EDITOR" },
+			{ userId: "member", role: "MEMBER" },
+		]);
+		await emitActivity("comment.mentioned", { type: "USER", id: "alice" }, { type: "PAGE", id: "pageY" }, object);
+		expect(writtenRows().map((r) => r.recipientUserId).sort()).toEqual(["admin", "editor"]);
+		expect(writtenRows().every((r) => r.type === "MENTION" && r.contextPageId === "pageY")).toBe(true);
+		// One read of the post serves every recipient's check.
+		expect(prisma.post.findUnique).toHaveBeenCalledTimes(1);
+	});
+
+	test("the person who wrote it is never notified, even through a page they manage", async () => {
+		post("LISTED");
+		pageManagers([
+			{ userId: "admin", role: "ADMIN" },
+			{ userId: "alice", role: "EDITOR" },
+		]);
+		// alice, commenting as page pageZ, tags pageY — which she also edits
+		await emitActivity("comment.mentioned", { type: "PAGE", id: "pageZ" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
+		expect(writtenRows().map((r) => r.recipientUserId)).toEqual(["admin"]);
+	});
+
+	test("a tag on a DRAFT post reaches no one but its owner", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			id: "p1", userId: "owner", pageId: null, asPageId: null, showOnAuthorProfile: true,
+			eventId: null, parentPostId: null, status: "DRAFT", contentVisibility: "LISTED",
+		} as never);
+		await emitActivity("comment.mentioned", { type: "USER", id: "owner" }, { type: "USER", id: "sam" }, object);
+		expect(createManyAndReturn).not.toHaveBeenCalled();
+	});
+
+	test("a tag on a PRIVATE event the tagged user can't see notifies nobody", async () => {
+		vi.mocked(prisma.event.findUnique).mockResolvedValue({
+			id: "e1", userId: "owner", pageId: null, asPageId: null, showOnAuthorProfile: true,
+			status: "PUBLISHED", contentVisibility: "PRIVATE",
+		} as never);
+		await emitActivity("comment.mentioned", { type: "USER", id: "alice" }, { type: "USER", id: "sam" }, { type: "EVENT", id: "e1", commentId: "c1" });
+		expect(createManyAndReturn).not.toHaveBeenCalled();
 	});
 });
 
