@@ -40,7 +40,6 @@ import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
 import { ProfileEntity } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 import { getUserDisplayName } from "@/lib/types/user";
-import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
 import { truncateText } from "@/lib/utils/text";
 import type { AboutCollectionItem } from "@/lib/types/collection";
 
@@ -100,7 +99,6 @@ export default async function HandleProfilePage({ params }: Props) {
 					<div className="mb-8">
 						<ProfileEditClient
 							entity={{ type: "user", data: user }}
-							saveUrl={API_ME_USER}
 							followCounts={followCounts}
 						/>
 					</div>
@@ -176,7 +174,6 @@ export default async function HandleProfilePage({ params }: Props) {
 					<div className="mb-8">
 						<ProfileEditClient
 							entity={{ type: "page", data: page }}
-							saveUrl={API_PAGE(page.id)}
 							followCounts={followCounts}
 							membership={membership}
 						/>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CardEntity, isCardPage } from "@/lib/types/card";
 import { ProfilePicture } from "./ProfilePicture";
 import { ImageEditModal } from "@/lib/components/images/ImageEditModal";
 import { ImageLightbox } from "@/lib/components/images/ImageLightbox";
 import { uploadImageOnly } from "@/lib/utils/image-client";
-import { API_ME_USER, API_PAGE } from "@/lib/const/routes";
+import { saveProfileAction } from "@/lib/actions/profile";
+import { useAction } from "@/lib/hooks/useAction";
+import type { ProfileTarget } from "@/lib/types/profile";
 import { GeneratedAvatar } from "./GeneratedAvatar";
 
 type ClickableProfilePictureProps = {
@@ -21,23 +22,20 @@ type ClickableProfilePictureProps = {
 };
 
 export function ClickableProfilePicture({ entity, canEdit = false, onSaved, persistAvatar }: ClickableProfilePictureProps) {
-	const router = useRouter();
+	const { run: saveProfile } = useAction(saveProfileAction);
 	const [editOpen, setEditOpen] = useState(false);
 	const [lightboxOpen, setLightboxOpen] = useState(false);
 
 	const avatarUrl = entity.avatarImage?.url ?? null;
 
-	// Avatar persists via a direct FK (not ImageAttachment): PUT the profile route
-	// with { fields: { avatarImageId } }. Both user and page routes take the same wrapper.
+	// Avatar persists via a direct FK (not ImageAttachment): the profile save with
+	// { fields: { avatarImageId } }. The action refreshes the page, so a server-rendered
+	// avatar updates with it; `onSaved` is for a client-loaded profile that holds its own copy.
 	async function saveAvatarImageId(avatarImageId: string | null) {
 		if (persistAvatar) return persistAvatar(avatarImageId);
-		const endpoint = isCardPage(entity) ? API_PAGE(entity.id) : API_ME_USER;
-		const res = await fetch(endpoint, {
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ fields: { avatarImageId } }),
-		});
-		if (!res.ok) throw new Error("Failed to save avatar");
+		const target: ProfileTarget = isCardPage(entity) ? { type: "page", id: entity.id } : { type: "user" };
+		const result = await saveProfile({ target, payload: { fields: { avatarImageId } } });
+		if (!result.ok) throw new Error(result.message ?? "Failed to save avatar");
 	}
 
 	function handlePhotoClick() {
@@ -100,12 +98,10 @@ export function ClickableProfilePicture({ entity, canEdit = false, onSaved, pers
 						const image = await uploadImageOnly({ file, folder: "avatars" });
 						await saveAvatarImageId(image.id);
 						onSaved?.({ id: image.id, url: image.url });
-						router.refresh();
 					}}
 					onRemove={async () => {
 						await saveAvatarImageId(null);
 						onSaved?.(null);
-						router.refresh();
 					}}
 				/>
 			)}

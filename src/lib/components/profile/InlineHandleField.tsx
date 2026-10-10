@@ -11,7 +11,7 @@ import { FieldLabel } from "./FieldLabel";
 /**
  * The handle as an ordinary session field. While the draft isn't a free, valid handle the
  * session keeps the original, so an unusable handle is never sent. The session's save
- * routes it to the handle endpoint (see ActiveIdentityEditor).
+ * routes it to the handle action (see ActiveIdentityEditor).
  */
 export function InlineHandleField({
 	original,

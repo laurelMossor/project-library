@@ -3,7 +3,7 @@ import { STORAGE_STATE } from "./helpers/auth";
 import { switchToPage, switchToPersonal } from "./helpers/profile";
 
 // Email-notification settings: the feature's primary user surface. Covers what unit tests can't reach —
-// a real GET/PUT round-trip against the DB and the reload-on-identity-switch that shows each identity's
+// a real load/save round-trip against the DB and the reload-on-identity-switch that shows each identity's
 // own (independent) preferences. "Event RSVPs" is the probe category: it defaults OFF, so toggling it is
 // an unambiguous change in either direction.
 test.use({ storageState: STORAGE_STATE.alice });
@@ -11,14 +11,17 @@ test.use({ storageState: STORAGE_STATE.alice });
 const NOTIF_SETTINGS = "/settings/profile";
 const RSVPS = "Event RSVPs";
 
-/** Click a category switch and wait for its PUT to land, so a reload can't race the save. */
+/**
+ * Click a category switch and wait for its save to land, so a reload can't race it. The save is a
+ * Server Action: a POST to the page URL carrying a Next-Action header.
+ */
 async function toggleAndSave(page: Page, name: string) {
   const sw = page.getByRole("switch", { name });
   await Promise.all([
     page.waitForResponse(
       (r) =>
-        r.url().includes("/api/me/notification-preferences") &&
-        r.request().method() === "PUT" &&
+        r.request().method() === "POST" &&
+        r.request().headers()["next-action"] !== undefined &&
         r.ok(),
     ),
     sw.click(),

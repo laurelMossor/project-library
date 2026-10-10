@@ -111,16 +111,13 @@ export const API_AUTH_FORGOT_PASSWORD = "/api/auth/forgot-password";
 export const API_AUTH_RESET_PASSWORD = "/api/auth/reset-password";
 
 // Current User Context API Routes (all under /api/me/)
-export const API_ME_USER = "/api/me/user"; // GET/PUT/DELETE current user profile
+// Profile, handle, setup, account/page delete, notification prefs, and the active-identity
+// switch are Server Actions in src/lib/actions/{profile,account,page,settings,session}.ts.
+export const API_ME_USER = "/api/me/user"; // GET current user profile
 export const API_ME_USER_DELETE_PREVIEW = "/api/me/user/delete-preview"; // GET pages deleted with the account
-export const API_ME_SETUP = "/api/me/setup"; // DELETE an account that has not finished setup
-export const API_ME_SETUP_COMPLETE = "/api/me/setup-complete"; // POST mark the settings review done
-export const API_ME_HANDLE = "/api/me/handle"; // PUT change current user's handle
-export const API_ME_PAGE = "/api/me/page"; // GET/PUT current active page profile
-export const API_ME_PAGE_HANDLE = "/api/me/page/handle"; // PUT change active page's handle
+export const API_ME_PAGE = "/api/me/page"; // GET current active page profile
 export const API_ME_PAGES = "/api/me/pages"; // GET user's pages
-export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET/PUT email prefs for the active identity
-export const API_SESSION_ACTIVE_PAGE = "/api/session/active-page"; // PUT/DELETE active page (with server validation)
+export const API_ME_NOTIFICATION_PREFS = "/api/me/notification-preferences"; // GET email prefs for the active identity
 
 // Unsubscribe + the scheduled email flush (pinged by a GitHub Action)
 export const API_UNSUBSCRIBE = "/api/unsubscribe";
@@ -144,9 +141,7 @@ export const API_ADMIN_SUBMISSION = (id: string) => `/api/admin/submissions/${id
 // Telegram intake webhook (Poster Catcher)
 export const API_TELEGRAM_WEBHOOK = "/api/telegram/webhook";
 
-// Page API Routes
-export const API_PAGES = "/api/pages";
-export const API_PAGE = (pageId: string) => `/api/pages/${pageId}`;
+// Page create/delete are Server Actions in src/lib/actions/page.ts.
 // Membership, invites, and access requests are Server Actions in src/lib/actions/membership.ts.
 // Their lists are read on the server page (connections.ts), not through GET routes.
 

@@ -2,7 +2,7 @@
 //
 // One transaction dance for both users and pages: update the per-kind profile
 // mapper (inside the tx) → cascade visibility to all descendants → apply element
-// operations → refetch. Used by PUT /api/me/user and PUT /api/pages/[pageId] so
+// operations → refetch. Used by the profile Server Actions (`updateProfile`) so
 // the visibility cascade rules live in exactly one place.
 
 import { ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
@@ -14,7 +14,11 @@ import { syncDescendantVisibility } from "./visibility";
 import { autoApprovePendingOnUnlock } from "./requests";
 import { validateProfileData, validatePageUpdateData } from "@/lib/validations";
 import { avatarAssignmentError } from "./image-attachment";
+import { canManagePage, canPostAsPage } from "./permission";
+import { setPageHandle, setUserHandle } from "./handle";
+import { DomainError } from "./domain-error";
 import type { SavePayload } from "@/lib/types/inline-edit";
+import type { ProfileTarget } from "@/lib/types/profile";
 
 type ProfileKind = "USER" | "PAGE";
 
@@ -60,13 +64,12 @@ export async function updateProfileWithCascade(
   });
 }
 
-// ─── Shared /api/me/* save executor ──────────────────────────────────────────
+// ─── Shared save executor ────────────────────────────────────────────────────
 //
-// `PUT /api/me/user` and `PUT /api/me/page` differ only in how they resolve the
-// target id + permission (kept in each route). Everything after that — field
-// whitelisting, validation, the visibility cascade, element ops — is identical
-// per kind and lives here so the two routes can't drift (and so a page can't
-// silently drop visibility the way the old hand-rolled page route did).
+// A user and a page differ only in how the target id + permission resolve
+// (`resolveProfileTarget`). Everything after that — field whitelisting,
+// validation, the visibility cascade, element ops — is identical per kind and
+// lives here so the two can't drift.
 
 type FieldMap = Record<string, unknown>;
 
@@ -129,7 +132,7 @@ const MANAGE_FIELDS = ["profileVisibility", "contentVisibility", "membershipPoli
 
 /**
  * Validate + persist a `SavePayload` for the current user's own profile or
- * active page. Callers (the two `/api/me/*` routes) own auth + id resolution;
+ * active page. Callers (`updateProfile`) own auth + id resolution;
  * this owns the whitelist, validation, and the cascading write.
  *
  * `opts.allowManageChange` gates the manage-only fields independently of the
@@ -148,7 +151,7 @@ export async function saveMyProfile(
   const picked = pickProfileFields(kind, fields);
 
   if (!allowManageChange && MANAGE_FIELDS.some((k) => picked[k] !== undefined)) {
-    // `forbidden` lets the route map this to 403 without matching on the message prose.
+    // `forbidden` lets the caller map this to a forbidden refusal without matching on the message prose.
     return { ok: false, error: "Only an admin can change this page's settings.", forbidden: true };
   }
 
@@ -184,6 +187,61 @@ export async function saveMyProfile(
 
   const profile = await updateProfileWithCascade(kind, id, picked, elements);
   return { ok: true, profile };
+}
+
+/**
+ * Resolve a client-supplied profile target to the kind + id the caller may write, and whether
+ * they may also change a page's manage-only settings. A user edits only their own profile. A
+ * page needs an acting role (ADMIN/EDITOR); no row and no such page are the same refusal.
+ * Shared by the profile save and the handle change so the two can't disagree on who may edit.
+ */
+export async function resolveProfileTarget(
+  actorUserId: string,
+  target: ProfileTarget | undefined,
+): Promise<{ kind: ProfileKind; id: string; canManage: boolean }> {
+  if (target?.type === "user") return { kind: "USER", id: actorUserId, canManage: true };
+  if (target?.type !== "page" || typeof target.id !== "string" || !target.id) {
+    throw new DomainError("Invalid profile");
+  }
+  if (!(await canPostAsPage(actorUserId, target.id))) {
+    throw new DomainError("You don't have permission to manage this page", "forbidden");
+  }
+  return { kind: "PAGE", id: target.id, canManage: await canManagePage(actorUserId, target.id) };
+}
+
+/**
+ * Save the signed-in user's profile, or a page they may act as. Privacy and membership
+ * settings stay ADMIN-only even though an EDITOR may edit the rest. Returns the refetched
+ * profile; any refusal is a DomainError.
+ */
+export async function updateProfile(
+  actorUserId: string,
+  target: ProfileTarget | undefined,
+  payload: SavePayload | undefined,
+): Promise<Record<string, unknown>> {
+  if (!payload || typeof payload !== "object" || typeof payload.fields !== "object" || payload.fields === null) {
+    throw new DomainError("Invalid profile update");
+  }
+  const { kind, id, canManage } = await resolveProfileTarget(actorUserId, target);
+  const result = await saveMyProfile(kind, id, payload, { allowManageChange: canManage, actorUserId });
+  if (!result.ok) throw new DomainError(result.error, result.forbidden ? "forbidden" : "invalid");
+  return result.profile as Record<string, unknown>;
+}
+
+/**
+ * Change the handle of the signed-in user, or of a page they may act as. Kept off the generic
+ * save because a handle change also moves the cross-entity `Handle` row. Returns the saved handle.
+ */
+export async function changeProfileHandle(
+  actorUserId: string,
+  target: ProfileTarget | undefined,
+  rawHandle: unknown,
+): Promise<string> {
+  if (typeof rawHandle !== "string") throw new DomainError("Handle is required");
+  const { kind, id } = await resolveProfileTarget(actorUserId, target);
+  const result = kind === "USER" ? await setUserHandle(id, rawHandle) : await setPageHandle(id, rawHandle);
+  if (!result.ok) throw new DomainError(result.error);
+  return result.handle;
 }
 
 /** Reject the PRIVATE-profile + LISTED-content default combination, evaluated on the merged

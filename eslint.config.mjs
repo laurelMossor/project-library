@@ -60,8 +60,6 @@ export default [
 		files: [
 			// Phase 0
 			"src/lib/hooks/**",
-			"src/lib/components/profile/FollowStats.tsx",
-			"src/lib/components/profile/ProfileBody.tsx",
 			// Phase 1: posts, events, comments, photos
 			"src/app/posts/**",
 			"src/app/events/**",
@@ -73,10 +71,13 @@ export default [
 			"src/lib/components/layout/**",
 			// Phase 2: membership, invites, requests, follow, RSVP
 			"src/app/connections/**",
-			"src/lib/components/profile/ConnectionsPageView.tsx",
-			"src/lib/components/profile/ConnectionsPageClient.tsx",
-			"src/lib/components/profile/JoinButton.tsx",
-			"src/lib/components/profile/EmailInviteModal.tsx",
+			// Phase 3: profile, settings, setup, page create, identity switch
+			"src/lib/components/profile/**",
+			"src/lib/contexts/**",
+			"src/app/[[]handle]/**",
+			"src/app/settings/**",
+			"src/app/setup/**",
+			"src/app/pages/**",
 		],
 		rules: {
 			"no-restricted-syntax": [

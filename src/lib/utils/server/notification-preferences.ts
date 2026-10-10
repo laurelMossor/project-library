@@ -12,6 +12,9 @@
 import { NotificationCategory, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { CATEGORY_EMAIL_DEFAULT } from "./notification-category";
+import { canPostAsPage } from "./permission";
+import { DomainError } from "./domain-error";
+import type { NotificationPrefs, NotificationPrefsPatch } from "@/lib/types/settings";
 
 /**
  * A delivery/preference identity. Mail lands at `recipientUserId`'s address; `contextPageId` (null = the
@@ -108,6 +111,43 @@ async function writePref(id: EmailIdentity, category: NotificationCategory | nul
 		}
 		throw err;
 	}
+}
+
+/**
+ * The email-preference identity for a signed-in request: the session user's personal profile, or —
+ * when acting as a page — that page, which the user must still be able to act as (ADMIN/EDITOR).
+ * Preferences are per (user, context), so a page's rows belong to *this* manager, independent of
+ * other managers. Refuses with `forbidden` when the page is no longer theirs.
+ */
+export async function resolveEmailIdentity(ctx: { userId: string; activePageId: string | null }): Promise<EmailIdentity> {
+	if (ctx.activePageId && !(await canPostAsPage(ctx.userId, ctx.activePageId))) {
+		throw new DomainError("You don't manage this page", "forbidden");
+	}
+	return { recipientUserId: ctx.userId, contextPageId: ctx.activePageId };
+}
+
+const CATEGORIES = new Set<string>(Object.values(NotificationCategory));
+
+/**
+ * Apply a settings-form patch (`master`, and/or a subset of `categories`) to an identity and return
+ * the resulting effective preferences. The whole patch is validated before anything is written.
+ */
+export async function updatePrefs(id: EmailIdentity, patch: NotificationPrefsPatch): Promise<NotificationPrefs> {
+	const { master, categories } = patch ?? {};
+	if (master !== undefined && typeof master !== "boolean") throw new DomainError("`master` must be a boolean");
+	const writes: [NotificationCategory, boolean][] = [];
+	if (categories !== undefined) {
+		if (typeof categories !== "object" || categories === null) throw new DomainError("`categories` must be an object");
+		for (const [cat, value] of Object.entries(categories)) {
+			if (!CATEGORIES.has(cat)) throw new DomainError(`Unknown category: ${cat}`);
+			if (typeof value !== "boolean") throw new DomainError(`Category ${cat} must be a boolean`);
+			writes.push([cat as NotificationCategory, value]);
+		}
+	}
+
+	if (master !== undefined) await setMaster(id, master);
+	for (const [cat, value] of writes) await setPref(id, cat, value);
+	return getEffectivePrefs(id);
 }
 
 /** Flip an identity's per-context email master (the unsubscribe / settings kill-switch). */

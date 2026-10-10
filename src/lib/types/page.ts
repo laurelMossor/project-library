@@ -29,6 +29,19 @@ export interface PublicPage {
   updatedAt: Date;
 }
 
+/**
+ * What the create-page form sends. `name` and `handle` are required; the rest (about fields,
+ * visibility, membership, address, avatar) are checked server-side against the same whitelist
+ * that editing an existing page uses.
+ */
+export type PageCreateInput = {
+  /** Chosen up front so the avatar previewed in the form is the one the page keeps. */
+  id?: string;
+  name: string;
+  handle: string;
+  [field: string]: unknown;
+};
+
 export function getPageDisplayName(page: { name: string }): string {
   return page.name;
 }

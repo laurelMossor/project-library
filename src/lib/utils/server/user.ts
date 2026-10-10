@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 import { profileElementFields } from "./profile-element";
 import { getSoleAdminPages, getSuccessorAdminIds, lockPageAdminChanges } from "./permission";
 import { DomainError } from "./domain-error";
+import { removeStoragePaths } from "./storage";
 // page.ts and image-attachment.ts reach back here through fields.ts → publicUserEmbedFields.
 // Import them inside deleteAccount so this module can finish loading first.
 
@@ -227,6 +228,27 @@ export async function isSetupComplete(userId: string): Promise<boolean | null> {
 	});
 	if (!user) return null;
 	return user.setupCompletedAt != null;
+}
+
+/** The user accepted the settings review: setup is finished. */
+export async function markSetupComplete(userId: string): Promise<void> {
+	await prisma.user.update({ where: { id: userId }, data: { setupCompletedAt: new Date() } });
+}
+
+/** Delete an account, then remove the files it owned. See `deleteAccount` for the conflict check. */
+export async function removeAccount(userId: string, expectedPageIds: string[]): Promise<void> {
+	await removeStoragePaths(await deleteAccount(userId, expectedPageIds));
+}
+
+/**
+ * Delete the account from the setup screen, only while setup is unfinished. A finished account is
+ * refused (`SetupAlreadyFinished`) so a second tab cannot delete it from this screen.
+ */
+export async function removeUnfinishedAccount(userId: string): Promise<void> {
+	const finished = await isSetupComplete(userId);
+	if (finished === null) throw new DomainError("User not found", "not_found");
+	if (finished) throw new SetupAlreadyFinished();
+	await removeStoragePaths(await deleteAccount(userId, [], { onlyIfUnfinished: true }));
 }
 
 /**

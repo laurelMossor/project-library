@@ -11,7 +11,9 @@ import { Button } from "@/lib/components/ui/Button";
 import { ConfirmModal } from "@/lib/components/ui/ConfirmModal";
 import { useInlineEditSession } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
-import { API_ME_SETUP, API_ME_SETUP_COMPLETE, EXPLORE_PAGE, PUBLIC_PROFILE, WELCOME_PAGE } from "@/lib/const/routes";
+import { EXPLORE_PAGE, PUBLIC_PROFILE, WELCOME_PAGE } from "@/lib/const/routes";
+import { useAction } from "@/lib/hooks/useAction";
+import { completeSetupAction, deleteUnfinishedAccountAction } from "@/lib/actions/account";
 import type { PublicUser } from "@/lib/types/user";
 
 /**
@@ -49,49 +51,41 @@ function SetupFields({
 	const user = entity.data;
 	const session = useInlineEditSession();
 	const { value: handle } = useInlineField<string>("handle", user.handle);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const complete = useAction(completeSetupAction);
+	const remove = useAction(deleteUnfinishedAccountAction);
+	const [saving, setSaving] = useState(false);
+	const [leaving, setLeaving] = useState(false);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
-	const [deleting, setDeleting] = useState(false);
-	const [deleteError, setDeleteError] = useState<string | null>(null);
+	// Stay busy through the full-page load that follows a success.
+	const busy = saving || complete.pending || leaving;
+	const deleting = remove.pending || leaving;
 
 	async function looksGood() {
-		setBusy(true);
-		setError(null);
+		setSaving(true);
 		try {
 			// A failed save stays here with its message; setup is only marked done once everything saved.
-			if (!(await session?.saveAll())) {
-				setBusy(false);
-				return;
-			}
-			const res = await fetch(API_ME_SETUP_COMPLETE, { method: "POST" });
-			if (!res.ok) throw new Error("Couldn't finish setup");
-			// Full load, same reason as LeaveSetup: a client navigation would keep the
-			// layout that still has needsSetup and bounce right back to this page.
-			const generic = !next || next === "/" || next === WELCOME_PAGE || next === EXPLORE_PAGE;
-			window.location.assign(generic ? PUBLIC_PROFILE(handle || user.handle) : next);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Couldn't finish setup");
-			setBusy(false);
+			if (!(await session?.saveAll())) return;
+		} finally {
+			setSaving(false);
 		}
+		const result = await complete.run();
+		if (!result.ok) return;
+		setLeaving(true);
+		// Full load, same reason as LeaveSetup: a client navigation would keep the
+		// layout that still has needsSetup and bounce right back to this page.
+		const generic = !next || next === "/" || next === WELCOME_PAGE || next === EXPLORE_PAGE;
+		window.location.assign(generic ? PUBLIC_PROFILE(handle || user.handle) : next);
 	}
 
 	async function confirmDelete() {
-		setDeleting(true);
-		setDeleteError(null);
-		try {
-			const res = await fetch(API_ME_SETUP, { method: "DELETE" });
-			const data = await res.json().catch(() => ({}));
-			if (!res.ok) throw new Error(data.error || "Couldn't delete this account");
-			await signOut({ redirect: false });
-			window.location.assign(WELCOME_PAGE);
-		} catch (e) {
-			setDeleteError(e instanceof Error ? e.message : "Couldn't delete this account");
-			setDeleting(false);
-		}
+		const result = await remove.run();
+		if (!result.ok) return;
+		setLeaving(true);
+		await signOut({ redirect: false });
+		window.location.assign(WELCOME_PAGE);
 	}
 
-	const shownError = error ?? session?.error;
+	const shownError = complete.error ?? session?.error;
 
 	return (
 		<div>
@@ -117,7 +111,7 @@ function SetupFields({
 			{shownError && <p role="alert" className="text-sm text-novel-red mb-4">{shownError}</p>}
 			<div className="flex gap-3">
 				<Button onClick={looksGood} loading={busy} disabled={confirmingDelete}>Looks good</Button>
-				<Button type="button" variant="secondary" disabled={busy} onClick={() => { setDeleteError(null); setConfirmingDelete(true); }}>
+				<Button type="button" variant="secondary" disabled={busy} onClick={() => { remove.clearError(); setConfirmingDelete(true); }}>
 					Delete this account
 				</Button>
 			</div>
@@ -127,7 +121,7 @@ function SetupFields({
 					title="Delete this account"
 					confirmLabel="Delete this account"
 					busy={deleting}
-					error={deleteError}
+					error={remove.error}
 					onConfirm={confirmDelete}
 					onClose={() => { if (!deleting) setConfirmingDelete(false); }}
 				>

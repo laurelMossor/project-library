@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
-import { getSessionContext } from "@/lib/utils/server/session";
-import { unauthorized, notFound, badRequest, forbidden, serverError } from "@/lib/utils/errors";
-import { canManagePage } from "@/lib/utils/server/permission";
-import { deletePage, getPageById } from "@/lib/utils/server/page";
-import { removeStoragePaths } from "@/lib/utils/server/storage";
-import type { SavePayload } from "@/lib/types/inline-edit";
+import { notFound, serverError } from "@/lib/utils/errors";
+import { getPageById } from "@/lib/utils/server/page";
 import { getViewerContext, canViewProfile } from "@/lib/utils/server/visibility";
-import { saveMyProfile } from "@/lib/utils/server/profile-update";
 
 type RouteParams = { params: Promise<{ pageId: string }> };
 
@@ -36,67 +30,5 @@ export async function GET(_request: Request, { params }: RouteParams) {
 	} catch (error) {
 		console.error("GET /api/pages/[pageId] error:", error);
 		return serverError("Failed to fetch page");
-	}
-}
-
-/**
- * PUT /api/pages/[pageId]
- * Update a page profile. Accepts a structured SavePayload with scalar fields
- * and optional element create/update/delete operations, all in one transaction.
- * Protected endpoint (requires ADMIN permission).
- */
-export async function PUT(request: Request, { params }: RouteParams) {
-	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
-			return unauthorized();
-		}
-
-		const { pageId } = await params;
-		const isAdmin = await canManagePage(ctx.userId, pageId);
-		if (!isAdmin) {
-			return unauthorized("You do not have permission to manage this page");
-		}
-
-		const body = (await request.json()) as SavePayload;
-
-		// Shared executor: whitelist (mass-assignment guard) + validate + cascade,
-		// the same path used by /api/me/page so the two page-update routes can't drift.
-		const result = await saveMyProfile("PAGE", pageId, body, { actorUserId: ctx.userId });
-		if (!result.ok) {
-			return badRequest(result.error);
-		}
-		return NextResponse.json(result.profile);
-	} catch (error) {
-		console.error("PUT /api/pages/[pageId] error:", error);
-		return serverError("Failed to update page");
-	}
-}
-
-/**
- * DELETE /api/pages/[pageId]
- * Delete a page
- * Protected endpoint (requires ADMIN permission)
- */
-export async function DELETE(_request: Request, { params }: RouteParams) {
-	try {
-		const ctx = await getSessionContext();
-		if (!ctx) {
-			return unauthorized();
-		}
-
-		const { pageId } = await params;
-		const isAdmin = await canManagePage(ctx.userId, pageId);
-		if (!isAdmin) {
-			return forbidden("You do not have permission to delete this page");
-		}
-
-		const paths = await prisma.$transaction((tx) => deletePage(pageId, tx), { timeout: 30_000, maxWait: 10_000 });
-		await removeStoragePaths(paths);
-
-		return NextResponse.json({ success: true });
-	} catch (error) {
-		console.error("DELETE /api/pages/[pageId] error:", error);
-		return serverError("Failed to delete page");
 	}
 }

@@ -7,8 +7,9 @@ import { resolveCardIdentity } from "@/lib/types/card";
 import { Toggle } from "@/lib/components/forms/Toggle";
 import { VisibilitySelector, type SelectorOption } from "@/lib/components/visibility/VisibilitySelector";
 import { API_ME_NOTIFICATION_PREFS } from "@/lib/const/routes";
-
-type Prefs = { master: boolean; categories: Record<string, boolean> };
+import { useAction } from "@/lib/hooks/useAction";
+import { updateNotificationPrefsAction } from "@/lib/actions/settings";
+import type { NotificationPrefs, NotificationPrefsPatch } from "@/lib/types/settings";
 
 const CATEGORY_ROWS: { key: NotificationCategory; label: string; description: string }[] = [
 	{ key: "MESSAGES", label: "Direct messages", description: "When someone sends you a message" },
@@ -32,20 +33,20 @@ const FREQUENCY_COMING_SOON = true;
 
 export function NotificationSettingsForm() {
 	const { activeEntity, activePageId } = useActiveProfile();
-	const [prefs, setPrefs] = useState<Prefs | null>(null);
+	const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState("");
+	const [loadError, setLoadError] = useState("");
+	const { run, pending: saving, error: saveError } = useAction(updateNotificationPrefsAction);
 
 	const load = useCallback(async () => {
 		setLoading(true);
-		setError("");
+		setLoadError("");
 		try {
 			const res = await fetch(API_ME_NOTIFICATION_PREFS);
 			if (!res.ok) throw new Error();
-			setPrefs((await res.json()) as Prefs);
+			setPrefs((await res.json()) as NotificationPrefs);
 		} catch {
-			setError("Couldn't load your preferences.");
+			setLoadError("Couldn't load your preferences.");
 		} finally {
 			setLoading(false);
 		}
@@ -58,31 +59,18 @@ export function NotificationSettingsForm() {
 	}, [activePageId]);
 
 	const save = useCallback(
-		async (patch: { master?: boolean; categories?: Record<string, boolean> }) => {
-			setSaving(true);
-			setError("");
-			try {
-				const res = await fetch(API_ME_NOTIFICATION_PREFS, {
-					method: "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(patch),
-				});
-				if (!res.ok) throw new Error();
-				setPrefs((await res.json()) as Prefs);
-			} catch {
-				setError("Couldn't save — reverting.");
-				await load();
-			} finally {
-				setSaving(false);
-			}
+		async (patch: NotificationPrefsPatch) => {
+			const result = await run(patch);
+			if (result.ok) setPrefs(result.data);
+			else await load(); // revert the optimistic toggle to what's stored
 		},
-		[load],
+		[run, load],
 	);
 
 	const whose = activePageId && activeEntity ? resolveCardIdentity(activeEntity).name : "your personal profile";
 
 	if (loading) return <p className="text-misty-forest">Loading…</p>;
-	if (!prefs) return <p className="text-sm text-red-600">{error || "Preferences unavailable."}</p>;
+	if (!prefs) return <p className="text-sm text-red-600">{loadError || "Preferences unavailable."}</p>;
 
 	return (
 		<div className="space-y-4">
@@ -142,7 +130,7 @@ export function NotificationSettingsForm() {
 				</div>
 			</div>
 
-			{error ? <p className="text-sm text-red-600">{error}</p> : null}
+			{saveError ? <p className="text-sm text-red-600">{saveError}</p> : null}
 		</div>
 	);
 }
