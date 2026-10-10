@@ -60,7 +60,13 @@ interface ActiveProfileProviderProps {
 
 export function ActiveProfileProvider({ children, initialCurrentUser, initialActivePage }: ActiveProfileProviderProps) {
 	const { data: session, update: updateSession } = useSession();
-	const activePageId = session?.user?.activePageId ?? null;
+	// A client refetch can drop `user.id` while the server render still has this user. Keep the
+	// server identity in that case so the nav tag doesn't blank. A real logout re-renders with
+	// no initial user, and the effect below clears.
+	const clientUserId = session?.user?.id ?? null;
+	const activePageId = clientUserId
+		? (session?.user?.activePageId ?? null)
+		: (initialActivePage?.id ?? null);
 
 	const [currentUser, setCurrentUser] = useState<CardUser | null>(initialCurrentUser);
 	// Seed from the server props so the acting-identity tag paints correctly on the first
@@ -77,9 +83,8 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 
 	// Sync currentUser from the server prop. The layout re-runs getActingIdentity on every
 	// server render — including router.refresh() after an avatar/profile edit — so a fresh
-	// prop is how the nav learns about the change (this replaces the old client fetch-cache
-	// that never invalidated). Still gated on the *client* session id so an out-of-band
-	// session loss (logout, token-version bump) clears the identity without a reload.
+	// prop is how the nav learns about the change. A missing client user is not a logout
+	// while this prop still has one (a refetch can drop the id and a reload brings it back).
 	// Keyed on a primitive signature, not the object reference, so it fires exactly when the
 	// identity's displayed fields change — never on an incidental re-render.
 	const userSig = initialCurrentUser
@@ -87,8 +92,10 @@ export function ActiveProfileProvider({ children, initialCurrentUser, initialAct
 		: null;
 	useEffect(() => {
 		if (!session?.user?.id) {
-			setCurrentUser(null);
-			setPages([]); // drop the lazy-loaded switcher list on logout
+			if (!initialCurrentUser) {
+				setCurrentUser(null);
+				setPages([]); // drop the lazy-loaded switcher list on logout
+			}
 			return;
 		}
 		setCurrentUser(initialCurrentUser);

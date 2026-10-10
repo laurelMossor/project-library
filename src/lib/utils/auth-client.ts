@@ -28,6 +28,18 @@ export const hasSession = (session: Session | null): boolean => {
 	return !!session?.user?.id;
 }
 
+/**
+ * A `/api/auth/session` read confirms a logout only when the request succeeded and the body has
+ * no user id: `null` (no cookie), or `{ expires }` (token-version bump / user gone). A failed
+ * read is not a logout — the cookie can still be valid, and treating it as one painted "Log in"
+ * until a reload.
+ */
+export function sessionReadConfirmsLogout(ok: boolean, body: unknown): boolean {
+	if (!ok) return false;
+	if (!body || typeof body !== "object") return true;
+	return !hasSession(body as Session);
+}
+
 export async function getUserId(session: Session | null): Promise<string | undefined> {
 	return session?.user?.id;
 }
