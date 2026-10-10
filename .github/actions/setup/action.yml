@@ -1,0 +1,16 @@
+name: Setup
+description: Check out the repo and install npm dependencies
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22 # matches .nvmrc
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci # postinstall runs `prisma generate`

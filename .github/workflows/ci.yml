@@ -1,8 +1,12 @@
 name: CI
 
-# Runs the same `npm run validate` you run locally
-# (lint → typecheck → reserved-handles → unit → e2e → build), so a red branch
-# can't be merged. Triggers on every PR into develop/main and on direct pushes.
+# Same commands as local `npm run validate`, each as its own job so the PR
+# checks list shows them separately. Jobs run in parallel and a failure in one
+# does not cancel the others.
+#
+# Check names (these are what branch protection must require — the old single
+# `validate` check no longer exists):
+#   Lint, Typecheck, Reserved handles, Unit tests, E2E tests, Build
 on:
   pull_request:
     branches: [develop, main]
@@ -14,12 +18,55 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  validate:
-    name: validate
-    runs-on: ubuntu-latest
+# The app reads these from process.env (no .env files exist in CI).
+# DIRECT_URL is what Prisma migrations use (see prisma.config.ts);
+# DATABASE_URL is the app/runtime connection. Same URL here — no pooler.
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/projectlibrary_test
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/projectlibrary_test
+  # Placeholder secrets — the CI database is throwaway, so these never guard
+  # anything real. NextAuth just needs a value present.
+  AUTH_SECRET: ci-placeholder-secret-not-used-for-real-sessions
+  # Lets the signup e2e take the dev-bypass path instead of minting a DB
+  # invite (must be >= 20 chars; only honored when NODE_ENV !== production).
+  DEV_SIGNUP_BYPASS_SECRET: ci-signup-bypass-secret-min-twenty-chars
+  # NB: SEED_ADMIN_PASSWORD is intentionally NOT set here — the seed skips
+  # the env-gated admin profile (and its pages) when it's absent, so the
+  # personal admin account is never created in CI. Tests use alice/sam.
 
-    # Ephemeral Postgres for the e2e + seed steps. Matches local postgresql@15.
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+      - run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+      - run: npm run typecheck
+
+  reserved-handles:
+    name: Reserved handles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+      - run: npm run check:reserved-handles
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+      - run: npm run test:unit
+
+  e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    # Ephemeral Postgres for the e2e seed. Matches local postgresql@15.
     services:
       postgres:
         image: postgres:15
@@ -34,33 +81,8 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
-    env:
-      # The app reads these from process.env (no .env files exist in CI).
-      # DIRECT_URL is what Prisma migrations use (see prisma.config.ts);
-      # DATABASE_URL is the app/runtime connection. Same URL here — no pooler.
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/projectlibrary_test
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/projectlibrary_test
-      # Placeholder secrets — the CI database is throwaway, so these never guard
-      # anything real. NextAuth just needs a value present.
-      AUTH_SECRET: ci-placeholder-secret-not-used-for-real-sessions
-      # Lets the signup e2e take the dev-bypass path instead of minting a DB
-      # invite (must be >= 20 chars; only honored when NODE_ENV !== production).
-      DEV_SIGNUP_BYPASS_SECRET: ci-signup-bypass-secret-min-twenty-chars
-      # NB: SEED_ADMIN_PASSWORD is intentionally NOT set here — the seed skips
-      # the env-gated admin profile (and its pages) when it's absent, so the
-      # personal admin account is never created in CI. Tests use alice/sam.
-
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22 # matches .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci # postinstall runs `prisma generate`
+      - uses: ./.github/actions/setup
 
       - name: Apply database schema
         run: npx prisma migrate deploy # creates the schema; global-setup.ts seeds it
@@ -68,8 +90,8 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Validate (lint, typecheck, unit, e2e, build)
-        run: npm run validate
+      - name: Run end-to-end tests
+        run: npm run test:e2e
 
       # Surfaces the Playwright HTML report when e2e fails, so you can see what broke.
       - name: Upload Playwright report
@@ -79,3 +101,10 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+      - run: npm run build
