@@ -13,7 +13,7 @@ import type { ActionResult } from "@/lib/types/action";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
 import { assignableRoles, formatRole, isAdminRole } from "@/lib/const/roles";
 import { useAction } from "@/lib/hooks/useAction";
-import { removeFollowerAction, setFollow } from "@/lib/actions/follow";
+import { removeFollowerAction, unfollowEdgeAction } from "@/lib/actions/follow";
 import {
 	approveRequestAction,
 	cancelEmailInviteAction,
@@ -138,15 +138,14 @@ function ConnectionList({
 	emptyLabel,
 	expandedId,
 	onToggle,
-	actionLabel,
-	perform,
+	action,
 }: {
 	items: ConnectionItem[];
 	emptyLabel: string;
 	expandedId: string | null;
 	onToggle: (id: string | null) => void;
-	actionLabel: string;
-	perform: (item: ConnectionItem) => Perform;
+	/** Omitted when this viewer can't change the list (a page editor). */
+	action?: { label: string; perform: (item: ConnectionItem) => Perform };
 }) {
 	if (!items.length) return <EmptyMessage label={emptyLabel} />;
 	return (
@@ -159,11 +158,13 @@ function ConnectionList({
 						key={item.id}
 						entity={entity}
 						actions={
-							<ExpandableActions
-								expanded={expandedId === item.id}
-								onToggle={() => onToggle(expandedId === item.id ? null : item.id)}
-								actions={[{ label: actionLabel, perform: perform(item) }]}
-							/>
+							action ? (
+								<ExpandableActions
+									expanded={expandedId === item.id}
+									onToggle={() => onToggle(expandedId === item.id ? null : item.id)}
+									actions={[{ label: action.label, perform: action.perform(item) }]}
+								/>
+							) : undefined
 						}
 					/>
 				);
@@ -187,6 +188,8 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 	// the server gate — an EDITOR sees no Requests tab.
 	const isAdmin = isAdminRole(role);
 	const canManageRequests = isPage ? isAdmin : entity.id === currentUserId;
+	// Follow edges are admin-only on a page. An editor still sees the lists.
+	const canManageFollows = !isPage || isAdmin;
 
 	const topTabs: TabDef<TopTab>[] = [
 		{ id: "Followers", label: "Followers" },
@@ -283,9 +286,14 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 					emptyLabel="Followers"
 					expandedId={expandedId}
 					onToggle={setExpandedId}
-					actionLabel="Remove Follower"
-					perform={(item) => () =>
-						removeFollowerAction({ target: { type: entityType, id: entity.id }, followId: item.id })
+					action={
+						canManageFollows
+							? {
+									label: "Remove Follower",
+									perform: (item) => () =>
+										removeFollowerAction({ target: { type: entityType, id: entity.id }, followId: item.id }),
+								}
+							: undefined
 					}
 				/>
 			);
@@ -298,12 +306,14 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 					emptyLabel="Following"
 					expandedId={expandedId}
 					onToggle={setExpandedId}
-					actionLabel="Unfollow"
-					perform={(item) => () =>
-						setFollow({
-							target: item.type === "USER" ? { type: "user", id: item.user!.id } : { type: "page", id: item.page!.id },
-							follow: false,
-						})
+					action={
+						canManageFollows
+							? {
+									label: "Unfollow",
+									perform: (item) => () =>
+										unfollowEdgeAction({ target: { type: entityType, id: entity.id }, followId: item.id }),
+								}
+							: undefined
 					}
 				/>
 			);

@@ -1,8 +1,9 @@
 import { ProfileData } from "./types/user";
-import type { ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
+import type { PermissionRole, ProfileVisibility, ContentVisibility, MembershipPolicy } from "@prisma/client";
 import type { EventCreateInput, EventUpdateInput } from "./types/event";
 import type { PostCreateInput, PostUpdateInput } from "./types/post";
 import type { RsvpCreateInput } from "./types/rsvp";
+import { ALL_ROLES } from "./const/roles";
 import { isReservedHandle } from "./const/reserved-handles";
 import { MAX_GROUP_NAME_LENGTH, MAX_GROUP_PARTICIPANTS, type MessagingIdentityRef } from "./const/messaging";
 
@@ -37,6 +38,17 @@ export function parseEmailList(input: string): { valid: string[]; invalid: strin
 		if (!bucket.includes(email)) bucket.push(email);
 	}
 	return { valid, invalid };
+}
+
+const PERMISSION_ROLES = new Set<string>(ALL_ROLES);
+
+/**
+ * A client-supplied role, or null when it isn't one of `ALL_ROLES`.
+ * Which roles a page may offer is `assignableRoles`, not this check.
+ */
+export function parsePermissionRole(role: unknown): PermissionRole | null {
+	if (typeof role !== "string" || !PERMISSION_ROLES.has(role)) return null;
+	return role as PermissionRole;
 }
 
 /** Prisma `@default(cuid())` shape: `c` plus 24 lowercase base-36 characters. */

@@ -70,7 +70,7 @@ import {
 	leavePageAction,
 	removeMemberAction,
 } from "@/lib/actions/membership";
-import { removeFollowerAction } from "@/lib/actions/follow";
+import { removeFollowerAction, unfollowEdgeAction } from "@/lib/actions/follow";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getSessionContext } from "@/lib/utils/server/session";
 import { emitActivity } from "@/lib/utils/server/activity";
@@ -208,6 +208,7 @@ describe("changeMemberRoleAction", () => {
 		setRoles({ admin: PermissionRole.EDITOR, u2: PermissionRole.ADMIN });
 		vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: PermissionRole.ADMIN } as never); // caller still manages
 		expect(await change(PermissionRole.EDITOR)).toMatchObject({ ok: false, error: "invalid" });
+		expect(prisma.$executeRaw).toHaveBeenCalled();
 		expect(prisma.permission.upsert).not.toHaveBeenCalled();
 	});
 
@@ -236,6 +237,7 @@ describe("removeMemberAction", () => {
 
 	test("the last admin can't be removed", async () => {
 		expect(await remove("admin")).toMatchObject({ ok: false, error: "invalid" });
+		expect(prisma.$executeRaw).toHaveBeenCalled();
 		expect(prisma.permission.deleteMany).not.toHaveBeenCalled();
 	});
 });
@@ -285,6 +287,7 @@ describe("leavePageAction", () => {
 	test("the sole admin can't leave: role kept (last-admin guard)", async () => {
 		const result = await leavePageAction({ pageId: "p1" });
 		expect(result).toMatchObject({ ok: false, error: "invalid" });
+		expect(prisma.$executeRaw).toHaveBeenCalled();
 		expect(prisma.permission.deleteMany).not.toHaveBeenCalled();
 	});
 
@@ -507,6 +510,34 @@ describe("removeFollowerAction", () => {
 		expect(await removeFollowerAction({ target: { type: "group", id: "x" } as never, followId: "f1" })).toMatchObject({
 			ok: false,
 			error: "invalid",
+		});
+	});
+});
+
+describe("unfollowEdgeAction", () => {
+	test("a page admin drops the page's edge, not their personal follow", async () => {
+		asViewer("admin");
+		expect(await unfollowEdgeAction({ target: { type: "page", id: "p1" }, followId: "f1" })).toEqual({
+			ok: true,
+			data: undefined,
+		});
+		expect(prisma.follow.deleteMany).toHaveBeenCalledWith({ where: { id: "f1", followerPageId: "p1" } });
+	});
+
+	test("a page editor → forbidden, nothing deleted", async () => {
+		asViewer("editor");
+		setRoles({ admin: PermissionRole.ADMIN, editor: PermissionRole.EDITOR });
+		const result = await unfollowEdgeAction({ target: { type: "page", id: "p1" }, followId: "f1" });
+		expect(result).toMatchObject({ ok: false, error: "forbidden" });
+		expect(prisma.follow.deleteMany).not.toHaveBeenCalled();
+	});
+
+	test("an edge that doesn't belong to the page → not_found", async () => {
+		asViewer("admin");
+		vi.mocked(prisma.follow.deleteMany).mockResolvedValue({ count: 0 } as never);
+		expect(await unfollowEdgeAction({ target: { type: "page", id: "p1" }, followId: "f-other" })).toMatchObject({
+			ok: false,
+			error: "not_found",
 		});
 	});
 });

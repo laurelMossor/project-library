@@ -185,23 +185,58 @@ export async function unfollowTarget(userId: string, target: EntityRef): Promise
 	return { ok: await cancelFollowRequest(userId, target) };
 }
 
-/**
- * Remove someone from `target`'s followers (by follow edge id). Your own profile, or a page you
- * manage. The edge must point at `target`, so an id can't be used to delete anyone else's follow.
- */
-export async function removeFollower(actorId: string, target: EntityRef, followId: string): Promise<void> {
-	if (target.type === "USER") {
-		if (target.id !== actorId) {
-			throw new DomainError("You can only remove followers from your own profile", "forbidden");
+/** Which end of the edge `profile` must occupy for the delete to match. */
+type FollowSide = "follower" | "followee";
+
+/** Your own profile, or a page you manage. The message names the action the caller is attempting. */
+async function assertOwnsProfile(actorId: string, profile: EntityRef, side: FollowSide): Promise<void> {
+	if (profile.type === "USER") {
+		if (profile.id !== actorId) {
+			throw new DomainError(
+				side === "followee"
+					? "You can only remove followers from your own profile"
+					: "You can only unfollow from your own profile",
+				"forbidden",
+			);
 		}
-	} else {
-		await assertCanManagePage(actorId, target.id);
+		return;
 	}
+	await assertCanManagePage(actorId, profile.id);
+}
+
+/** The column that ties this edge to `profile` on `side`. */
+function followOwnerWhere(profile: EntityRef, side: FollowSide) {
+	if (side === "followee") {
+		return profile.type === "USER" ? { followingUserId: profile.id } : { followingPageId: profile.id };
+	}
+	return profile.type === "USER" ? { followerId: profile.id } : { followerPageId: profile.id };
+}
+
+/**
+ * Delete one follow edge that belongs to `profile` on `side`. The id alone is not enough: the
+ * where clause keeps it from deleting someone else's edge.
+ */
+async function deleteOwnedFollow(actorId: string, profile: EntityRef, followId: string, side: FollowSide): Promise<void> {
+	await assertOwnsProfile(actorId, profile, side);
 	const { count } = await prisma.follow.deleteMany({
-		where: {
-			id: followId,
-			...(target.type === "USER" ? { followingUserId: target.id } : { followingPageId: target.id }),
-		},
+		where: { id: followId, ...followOwnerWhere(profile, side) },
 	});
 	if (count === 0) throw new DomainError("Follow relationship not found", "not_found");
+}
+
+/**
+ * Remove someone from `profile`'s followers (by follow edge id). Your own profile, or a page you
+ * manage. The edge must point at `profile`, so an id can't be used to delete anyone else's follow.
+ */
+export async function removeFollower(actorId: string, profile: EntityRef, followId: string): Promise<void> {
+	await deleteOwnedFollow(actorId, profile, followId, "followee");
+}
+
+/**
+ * Drop a follow `profile` itself made (by follow edge id). Your own profile, or a page you manage.
+ * The edge must have `profile` as the follower, so a page's Following list can't delete the
+ * signed-in user's personal follow of the same target.
+ */
+export async function unfollowEdge(actorId: string, profile: EntityRef, followId: string): Promise<void> {
+	await deleteOwnedFollow(actorId, profile, followId, "follower");
 }

@@ -5,7 +5,6 @@ import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ConnectionsPageClient } from "@/lib/components/profile/ConnectionsPageClient";
 import { getActingIdentity } from "@/lib/utils/server/session";
 import { getConnectionsData } from "@/lib/utils/server/connections";
-import { isAdminRole } from "@/lib/const/roles";
 import { LOGIN_WITH_CALLBACK, CONNECTIONS, SETTINGS } from "@/lib/const/routes";
 
 export default async function ConnectionsPage({
@@ -29,8 +28,8 @@ export default async function ConnectionsPage({
 	if (!currentUser) redirect(LOGIN_WITH_CALLBACK(CONNECTIONS));
 	const entity = activePage ?? currentUser;
 	const data = await getConnectionsData(
+		currentUser.id,
 		activePage ? { type: "PAGE", id: activePage.id } : { type: "USER", id: currentUser.id },
-		isAdminRole(activePage?.role),
 	);
 
 	return (

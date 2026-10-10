@@ -1,15 +1,15 @@
 // ⚠️ SERVER-ONLY: everything the Connections screen shows, read in one pass.
 //
-// The screen is always the viewer's own acting identity (themselves, or a page they act as),
-// so nothing here re-gates visibility: the caller passes the identity it already resolved and
-// whether that identity is a page ADMIN. ADMIN-only slices (pending invites, requests) are
-// returned empty for everyone else.
+// The caller passes the signed-in user and the identity on screen. A user only sees their own
+// connections. A page's pending invites, requests, and email addresses load only when that user
+// is a page ADMIN (`canManagePage`); everyone else gets those slices empty.
 
 import { prisma } from "./prisma";
 import { ResourceType } from "@prisma/client";
 import type { EntityRef } from "./activity";
+import { DomainError } from "./domain-error";
 import { getPageFollowers, getPageFollowing, getUserFollowers, getUserFollowing } from "./follow";
-import { getResourcePermissions, getUserMemberships } from "./permission";
+import { canManagePage, getResourcePermissions, getUserMemberships } from "./permission";
 import {
   listIncomingFollowRequests,
   listMyInvites,
@@ -41,9 +41,15 @@ function toRequestItems(rows: RequestRow[]): RequestItem[] {
   );
 }
 
-/** `isAdmin`: the identity is a page the viewer manages (ADMIN). Ignored for a user. */
-export async function getConnectionsData(entity: EntityRef, isAdmin: boolean): Promise<ConnectionsData> {
-  return entity.type === "USER" ? getUserConnections(entity.id) : getPageConnections(entity.id, isAdmin);
+/** Connections for `entity`. `actorId` is the signed-in user; admin-only slices are decided here. */
+export async function getConnectionsData(actorId: string, entity: EntityRef): Promise<ConnectionsData> {
+  if (entity.type === "USER") {
+    if (entity.id !== actorId) {
+      throw new DomainError("You can only view your own connections", "forbidden");
+    }
+    return getUserConnections(entity.id);
+  }
+  return getPageConnections(actorId, entity.id);
 }
 
 async function getUserConnections(userId: string): Promise<ConnectionsData> {
@@ -64,16 +70,19 @@ async function getUserConnections(userId: string): Promise<ConnectionsData> {
   };
 }
 
-async function getPageConnections(pageId: string, isAdmin: boolean): Promise<ConnectionsData> {
-  const [followers, following, permissions, page, requests, invites, emailInvites] = await Promise.all([
+async function getPageConnections(actorId: string, pageId: string): Promise<ConnectionsData> {
+  // The role check runs with the lists everyone can see. Admin-only lists wait on that result,
+  // so an editor never starts those queries.
+  const [followers, following, permissions, page, isAdmin] = await Promise.all([
     getPageFollowers(pageId),
     getPageFollowing(pageId),
     getResourcePermissions(pageId, ResourceType.PAGE),
     prisma.page.findUnique({ where: { id: pageId }, select: { membershipPolicy: true } }),
-    isAdmin ? listPageRequests(pageId) : [],
-    isAdmin ? listPageInvites(pageId) : [],
-    isAdmin ? listPageEmailInvites(pageId) : [],
+    canManagePage(actorId, pageId),
   ]);
+  const [requests, invites, emailInvites] = isAdmin
+    ? await Promise.all([listPageRequests(pageId), listPageInvites(pageId), listPageEmailInvites(pageId)])
+    : [[], [], []];
 
   // An invite that went out by email is listed by its email row only (see listPageEmailInvites):
   // the matching profile invite is hidden, so the list never reveals which addresses have accounts.

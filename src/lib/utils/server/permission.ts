@@ -100,9 +100,9 @@ export function isSelfServiceRole(role: PermissionRole | null): boolean {
   return role === null || role === PermissionRole.MEMBER;
 }
 
-/** Count ADMIN permissions on a page. */
-export async function getAdminCount(pageId: string): Promise<number> {
-  return prisma.permission.count({
+/** Count ADMIN permissions on a page. Pass `tx` to read inside the caller's transaction. */
+export async function getAdminCount(pageId: string, tx: PermissionDb = prisma): Promise<number> {
+  return tx.permission.count({
     where: { resourceId: pageId, resourceType: ResourceType.PAGE, role: PermissionRole.ADMIN },
   });
 }
@@ -113,10 +113,14 @@ export async function getAdminCount(pageId: string): Promise<number> {
  * admin remove, role-change (demote), and self-leave. Returns false when the
  * target isn't currently an ADMIN (removing/demoting a MEMBER/EDITOR can't orphan).
  */
-export async function wouldRemoveLastAdmin(pageId: string, targetUserId: string): Promise<boolean> {
-  const targetRole = await getUserPermission(targetUserId, pageId, ResourceType.PAGE);
+export async function wouldRemoveLastAdmin(
+  pageId: string,
+  targetUserId: string,
+  tx: PermissionDb = prisma,
+): Promise<boolean> {
+  const targetRole = await getUserPermission(targetUserId, pageId, ResourceType.PAGE, tx);
   if (targetRole !== PermissionRole.ADMIN) return false;
-  return (await getAdminCount(pageId)) <= 1;
+  return (await getAdminCount(pageId, tx)) <= 1;
 }
 
 /** Page IDs the user can manage (ADMIN or EDITOR). */

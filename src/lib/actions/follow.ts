@@ -2,7 +2,7 @@
 
 import { authedAction, requireId } from "@/lib/utils/server/action";
 import { DomainError } from "@/lib/utils/server/domain-error";
-import { followTarget, removeFollower, unfollowTarget } from "@/lib/utils/server/follow";
+import { followTarget, removeFollower, unfollowEdge, unfollowTarget } from "@/lib/utils/server/follow";
 import type { EntityRef } from "@/lib/utils/server/activity";
 
 export type FollowState = "none" | "following" | "requested";
@@ -44,5 +44,12 @@ export const setFollow = authedAction(
 export const removeFollowerAction = authedAction(
 	async (ctx, input: { target: FollowTargetInput; followId: string }) => {
 		await removeFollower(ctx.userId, toEntityRef(input?.target), requireId(input?.followId, "follower"));
+	},
+);
+
+/** Unfollow one edge your own profile made, or a page you manage made. */
+export const unfollowEdgeAction = authedAction(
+	async (ctx, input: { target: FollowTargetInput; followId: string }) => {
+		await unfollowEdge(ctx.userId, toEntityRef(input?.target), requireId(input?.followId, "follow"));
 	},
 );

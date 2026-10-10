@@ -17,6 +17,7 @@ import {
   getUserPermission,
   grantPermission,
   isSelfServiceRole,
+  lockPageAdminChanges,
   revokePermission,
   wouldRemoveLastAdmin,
 } from "./permission";
@@ -25,7 +26,7 @@ import { DomainError } from "./domain-error";
 import type { MembershipStatus } from "@/lib/types/connections";
 import { emitActivity, type EntityRef } from "./activity";
 import { createSignupInvite } from "./signup-invite";
-import { normalizeEmail, validateEmail } from "@/lib/validations";
+import { normalizeEmail, parsePermissionRole, validateEmail } from "@/lib/validations";
 import { EMAIL_INVITE_DAILY_CAP, EMAIL_INVITE_NOTE_MAX } from "@/lib/const/email-invites";
 
 type TargetRef = EntityRef & { profileVisibility: ProfileVisibility };
@@ -82,13 +83,18 @@ export async function addMember(userId: string, pageId: string, role: Permission
  * membership created it or the person followed first, so both go.
  * Voluntary leave does not call this.
  */
-export async function removeMember(userId: string, pageId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
-    await tx.follow.deleteMany({
+export async function removeMember(userId: string, pageId: string, tx?: Client): Promise<void> {
+  const drop = async (db: Client) => {
+    await revokePermission(userId, pageId, ResourceType.PAGE, db);
+    await db.follow.deleteMany({
       where: { followerId: userId, followingPageId: pageId },
     });
-  });
+  };
+  if (tx) {
+    await drop(tx);
+    return;
+  }
+  await prisma.$transaction(drop);
 }
 
 /** Does `userId` have a pending FOLLOW request to `target`? (Drives the "Requested" button state.) */
@@ -657,12 +663,11 @@ export async function autoApprovePendingOnUnlock(entity: EntityRef, tx: Client =
 // self-downgrade through the join flow.
 // ---------------------------------------------------------------------------
 
-const PERMISSION_ROLES = new Set<string>(Object.values(PermissionRole));
-
-/** Narrow client-supplied input to a PermissionRole. */
+/** Narrow client-supplied input to a PermissionRole. The enum check lives in validations. */
 export function parseRole(role: unknown): PermissionRole {
-  if (typeof role !== "string" || !PERMISSION_ROLES.has(role)) throw new DomainError("Invalid role");
-  return role as PermissionRole;
+  const parsed = parsePermissionRole(role);
+  if (!parsed) throw new DomainError("Invalid role");
+  return parsed;
 }
 
 /** The viewer's own role on a page and whether a join request of theirs is pending (none when signed out). */
@@ -705,11 +710,14 @@ export async function changeMemberRole(actorId: string, pageId: string, userId: 
 
   if (!assignableRoles(page.membershipPolicy).includes(next)) throw new DomainError("Invalid role");
 
-  if (!isAdminRole(next) && (await wouldRemoveLastAdmin(pageId, userId))) {
-    throw new DomainError("Cannot remove the last admin from a page");
-  }
-
-  await grantPermission(userId, pageId, ResourceType.PAGE, next);
+  // Lock, re-check, and write together. The check outside the lock lets two demotions both pass.
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (!isAdminRole(next) && (await wouldRemoveLastAdmin(pageId, userId, tx))) {
+      throw new DomainError("Cannot remove the last admin from a page");
+    }
+    await grantPermission(userId, pageId, ResourceType.PAGE, next, tx);
+  });
   if (existing !== next) {
     await emitActivity("role.changed", { type: "PAGE", id: pageId }, { type: "USER", id: userId });
   }
@@ -718,10 +726,13 @@ export async function changeMemberRole(actorId: string, pageId: string, userId: 
 /** Page ADMIN: remove a member (role and follow). Covers self-removal; the last admin stays. */
 export async function removePageMember(actorId: string, pageId: string, userId: string): Promise<void> {
   await assertCanManagePage(actorId, pageId);
-  if (await wouldRemoveLastAdmin(pageId, userId)) {
-    throw new DomainError("Cannot remove the last admin from a page");
-  }
-  await removeMember(userId, pageId);
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (await wouldRemoveLastAdmin(pageId, userId, tx)) {
+      throw new DomainError("Cannot remove the last admin from a page");
+    }
+    await removeMember(userId, pageId, tx);
+  });
 }
 
 /** Ask to join. Only a REQUEST_TO_JOIN page accepts this; every other policy reads as not found. */
@@ -751,10 +762,13 @@ export async function leavePage(userId: string, pageId: string): Promise<void> {
     await cancelJoinRequest(userId, pageId);
     return;
   }
-  if (await wouldRemoveLastAdmin(pageId, userId)) {
-    throw new DomainError("You are the last admin — assign another admin before leaving");
-  }
-  await revokePermission(userId, pageId, ResourceType.PAGE);
+  await prisma.$transaction(async (tx) => {
+    await lockPageAdminChanges(pageId, tx);
+    if (await wouldRemoveLastAdmin(pageId, userId, tx)) {
+      throw new DomainError("You are the last admin — assign another admin before leaving");
+    }
+    await revokePermission(userId, pageId, ResourceType.PAGE, tx);
+  });
 }
 
 /** Approve or deny a pending request (who may act is decided per kind in approve/denyRequest). */
