@@ -10,6 +10,8 @@ export interface NotificationTextInput {
 	actorName: string;
 	objectType?: NotificationObject | null;
 	objectTitle?: string | null;
+	/** The page the post/event lives in, when the copy should name it. */
+	objectPageName?: string | null;
 	/** Set when the recipient is a page (the bell is scoped to it): names who was addressed instead of "you". */
 	recipientPageName?: string | null;
 }
@@ -60,6 +62,16 @@ export function notificationText(n: NotificationTextInput): string {
 			return `${who} changed your role`;
 		case "MENTION":
 			return `${who} tagged ${n.recipientPageName ?? "you"} in a comment`;
+		case "PAGE_ACTIVITY": {
+			// Posts may have no title. objectPageName is null when the page itself is speaking.
+			const page = n.objectPageName;
+			const title = n.objectTitle ? ` “${n.objectTitle}”` : "";
+			if (n.objectType === "EVENT") {
+				if (page) return n.objectTitle ? `${who} added${title} to ${page}’s events` : `${who} added an event to ${page}`;
+				return n.objectTitle ? `${who} added the event${title}` : `${who} added an event`;
+			}
+			return page ? `${who} posted${title} in ${page}` : `${who} posted${title} to the page`;
+		}
 		default:
 			return `${who} sent you a notification`;
 	}

@@ -11,15 +11,14 @@ import type { Prisma } from "@prisma/client";
 import { NotificationType, NotificationObject, PermissionRole, ResourceType, EmailSourceType } from "@prisma/client";
 import { logAction } from "./log";
 import { getResourcePermissions } from "./permission";
-import { ACTING_ROLES, ADMIN_ONLY } from "@/lib/const/roles";
+import { ACTING_ROLES, ADMIN_ONLY, ALL_ROLES } from "@/lib/const/roles";
 import { createNotifications } from "./notification";
 import { enqueueEmails } from "./email-outbox";
 import { NOTIFICATION_TYPE_TO_CATEGORY } from "./notification-category";
 import { filterUsersWhoCanView } from "./visibility";
 
 /** An identity that is a user or a page. */
-export type EntityRef = { type: "USER" | "PAGE"; id: string };
-/** Who caused an activity: a user/page identity, or an account-less actor carrying a display label (guest RSVP). */
+export type EntityRef = { type: "USER" | "PAGE"; id: string };/** Who caused an activity: a user/page identity, or an account-less actor carrying a display label (guest RSVP). */
 export type ActorRef = EntityRef | { type: "ANON"; label: string };
 /**
  * What an activity is about, for the deep link. Kinds come from the schema enum — never string literals.
@@ -53,26 +52,44 @@ const ACTION_TO_TYPE: Record<string, NotificationType> = {
 	"membership.invited": NotificationType.MEMBER_INVITE,
 	"role.changed": NotificationType.ROLE_CHANGED,
 	"comment.mentioned": NotificationType.MENTION,
+	"content.published": NotificationType.PAGE_ACTIVITY,
 };
 
 /**
- * Types whose recipient is NOT the object's owner, so they may not be able to see it. Each recipient is
- * checked against the object's visibility and dropped if they can't view it — a tag must never leak a
- * PRIVATE post/event (or deep-link someone into a 404). Owner-targeted types skip this: the owner can
- * always see their own content.
+ * Who on a PAGE target hears about an activity, and in which bell (the activity's audience, kept
+ * separate from its target, as in Activity Streams):
+ *   ADMINS   → ADMIN only, in the page's bell. For requests, which only an admin can approve.
+ *   MANAGERS → ADMIN + EDITOR, in the page's bell. They act for the page.
+ *   MEMBERS  → every role, in each person's personal bell. They're told as themselves.
  */
-const VIEW_GATED_TYPES: ReadonlySet<NotificationType> = new Set([NotificationType.MENTION]);
+type PageAudience = "ADMINS" | "MANAGERS" | "MEMBERS";
 
-/** Request types target a gated action (approval), so they reach only those who can act — ADMINs. */
-const REQUEST_TYPES: ReadonlySet<NotificationType> = new Set([
-	NotificationType.FOLLOW_REQUEST,
-	NotificationType.JOIN_REQUEST,
-]);
+const AUDIENCE_ROLES: Record<PageAudience, readonly PermissionRole[]> = {
+	ADMINS: ADMIN_ONLY,
+	MANAGERS: ACTING_ROLES,
+	MEMBERS: ALL_ROLES,
+};
 
-/** Which page roles receive a given type: request types → ADMIN only; informational → ADMIN + EDITOR. */
-function rolesForType(type: NotificationType): readonly PermissionRole[] {
-	return REQUEST_TYPES.has(type) ? ADMIN_ONLY : ACTING_ROLES;
-}
+/**
+ * Per-type delivery policy. Exhaustive over NotificationType, so a new type is a compile error here
+ * until its audience is decided. `viewGated`: the recipient is NOT the object's owner, so each one is
+ * checked against the object's visibility and dropped if they can't view it. A tag or a page post must
+ * never leak a PRIVATE post/event, or deep-link someone into a 404. Owner-targeted types skip this:
+ * the owner can always see their own content.
+ */
+const NOTIFICATION_POLICY: Record<NotificationType, { pageAudience: PageAudience; viewGated: boolean }> = {
+	[NotificationType.COMMENT]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.FOLLOW_REQUEST]: { pageAudience: "ADMINS", viewGated: false },
+	[NotificationType.JOIN_REQUEST]: { pageAudience: "ADMINS", viewGated: false },
+	[NotificationType.NEW_FOLLOWER]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.NEW_MEMBER]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.RSVP]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.REQUEST_APPROVED]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.MEMBER_INVITE]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.ROLE_CHANGED]: { pageAudience: "MANAGERS", viewGated: false },
+	[NotificationType.MENTION]: { pageAudience: "MANAGERS", viewGated: true },
+	[NotificationType.PAGE_ACTIVITY]: { pageAudience: "MEMBERS", viewGated: true },
+};
 
 /** The actor columns for a notification row, from an ActorRef. */
 function actorColumns(actor: ActorRef): Pick<Prisma.NotificationCreateManyInput, "actorUserId" | "actorPageId" | "actorName"> {
@@ -83,8 +100,9 @@ function actorColumns(actor: ActorRef): Pick<Prisma.NotificationCreateManyInput,
 
 /**
  * Resolve the fan-out rows for one activity. A USER target yields one personal row; a PAGE target
- * yields one row per managing user (filtered by role), each tagged with contextPageId so the bell
- * can scope to the active identity. Self-notifications (actor === recipient user) are dropped.
+ * yields one row per user in the type's page audience (see NOTIFICATION_POLICY): managers' rows are
+ * tagged with contextPageId so the bell scopes to that page, and members' rows go to their personal
+ * bell. Self-notifications (actor === recipient user) are dropped.
  */
 async function resolveRecipients(
 	type: NotificationType,
@@ -99,15 +117,17 @@ async function resolveRecipients(
 		...objectColumns(object),
 	};
 
+	const policy = NOTIFICATION_POLICY[type];
 	let recipients: { recipientUserId: string; contextPageId: string | null }[];
 	if (target.type === "USER") {
 		recipients = [{ recipientUserId: target.id, contextPageId: null }];
 	} else {
-		const roles = rolesForType(type);
+		const roles = AUDIENCE_ROLES[policy.pageAudience];
+		const contextPageId = policy.pageAudience === "MEMBERS" ? null : target.id;
 		const perms = await getResourcePermissions(target.id, ResourceType.PAGE);
 		recipients = perms
 			.filter((p) => roles.includes(p.role))
-			.map((p) => ({ recipientUserId: p.userId, contextPageId: target.id }));
+			.map((p) => ({ recipientUserId: p.userId, contextPageId }));
 	}
 
 	// Drop self-notifications: the USER actor, and — when the caller knows it — the human behind a
@@ -115,8 +135,8 @@ async function resolveRecipients(
 	const selfUserIds = new Set([actor.type === "USER" ? actor.id : null, options?.authorUserId ?? null]);
 	recipients = recipients.filter((r) => !selfUserIds.has(r.recipientUserId));
 
-	// Non-owner recipients only hear about objects they can see (see VIEW_GATED_TYPES).
-	if (VIEW_GATED_TYPES.has(type)) {
+	// Non-owner recipients only hear about objects they can see (see NOTIFICATION_POLICY).
+	if (policy.viewGated) {
 		if (!object || "role" in object || object.type === NotificationObject.PAGE) return [];
 		const viewers = await filterUsersWhoCanView(
 			{ type: object.type, id: object.id },

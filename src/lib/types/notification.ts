@@ -27,6 +27,11 @@ export interface NotificationItem {
 	objectType: NotificationObject | null;
 	/** Title of the post/event the notification is about, for copy. Null for page objects / titleless posts. */
 	objectTitle: string | null;
+	/**
+	 * Name of the page the post/event lives in, for "… in <page>" copy. Null when it isn't in a page, the
+	 * actor IS that page, or the recipient can't see the object.
+	 */
+	objectPageName: string | null;
 	/** Precomputed deep link (post/event detail, a profile, or the Requests tab). */
 	href: string;
 }

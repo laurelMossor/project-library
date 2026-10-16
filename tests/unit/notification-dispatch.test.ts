@@ -194,6 +194,52 @@ describe("comment.mentioned — only recipients who can see the post", () => {
 	});
 });
 
+describe("content.published — page members hear in their personal bell", () => {
+	const post = (status: "PUBLISHED" | "DRAFT") =>
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			id: "p1", userId: "alice", pageId: "pageY", asPageId: null, showOnAuthorProfile: false,
+			eventId: null, parentPostId: null, status, contentVisibility: "LISTED",
+		} as never);
+	const object = { type: "POST" as const, id: "p1" };
+
+	beforeEach(() => {
+		pageManagers([
+			{ userId: "admin", role: "ADMIN" },
+			{ userId: "editor", role: "EDITOR" },
+			{ userId: "member", role: "MEMBER" },
+			{ userId: "alice", role: "MEMBER" },
+		]);
+	});
+
+	test("every role is notified, personally (contextPageId null), and the author is not", async () => {
+		post("PUBLISHED");
+		await emitActivity("content.published", { type: "USER", id: "alice" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
+		const rows = writtenRows();
+		expect(rows.map((r) => r.recipientUserId).sort()).toEqual(["admin", "editor", "member"]);
+		expect(rows.every((r) => r.type === "PAGE_ACTIVITY" && r.contextPageId === null)).toBe(true);
+		expect(rows[0]).toMatchObject({ actorUserId: "alice", objectType: "POST", objectId: "p1" });
+	});
+
+	test("posting as the page still skips the human who wrote it", async () => {
+		post("PUBLISHED");
+		await emitActivity("content.published", { type: "PAGE", id: "pageY" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
+		expect(writtenRows().map((r) => r.recipientUserId).sort()).toEqual(["admin", "editor", "member"]);
+		expect(writtenRows()[0]).toMatchObject({ actorPageId: "pageY" });
+	});
+
+	test("enqueues email under the PAGE_ACTIVITY category, in the personal context", async () => {
+		post("PUBLISHED");
+		await emitActivity("content.published", { type: "USER", id: "alice" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
+		expect(enqueuedEntries().every((e) => e.category === "PAGE_ACTIVITY" && e.contextPageId === null)).toBe(true);
+	});
+
+	test("content the members can't see notifies nobody (view-gated)", async () => {
+		post("DRAFT");
+		await emitActivity("content.published", { type: "USER", id: "alice" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
+		expect(createManyAndReturn).not.toHaveBeenCalled();
+	});
+});
+
 describe("emitActivity → email enqueue", () => {
 	test("each created notification enqueues a matching email (same recipient, mapped category)", async () => {
 		await emitActivity("comment.created", { type: "USER", id: "sam" }, { type: "USER", id: "alice" }, { type: "POST", id: "p1" });

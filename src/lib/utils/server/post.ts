@@ -11,7 +11,9 @@ import { authorProfilePlacementWhere, collectionVisibilityWhere, draftsOnPageWhe
 import { canEditContent, canModerateContent } from "./permission";
 import { assertPinChange, canPinContent, withCanPin } from "./pin";
 import { PlacementError, PlacementForbiddenError, resolveContentPlacement } from "./content-placement";
-import { AttachmentTarget, ContentVisibility, type Prisma } from "@prisma/client";
+import { AttachmentTarget, ContentVisibility, NotificationObject, type Prisma } from "@prisma/client";
+import { assertStatusTransition } from "./content-status";
+import { notifyPageActivity } from "./content-activity";
 import { postHasContent } from "@/lib/utils/content";
 import { validatePostUpdateData } from "@/lib/validations";
 import { DomainError } from "./domain-error";
@@ -328,7 +330,9 @@ export async function updatePost(viewer: ViewerContext & { userId: string }, id:
 	if (tags !== undefined) updateData.tags = tags.map((tag) => tag.trim()).filter(Boolean);
 	if (topics !== undefined) updateData.topics = Array.isArray(topics) ? topics : [];
 	if (pinnedAt !== undefined) updateData.pinnedAt = pinnedAt === null ? null : new Date(pinnedAt);
+	let publishes = false;
 	if (status === "PUBLISHED" || status === "DRAFT") {
+		({ publishes } = assertStatusTransition(existing.status, status));
 		if (status === "PUBLISHED") {
 			// Publishable with a title, body, OR at least one photo. Resolve the final text
 			// (incoming if set now, else stored); only count photos when there's no text.
@@ -360,6 +364,17 @@ export async function updatePost(viewer: ViewerContext & { userId: string }, id:
 			}
 		}
 	});
+
+	if (publishes) {
+		await notifyPageActivity(NotificationObject.POST, {
+			id,
+			userId: existing.userId,
+			pageId: placement?.pageId ?? existing.pageId,
+			asPageId: placement ? placement.asPageId : existing.asPageId,
+			parentPostId: existing.parentPostId,
+			eventId: existing.eventId,
+		});
+	}
 }
 
 /** Delete a post as the viewer: not viewable → not_found, then moderation rights (author or page manager). */
