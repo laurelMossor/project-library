@@ -11,12 +11,14 @@ import { useAction } from "@/lib/hooks/useAction";
 import { updateNotificationPrefsAction } from "@/lib/actions/settings";
 import type { NotificationPrefs, NotificationPrefsPatch } from "@/lib/types/settings";
 
-const CATEGORY_ROWS: { key: NotificationCategory; label: string; description: string }[] = [
+/** `personalOnly`: the category only ever reaches a person's own bell, so a page identity hides it. */
+const CATEGORY_ROWS: { key: NotificationCategory; label: string; description: string; personalOnly?: boolean }[] = [
 	{ key: "MESSAGES", label: "Direct messages", description: "When someone sends you a message" },
 	{ key: "COMMENTS", label: "Comments", description: "When someone comments on your posts or events" },
 	{ key: "REQUESTS", label: "Follow & join requests", description: "Requests to follow you or join a page you manage" },
 	{ key: "RSVPS", label: "Event RSVPs", description: "When someone RSVPs to your event" },
 	{ key: "FOLLOWS", label: "New followers & members", description: "When someone follows you or joins a page" },
+	{ key: "PAGE_ACTIVITY", label: "Page activity", description: "When someone posts or adds an event in a page you're a member of", personalOnly: true },
 ];
 
 type Frequency = "NEVER" | "MONTHLY" | "DAILY" | "INSTANT";
@@ -114,7 +116,7 @@ export function NotificationSettingsForm() {
 					/>
 				</div>
 				<div className={`mt-1 divide-y divide-ash-green border-t border-ash-green pt-1 ${prefs.master ? "" : "opacity-50"}`}>
-					{CATEGORY_ROWS.map((row) => (
+					{CATEGORY_ROWS.filter((row) => !(row.personalOnly && activePageId)).map((row) => (
 						<Toggle
 							key={row.key}
 							label={row.label}

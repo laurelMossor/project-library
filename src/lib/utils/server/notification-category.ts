@@ -19,6 +19,7 @@ export const NOTIFICATION_TYPE_TO_CATEGORY: Record<NotificationType, Notificatio
 	[NotificationType.MEMBER_INVITE]: NotificationCategory.REQUESTS,
 	[NotificationType.ROLE_CHANGED]: NotificationCategory.FOLLOWS,
 	[NotificationType.MENTION]: NotificationCategory.COMMENTS,
+	[NotificationType.PAGE_ACTIVITY]: NotificationCategory.PAGE_ACTIVITY,
 };
 
 // Effective on/off for a category when the identity has no stored NotificationPreference row.
@@ -30,4 +31,6 @@ export const CATEGORY_EMAIL_DEFAULT: Record<NotificationCategory, boolean> = {
 	[NotificationCategory.FOLLOWS]: false,
 	[NotificationCategory.MESSAGES]: true,
 	[NotificationCategory.RSVPS]: false,
+	// Membership is opt-in already, so a member wants to hear what goes on in their page.
+	[NotificationCategory.PAGE_ACTIVITY]: true,
 };

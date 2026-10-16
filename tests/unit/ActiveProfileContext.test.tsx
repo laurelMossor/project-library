@@ -62,9 +62,28 @@ describe("ActiveProfileContext", () => {
 
   // -- Identity resolution from props --------------------------------------
 
-  test("no session → currentUser and activeEntity are null even when a prop is seeded", async () => {
+  test("no client session but server still has a user → identity is kept (a refetch can drop the id)", async () => {
     vi.mocked(useSession).mockReturnValue({ data: null, update: mockUpdateSession, status: "unauthenticated" } as any);
-    const { result } = renderWithProps(mockUser); // prop present, but session is gone
+    const { result } = renderWithProps(mockUser); // prop present, client session momentarily gone
+    await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
+    expect(result.current.activeEntity).toEqual(mockUser);
+  });
+
+  test("no client session and no server user (real logout) → currentUser and activeEntity are null", async () => {
+    vi.mocked(useSession).mockReturnValue({ data: null, update: mockUpdateSession, status: "unauthenticated" } as any);
+    const { result } = renderWithProps(null);
+    await waitFor(() => expect(result.current.currentUser).toBeNull());
+    expect(result.current.activeEntity).toBeNull();
+  });
+
+  test("logout re-render (server prop goes null, no session) → identity clears", async () => {
+    mockSession(null);
+    const { result, setProps } = renderWithProps(mockUser);
+    await waitFor(() => expect(result.current.currentUser).toEqual(mockUser));
+
+    vi.mocked(useSession).mockReturnValue({ data: null, update: mockUpdateSession, status: "unauthenticated" } as any);
+    act(() => setProps({ initialCurrentUser: null }));
+
     await waitFor(() => expect(result.current.currentUser).toBeNull());
     expect(result.current.activeEntity).toBeNull();
   });

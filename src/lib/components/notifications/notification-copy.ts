@@ -20,5 +20,6 @@ export function notificationMessage(n: NotificationItem, recipientPageName?: str
 		actorName: actorName(n),
 		objectType: n.objectType,
 		objectTitle: n.objectTitle,
+		objectPageName: n.objectPageName,
 	});
 }

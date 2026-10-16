@@ -118,6 +118,7 @@ enum NotificationType {
   MEMBER_INVITE // a page invited this user to a role
   ROLE_CHANGED // an admin changed this member's role
   MENTION // someone tagged this identity's @handle in a comment
+  PAGE_ACTIVITY // a post or event was published in a page this user is a member of
 }
 
 // What a notification points at, for the deep link. A polymorphic pointer typed by this enum +
@@ -138,6 +139,7 @@ enum NotificationCategory {
   FOLLOWS
   MESSAGES
   RSVPS
+  PAGE_ACTIVITY
 }
 
 // DIRECT = a 1:1 thread between two identities (found by its pair); GROUP = an explicitly created,

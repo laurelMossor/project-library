@@ -17,8 +17,9 @@ export interface NotificationHrefInput {
 export function notificationHref({ type, objectType, objectId, commentId, actorHandle }: NotificationHrefInput): string {
 	switch (type) {
 		case NotificationType.COMMENT:
-		case NotificationType.MENTION: {
-			if (!objectId) return CONNECTIONS; // defensive; a comment always carries its object
+		case NotificationType.MENTION:
+		case NotificationType.PAGE_ACTIVITY: {
+			if (!objectId) return CONNECTIONS; // defensive; these always carry their object
 			const detail = objectType === NotificationObject.EVENT ? EVENT_DETAIL(objectId) : POST_DETAIL(objectId);
 			return commentId ? COMMENT_LINK(detail, commentId) : detail;
 		}

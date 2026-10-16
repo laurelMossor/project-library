@@ -8,6 +8,12 @@
 
 import { canPostAsPage, canPostToPage } from "./permission";
 import { DomainError } from "./domain-error";
+import type { EntityRef } from "./activity";
+
+/** Who is speaking for a post, event or comment: the page when written as one, else the human author. */
+export function speakerRef(userId: string, asPageId: string | null): EntityRef {
+	return asPageId ? { type: "PAGE", id: asPageId } : { type: "USER", id: userId };
+}
 
 /** Caller/client-fixable placement problem. Routes map this to a 400. */
 export class PlacementError extends DomainError {}

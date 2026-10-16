@@ -111,7 +111,8 @@ domain event → resolve recipients → filter by preferences → fan out to cha
 - **Persist first, deliver second.** The in-app row is the source of truth; email is a derived channel added later at the same seam.
 - **Reuse:** in-app delivery generalizes `UnreadCountContext`; page fan-out uses the existing permission helpers (`getResourcePermissions`); actor hydration uses the attribution-only embed selectors (`publicUserEmbedFields` / `publicPageEmbedFields`, per VISIBILITY_RULES §8).
 - **Recipient scoping is the whole visibility story.** The recipient is by construction the content owner or a page manager — always entitled to the subject — so no content-visibility gate is needed on the notification itself; the read API just scopes strictly to `session.userId`, and the subject *link* routes through the normal gated route (deleted/hidden subjects 404 as usual).
-- **Enum tension, accepted.** `NotificationType` grows by one value per new activity — a bounded, type-safe set, not an open-ended string column. Each new type is "add an enum value + a recipient resolver + a copy string."
+  - *Since superseded:* MENTION and PAGE_ACTIVITY reach people who aren't the owner or a manager. Each type now declares `viewGated` in `NOTIFICATION_POLICY` (`activity.ts`), and gated types check every recipient with `filterUsersWhoCanView`.
+- **Enum tension, accepted.** `NotificationType` grows by one value per new activity — a bounded, type-safe set, not an open-ended string column. Each new type is "add an enum value + a policy row + a copy string." The policy row (`NOTIFICATION_POLICY` in `activity.ts`, exhaustive over the enum) sets the type's page audience (ADMINS / MANAGERS in the page's bell, or MEMBERS in their personal bells) and whether it's view-gated.
 
 ---
 

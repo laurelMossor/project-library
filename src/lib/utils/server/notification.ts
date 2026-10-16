@@ -165,10 +165,25 @@ export async function hydrateNotificationRows(
 		Promise.all(posts.map(async (p) => ((await canViewPost(p, viewer)) ? p : null))),
 		Promise.all(events.map(async (e) => ((await canViewEvent(e, viewer)) ? e : null))),
 	]);
-	const titleMap = new Map<string, string | null>([
-		...viewablePosts.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.id, p.title] as const),
-		...viewableEvents.filter((e): e is NonNullable<typeof e> => !!e).map((e) => [e.id, e.title] as const),
-	]);
+	const viewable = [
+		...viewablePosts.filter((p): p is NonNullable<typeof p> => !!p),
+		...viewableEvents.filter((e): e is NonNullable<typeof e> => !!e),
+	];
+	const titleMap = new Map<string, string | null>(viewable.map((o) => [o.id, o.title] as const));
+
+	// The page each viewable object lives in, for "… in <page>" copy (same visibility gate as the title).
+	const objectPageIds = [...new Set(viewable.map((o) => o.pageId).filter((id): id is string => !!id))];
+	const objectPages = objectPageIds.length
+		? await prisma.page.findMany({ where: { id: { in: objectPageIds } }, select: { id: true, name: true } })
+		: [];
+	const objectPageMap = new Map(viewable.map((o) => [o.id, o.pageId] as const));
+	const pageNameMap = new Map(objectPages.map((p) => [p.id, p.name] as const));
+	/** The object's page name, unless the actor is that page (it would just repeat the actor's name). */
+	const objectPageName = (r: NotificationRowForHydration): string | null => {
+		const pageId = r.objectId ? objectPageMap.get(r.objectId) : null;
+		if (!pageId || pageId === r.actorPageId) return null;
+		return pageNameMap.get(pageId) ?? null;
+	};
 
 	return rows.map((r): NotificationItem => {
 		const actor: CardUser | CardPage | null = r.actorUserId
@@ -191,6 +206,7 @@ export async function hydrateNotificationRows(
 					: r.objectId
 						? titleMap.get(r.objectId) ?? null
 						: null,
+			objectPageName: objectPageName(r),
 			href: notificationHref({ type: r.type, objectType: r.objectType, objectId: r.objectId, commentId: r.commentId, actorHandle }),
 		};
 	});

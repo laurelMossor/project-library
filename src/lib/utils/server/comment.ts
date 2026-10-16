@@ -7,6 +7,7 @@ import { canModerateContent, canPostAsPage } from "./permission";
 import { requireViewableEvent, requireViewablePost, type ViewerContext } from "./visibility";
 import { validateCommentContent } from "@/lib/validations";
 import { emitActivity, type EntityRef, type ObjectRef } from "./activity";
+import { speakerRef } from "./content-placement";
 import { getMentionedIdentities } from "./notification";
 import { NotificationObject } from "@prisma/client";
 import type { CommentItem, CommentTarget } from "@/lib/types/comment";
@@ -71,7 +72,7 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 	});
 
 	// The object is the post/event (plus this comment, so the bell row scrolls to it).
-	const actor = commentActor(userId, data.asPageId ?? null);
+	const actor = speakerRef(userId, data.asPageId ?? null);
 	const object: ObjectRef = data.postId
 		? { type: NotificationObject.POST, id: data.postId, commentId: comment.id }
 		: { type: NotificationObject.EVENT, id: data.eventId!, commentId: comment.id };
@@ -81,9 +82,7 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 
 	// Notify the content owner that someone commented — unless they're commenting on their own content
 	// (actor == target), or the comment tags them (the more specific tag notification already went out).
-	const ownerRef: EntityRef = owner.asPageId
-		? { type: "PAGE", id: owner.asPageId }
-		: { type: "USER", id: owner.userId };
+	const ownerRef = speakerRef(owner.userId, owner.asPageId);
 	if (!sameEntity(actor, ownerRef) && !tagged.some((t) => sameEntity(t, ownerRef))) {
 		await emitActivity("comment.created", actor, ownerRef, object, { authorUserId: userId });
 	}
@@ -100,11 +99,6 @@ export async function createComment(userId: string, data: CreateCommentData): Pr
 type MentionTarget = EntityRef & { handle: string };
 
 const sameEntity = (a: EntityRef, b: EntityRef) => a.type === b.type && a.id === b.id;
-
-/** Who a comment speaks as: the page when commenting "as" one, else the author. */
-function commentActor(authorId: string, asPageId: string | null): EntityRef {
-	return asPageId ? { type: "PAGE", id: asPageId } : { type: "USER", id: authorId };
-}
 
 /**
  * Resolve lowercase handles to the users/pages that hold them (one query), in the order the handles
@@ -236,7 +230,7 @@ export async function updateComment(comment: CommentForEdit, content: string): P
 		const object: ObjectRef = comment.postId
 			? { type: NotificationObject.POST, id: comment.postId, commentId: comment.id }
 			: { type: NotificationObject.EVENT, id: comment.eventId!, commentId: comment.id };
-		const actor = commentActor(comment.authorId, comment.asPageId);
+		const actor = speakerRef(comment.authorId, comment.asPageId);
 		await notifyMentions(comment.authorId, actor, object, fresh, MAX_MENTION_NOTIFICATIONS - already.length);
 	}
 

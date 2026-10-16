@@ -1,7 +1,9 @@
 // ⚠️ SERVER-ONLY: This file uses prisma (database client)
 // Do not import this in client components! Only use in API routes, server components, or "use server" functions.
 
-import { AttachmentTarget, ContentVisibility, type Prisma } from "@prisma/client";
+import { AttachmentTarget, ContentVisibility, NotificationObject, type Prisma } from "@prisma/client";
+import { assertStatusTransition } from "./content-status";
+import { notifyPageActivity } from "./content-activity";
 import { prisma } from "./prisma";
 import { EventItem, type EventCreateData, type EventUpdateData } from "../../types/event";
 import { DomainError } from "./domain-error";
@@ -160,6 +162,9 @@ export async function createEvent(userId: string, data: EventCreateData): Promis
 		select: { id: true },
 	});
 	logAction("event.created", userId, { eventId: event.id, status: isDraft ? "DRAFT" : "PUBLISHED" });
+	if (assertStatusTransition(null, isDraft ? "DRAFT" : "PUBLISHED").publishes) {
+		await notifyPageActivity(NotificationObject.EVENT, { id: event.id, userId, ...placement }, userId);
+	}
 	return event.id;
 }
 
@@ -209,10 +214,11 @@ export async function updateEvent(viewer: ViewerContext & { userId: string }, id
 		status,
 	});
 	if (!validation.valid) throw new DomainError(validation.error ?? "Invalid event data");
+	const { publishes } = assertStatusTransition(existing.status, status);
 
 	// INV-10: publishing a draft requires a complete event. validateEventUpdateData only checks
 	// fields present in the patch, so merge the stored row with the patch and gate on that.
-	if (status === "PUBLISHED" && existing.status === "DRAFT") {
+	if (publishes) {
 		const stored = await prisma.event.findUnique({
 			where: { id },
 			select: { title: true, content: true, eventDateTime: true, eventTimezone: true, location: true, latitude: true, longitude: true, tags: true },
@@ -266,6 +272,15 @@ export async function updateEvent(viewer: ViewerContext & { userId: string }, id
 			await syncDescendantVisibility("EVENT", id, reparentedVisibility, tx);
 		}
 	});
+
+	if (publishes) {
+		await notifyPageActivity(NotificationObject.EVENT, {
+			id,
+			userId: existing.userId,
+			pageId: placement?.pageId ?? existing.pageId,
+			asPageId: placement ? placement.asPageId : existing.asPageId,
+		}, viewer.userId);
+	}
 }
 
 /** Delete an event as the viewer: not viewable → not_found, then moderation rights; then its photo blobs. */
