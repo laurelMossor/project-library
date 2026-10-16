@@ -10,6 +10,13 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
+## v0.5.1 — Page activity notifications (10/15/26)
+
+- **Page activity notifications** — when a post or event is published in a page, its admins, editors, and members hear about it in their personal bell; the person who published it is left out; new "Page activity" email setting, on by default.
+- **Publishing is one-way** — a published post or event can't be moved back to draft.
+
+---
+
 ## v0.5.0 — Meatup part 2: Groups & Messaging (10/13/26)
 
 Group messaging, page membership, member posting, account setup, and deletion. Group messaging is on `meatup-4-group-messaging` (PR #52), generated avatars on `meatup-6-boring-avatars`, setup plus deletion on `meatup-7-odds-and-ends`, and comment tagging on `comment-mentions`; none are merged yet. Invite by email merged in PR #59 (`meatup-11-inapp-group-invite`).
