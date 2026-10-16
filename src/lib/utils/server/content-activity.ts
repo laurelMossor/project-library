@@ -20,12 +20,15 @@ type PublishedContent = {
 
 /**
  * Tell a page's members that a post or event was just published in it. Only top-level content that
- * lives in a page counts: updates to posts and events are skipped. Call after the publishing write
- * commits, so the dispatcher's visibility check sees it as published. Never throws.
+ * lives in a page counts: updates to posts and events are skipped. `authorUserId` is the human who
+ * just published it (the same option comments pass): the dispatcher never notifies them of their own
+ * act, which is not always the stored author when an editor publishes a page-voiced draft. Call after
+ * the publishing write commits, so the dispatcher's visibility check sees it as published. Never throws.
  */
 export async function notifyPageActivity(
 	kind: typeof NotificationObject.POST | typeof NotificationObject.EVENT,
 	content: PublishedContent,
+	authorUserId: string,
 ): Promise<void> {
 	if (!content.pageId || content.parentPostId || content.eventId) return;
 	await emitActivity(
@@ -33,6 +36,6 @@ export async function notifyPageActivity(
 		speakerRef(content.userId, content.asPageId),
 		{ type: "PAGE", id: content.pageId },
 		{ type: kind, id: content.id },
-		{ authorUserId: content.userId },
+		{ authorUserId },
 	);
 }

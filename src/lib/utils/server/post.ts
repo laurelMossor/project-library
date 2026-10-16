@@ -373,7 +373,7 @@ export async function updatePost(viewer: ViewerContext & { userId: string }, id:
 			asPageId: placement ? placement.asPageId : existing.asPageId,
 			parentPostId: existing.parentPostId,
 			eventId: existing.eventId,
-		});
+		}, viewer.userId);
 	}
 }
 

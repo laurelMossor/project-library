@@ -42,7 +42,7 @@ describe("notifyPageActivity", () => {
 	const content = { id: "p1", userId: "alice", pageId: "pageY", asPageId: null };
 
 	test("a top-level post in a page tells the page, spoken by the author", async () => {
-		await notifyPageActivity("POST", content);
+		await notifyPageActivity("POST", content, "alice");
 		expect(emit).toHaveBeenCalledWith(
 			"content.published",
 			{ type: "USER", id: "alice" },
@@ -53,14 +53,25 @@ describe("notifyPageActivity", () => {
 	});
 
 	test("posting as the page makes the page the actor", async () => {
-		await notifyPageActivity("EVENT", { ...content, asPageId: "pageY" });
+		await notifyPageActivity("EVENT", { ...content, asPageId: "pageY" }, "alice");
 		expect(emit.mock.calls[0][1]).toEqual({ type: "PAGE", id: "pageY" });
 	});
 
+	test("an editor publishing a page-voiced draft is the one excluded, not the stored author", async () => {
+		await notifyPageActivity("POST", { ...content, asPageId: "pageY" }, "bob");
+		expect(emit).toHaveBeenCalledWith(
+			"content.published",
+			{ type: "PAGE", id: "pageY" },
+			{ type: "PAGE", id: "pageY" },
+			{ type: "POST", id: "p1" },
+			{ authorUserId: "bob" },
+		);
+	});
+
 	test("content not in a page, or an update, tells nobody", async () => {
-		await notifyPageActivity("POST", { ...content, pageId: null });
-		await notifyPageActivity("POST", { ...content, parentPostId: "parent" });
-		await notifyPageActivity("POST", { ...content, eventId: "e1" });
+		await notifyPageActivity("POST", { ...content, pageId: null }, "alice");
+		await notifyPageActivity("POST", { ...content, parentPostId: "parent" }, "alice");
+		await notifyPageActivity("POST", { ...content, eventId: "e1" }, "alice");
 		expect(emit).not.toHaveBeenCalled();
 	});
 });

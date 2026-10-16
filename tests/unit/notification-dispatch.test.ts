@@ -29,7 +29,7 @@ const createManyAndReturn = vi.mocked(prisma.notification.createManyAndReturn);
 const permFindMany = vi.mocked(prisma.permission.findMany);
 const enqueue = vi.mocked(enqueueEmails);
 
-function pageManagers(managers: { userId: string; role: "ADMIN" | "EDITOR" | "MEMBER" }[]) {
+function pageManagers(managers: { userId: string; role: "ADMIN" | "EDITOR" | "MEMBER"; resourceId?: string }[]) {
 	permFindMany.mockResolvedValue(managers as never);
 }
 
@@ -204,10 +204,10 @@ describe("content.published — page members hear in their personal bell", () =>
 
 	beforeEach(() => {
 		pageManagers([
-			{ userId: "admin", role: "ADMIN" },
-			{ userId: "editor", role: "EDITOR" },
-			{ userId: "member", role: "MEMBER" },
-			{ userId: "alice", role: "MEMBER" },
+			{ userId: "admin", role: "ADMIN", resourceId: "pageY" },
+			{ userId: "editor", role: "EDITOR", resourceId: "pageY" },
+			{ userId: "member", role: "MEMBER", resourceId: "pageY" },
+			{ userId: "alice", role: "MEMBER", resourceId: "pageY" },
 		]);
 	});
 
@@ -237,6 +237,17 @@ describe("content.published — page members hear in their personal bell", () =>
 		post("DRAFT");
 		await emitActivity("content.published", { type: "USER", id: "alice" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
 		expect(createManyAndReturn).not.toHaveBeenCalled();
+	});
+
+	test("a private page post still reaches every member except the actor", async () => {
+		vi.mocked(prisma.post.findUnique).mockResolvedValue({
+			id: "p1", userId: "alice", pageId: "pageY", asPageId: null, showOnAuthorProfile: false,
+			eventId: null, parentPostId: null, status: "PUBLISHED", contentVisibility: "PRIVATE",
+		} as never);
+		await emitActivity("content.published", { type: "USER", id: "alice" }, { type: "PAGE", id: "pageY" }, object, { authorUserId: "alice" });
+		const rows = writtenRows();
+		expect(rows.map((r) => r.recipientUserId).sort()).toEqual(["admin", "editor", "member"]);
+		expect(rows.every((r) => r.type === "PAGE_ACTIVITY" && r.contextPageId === null)).toBe(true);
 	});
 });
 

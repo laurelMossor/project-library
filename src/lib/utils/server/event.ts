@@ -163,7 +163,7 @@ export async function createEvent(userId: string, data: EventCreateData): Promis
 	});
 	logAction("event.created", userId, { eventId: event.id, status: isDraft ? "DRAFT" : "PUBLISHED" });
 	if (assertStatusTransition(null, isDraft ? "DRAFT" : "PUBLISHED").publishes) {
-		await notifyPageActivity(NotificationObject.EVENT, { id: event.id, userId, ...placement });
+		await notifyPageActivity(NotificationObject.EVENT, { id: event.id, userId, ...placement }, userId);
 	}
 	return event.id;
 }
@@ -279,7 +279,7 @@ export async function updateEvent(viewer: ViewerContext & { userId: string }, id
 			userId: existing.userId,
 			pageId: placement?.pageId ?? existing.pageId,
 			asPageId: placement ? placement.asPageId : existing.asPageId,
-		});
+		}, viewer.userId);
 	}
 }
 

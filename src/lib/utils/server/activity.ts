@@ -18,7 +18,8 @@ import { NOTIFICATION_TYPE_TO_CATEGORY } from "./notification-category";
 import { filterUsersWhoCanView } from "./visibility";
 
 /** An identity that is a user or a page. */
-export type EntityRef = { type: "USER" | "PAGE"; id: string };/** Who caused an activity: a user/page identity, or an account-less actor carrying a display label (guest RSVP). */
+export type EntityRef = { type: "USER" | "PAGE"; id: string };
+/** Who caused an activity: a user/page identity, or an account-less actor carrying a display label (guest RSVP). */
 export type ActorRef = EntityRef | { type: "ANON"; label: string };
 /**
  * What an activity is about, for the deep link. Kinds come from the schema enum — never string literals.
