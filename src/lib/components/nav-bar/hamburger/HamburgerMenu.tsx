@@ -72,14 +72,13 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 				isOpen={isOpen}
 				onClose={() => setIsOpen((o) => !o)}
 				trigger={
-				<div className="relative">
+				unreadCount > 0 ? (
+					<NotificationDot label="Unread messages">
+						<HamburgerIcon className="w-8 h-8 shrink-0" />
+					</NotificationDot>
+				) : (
 					<HamburgerIcon className="w-8 h-8 shrink-0" />
-					{unreadCount > 0 && (
-						<span className="absolute -top-0.5 -right-0.5">
-							<NotificationDot label="Unread messages" />
-						</span>
-					)}
-				</div>
+				)
 			}
 				triggerAriaLabel="Menu"
 				containerClassName="min-w-[280px]"

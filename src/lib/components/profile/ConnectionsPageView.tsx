@@ -10,6 +10,7 @@ import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import type { ConnectionItem, ConnectionsData } from "@/lib/types/connections";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
+import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { assignableRoles, formatRole, isAdminRole } from "@/lib/const/roles";
 import { useAction, useActionThunk, type ActionThunk } from "@/lib/hooks/useAction";
 import { ActionButtons, rowActionClass, type ActionDef } from "./ActionButtons";
@@ -48,14 +49,17 @@ function ExpandableActions({
 	onToggle,
 	actions,
 	onRefused,
+	attention,
 }: {
 	expanded: boolean;
 	onToggle: () => void;
 	actions: ActionDef[];
 	onRefused?: (message: string | null) => void;
+	/** When set, the "…" control carries a NotificationDot for something that needs an answer. */
+	attention?: string;
 }) {
 	if (!expanded) {
-		return (
+		const button = (
 			<button
 				onClick={onToggle}
 				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
@@ -64,6 +68,7 @@ function ExpandableActions({
 				<EllipsisIcon className="w-4 h-4" />
 			</button>
 		);
+		return attention ? <NotificationDot label={attention}>{button}</NotificationDot> : button;
 	}
 
 	return (
@@ -323,9 +328,11 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 								entity={inv.page!}
 								badge={`Pending · invited as ${formatRole(inv.role)}`}
 								actions={
-									// Visible, not behind "…": answering an invite is the point of the row.
-									<ActionButtons
+									<ExpandableActions
+										expanded={expandedId === inv.id}
+										onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
 										onRefused={setInviteRefusal}
+										attention="Invitation needs a response"
 										actions={[
 											{ label: "Accept", tone: "default", perform: () => approveRequestAction({ requestId: inv.id }) },
 											{ label: "Decline", perform: () => denyRequestAction({ requestId: inv.id }) },

@@ -46,7 +46,7 @@ export function ProfileListPopover({ target, list, children, emptyMessage }: Pro
 			align="left"
 			triggerAriaLabel={`Show ${list}`}
 			triggerClassName="text-sm text-gray-700 hover:text-rich-brown cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20"
-			containerClassName="w-[min(320px,calc(100vw-2rem))] max-h-[360px] overflow-y-auto"
+			containerClassName="w-[min(320px,calc(100vw-2rem))]"
 			trigger={children}
 		>
 			{error ? (

@@ -1,7 +1,8 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useRef } from "react";
 import { TellMeMore } from "@/lib/components/tooltip/TellMeMore";
+import { useOneOpenMenu } from "@/lib/components/ui/DropdownMenu";
 
 type Props = {
 	label?: string;
@@ -20,15 +21,14 @@ type Props = {
 
 /** Shared open/close shell for the profile pickers. */
 export function DropdownShell({ label, hint, optionCount, open, onOpenChange, trigger, children }: Props) {
+	const rootRef = useRef<HTMLDivElement>(null);
+	useOneOpenMenu(open, () => onOpenChange(false), rootRef);
 	const showCaret = !open && optionCount > 1;
 
 	const menu = open && (
-		<>
-			<div className="fixed inset-0 z-10" onClick={() => onOpenChange(false)} />
-			<div role="listbox" className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-soft-grey rounded-lg shadow-lg py-1">
-				{children}
-			</div>
-		</>
+		<div role="listbox" className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-soft-grey rounded-lg shadow-lg py-1">
+			{children}
+		</div>
 	);
 
 	const labelRow = (label || hint || (!trigger && showCaret)) ? (
@@ -37,6 +37,7 @@ export function DropdownShell({ label, hint, optionCount, open, onOpenChange, tr
 			{!trigger && showCaret && (
 				<button
 					type="button"
+					data-dropdown-trigger=""
 					className="inline-flex h-6 w-6 items-center justify-center text-dusty-grey"
 					aria-expanded={false}
 					aria-haspopup="listbox"
@@ -52,7 +53,7 @@ export function DropdownShell({ label, hint, optionCount, open, onOpenChange, tr
 
 	if (!trigger) {
 		return (
-			<div className="relative">
+			<div ref={rootRef} className="relative">
 				{labelRow}
 				{menu}
 			</div>
@@ -62,10 +63,11 @@ export function DropdownShell({ label, hint, optionCount, open, onOpenChange, tr
 	return (
 		<div>
 			{labelRow}
-			<div className="relative">
+			<div ref={rootRef} className="relative">
 				{optionCount > 1 ? (
 					<button
 						type="button"
+						data-dropdown-trigger=""
 						onClick={() => onOpenChange(!open)}
 						className="w-full text-left"
 						aria-expanded={open}
