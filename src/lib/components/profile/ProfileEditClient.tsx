@@ -8,21 +8,20 @@ import { InlineEditSession } from "@/lib/components/inline-editable/InlineEditSe
 import { InlineEditable } from "@/lib/components/inline-editable/InlineEditable";
 import { InlinePlaceholder } from "@/lib/components/inline-editable/InlinePlaceholder";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
-import { FollowStats } from "@/lib/components/profile/FollowStats";
+import { ProfileStats } from "@/lib/components/profile/ProfileStats";
 import { ClickableProfilePicture } from "@/lib/components/profile/ClickableProfilePicture";
 import { Tag } from "@/lib/components/tag/Tag";
 import { JoinButton } from "@/lib/components/profile/JoinButton";
 import { EyeIcon, PencilIcon } from "@/lib/components/icons/icons";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
-import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { useInlineEditSession, useOnEditingClosed } from "@/lib/hooks/useInlineEditSession";
 import { useInlineField } from "@/lib/hooks/useInlineField";
 import { getUserDisplayName } from "@/lib/types/user";
 import { useAction } from "@/lib/hooks/useAction";
 import { saveProfileAction } from "@/lib/actions/profile";
 import type { SavePayload } from "@/lib/types/inline-edit";
-import type { FollowCounts, ProfileTarget } from "@/lib/types/profile";
+import type { ProfileStatsData, ProfileTarget } from "@/lib/types/profile";
 import type { MembershipStatus } from "@/lib/types/connections";
 
 export type ProfileEditEntity =
@@ -31,7 +30,7 @@ export type ProfileEditEntity =
 
 type ProfileEditClientProps = {
 	entity: ProfileEditEntity;
-	followCounts: FollowCounts;
+	stats: ProfileStatsData;
 	/** The viewer's standing on the page (page profiles only), for the Leave button. */
 	membership?: MembershipStatus;
 };
@@ -40,13 +39,13 @@ type ProfileEditClientProps = {
 
 function ProfileOwnerContent({
 	entity,
-	followCounts,
+	stats,
 	membership,
 	previewMode,
 	setPreviewMode,
 }: {
 	entity: ProfileEditEntity;
-	followCounts: FollowCounts;
+	stats: ProfileStatsData;
 	membership?: MembershipStatus;
 	previewMode: boolean;
 	setPreviewMode: (v: boolean) => void;
@@ -73,8 +72,6 @@ function ProfileOwnerContent({
 
 	// Close open fields when editing ends (cancel reverts values automatically via session).
 	useOnEditingClosed(() => setEditingField(null));
-	const connectionsHref = PUBLIC_PROFILE(entity.data.handle);
-
 	const avatarEntity =
 		entity.type === "page"
 			? {
@@ -248,7 +245,7 @@ function ProfileOwnerContent({
 				/>
 
 				{/* Follow stats — always last */}
-				<FollowStats counts={followCounts} connectionsHref={connectionsHref} />
+				<ProfileStats stats={stats} />
 			</div>
 		</div>
 	);
@@ -260,7 +257,7 @@ function ProfileOwnerContent({
  * The owner's profile. `entity` comes straight from the server render: every save is a
  * Server Action that refreshes the page, so the saved values arrive as new props.
  */
-export function ProfileEditClient({ entity, followCounts, membership }: ProfileEditClientProps) {
+export function ProfileEditClient({ entity, stats, membership }: ProfileEditClientProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -306,7 +303,7 @@ export function ProfileEditClient({ entity, followCounts, membership }: ProfileE
 		>
 			<ProfileOwnerContent
 				entity={entity}
-				followCounts={followCounts}
+				stats={stats}
 				membership={membership}
 				previewMode={previewMode}
 				setPreviewMode={setPreviewMode}

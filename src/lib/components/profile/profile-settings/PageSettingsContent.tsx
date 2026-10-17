@@ -27,7 +27,7 @@ export function PageSettingsContent({
 			settingsTitle="Page Settings"
 			avatarEntity={page}
 			viewPublicProfileHref={`${publicProfileHref}?edit=true`}
-			viewPublicProfileLabel="Edit Public Profile"
+			viewPublicProfileLabel="Edit profile page"
 			additionalSettingsButtons={
 				<>
 					{FEATURES.privateDetails && (
@@ -35,12 +35,12 @@ export function PageSettingsContent({
 							Edit Personal Information
 						</ButtonLink>
 					)}
-					{/* Members & admins are managed in the Connections view (Membership tab). */}
+					{/* Members & admins are managed in the Connections view (Members tab). */}
 					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
-						Manage Members
+						Connections
 					</ButtonLink>
 					<ButtonLink href={PROFILE_SETTINGS} variant="secondary" fullWidth>
-						Edit Profile Settings
+						Privacy &amp; notifications
 					</ButtonLink>
 					{isAdminRole(pages.find((item) => item.id === page.id)?.role) && (
 						<DeletePageButton pageId={page.id} pageName={page.name} />

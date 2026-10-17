@@ -1,18 +1,17 @@
 "use client";
 
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
-import { isCardPage } from "@/lib/types/card";
+import { useIsOwnProfile } from "@/lib/hooks/useIsOwnProfile";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
-import { MessageIcon, PlusSignIcon, MinusSignIcon } from "@/lib/components/icons/icons";
+import { MessageIcon } from "@/lib/components/icons/icons";
 import { MESSAGE_CONVERSATION } from "@/lib/const/routes";
-import { useFollowState } from "@/lib/hooks/useFollowState";
+import { FollowButton } from "./FollowButton";
 import type { ProfileVisibility } from "@prisma/client";
 
 type ProfileButtonsProps = {
 	entityId: string;
 	entityType: "user" | "page";
-	/** The viewed entity's profile visibility. PRIVATE means Follow opens a pending request,
-	 *  so the button should say so up front ("Request to follow") rather than "Follow". */
+	/** The viewed entity's profile visibility. PRIVATE means Follow opens a pending request. */
 	profileVisibility?: ProfileVisibility;
 };
 
@@ -21,73 +20,21 @@ type ProfileButtonsProps = {
  * Omitted entirely when the viewer's active profile is the entity being viewed.
  */
 export function ProfileButtons({ entityId, entityType, profileVisibility }: ProfileButtonsProps) {
-	const { activeEntity, currentUser } = useActiveProfile();
-
-	// Determine if the viewer's active profile IS the entity being viewed
-	const isOwnProfile = (() => {
-		if (!activeEntity) return false;
-		if (entityType === "page") {
-			return isCardPage(activeEntity) && activeEntity.id === entityId;
-		}
-		// For user profiles, check both active entity and currentUser
-		// (a user viewing their own profile while acting as a page should still be considered "own")
-		if (!isCardPage(activeEntity) && activeEntity.id === entityId) return true;
-		return currentUser?.id === entityId;
-	})();
-
-	const loggedIn = !!currentUser;
-	const { state, loading: loadingFollow, toggling, toggle } = useFollowState(
-		entityId,
-		entityType,
-		loggedIn && !isOwnProfile,
-	);
-
-	const messageHref = MESSAGE_CONVERSATION({ id: entityId, type: entityType });
-
-	// Looking at yourself (your user, or a page you are acting as) has no follow or message.
-	if (isOwnProfile) return null;
-
-	const disabled = !loggedIn;
-	// PRIVATE targets gate Follow behind owner approval (see requests.ts followOrRequest),
-	// so signal that up front instead of implying an instant follow.
-	const isPrivate = profileVisibility === "PRIVATE";
-	const followLabel = loadingFollow || toggling
-		? "..."
-		: state === "following"
-			? "Unfollow"
-			: state === "requested"
-				? "Requested"
-				: isPrivate
-					? "Request to follow"
-					: "Follow";
-	const followIcon = state === "following" || state === "requested"
-		? <MinusSignIcon className="w-4 h-4" />
-		: <PlusSignIcon className="w-4 h-4" />;
+	const { currentUser } = useActiveProfile();
+	if (useIsOwnProfile(entityId, entityType)) return null;
 
 	return (
 		<div className="flex flex-col gap-2 w-full">
-			<TransparentCTAButton
-				label={followLabel}
-				icon={followIcon}
-				onClick={toggle}
-				disabled={disabled || loadingFollow || toggling}
-				className="w-full"
-			/>
-			{disabled ? (
+			<FollowButton entityId={entityId} entityType={entityType} profileVisibility={profileVisibility} />
+			{currentUser ? (
 				<TransparentCTAButton
 					label="Message"
 					icon={<MessageIcon className="w-4 h-4" />}
-					onClick={() => {}}
-					disabled
+					href={MESSAGE_CONVERSATION({ id: entityId, type: entityType })}
 					className="w-full"
 				/>
 			) : (
-				<TransparentCTAButton
-					label="Message"
-					icon={<MessageIcon className="w-4 h-4" />}
-					href={messageHref}
-					className="w-full"
-				/>
+				<TransparentCTAButton label="Message" icon={<MessageIcon className="w-4 h-4" />} onClick={() => {}} disabled className="w-full" />
 			)}
 		</div>
 	);

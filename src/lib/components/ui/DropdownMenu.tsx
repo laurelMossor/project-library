@@ -10,7 +10,10 @@ export const dropdownMenuStyles = {
 
 interface DropdownPosition {
 	top: number;
-	right: number;
+	/** Distance from the viewport's right edge — set when the menu hangs from the trigger's right edge. */
+	right?: number;
+	/** Distance from the viewport's left edge — set when the menu hangs from the trigger's left edge. */
+	left?: number;
 }
 
 interface DropdownMenuProps {
@@ -22,6 +25,8 @@ interface DropdownMenuProps {
 	triggerAriaLabel?: string;
 	/** Extra classes appended to the dropdown container — use to override min-w or set a fixed width. */
 	containerClassName?: string;
+	/** Which trigger edge the menu lines up with: "right" (default, for nav menus) or "left" (for triggers on the left of the page). */
+	align?: "left" | "right";
 }
 
 export function DropdownMenu({
@@ -32,6 +37,7 @@ export function DropdownMenu({
 	triggerClassName = "p-2 hover:opacity-80 rounded transition-opacity",
 	triggerAriaLabel = "Menu",
 	containerClassName = "",
+	align = "right",
 }: DropdownMenuProps) {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null);
@@ -39,11 +45,12 @@ export function DropdownMenu({
 	useLayoutEffect(() => {
 		if (!isOpen || !buttonRef.current || typeof window === "undefined") return;
 		const rect = buttonRef.current.getBoundingClientRect();
-		setDropdownPosition({
-			top: rect.bottom + 4,
-			right: window.innerWidth - rect.right,
-		});
-	}, [isOpen]);
+		setDropdownPosition(
+			align === "left"
+				? { top: rect.bottom + 4, left: rect.left }
+				: { top: rect.bottom + 4, right: window.innerWidth - rect.right },
+		);
+	}, [isOpen, align]);
 
 	const handleClose = () => {
 		setDropdownPosition(null);
@@ -76,6 +83,7 @@ export function DropdownMenu({
 								position: "fixed",
 								top: dropdownPosition.top,
 								right: dropdownPosition.right,
+								left: dropdownPosition.left,
 							}}
 							role="menu"
 						>

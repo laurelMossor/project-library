@@ -1,3 +1,4 @@
+import type { ProfileVisibility } from "@prisma/client";
 import type { CardEntity, CardUser } from "./card";
 
 export type SearchResultItem = {
@@ -7,6 +8,8 @@ export type SearchResultItem = {
 	name: string;
 	headline: string | null;
 	interests: string[];
+	/** PRIVATE shows as a stub (no headline/interests) and Follow becomes a request. */
+	profileVisibility: ProfileVisibility;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
 };

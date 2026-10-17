@@ -2,23 +2,20 @@
 
 import {
 	ProfileEntity,
-	type FollowCounts,
+	type ProfileStatsData,
 	getProfileBio,
 	getProfileInterests,
 } from "@/lib/types/profile";
 import { Tag } from "@/lib/components/tag/Tag";
-import { FollowStats } from "./FollowStats";
-import { PUBLIC_PROFILE } from "@/lib/const/routes";
+import { ProfileStats } from "./ProfileStats";
 import { ProfileElementList } from "@/lib/components/profile/ProfileElementList";
 
 type ProfileBodyProps = {
 	profile: ProfileEntity;
-	followCounts: FollowCounts;
+	stats: ProfileStatsData;
 };
 
-export function ProfileBody({ profile, followCounts }: ProfileBodyProps) {
-	const connectionsHref = PUBLIC_PROFILE(profile.data.handle);
-
+export function ProfileBody({ profile, stats }: ProfileBodyProps) {
 	const bio = getProfileBio(profile);
 	const interests = getProfileInterests(profile);
 	const elements = profile.data.elements ?? [];
@@ -40,7 +37,7 @@ export function ProfileBody({ profile, followCounts }: ProfileBodyProps) {
 
 			<ProfileElementList elements={elements} />
 
-			<FollowStats counts={followCounts} connectionsHref={connectionsHref} />
+			<ProfileStats stats={stats} />
 		</div>
 	);
 }
