@@ -58,11 +58,21 @@ export function ProfileTag({
 	// One link per tag: the name's link is stretched over the whole tag (`after:inset-0`), so a click
 	// anywhere opens the profile. Anything interactive inside (trailing links, badges that are
 	// selectors, actions) is lifted above it with `relative z-10`. No links nested in links.
+	// `truncate` clips overflow, so it stays on the name text. The stretched `::after` lives on the
+	// link, outside that span, or the card's padding would swallow the click.
+	const stretchLinkClass = "min-w-0 after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none";
 	const nameText = asLink ? (
 		<Link href={PUBLIC_PROFILE(handle)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">
 			{name}
 		</Link>
 	) : name;
+	const truncatedName = asLink ? (
+		<Link href={PUBLIC_PROFILE(handle)} className={stretchLinkClass}>
+			<span className="block truncate">{name}</span>
+		</Link>
+	) : (
+		<span className="block min-w-0 truncate">{name}</span>
+	);
 	const trailingNode = trailing && <span className="relative z-10">{trailing}</span>;
 	const linkedClass = asLink ? "relative focus-within:ring-2 focus-within:ring-rich-brown/20" : "";
 
@@ -71,7 +81,7 @@ export function ProfileTag({
 			<div className={`${linkedClass} flex items-start gap-4 p-4 rounded-lg border border-soft-grey/60 bg-white/70 hover:bg-white hover:shadow-md transition-shadow ${className}`}>
 				<div className="shrink-0">{picture}</div>
 				<div className="min-w-0 flex-1 flex flex-col gap-1">
-					<p className="text-sm font-medium text-rich-brown leading-tight truncate">{nameText}{trailingNode}</p>
+					<p className="flex min-w-0 items-baseline text-sm font-medium text-rich-brown leading-tight">{truncatedName}{trailingNode}</p>
 					<div className="flex items-center gap-2 min-w-0">
 						<p className="text-xs text-dusty-grey truncate">@{handle}</p>
 						{badge && <span className="relative z-10 shrink-0"><Badge badge={badge} /></span>}
@@ -86,7 +96,7 @@ export function ProfileTag({
 	const nameBlock =
 		variant === "compact" ? (
 			<div className="min-w-0">
-				<p className="text-sm font-medium text-rich-brown leading-tight truncate">{nameText}{trailingNode}</p>
+				<p className="flex min-w-0 items-baseline text-sm font-medium text-rich-brown leading-tight">{truncatedName}{trailingNode}</p>
 				{badge && <span className="relative z-10 inline-block mt-1"><Badge badge={badge} /></span>}
 			</div>
 		) : (

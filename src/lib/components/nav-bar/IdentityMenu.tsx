@@ -42,10 +42,12 @@ function SwitchRow({
 	return (
 		<div
 			role="button"
-			tabIndex={0}
+			tabIndex={disabled ? -1 : 0}
+			aria-disabled={disabled}
 			aria-label={`Switch to ${"name" in entity ? entity.name : (entity.displayName ?? entity.handle)}`}
-			onClick={onSelect}
+			onClick={() => { if (!disabled) onSelect(); }}
 			onKeyDown={(e) => {
+				if (disabled) return;
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
 					onSelect();

@@ -36,6 +36,7 @@ function ProfileResult({ result }: { result: SearchResultItem }) {
 						entityId={result.id}
 						entityType={result.type}
 						profileVisibility={result.profileVisibility}
+						followState={result.followState}
 					/>
 					<ButtonLink href={PUBLIC_PROFILE(result.handle)} variant="secondary" size="sm">
 						View
@@ -122,7 +123,9 @@ export function ProfileSearchPage({ suggestions = [] }: ProfileSearchPageProps) 
 				<p className="text-sm text-dusty-grey">No results for &ldquo;{debouncedQuery}&rdquo;</p>
 			)}
 
-			{results.length > 0 && <ResultColumns items={results} columnCount={columnCount} />}
+			{query.trim().length >= MIN_SEARCH_LENGTH && results.length > 0 && (
+				<ResultColumns items={results} columnCount={columnCount} />
+			)}
 		</>
 	);
 }

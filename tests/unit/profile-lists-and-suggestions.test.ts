@@ -16,6 +16,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 		user: { findMany: vi.fn(), findUnique: vi.fn() },
 		page: { findMany: vi.fn(), findUnique: vi.fn() },
 		follow: { findMany: vi.fn(), findFirst: vi.fn() },
+		accessRequest: { findMany: vi.fn() },
 	},
 }));
 vi.mock("@/lib/utils/server/permission", () => ({
@@ -24,12 +25,16 @@ vi.mock("@/lib/utils/server/permission", () => ({
 	getMemberPageIdsForUsers: vi.fn(),
 	getResourcePermissions: vi.fn(),
 }));
-vi.mock("@/lib/utils/server/follow", () => ({
-	getUserFollowers: vi.fn(),
-	getUserFollowing: vi.fn(),
-	getPageFollowers: vi.fn(),
-	getPageFollowing: vi.fn(),
-}));
+vi.mock("@/lib/utils/server/follow", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/lib/utils/server/follow")>();
+	return {
+		...actual,
+		getUserFollowers: vi.fn(),
+		getUserFollowing: vi.fn(),
+		getPageFollowers: vi.fn(),
+		getPageFollowing: vi.fn(),
+	};
+});
 
 import { prisma } from "@/lib/utils/server/prisma";
 import { getResourcePermissions } from "@/lib/utils/server/permission";
@@ -45,7 +50,12 @@ const STRANGER: ViewerContext = { userId: "sam", memberPageIds: [] };
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	p.user.findMany.mockReset();
+	p.page.findMany.mockReset();
+	p.follow.findMany.mockReset();
+	p.accessRequest.findMany.mockReset();
 	p.follow.findFirst.mockResolvedValue(null);
+	p.accessRequest.findMany.mockResolvedValue([]);
 });
 
 describe("list gates", () => {
@@ -68,6 +78,16 @@ describe("listProfileConnections", () => {
 			{ id: "f1", type: "USER", followedAt: "", user: { id: "sam", handle: "sam", displayName: "Sam", avatarImageId: null }, page: null },
 		]);
 		const people = await listProfileConnections(ANON, { type: "USER", id: "pat" }, "followers");
+		expect(people.map((x) => x.id)).toEqual(["sam"]);
+	});
+
+	test("a follower of a PRIVATE profile can open its follower list", async () => {
+		p.user.findUnique.mockResolvedValue({ id: "pat", profileVisibility: "PRIVATE" });
+		p.follow.findFirst.mockResolvedValue({ id: "edge" });
+		vi.mocked(getUserFollowers).mockResolvedValue([
+			{ id: "f1", type: "USER", followedAt: "", user: { id: "sam", handle: "sam", displayName: "Sam", avatarImageId: null }, page: null },
+		]);
+		const people = await listProfileConnections(STRANGER, { type: "USER", id: "pat" }, "followers");
 		expect(people.map((x) => x.id)).toEqual(["sam"]);
 	});
 
@@ -163,5 +183,39 @@ describe("suggestions", () => {
 		p.page.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 		await expect(suggestProfiles(ANON)).resolves.toEqual([]);
 		expect(p.follow.findMany).not.toHaveBeenCalled();
+		expect(p.accessRequest.findMany).not.toHaveBeenCalled();
+		expect(p.user.findMany.mock.calls[0][0].where.AND).toEqual([
+			{ profileVisibility: "PUBLIC" },
+			{ setupCompletedAt: { not: null } },
+			{},
+		]);
+		expect(p.page.findMany.mock.calls[0][0].where.AND).toEqual([
+			{ profileVisibility: "PUBLIC" },
+			{},
+		]);
+	});
+
+	test("a followed suggestion is following and a pending request is requested", async () => {
+		const profile = (id: string, handle: string) => ({
+			id,
+			handle,
+			displayName: handle,
+			headline: null,
+			interests: [],
+			profileVisibility: "PUBLIC",
+			avatarImageId: null,
+			avatarImage: null,
+		});
+		p.user.findMany
+			.mockResolvedValueOnce([{ id: "pat" }, { id: "sam" }])
+			.mockResolvedValueOnce([profile("pat", "pat"), profile("sam", "sam")]);
+		p.page.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+		p.follow.findMany.mockResolvedValue([{ followingUserId: "pat", followingPageId: null }]);
+		p.accessRequest.findMany.mockResolvedValue([{ targetUserId: "sam", targetPageId: null }]);
+
+		const results = await suggestProfiles(MEMBER);
+
+		expect(results.find((r) => r.id === "pat")?.followState).toBe("following");
+		expect(results.find((r) => r.id === "sam")?.followState).toBe("requested");
 	});
 });

@@ -2,6 +2,8 @@
 import { prisma } from "./prisma";
 import { ProfileVisibility, type Prisma } from "@prisma/client";
 import type { SearchResultItem } from "@/lib/types/search";
+import { followStateOf } from "./follow";
+import { listPendingFollowTargets } from "./requests";
 import { profileListWhere, profileSuggestionWhere, type ViewerContext } from "./visibility";
 
 const ANON_VIEWER: ViewerContext = { userId: null, memberPageIds: [] };
@@ -218,7 +220,7 @@ export async function suggestProfiles(
 	viewer: ViewerContext = ANON_VIEWER,
 	count = 5,
 ): Promise<SearchResultItem[]> {
-	const [userIds, pageIds, edges] = await Promise.all([
+	const [userIds, pageIds, edges, pending] = await Promise.all([
 		prisma.user.findMany({
 			where: {
 				AND: [
@@ -246,10 +248,13 @@ export async function suggestProfiles(
 				select: { followingUserId: true, followingPageId: true },
 			})
 			: [],
+		viewer.userId ? listPendingFollowTargets(viewer.userId) : { userIds: [], pageIds: [] },
 	]);
 
 	const followedUsers = new Set(edges.flatMap((e) => (e.followingUserId ? [e.followingUserId] : [])));
 	const followedPages = new Set(edges.flatMap((e) => (e.followingPageId ? [e.followingPageId] : [])));
+	const requestedUsers = new Set(pending.userIds);
+	const requestedPages = new Set(pending.pageIds);
 	const picked = pickSuggestions(
 		[
 			...userIds.map((u) => ({ type: "user" as const, id: u.id, followed: followedUsers.has(u.id) })),
@@ -274,5 +279,11 @@ export async function suggestProfiles(
 		...pages.map((p): [string, SearchResultItem] => [`page:${p.id}`, toPageResult(p)]),
 	]);
 	// Keep the picked order (unfollowed first); a row deleted between the two reads just drops out.
-	return picked.flatMap((c) => byKey.get(`${c.type}:${c.id}`) ?? []);
+	// followState rides along so each card doesn't ask again. A follow edge wins over a pending request.
+	return picked.flatMap((c) => {
+		const item = byKey.get(`${c.type}:${c.id}`);
+		if (!item) return [];
+		const requested = c.type === "user" ? requestedUsers.has(c.id) : requestedPages.has(c.id);
+		return [{ ...item, followState: followStateOf(c.followed, requested) }];
+	});
 }

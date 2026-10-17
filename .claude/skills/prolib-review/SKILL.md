@@ -274,22 +274,27 @@ Nothing flagged in a section → say so explicitly.
 If a finding is **ambiguous** (arguably-correct, needs a product/design call), flag it
 for the user rather than asserting a verdict.
 
-### 9. Discuss before planning — do NOT jump to a plan or to fixes
+**The report is the entire first reply.** End that turn. Do not call `AskUserQuestion`,
+enter plan mode, or use any other tool in the same reply. A one-line preview plus a
+"which should we fix?" form is not the report — the user has to be able to read the
+findings before anyone asks them to choose.
 
-This review is a **conversation, not a hand-off.** After reporting, the default is to
-*talk through* the findings with the user — never to immediately write a plan or start
-editing. Specifically:
+### 9. Discuss before planning — do NOT jump to a plan, a scope question, or fixes
+
+This review is a **conversation, not a hand-off.** Step 9 starts on a **later turn**,
+after the user has the step 8 report. Asking what to change is the same early move as
+writing a plan: both decide the work before the findings have been read.
 
 - **Go over the feedback together.** Walk the high-value findings, explain the *why* and
   how real each one is, and let the user react. Lead with the ones worth tracking; call
   the rest optional.
-- **Settle scope explicitly.** Which findings get fixed now vs. filed as tickets vs.
-  dropped? How aggressive should any refactor be — the PR's own code only, or the
-  develop-side code it shares duplication with? Surface design forks (e.g. *where* a fix
-  should live) and get a decision. Use `AskUserQuestion` for the genuine choices.
-  **These answers settle *what* to do — they are NOT approval to start editing.** A "fix
-  them all" / "fix now" / "investigate now" answer chooses scope; it does not skip the
-  plan gate in step 10.
+- **Settle scope only once they have responded.** Which findings get fixed now vs. filed
+  as tickets vs. dropped? How aggressive should any refactor be — the PR's own code only,
+  or the develop-side code it shares duplication with? Surface design forks (e.g. *where*
+  a fix should live) and get a decision. Use `AskUserQuestion` for the genuine choices,
+  in that later turn — never attached to the report. **These answers settle *what* to
+  do — they are NOT approval to start editing.** A "fix them all" / "fix now" /
+  "investigate now" answer chooses scope; it does not skip the plan gate in step 10.
 - **Wait for "we're done discussing."** Don't pre-empt the user by starting a plan while
   scope is still open.
 
