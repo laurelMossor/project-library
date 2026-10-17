@@ -1,62 +1,10 @@
 "use client";
 
-import { useRef, useLayoutEffect, useEffect, useId, useState, ReactNode, RefObject } from "react";
-
-const DROPDOWN_OPEN = "prolib:dropdown-open";
-
-/**
- * One menu at a time. Opening this one asks every other open menu to close, and a press
- * outside this menu closes it. A press on another menu's trigger is left to that menu,
- * so the two don't both try to dismiss and the other one can open.
- */
-export function useOneOpenMenu(
-	isOpen: boolean,
-	dismiss: () => void,
-	rootRef: RefObject<HTMLElement | null>,
-) {
-	const id = useId();
-	const dismissRef = useRef(dismiss);
-	dismissRef.current = dismiss;
-	const dismissed = useRef(false);
-
-	useEffect(() => {
-		if (isOpen) dismissed.current = false;
-	}, [isOpen]);
-
-	useEffect(() => {
-		if (!isOpen) return;
-
-		const requestClose = () => {
-			if (dismissed.current) return;
-			dismissed.current = true;
-			dismissRef.current();
-		};
-
-		const onPointerDown = (event: PointerEvent) => {
-			const target = event.target;
-			if (!(target instanceof Node)) return;
-			if (rootRef.current?.contains(target)) return;
-			// Another menu's trigger handles its own open, which closes this one.
-			if (target instanceof Element && target.closest("[data-dropdown-trigger]")) return;
-			requestClose();
-		};
-
-		const onOtherOpen = (event: Event) => {
-			if ((event as CustomEvent<string>).detail !== id) requestClose();
-		};
-
-		document.addEventListener("pointerdown", onPointerDown);
-		window.addEventListener(DROPDOWN_OPEN, onOtherOpen);
-		window.dispatchEvent(new CustomEvent(DROPDOWN_OPEN, { detail: id }));
-		return () => {
-			document.removeEventListener("pointerdown", onPointerDown);
-			window.removeEventListener(DROPDOWN_OPEN, onOtherOpen);
-		};
-	}, [isOpen, id, rootRef]);
-}
+import { useRef, useLayoutEffect, useState, ReactNode } from "react";
 
 export const dropdownMenuStyles = {
 	container: "z-50 min-w-[220px] rounded-lg border border-rich-brown bg-grey-white shadow-lg py-2 overflow-y-auto",
+	backdrop: "fixed inset-0 z-40",
 	divider: "my-1 border-t border-soft-grey",
 };
 
@@ -139,11 +87,9 @@ export function DropdownMenu({
 	containerClassName = "",
 	align = "right",
 }: DropdownMenuProps) {
-	const rootRef = useRef<HTMLDivElement>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [dropdownPosition, setDropdownPosition] = useState<DropdownPosition | null>(null);
-	useOneOpenMenu(isOpen, onClose, rootRef);
 
 	useLayoutEffect(() => {
 		if (!isOpen) {
@@ -177,11 +123,10 @@ export function DropdownMenu({
 	}, [isOpen, align]);
 
 	return (
-		<div ref={rootRef} className="relative flex items-center">
+		<div className="relative flex items-center">
 			<button
 				ref={buttonRef}
 				type="button"
-				data-dropdown-trigger=""
 				onClick={onClose}
 				className={triggerClassName}
 				aria-label={triggerAriaLabel}
@@ -191,23 +136,30 @@ export function DropdownMenu({
 			</button>
 
 			{isOpen && (
-				<div
-					ref={menuRef}
-					className={`${dropdownMenuStyles.container} ${containerClassName}`}
-					style={{
-						position: "fixed",
-						visibility: dropdownPosition ? "visible" : "hidden",
-						top: dropdownPosition?.top,
-						bottom: dropdownPosition?.bottom,
-						right: dropdownPosition?.right,
-						left: dropdownPosition?.left,
-						maxHeight: dropdownPosition?.maxHeight,
-						maxWidth: dropdownPosition?.maxWidth,
-					}}
-					role="menu"
-				>
-					{children}
-				</div>
+				<>
+					<div
+						className={dropdownMenuStyles.backdrop}
+						aria-hidden="true"
+						onClick={onClose}
+					/>
+					<div
+						ref={menuRef}
+						className={`${dropdownMenuStyles.container} ${containerClassName}`}
+						style={{
+							position: "fixed",
+							visibility: dropdownPosition ? "visible" : "hidden",
+							top: dropdownPosition?.top,
+							bottom: dropdownPosition?.bottom,
+							right: dropdownPosition?.right,
+							left: dropdownPosition?.left,
+							maxHeight: dropdownPosition?.maxHeight,
+							maxWidth: dropdownPosition?.maxWidth,
+						}}
+						role="menu"
+					>
+						{children}
+					</div>
+				</>
 			)}
 		</div>
 	);
