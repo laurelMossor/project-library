@@ -6,7 +6,8 @@ import { useColumnCount } from "@/lib/hooks/useColumnCount";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
 import { FollowButton } from "@/lib/components/profile/FollowButton";
 import { Tag } from "@/lib/components/tag/Tag";
-import { ButtonLink } from "@/lib/components/ui/ButtonLink";
+import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
+import { EyeIcon } from "@/lib/components/icons/icons";
 import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { searchResultEntity, type SearchResultItem } from "@/lib/types/search";
 
@@ -38,9 +39,12 @@ function ProfileResult({ result }: { result: SearchResultItem }) {
 						profileVisibility={result.profileVisibility}
 						followState={result.followState}
 					/>
-					<ButtonLink href={PUBLIC_PROFILE(result.handle)} variant="secondary" size="sm">
-						View
-					</ButtonLink>
+					<TransparentCTAButton
+						href={PUBLIC_PROFILE(result.handle)}
+						label="View"
+						size="sm"
+						icon={<EyeIcon className="w-3 h-3" />}
+					/>
 				</>
 			}
 		/>

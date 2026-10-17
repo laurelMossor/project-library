@@ -4,7 +4,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { useIsOwnProfile } from "@/lib/hooks/useIsOwnProfile";
 import { TransparentCTAButton } from "@/lib/components/collection/CreationCTA";
-import { Button } from "@/lib/components/ui/Button";
 import { PlusSignIcon, MinusSignIcon } from "@/lib/components/icons/icons";
 import { LOGIN_WITH_CALLBACK } from "@/lib/const/routes";
 import { useFollowState } from "@/lib/hooks/useFollowState";
@@ -52,21 +51,16 @@ export function FollowButton({ entityId, entityType, profileVisibility, followSt
 
 	const onClick = loggedIn ? toggle : () => router.push(LOGIN_WITH_CALLBACK(pathname));
 
-	if (size === "sm") {
-		return (
-			<Button type="button" variant={active ? "secondary" : "primary"} size="sm" onClick={onClick} disabled={loggedIn && busy}>
-				{label}
-			</Button>
-		);
-	}
+	const iconClass = size === "sm" ? "w-3 h-3" : "w-4 h-4";
 
 	return (
 		<TransparentCTAButton
 			label={label}
-			icon={active ? <MinusSignIcon className="w-4 h-4" /> : <PlusSignIcon className="w-4 h-4" />}
+			icon={active ? <MinusSignIcon className={iconClass} /> : <PlusSignIcon className={iconClass} />}
 			onClick={onClick}
 			disabled={loggedIn && busy}
-			className="w-full"
+			size={size}
+			className={size === "md" ? "w-full" : ""}
 		/>
 	);
 }

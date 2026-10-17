@@ -5,20 +5,28 @@ import { CalendarIcon } from "../icons/icons"
 
 export const transparentCTAStyles = {
     container: "flex items-center transition-shadow shadow-glow-sm hover:shadow-glow-lg rounded bg-transparent",
-    iconWrapper: "p-2 bg-transparent",
-    label: "px-2 py-2 text-rich-brown",
+    md: { iconWrapper: "p-2 bg-transparent", label: "px-2 py-2 text-rich-brown" },
+    /** Same height as an interest tag: text-xs, py-1. */
+    sm: { iconWrapper: "py-1 pl-2 pr-0.5 bg-transparent", label: "py-1 pr-2.5 text-xs text-rich-brown" },
 };
 
-type TransparentCTAButtonBase = { label: string; icon?: React.ReactNode; className?: string };
+type TransparentCTAButtonBase = {
+    label: string;
+    icon?: React.ReactNode;
+    className?: string;
+    /** "sm" matches an interest tag. "md" is the profile-page size. */
+    size?: "sm" | "md";
+};
 type TransparentCTALinkProps = TransparentCTAButtonBase & { href: string; onClick?: never; disabled?: never };
 type TransparentCTAActionProps = TransparentCTAButtonBase & { href?: never; onClick: () => void; disabled?: boolean };
 type TransparentCTAButtonProps = TransparentCTALinkProps | TransparentCTAActionProps;
 
-export const TransparentCTAButton = ({ label, icon, className = "", ...rest }: TransparentCTAButtonProps) => {
+export const TransparentCTAButton = ({ label, icon, className = "", size = "md", ...rest }: TransparentCTAButtonProps) => {
+    const styles = transparentCTAStyles[size];
     const inner = (
         <>
-            <div className={transparentCTAStyles.iconWrapper}>{icon}</div>
-            <span className={transparentCTAStyles.label}>{label}</span>
+            <div className={styles.iconWrapper}>{icon}</div>
+            <span className={styles.label}>{label}</span>
         </>
     );
 
