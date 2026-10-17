@@ -63,6 +63,7 @@ export const ADMIN_SUBMISSIONS = "/admin/submissions";
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
+export const EXPLORE_EVENTS = `${EXPLORE_PAGE}?type=event`; // Explore with the Events filter on
 export const SEARCH = "/search";
 
 // ============================================================================

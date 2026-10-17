@@ -9,6 +9,7 @@ import {
 	PencilIcon,
 	SearchIcon,
 	PeopleGroupIcon,
+	CalendarIcon,
 } from "../../icons/icons";
 import { NotificationDot } from "../../ui/NotificationDot";
 import { NewItemModal } from "../NewItemModal";
@@ -17,6 +18,7 @@ import {
 	CONNECTIONS,
 	LOGIN_WITH_CALLBACK,
 	EXPLORE_PAGE,
+	EXPLORE_EVENTS,
 	SEARCH,
 } from "@/lib/const/routes";
 import { useUnreadCount } from "@/lib/contexts/UnreadCountContext";
@@ -33,7 +35,7 @@ interface HamburgerMenuProps {
 const iconClass = "w-6 h-6 shrink-0";
 
 /**
- * The places you go: Explore, Find people, Post, Messages, Connections. Who you are and what you
+ * The places you go: Explore, Events, Find people, Post, Messages, Connections. Who you are and what you
  * can do as them (Settings, switching, log out) live in the IdentityMenu.
  */
 export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
@@ -87,6 +89,14 @@ export function HamburgerMenu({ session: sessionProp }: HamburgerMenuProps) {
 					label="Explore"
 					caption="What's happening near you"
 					href={EXPLORE_PAGE}
+					closeMenu={closeMenu}
+				/>
+
+				<MenuItem
+					icon={<CalendarIcon className={iconClass} />}
+					label="Events"
+					caption="Browse upcoming events"
+					href={EXPLORE_EVENTS}
 					closeMenu={closeMenu}
 				/>
 

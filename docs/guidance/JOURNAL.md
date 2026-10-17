@@ -12,7 +12,7 @@
 
 
 #### Entry: Sat 10/17/2026 12:20 PDT
-Reworked the nav menus on `polish-3`. Connections is now a top-level item, and Settings, switching identities, and Log out all live in one identity menu with a Create a page chip. Every menu item carries a short caption. Profile tags are fully clickable and compose into a card, which now powers Find people, with five random public profiles shown before you search. Pending page invites show Accept and Decline directly. Pages show a member count, and Followers, Following, and Members each open a list.
+Reworked the nav menus on `polish-3`. Connections is now a top-level item, and Settings, switching identities, and Log out all live in one identity menu with a Create a page chip. Every main menu item carries a short caption, and a new Events item opens Explore with the Events filter on. Profile tags are fully clickable and compose into a card, which now powers Find people, with five random public profiles shown before you search. Pending page invites show Accept and Decline directly. Pages show a member count, and Followers, Following, and Members each open a list.
 
 #### Entry: Thu 10/15/2026 18:04 PDT
 Built page activity notifications and released them as v0.5.1. When a post or event is published in a page, every admin, editor, and member hears about it in their personal bell. The person who published it is left out, and email follows a new Page activity setting. Each notification type now declares its audience in one policy table. Publishing is one-way, so a notice can't fire twice. QA passed all 17 criteria live in the app.
