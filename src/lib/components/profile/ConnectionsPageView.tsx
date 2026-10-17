@@ -10,8 +10,10 @@ import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import type { ConnectionItem, ConnectionsData } from "@/lib/types/connections";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
+import { NotificationDot } from "@/lib/components/ui/NotificationDot";
 import { assignableRoles, formatRole, isAdminRole } from "@/lib/const/roles";
 import { useAction, useActionThunk, type ActionThunk } from "@/lib/hooks/useAction";
+import { ActionButtons, rowActionClass, type ActionDef } from "./ActionButtons";
 import { removeFollowerAction, unfollowEdgeAction } from "@/lib/actions/follow";
 import {
 	approveRequestAction,
@@ -41,47 +43,23 @@ type ConnectionsPageViewProps = {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-type ActionDef = {
-	label: string;
-	/** The row's buttons and the role chips hand over a ready-to-call action. */
-	perform: ActionThunk;
-	/** Visual emphasis — "danger" (default) hints red on hover; "default" stays neutral. */
-	tone?: "danger" | "default";
-};
-
+/** Rows whose actions are destructive hide them behind a "…" toggle; the buttons themselves are `ActionButtons`. */
 function ExpandableActions({
 	expanded,
 	onToggle,
 	actions,
 	onRefused,
+	attention,
 }: {
 	expanded: boolean;
 	onToggle: () => void;
 	actions: ActionDef[];
-	/**
-	 * Report a refusal here instead of beside the buttons. The pending-invite
-	 * row unmounts when a withdrawn invite refreshes away, and a message inside
-	 * that row would leave with it.
-	 */
 	onRefused?: (message: string | null) => void;
+	/** When set, the "…" control carries a NotificationDot for something that needs an answer. */
+	attention?: string;
 }) {
-	const { run, pending, error, clearError } = useActionThunk();
-	// Which button was pressed, so only that one shows "…" while the save runs.
-	const [pressed, setPressed] = useState<string | null>(null);
-
-	function perform(action: ActionDef) {
-		setPressed(action.label);
-		clearError();
-		onRefused?.(null);
-		void run(action.perform).then((result) => {
-			if (!result.ok && result.error !== "unauthorized") {
-				onRefused?.(result.message ?? "Something went wrong. Please try again.");
-			}
-		});
-	}
-
 	if (!expanded) {
-		return (
+		const button = (
 			<button
 				onClick={onToggle}
 				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
@@ -90,28 +68,12 @@ function ExpandableActions({
 				<EllipsisIcon className="w-4 h-4" />
 			</button>
 		);
+		return attention ? <NotificationDot label={attention}>{button}</NotificationDot> : button;
 	}
 
 	return (
 		<div className="flex items-center gap-1.5">
-			{!onRefused && error && <p className="text-xs text-red-500 max-w-[160px] text-right leading-tight">{error}</p>}
-			{actions.map((action) => {
-				const danger = (action.tone ?? "danger") === "danger";
-				return (
-					<button
-						key={action.label}
-						onClick={() => perform(action)}
-						disabled={pending}
-						className={`text-xs px-3 py-1 rounded-md font-medium transition-colors disabled:opacity-40 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 ${
-							danger
-								? "bg-white border border-red-300 text-red-600 hover:bg-red-50"
-								: "bg-moss-green text-white hover:opacity-90"
-						}`}
-					>
-						{pending && pressed === action.label ? "..." : action.label}
-					</button>
-				);
-			})}
+			<ActionButtons actions={actions} onRefused={onRefused} />
 			<button
 				onClick={onToggle}
 				className="w-6 h-6 flex items-center justify-center text-dusty-grey hover:text-rich-brown transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rich-brown/20 rounded"
@@ -188,7 +150,8 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 	const topTabs: TabDef<TopTab>[] = [
 		{ id: "Followers", label: "Followers" },
 		{ id: "Following", label: "Following" },
-		{ id: "Membership", label: "Membership" },
+		// The id stays "Membership" for the ?tab= deep-link; the label says what's in it.
+		{ id: "Membership", label: isPage ? "Members" : "Pages" },
 		...(canManageRequests ? [{ id: "Requests" as const, label: "Requests" }] : []),
 	];
 
@@ -369,6 +332,7 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 										expanded={expandedId === inv.id}
 										onToggle={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
 										onRefused={setInviteRefusal}
+										attention="Invitation needs a response"
 										actions={[
 											{ label: "Accept", tone: "default", perform: () => approveRequestAction({ requestId: inv.id }) },
 											{ label: "Decline", perform: () => denyRequestAction({ requestId: inv.id }) },
@@ -511,13 +475,13 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 												<button
 													onClick={confirmAddMember}
 													disabled={invite.pending}
-													className="text-xs px-3 py-1 rounded-md font-medium bg-moss-green text-white hover:opacity-90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40"
+													className={rowActionClass("default")}
 												>
 													{invite.pending ? "..." : "Invite"}
 												</button>
 												<button
 													onClick={() => setPendingUser(null)}
-													className="text-xs px-3 py-1 rounded-md font-medium bg-white border border-red-300 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+													className={rowActionClass("danger")}
 												>
 													Cancel
 												</button>
@@ -585,7 +549,7 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 			renderLeftTab={() => (
 				<ProfileTag
 					entity={entity}
-					badge={isPage && role ? formatRole(role) : undefined}
+					badge={isPage ? (role ? formatRole(role) : undefined) : "Me"}
 					asLink={false}
 					variant="compact"
 					align="right"

@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { ProfileTag } from "@/lib/components/profile/ProfileTag";
-import { PUBLIC_PROFILE } from "@/lib/const/routes";
 import { formatRole } from "@/lib/const/roles";
 
 export type PageItem = {
@@ -31,19 +29,17 @@ export function PageSwitcher({ pages }: PageSwitcherProps) {
 			<p className="text-sm text-gray-600 mb-3">Your pages</p>
 			<div className="space-y-2">
 				{pages.map((page) => (
-					<Link key={page.id} href={PUBLIC_PROFILE(page.handle)}>
-						<ProfileTag
-							entity={{
-								id: page.id,
-								name: page.name,
-								handle: page.handle,
-								avatarImageId: page.avatarImageId ?? null,
-								avatarImage: page.avatarImage,
-							}}
-							badge={page.role ? formatRole(page.role) : undefined}
-							asLink={false}
-						/>
-					</Link>
+					<ProfileTag
+						key={page.id}
+						entity={{
+							id: page.id,
+							name: page.name,
+							handle: page.handle,
+							avatarImageId: page.avatarImageId ?? null,
+							avatarImage: page.avatarImage,
+						}}
+						badge={page.role ? formatRole(page.role) : undefined}
+					/>
 				))}
 			</div>
 		</div>

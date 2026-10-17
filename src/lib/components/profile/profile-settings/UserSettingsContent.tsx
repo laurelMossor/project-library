@@ -26,7 +26,7 @@ export function UserSettingsContent({
 			settingsTitle="User Settings"
 			avatarEntity={user}
 			viewPublicProfileHref={`${publicProfileHref}?edit=true`}
-			viewPublicProfileLabel="Edit Public Profile"
+			viewPublicProfileLabel="Edit profile page"
 			additionalSettingsButtons={
 				<>
 					{FEATURES.privateDetails && (
@@ -35,10 +35,10 @@ export function UserSettingsContent({
 						</ButtonLink>
 					)}
 					<ButtonLink href={CONNECTIONS} variant="secondary" fullWidth>
-						Manage Connections
+						Connections
 					</ButtonLink>
 					<ButtonLink href={PROFILE_SETTINGS} variant="secondary" fullWidth>
-						Edit Profile Settings
+						Privacy &amp; notifications
 					</ButtonLink>
 					<ButtonLink href={FORGOT_PASSWORD} variant="secondary" fullWidth>
 						Reset Password

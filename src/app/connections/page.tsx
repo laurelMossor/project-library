@@ -1,11 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
-import { Breadcrumb } from "@/lib/components/layout/Breadcrumb";
 import { ConnectionsPageClient } from "@/lib/components/profile/ConnectionsPageClient";
 import { getActingIdentity } from "@/lib/utils/server/session";
 import { getConnectionsData } from "@/lib/utils/server/connections";
-import { LOGIN_WITH_CALLBACK, CONNECTIONS, SETTINGS } from "@/lib/const/routes";
+import { LOGIN_WITH_CALLBACK, CONNECTIONS } from "@/lib/const/routes";
 
 export default async function ConnectionsPage({
 	searchParams,
@@ -33,7 +32,7 @@ export default async function ConnectionsPage({
 	);
 
 	return (
-		<CenteredLayout maxWidth="4xl" breadcrumb={<Breadcrumb href={SETTINGS} label="Back to Settings" />}>
+		<CenteredLayout maxWidth="4xl">
 			<ConnectionsPageClient entity={entity} currentUserId={currentUser.id} data={data} initialTab={initialTab} />
 		</CenteredLayout>
 	);

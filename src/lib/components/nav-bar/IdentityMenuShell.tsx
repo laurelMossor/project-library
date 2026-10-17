@@ -4,9 +4,9 @@ import Link from "next/link";
 import { LOGIN } from "@/lib/const/routes";
 
 /**
- * Placeholder for NavProfileTag when unauthenticated — mirrors the logged-in trigger size at each breakpoint.
+ * Placeholder for IdentityMenu when unauthenticated — mirrors the logged-in trigger size at each breakpoint.
  */
-export function NavProfileShell() {
+export function IdentityMenuShell() {
 	return (
 		<>
 			{/* Mobile: compact pill matching the avatar-only trigger */}

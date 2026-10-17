@@ -16,12 +16,20 @@ export function useFollowState(
 	entityId: string,
 	entityType: "user" | "page",
 	enabled = true,
+	/** When the server already resolved it (suggestion cards). Omit it and the hook fetches. */
+	initial?: FollowState,
 ) {
-	const [state, setState] = useState<FollowState>("none");
-	const [loading, setLoading] = useState(true);
+	const known = initial !== undefined;
+	const [state, setState] = useState<FollowState>(initial ?? "none");
+	const [loading, setLoading] = useState(enabled && !known);
 	const { run, pending } = useAction(setFollow);
 
 	useEffect(() => {
+		if (initial !== undefined) {
+			setState(initial);
+			setLoading(false);
+			return;
+		}
 		if (!enabled) {
 			setLoading(false);
 			return;
@@ -39,7 +47,7 @@ export function useFollowState(
 		return () => {
 			active = false;
 		};
-	}, [entityId, entityType, enabled]);
+	}, [entityId, entityType, enabled, initial]);
 
 	const toggle = async () => {
 		if (pending) return;

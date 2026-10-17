@@ -38,6 +38,15 @@ export default function ExplorePage() {
 		availableTags,
 	} = useFilter(allItems, initialFilters);
 
+	// A link to /explore or /explore?type=event while already on Explore changes the URL without
+	// remounting, so follow the URL's type. It runs only when the URL's type changes: the filter
+	// buttons write the URL after the state, so by then the two already agree.
+	const urlType = initialFilters.collectionType ?? "all";
+	useEffect(() => {
+		setCollectionTypeFilter(urlType);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [urlType]);
+
 	// Check if any events have location data for map view
 	const hasLocationData = useMemo(
 		() => events.some((e) => e.latitude !== null && e.longitude !== null),

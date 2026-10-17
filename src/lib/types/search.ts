@@ -1,3 +1,5 @@
+import type { ProfileVisibility } from "@prisma/client";
+import type { FollowState } from "@/lib/actions/follow";
 import type { CardEntity, CardUser } from "./card";
 
 export type SearchResultItem = {
@@ -7,6 +9,13 @@ export type SearchResultItem = {
 	name: string;
 	headline: string | null;
 	interests: string[];
+	/** PRIVATE shows as a stub (no headline/interests) and Follow becomes a request. */
+	profileVisibility: ProfileVisibility;
+	/**
+	 * Set when the server already knows it (Find people suggestions). Absent means the Follow
+	 * button loads it itself — typed search and the profile page.
+	 */
+	followState?: FollowState;
 	avatarImageId: string | null;
 	avatarImage?: { url: string } | null;
 };

@@ -81,6 +81,17 @@ where an author-voiced, to-page post also appears. It never changes who can see 
    viewer. Your own UNLISTED/PRIVATE content lives on your own collection. UNLISTED and PRIVATE
    content never reach the global collections.
 
+5a. **Suggestions are PUBLIC only; search is not.** Search lets a PRIVATE profile be *found*. A
+   suggestion *pushes* a profile at strangers (the Find people "5 people" default), and a PRIVATE
+   profile never agreed to that — so `profileSuggestionWhere` filters to `PUBLIC`. Don't reuse
+   `profileListWhere` to suggest.
+
+5b. **Counts public, lists gated.** On a FULL profile the follower / following / member *counts* are
+   public. The **Followers / Following lists** open for anyone who sees the FULL profile
+   (`canViewFollowList`; a LOCKED stub shows no lists). A page's **member list** is members only
+   (`canViewMemberList`). The list action enforces these server-side; the UI hiding a link is not
+   the gate.
+
 7. **Not-viewable content 404s (never 403).** A detail/mutation route for content the viewer can't
    see returns 404, so it can't be told apart from "missing". This includes **mutation** routes
    (PATCH/DELETE): gate viewability first (→ 404), then authorize the edit (→ 403 only for
@@ -141,6 +152,9 @@ where an author-voiced, to-page post also appears. It never changes who can see 
 | gating ONE post / event | `canViewPost` / `canViewEvent` (read the content's `visibility`) |
 | a global content feed / search | `postListWhere` / `eventListWhere` (filter `FEED_VISIBILITY` for every viewer) |
 | a profile search | `profileListWhere` (returns `{}`) + strip stub fields for PRIVATE (see `search.ts`) |
+| profiles we suggest to someone | `profileSuggestionWhere(kind)` (PUBLIC only) + the same stub-stripping |
+| opening a profile's follower/following list | `canViewFollowList(access)` (FULL profile) |
+| opening a page's member list | `canViewMemberList(viewer, pageId)` (members only) |
 | one entity's OWN collection | `collectionVisibilityWhere(kind, id, viewer)` (LISTED+UNLISTED, +PRIVATE if edge) |
 | an author's profile, including posts they wrote to a page | `authorProfilePlacementWhere(viewer)` OR'd with the personal-post clause. Never use `collectionVisibilityWhere("USER")` alone for that — it returns `{}` to the author's followers and would leak a private page's posts |
 | a new child's visibility | `resolveParentVisibility(userId, pageId?, eventId?, parentPostId?)` |

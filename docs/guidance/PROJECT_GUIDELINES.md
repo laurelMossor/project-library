@@ -49,7 +49,7 @@ The server is the source of truth for what's on screen. There is no client-side 
 Explore page:  CollectionPage → FilteredCollection → CollectionCard
 Profile pages: ProfileCollectionSection (wraps CollectionPage for user/page profiles)
 Identity:      ProfileTag (avatar + name + handle + badge, works for User or Page)
-               NavProfileTag (nav bar profile trigger w/ dropdown: View Profile, Switch Profile)
+               IdentityMenu (nav bar account menu: active identity, View profile, Settings, Switch to, Create a page, Log out)
                ProfilePicture (handles User or Page, image or initials fallback)
 Messaging:     MessagesPageView (TabbedPanel inbox of DMs + groups, scoped to the active identity)
                ConversationThread (thread by conversationId + send form, receives asPageId)

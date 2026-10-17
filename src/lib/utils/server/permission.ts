@@ -325,6 +325,11 @@ export async function getResourcePermissions(
   });
 }
 
+/** How many people hold a role (any role) on a page. Counts granted roles only, not pending invites. */
+export function countPageMembers(pageId: string): Promise<number> {
+  return prisma.permission.count({ where: { resourceId: pageId, resourceType: ResourceType.PAGE } });
+}
+
 /**
  * Unified manage-permission gate.
  *

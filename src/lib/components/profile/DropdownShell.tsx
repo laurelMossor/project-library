@@ -24,7 +24,7 @@ export function DropdownShell({ label, hint, optionCount, open, onOpenChange, tr
 
 	const menu = open && (
 		<>
-			<div className="fixed inset-0 z-10" onClick={() => onOpenChange(false)} />
+			<div className="fixed inset-0 z-10" aria-hidden="true" onClick={() => onOpenChange(false)} />
 			<div role="listbox" className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-soft-grey rounded-lg shadow-lg py-1">
 				{children}
 			</div>

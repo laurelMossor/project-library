@@ -1,0 +1,11 @@
+{
+  "email": "justa@example.com",
+  "handle": "justa.example",
+  "password": "justa",
+  "firstName": "Justa User",
+  "lastName": "Example",
+  "headline": "Just a user · Example Account",
+  "bio": "This is an example account with no pages, no follows, and no messages. Use it to see the app as someone who only has their own identity.",
+  "interests": ["Gardening"],
+  "location": "Oakland, CA"
+}

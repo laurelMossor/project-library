@@ -1,7 +1,7 @@
 import { Session } from "next-auth";
 import { AnimatedProjectLibraryLogo } from "./AnimatedProjectLibraryLogo";
 import { HamburgerMenu } from "./hamburger/HamburgerMenu";
-import { NavProfileTag } from "./NavProfileTag";
+import { IdentityMenu } from "./IdentityMenu";
 import { NotificationBell } from "@/lib/components/notifications/NotificationBell";
 
 interface NavigationBarProps {
@@ -14,7 +14,7 @@ export function NavigationBar({ session }: NavigationBarProps) {
 			<div className="flex items-center justify-between gap-4 p-1">
 				<AnimatedProjectLibraryLogo />
 				<div className="flex items-center gap-2">
-					<NavProfileTag session={session} />
+					<IdentityMenu session={session} />
 					{session?.user?.id && <NotificationBell />}
 					<HamburgerMenu session={session} />
 				</div>

@@ -58,14 +58,13 @@ export function NotificationBell() {
 			triggerAriaLabel="Notifications"
 			containerClassName="w-[340px] max-w-[90vw]"
 			trigger={
-				<div className="relative">
+				activeCount > 0 ? (
+					<NotificationDot label={`${activeCount} unread notifications`}>
+						<BellIcon className="w-6 h-6 shrink-0" />
+					</NotificationDot>
+				) : (
 					<BellIcon className="w-6 h-6 shrink-0" />
-					{activeCount > 0 && (
-						<span className="absolute -top-0.5 -right-0.5">
-							<NotificationDot label={`${activeCount} unread notifications`} />
-						</span>
-					)}
-				</div>
+				)
 			}
 		>
 			<div className="px-4 pb-2">
