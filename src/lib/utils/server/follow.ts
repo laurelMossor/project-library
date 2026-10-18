@@ -139,6 +139,16 @@ export async function getFollowCounts(target: EntityRef): Promise<FollowCounts> 
 	return { followers, following };
 }
 
+/**
+ * What the Follow button shows. A follow edge wins over a pending request; otherwise there is
+ * nothing. The follow GET route and the suggestion cards both go through this so the order can't drift.
+ */
+export function followStateOf(isFollowing: boolean, requested: boolean): "none" | "following" | "requested" {
+	if (isFollowing) return "following";
+	if (requested) return "requested";
+	return "none";
+}
+
 /** The current user's follow edge to a target, if any. Follows are initiated by users only. */
 function findFollowEdge(userId: string, target: EntityRef) {
 	return target.type === "USER"

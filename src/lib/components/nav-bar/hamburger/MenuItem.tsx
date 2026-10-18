@@ -6,6 +6,8 @@ const linkClass =
 interface MenuItemProps {
 	icon: React.ReactNode;
 	label: string;
+	/** Short muted second line saying what's behind the item. */
+	caption?: string;
 	href?: string;
 	onClick?: () => void;
 	closeMenu: () => void;
@@ -15,7 +17,7 @@ interface MenuItemProps {
 	disabled?: boolean;
 }
 
-export function MenuItem({ icon, label, href, onClick, closeMenu, indicator, disabled = false }: MenuItemProps) {
+export function MenuItem({ icon, label, caption, href, onClick, closeMenu, indicator, disabled = false }: MenuItemProps) {
 	const handleClick = () => {
 		closeMenu();
 		onClick?.();
@@ -24,7 +26,14 @@ export function MenuItem({ icon, label, href, onClick, closeMenu, indicator, dis
 	const content = (
 		<>
 			{icon}
-			<span className="flex-1">{label}</span>
+			{caption ? (
+				<span className="flex-1 min-w-0">
+					<span className="block leading-tight">{label}</span>
+					<span className="block text-xs text-dusty-grey leading-tight mt-0.5">{caption}</span>
+				</span>
+			) : (
+				<span className="flex-1">{label}</span>
+			)}
 			{indicator}
 		</>
 	);

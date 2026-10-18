@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { AddChip } from "@/lib/components/ui/AddChip";
 
 type InlinePlaceholderProps = {
 	value: string | null | undefined;
@@ -19,13 +20,7 @@ type InlinePlaceholderProps = {
  */
 export function InlinePlaceholder({ value, placeholder, children, chip = false }: InlinePlaceholderProps) {
 	if (!value) {
-		if (chip) {
-			return (
-				<span className="inline-flex items-center gap-1 px-3 py-1 border border-dashed border-ash-green text-misty-forest/70 rounded text-xs">
-					+ {placeholder}
-				</span>
-			);
-		}
+		if (chip) return <AddChip>{placeholder}</AddChip>;
 		return (
 			<span className="text-misty-forest/60 italic font-normal">
 				{placeholder}

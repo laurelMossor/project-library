@@ -231,9 +231,9 @@ export function MessagesPageView() {
 					return (
 						<ProfileTag
 							entity={meta.entity as CardUser | CardPageWithRole}
-							badge={meta.entityType === "page" && (meta.entity as CardPageWithRole).role
-								? formatRole((meta.entity as CardPageWithRole).role)
-								: undefined}
+							badge={meta.entityType === "page"
+								? ((meta.entity as CardPageWithRole).role ? formatRole((meta.entity as CardPageWithRole).role) : undefined)
+								: "Me"}
 							asLink={false}
 							variant="compact"
 							align="right"

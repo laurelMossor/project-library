@@ -11,7 +11,7 @@
 //                   (canActAsEntity = that same tier, plus "be the user" for a User entity)
 import { prisma } from "./prisma";
 import { PermissionRole, ResourceType, type Page, type Prisma, type User } from "@prisma/client";
-import { ACTING_ROLES, isActingRole, mayPostToPage } from "@/lib/const/roles";
+import { ACTING_ROLES, isActingRole } from "@/lib/const/roles";
 import { DomainError } from "./domain-error";
 
 /** Check if a user has a specific permission on a resource */
@@ -39,23 +39,6 @@ export async function canPostAsPage(userId: string, pageId: string): Promise<boo
 export async function getActingRole(userId: string, pageId: string): Promise<PermissionRole | null> {
   const role = await getUserPermission(userId, pageId, ResourceType.PAGE);
   return role && isActingRole(role) ? role : null;
-}
-
-/**
- * May this user post TO the page (their words, the page's collection)?
- * An acting role (ADMIN/EDITOR) may always. A MEMBER may only when the page
- * allows member posts. Posting AS the page is canPostAsPage, not this.
- * The decision itself is mayPostToPage; the acting-role branch skips the page read.
- */
-export async function canPostToPage(userId: string, pageId: string): Promise<boolean> {
-  const role = await getUserPermission(userId, pageId, ResourceType.PAGE);
-  if (!role) return false;
-  if (isActingRole(role)) return mayPostToPage(role, false);
-  const page = await prisma.page.findUnique({
-    where: { id: pageId },
-    select: { allowMemberPosts: true },
-  });
-  return mayPostToPage(role, !!page?.allowMemberPosts);
 }
 
 type ContentAuthority = { userId: string; asPageId?: string | null; pageId?: string | null };
@@ -323,6 +306,11 @@ export async function getResourcePermissions(
     },
     orderBy: { createdAt: "asc" },
   });
+}
+
+/** How many people hold a role (any role) on a page. Counts granted roles only, not pending invites. */
+export function countPageMembers(pageId: string): Promise<number> {
+  return prisma.permission.count({ where: { resourceId: pageId, resourceType: ResourceType.PAGE } });
 }
 
 /**

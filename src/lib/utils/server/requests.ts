@@ -103,6 +103,21 @@ export async function hasPendingFollowRequest(userId: string, target: EntityRef)
   return (await prisma.accessRequest.findFirst({ where, select: { id: true } })) !== null;
 }
 
+/**
+ * Every profile `userId` has a pending FOLLOW request open against. Same requester columns as
+ * `hasPendingFollowRequest`; the target is left open so one read covers a whole suggestion list.
+ */
+export async function listPendingFollowTargets(userId: string): Promise<{ userIds: string[]; pageIds: string[] }> {
+  const rows = await prisma.accessRequest.findMany({
+    where: { kind: AccessRequestKind.FOLLOW, requesterId: userId, requesterPageId: null },
+    select: { targetUserId: true, targetPageId: true },
+  });
+  return {
+    userIds: rows.flatMap((row) => (row.targetUserId ? [row.targetUserId] : [])),
+    pageIds: rows.flatMap((row) => (row.targetPageId ? [row.targetPageId] : [])),
+  };
+}
+
 /** Does `userId` have a pending JOIN request to `pageId`? */
 export async function hasPendingJoinRequest(userId: string, pageId: string): Promise<boolean> {
   const where = requestWhere(AccessRequestKind.JOIN, { type: "USER", id: userId }, { type: "PAGE", id: pageId });

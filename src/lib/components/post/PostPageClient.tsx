@@ -172,7 +172,7 @@ function PostPageContent({
 					onEditStart={() => setEditingField("title")}
 					onCancel={() => setEditingField(null)}
 					onCommit={() => { session?.saveAll(); }}
-					showPlaceholder={isDraft && canEdit}
+					showPlaceholder={canEdit && isEditing}
 				/>
 
 				{/* Author + actions row */}

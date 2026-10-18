@@ -29,18 +29,20 @@ import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
 import { getFollowCounts } from "@/lib/utils/server/follow";
 import { getMembershipStatus } from "@/lib/utils/server/requests";
-import { canManagePage } from "@/lib/utils/server/permission";
-import { getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
+import { canManagePage, countPageMembers } from "@/lib/utils/server/permission";
+import { canPostToPage } from "@/lib/const/roles";
+import { canViewMemberList, getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
 import { ProfileBody } from "@/lib/components/profile/ProfileBody";
 import { ProfileIdentityBlock } from "@/lib/components/profile/ProfileIdentityBlock";
 import { LockedProfilePreview } from "@/lib/components/profile/LockedProfilePreview";
 import { ProfileEditClient } from "@/lib/components/profile/ProfileEditClient";
-import { ProfileEntity } from "@/lib/types/profile";
+import { ProfileEntity, type ProfileStatsData } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 import { getUserDisplayName } from "@/lib/types/user";
 import { truncateText } from "@/lib/utils/text";
+import { NEW_IN_OWN_PROFILE } from "@/lib/const/routes";
 import type { AboutCollectionItem } from "@/lib/types/collection";
 
 type Props = {
@@ -82,6 +84,7 @@ export default async function HandleProfilePage({ params }: Props) {
 			getPostsByUser(user.id, { includeDrafts: isOwnProfile, viewer }),
 			getFollowCounts({ type: "USER", id: user.id }),
 		]);
+		const stats: ProfileStatsData = { target: { type: "user", id: user.id }, counts: followCounts };
 		const collectionItems = [...events, ...posts];
 
 		const aboutCard: AboutCollectionItem | null = user.aboutContent
@@ -99,7 +102,7 @@ export default async function HandleProfilePage({ params }: Props) {
 					<div className="mb-8">
 						<ProfileEditClient
 							entity={{ type: "user", data: user }}
-							followCounts={followCounts}
+							stats={stats}
 						/>
 					</div>
 
@@ -107,7 +110,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						items={collectionItems}
 						pinScope={{ userId: user.id }}
 						prependCards={aboutCard ? [aboutCard] : []}
-						title="History"
+						createTarget={{ to: NEW_IN_OWN_PROFILE, name: "your profile" }}
 						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
 					/>
@@ -119,14 +122,13 @@ export default async function HandleProfilePage({ params }: Props) {
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
 					<ProfileIdentityBlock profile={profile} />
-					<ProfileBody profile={profile} followCounts={followCounts} />
+					<ProfileBody profile={profile} stats={stats} />
 				</div>
 
 				<ProfileCollectionSection
 					items={collectionItems}
 					pinScope={{ userId: user.id }}
 					prependCards={aboutCard ? [aboutCard] : []}
-					title="History"
 					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>
@@ -151,13 +153,23 @@ export default async function HandleProfilePage({ params }: Props) {
 		// Admins get the edit chrome. Pin permission is stamped on each item by the collection query.
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
-		const [events, posts, followCounts] = await Promise.all([
+		const [events, posts, followCounts, memberCount] = await Promise.all([
 			getEventsByPage(page.id, { includeDrafts: isOwner, viewer }),
 			getPostsByPage(page.id, { includeDrafts: isOwner, viewer }),
 			getFollowCounts({ type: "PAGE", id: page.id }),
+			countPageMembers(page.id),
 		]);
+		// Counts are public on a FULL profile; the member list behind the count is members only.
+		const stats: ProfileStatsData = {
+			target: { type: "page", id: page.id },
+			counts: followCounts,
+			memberCount,
+			canViewMembers: canViewMemberList(viewer, page.id),
+		};
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);
+		// "+ Create" whenever the viewer may post to or as this page (admin, editor, or a member where allowed).
+		const createTarget = canPostToPage(membership.role, page.allowMemberPosts) ? { to: page.id, name: displayName } : undefined;
 
 		const pageAboutCard: AboutCollectionItem | null = page.aboutContent
 			? {
@@ -174,7 +186,7 @@ export default async function HandleProfilePage({ params }: Props) {
 					<div className="mb-8">
 						<ProfileEditClient
 							entity={{ type: "page", data: page }}
-							followCounts={followCounts}
+							stats={stats}
 							membership={membership}
 						/>
 					</div>
@@ -183,7 +195,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						items={collectionItems}
 						pinScope={{ pageId: page.id }}
 						prependCards={pageAboutCard ? [pageAboutCard] : []}
-						title={`${displayName}'s Collection`}
+						createTarget={createTarget}
 						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
 					/>
@@ -195,14 +207,14 @@ export default async function HandleProfilePage({ params }: Props) {
 			<CenteredLayout maxWidth="6xl">
 				<div className="flex flex-col gap-6 mb-8">
 					<ProfileIdentityBlock profile={pageProfile} membership={membership} />
-					<ProfileBody profile={pageProfile} followCounts={followCounts} />
+					<ProfileBody profile={pageProfile} stats={stats} />
 				</div>
 
 				<ProfileCollectionSection
 					items={collectionItems}
 					pinScope={{ pageId: page.id }}
 					prependCards={pageAboutCard ? [pageAboutCard] : []}
-					title={`${displayName}'s Collection`}
+					createTarget={createTarget}
 					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>

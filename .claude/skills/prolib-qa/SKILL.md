@@ -78,6 +78,10 @@ make that concrete and checkable.
   **Status = `QA`** and list what's there (title, priority, epic), then ask which to
   run — or offer to go through them in priority order.
 
+**One ticket at a time.** A queue is still sequential. Finish every criterion on the
+current ticket, send that ticket's report, and only then open the next one. Do not
+log in, click, or seed data for ticket B while ticket A still has a row you could drive.
+
 Pull tickets via the REST API, not `notion-search` (which silently returns a partial
 set). Follow **`docs/PULL_TICKETS.md`** for the query pattern. Note: `QA` is a real
 `Status` value even though that doc's schema table predates it. To get a ticket's full
@@ -217,12 +221,21 @@ Walk each acceptance criterion in the running app:
 - If something is **ambiguous** (criterion underspecified, behavior arguably-correct,
   needs design judgment) — flag it for the user, don't guess a verdict.
 
-### 5. Report to the user — only after every criterion is driven
+### 5. Report to the user — only after every criterion on this ticket is driven
 
-Finish **all** acceptance criteria before sending any report. Do not stop mid-ticket to
-summarize progress, ask permission to continue, or report a partial table. A row you
-could not drive still counts as finished for this step: mark it not tested, with the
-reason, and keep going until every row has a result.
+Finish **all** acceptance criteria on **this** ticket before sending any report, and
+before touching the next ticket. Do not stop mid-ticket to summarize progress, ask
+permission to continue, or report a partial table. Do not start the next ticket's
+setup or clicks while this one is open.
+
+A row is "not tested" only when you **cannot** drive it: a native file picker, the
+signup rate limit, a bug above that blocks the step, or seeded data that does not
+exist and cannot be created with alice, sam, private-pat, or justa. "Out of time,"
+"I'll do it on the next pass," and "moving on to the next ticket" are not reasons.
+If another QA actor can log in and do the step, do that before the report.
+
+Keep going until every row has a result. Then report **this ticket only**. The next
+ticket starts after that report is in the chat.
 
 Then report in chat. Use this shape:
 
@@ -240,7 +253,7 @@ Verdict: PASS / FAIL / NEEDS REVIEW
 - <what you saw, where, how to repro> — or "Nothing observed."
 
 ### Not tested
-- <criterion or edge case not driven> — <why: upload dialog, rate limit, out of time, blocked by bug above> — or "Everything above was driven."
+- <criterion or edge case not driven> — <why: upload dialog, rate limit, blocked by bug above, no seed data a QA actor can create> — or "Everything above was driven."
 ```
 
 **Observed** and **Not tested** are required in every report, even when empty — write
@@ -265,7 +278,8 @@ do not move it to Done.
 
 ### 6. Write back to Notion — only after they say yes
 
-On a yes, write this ticket before starting the next one. Do all three:
+On a yes, write this ticket before starting the next one. The next ticket's testing
+also waits until this ticket's report is already in the chat. Do all three:
 
 1. **Check off the scenarios you drove and passed.** Fetch the ticket's block children,
    find the `to_do` blocks under the "Acceptance Criteria" heading, and PATCH `checked:
@@ -304,6 +318,9 @@ See `tests/TESTING.md` for the existing suite's conventions and helpers.
 
 ## Things that trip up QA here (read once)
 
+- **One ticket, then the report, then the next ticket.** Drive every row on the
+  current ticket, report that ticket, and only then start another. A drivable row
+  left "not tested" means the ticket is not finished and the report is early.
 - **Prod URLs ≠ local data.** Recreate the scenario locally; never test against the prod
   link in the ticket. (Restated because it's the #1 failure mode.)
 - **Log in as alice, sam, or private-pat — never `laurel`** (the owner's personal/admin

@@ -21,10 +21,10 @@ Prefer `preview_start` to bring up / attach to the server for the browser sessio
 If the app errors on missing data, the DB probably isn't seeded — run `npm run db:seed:dev`.
 The dev DB must point at `localhost`; the seed/test scripts guard against pointing at prod.
 
-## QA actors — alice, sam, and private-pat
+## QA actors — alice, sam, private-pat, and justa
 
-The seed loads users from `prisma/seed-data/users/*.json` (one file per user). **Three** are
-QA actors (below); a fourth, `laurel`, is off-limits (see the callout). Don't try to log in
+The seed loads users from `prisma/seed-data/users/*.json` (one file per user). **Four** are
+QA actors (below); a fifth, `laurel`, is off-limits (see the callout). Don't try to log in
 as george/dolores/fiona/iris — they don't exist.
 
 | Handle | Email | Password | Use for |
@@ -32,9 +32,10 @@ as george/dolores/fiona/iris — they don't exist.
 | `alice.example` | `alice@example.com` | `alice` | default actor for almost everything |
 | `sam.example` | `sam@example.com` | `sam` | the *second* user (follows, messaging, cross-account visibility) |
 | `private-pat.example` | `pat@example.com` | `pat` | the **PRIVATE user** — essential for request-to-follow, locked-stub, and PRIVATE-profile checks. Profile **and** content are PRIVATE. |
+| `justa.example` | `justa@example.com` | `justa` | **Justa User Example** — a plain PUBLIC user with **no pages, no follows, no messages**. Use it for "user with only their own identity" checks (identity menu with no "Switch to" list, empty Connections, a brand-new feed). |
 
 The credential rule is **`username:username`** (email `<user>@example.com`, password = the
-username) for all three. For two-actor flows use **alice + sam**; reach for **private-pat**
+username) for all four. For two-actor flows use **alice + sam**; reach for **private-pat**
 whenever a criterion needs a private *user* (as opposed to the private *page*,
 `secret-workshop`).
 

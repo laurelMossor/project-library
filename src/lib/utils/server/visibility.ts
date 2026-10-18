@@ -10,6 +10,7 @@
 //
 //   Relationship primitives   isFollower / isFollowingPage / isMember / canViewByOwnerEdge
 //   Profile view gate         canViewProfile(kind, entity, viewer)   (+ resolveProfileAccess)
+//   Profile list gates        canViewFollowList(access) / canViewMemberList(viewer, pageId)
 //   Content view gate         canViewEvent / canViewPost
 //   Route guard               requireViewableProfile(kind, id, viewer)
 //   Global list filters       profileListWhere / eventListWhere / postListWhere
@@ -159,6 +160,23 @@ export async function resolveProfileAccess(
 ): Promise<ProfileAccess> {
   if (await canViewProfile(kind, entity, viewer)) return "FULL";
   return "LOCKED";
+}
+
+/**
+ * May the viewer open a profile's Followers / Following list? Anyone who sees the FULL profile.
+ * A LOCKED stub shows identity only, so it shows no lists either. Counts follow the same rule: they
+ * ride on the FULL render only.
+ */
+export function canViewFollowList(access: ProfileAccess): boolean {
+  return access === "FULL";
+}
+
+/**
+ * May the viewer open a page's member list? Members only (any role). The member COUNT is public on
+ * a FULL page profile; the people behind it are not.
+ */
+export function canViewMemberList(viewer: ViewerContext, pageId: string): boolean {
+  return isMember(viewer, pageId);
 }
 
 /** Check if the viewer can see an Event entity (reads the event's derived visibility). */
@@ -358,6 +376,15 @@ export async function filterUsersWhoCanView(
  */
 export function profileListWhere(_kind: ProfileKind, _viewer: ViewerContext) {
   return {};
+}
+
+/**
+ * Prisma where fragment for profiles we PUSH in front of someone (the Find people suggestions).
+ * Search above lets a PRIVATE profile be found by name; suggesting is different — nobody who chose
+ * PRIVATE agreed to be recommended to strangers. So suggestions are PUBLIC profiles only.
+ */
+export function profileSuggestionWhere(_kind: ProfileKind) {
+  return { profileVisibility: ProfileVisibility.PUBLIC };
 }
 
 /**

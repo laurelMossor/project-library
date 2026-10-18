@@ -63,6 +63,7 @@ export const ADMIN_SUBMISSIONS = "/admin/submissions";
 export const WELCOME_PAGE = "/welcome";
 export const COLLECTIONS = "/collections";
 export const EXPLORE_PAGE = "/explore";
+export const EXPLORE_EVENTS = `${EXPLORE_PAGE}?type=event`; // Explore with the Events filter on
 export const SEARCH = "/search";
 
 // ============================================================================
@@ -70,6 +71,13 @@ export const SEARCH = "/search";
 // ============================================================================
 export const EVENTS = "/events";
 export const EVENT_NEW = "/events/new";
+/**
+ * Query param on POST_NEW / EVENT_NEW: start the draft in a profile's collection —
+ * a page id, or NEW_IN_OWN_PROFILE for your own profile in your own voice.
+ */
+export const NEW_IN_PARAM = "to";
+export const NEW_IN_OWN_PROFILE = "me";
+export const EVENT_NEW_IN = (to: string) => `${EVENT_NEW}?${NEW_IN_PARAM}=${encodeURIComponent(to)}`;
 export const EVENT_DETAIL = (id: string) => `/events/${id}`;
 
 // ============================================================================
@@ -77,6 +85,7 @@ export const EVENT_DETAIL = (id: string) => `/events/${id}`;
 // ============================================================================
 export const POSTS = "/posts";
 export const POST_NEW = "/posts/new";
+export const POST_NEW_IN = (to: string) => `${POST_NEW}?${NEW_IN_PARAM}=${encodeURIComponent(to)}`;
 export const POST_DETAIL = (id: string) => `/posts/${id}`;
 /** DOM id of one comment row on a post/event detail page. */
 export const COMMENT_ANCHOR = (commentId: string) => `comment-${commentId}`;

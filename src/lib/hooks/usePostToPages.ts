@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { API_ME_PAGES } from "@/lib/const/routes";
-import { mayPostToPage } from "@/lib/const/roles";
+import { canPostToPage } from "@/lib/const/roles";
 
 export type PostToPage = {
 	id: string;
@@ -23,7 +23,7 @@ export function usePostToPages() {
 		fetch(API_ME_PAGES)
 			.then((r) => (r.ok ? r.json() : []))
 			.then((data: PostToPage[]) => {
-				if (!cancelled) setPages((data ?? []).filter((p) => mayPostToPage(p.role, p.allowMemberPosts)));
+				if (!cancelled) setPages((data ?? []).filter((p) => canPostToPage(p.role, p.allowMemberPosts)));
 			})
 			.catch(() => {
 				if (!cancelled) setPages([]);

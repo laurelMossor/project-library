@@ -6,12 +6,11 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/utils/server/prisma", () => ({
   prisma: {
-    permission: { findFirst: vi.fn(), findUnique: vi.fn() },
-    page: { findUnique: vi.fn() },
+    permission: { findFirst: vi.fn() },
   },
 }));
 
-import { canEditContent, canModerateContent, canPostToPage } from "@/lib/utils/server/permission";
+import { canEditContent, canModerateContent } from "@/lib/utils/server/permission";
 import { prisma } from "@/lib/utils/server/prisma";
 
 beforeEach(() => vi.clearAllMocks());
@@ -37,24 +36,5 @@ describe("content authority", () => {
     vi.mocked(prisma.permission.findFirst).mockResolvedValue({ role: "EDITOR" } as never);
     expect(await canEditContent("editor", asPagePost)).toBe(true);
     expect(await canModerateContent("editor", memberPost)).toBe(true);
-  });
-
-  test("canPostToPage lets acting roles through when member posts are off", async () => {
-    vi.mocked(prisma.page.findUnique).mockResolvedValue({ allowMemberPosts: false } as never);
-
-    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "ADMIN" } as never);
-    expect(await canPostToPage("alice", "page-1")).toBe(true);
-
-    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "EDITOR" } as never);
-    expect(await canPostToPage("alice", "page-1")).toBe(true);
-
-    vi.mocked(prisma.permission.findUnique).mockResolvedValue({ role: "MEMBER" } as never);
-    expect(await canPostToPage("alice", "page-1")).toBe(false);
-
-    vi.mocked(prisma.page.findUnique).mockResolvedValue({ allowMemberPosts: true } as never);
-    expect(await canPostToPage("alice", "page-1")).toBe(true);
-
-    vi.mocked(prisma.permission.findUnique).mockResolvedValue(null);
-    expect(await canPostToPage("alice", "page-1")).toBe(false);
   });
 });

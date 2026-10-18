@@ -79,7 +79,7 @@ test.describe("Notification settings", () => {
 
   test("the settings menu links to profile settings", async ({ page }) => {
     await page.goto("/settings");
-    const link = page.getByRole("link", { name: "Edit Profile Settings" });
+    const link = page.getByRole("link", { name: "Privacy & notifications" });
     await expect(link).toBeVisible({ timeout: 10_000 });
     await expect(link).toHaveAttribute("href", NOTIF_SETTINGS);
   });

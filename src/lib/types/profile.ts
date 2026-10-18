@@ -4,6 +4,21 @@ import { PublicPage } from "./page";
 /** Follower / following counts for a profile, computed server-side. */
 export type FollowCounts = { followers: number; following: number };
 
+/** The lists behind a profile's counts. */
+export type ProfileList = "followers" | "following" | "members";
+
+/**
+ * Everything the stats row under a profile needs, computed on the server: the counts, a page's
+ * member count, and whether this viewer may open the member list (members only; counts are public).
+ */
+export type ProfileStatsData = {
+  target: { type: "user" | "page"; id: string };
+  counts: FollowCounts;
+  /** Pages only. 0 / absent hides the Members count. */
+  memberCount?: number;
+  canViewMembers?: boolean;
+};
+
 export type ProfileEntity =
   | { type: "USER"; data: PublicUser }
   | { type: "PAGE"; data: PublicPage };
