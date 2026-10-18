@@ -27,8 +27,8 @@ type CollectionPageProps = {
 	selectedTags: string[];
 	onTagsChange: (tags: string[]) => void;
 	availableTags: string[];
-	/** Heading over the collection. null drops it (profile pages already name the owner above). */
-	title?: string | null;
+	/** Heading over the collection. Omit it for no heading (profile pages already name the owner above). */
+	title?: string;
 	/** Sits where the heading would, left of the search bar. */
 	headerAction?: ReactNode;
 	itemsPerPage?: number;
@@ -54,7 +54,7 @@ export function CollectionPage({
 	selectedTags,
 	onTagsChange,
 	availableTags,
-	title = "Collections",
+	title,
 	headerAction,
 	itemsPerPage = 12,
 	showCreateLinks = true,

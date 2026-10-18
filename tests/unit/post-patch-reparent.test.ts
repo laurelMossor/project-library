@@ -21,11 +21,12 @@ vi.mock("@/lib/utils/server/prisma", () => ({
     $transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)),
     post: { findUnique: vi.fn(), count: vi.fn().mockResolvedValue(0) },
     event: { count: vi.fn().mockResolvedValue(0) },
+    page: { findUnique: vi.fn().mockResolvedValue({ allowMemberPosts: false }) },
   },
 }));
 vi.mock("@/lib/utils/server/permission", () => ({
   canPostAsPage: vi.fn(),
-  canPostToPage: vi.fn().mockResolvedValue(true),
+  getUserPermission: vi.fn().mockResolvedValue("ADMIN"),
   canEditContent: vi.fn().mockResolvedValue(true),
   canModerateContent: vi.fn().mockResolvedValue(true),
 }));

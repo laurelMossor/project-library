@@ -12,7 +12,7 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ## v0.5.2 — Menus, connections, and creating in place (unreleased)
 
-Nav and menu rework merged in PR #64 (`polish-3-menu-and-destination-surfacing`); the Create button and membership default are on `bits-and-bobs`, not merged yet.
+Nav and menu rework from PR #64 (`polish-3-menu-and-destination-surfacing`); the Create button and membership default from `bits-and-bobs`.
 
 - **Identity menu** — Settings, switching identities, and Log out live in one menu under your profile picture, with a Create a page chip.
 - **Captioned main menu** — Connections is a top-level item; every item carries a short caption; a new Events item opens Explore filtered to events.

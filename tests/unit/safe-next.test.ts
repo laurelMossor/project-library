@@ -7,6 +7,13 @@ describe("safeNext", () => {
 	test("keeps an in-app path, including its query string", () => {
 		expect(safeNext("/settings?tab=profile", fallback)).toBe("/settings?tab=profile");
 		expect(safeNext("/pages/new", fallback)).toBe("/pages/new");
+		// The login callback from a profile's "+ Create" keeps its target collection.
+		expect(safeNext("/events/new?to=cmvd1qcph000dqcuoiw1lglxz", fallback)).toBe("/events/new?to=cmvd1qcph000dqcuoiw1lglxz");
+	});
+
+	test("rejects script and other non-path schemes", () => {
+		expect(safeNext("javascript:alert(1)", fallback)).toBe(fallback);
+		expect(safeNext("data:text/html,hi", fallback)).toBe(fallback);
 	});
 
 	test("rejects off-site and backslash destinations", () => {

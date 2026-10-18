@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { useAction } from "@/lib/hooks/useAction";
-import { NEW_IN_OWN_PROFILE, NEW_IN_PARAM } from "@/lib/const/routes";
+import { NEW_IN_PARAM } from "@/lib/const/routes";
+import { draftPlacement, type DraftPlacement } from "@/lib/utils/draft-placement";
 import type { ActionResult } from "@/lib/types/action";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
 	 * Creates an empty draft speaking as `asPageId` (or the user) and returns its id.
 	 * `pageId` places a draft in the user's own voice on that page.
 	 */
-	create: (input: { asPageId: string | null; pageId: string | null }) => Promise<ActionResult<string>>;
+	create: (input: DraftPlacement) => Promise<ActionResult<string>>;
 	/** Where the new draft is edited inline. */
 	detailHref: (id: string) => string;
 	noun: "post" | "event";
@@ -36,7 +37,14 @@ function CreateDraft({ create, detailHref, noun }: Props) {
 	const { activePageId } = useActiveProfile();
 	const { run, error } = useAction(create);
 
+	// The placement a draft was last created for. React's dev double-invoke (and any re-render
+	// that re-runs the effect with the same inputs) must not create a second, orphaned draft.
+	const createdFor = useRef<string | null>(null);
+
 	useEffect(() => {
+		const key = `${activePageId ?? ""}|${to ?? ""}`;
+		if (createdFor.current === key) return;
+		createdFor.current = key;
 		run(draftPlacement(to, activePageId ?? null)).then((result) => {
 			if (result.ok) router.replace(detailHref(result.data));
 		});
@@ -62,17 +70,6 @@ function CreateDraft({ create, detailHref, noun }: Props) {
 			)}
 		</Shell>
 	);
-}
-
-/**
- * Who speaks and where the draft lives. With no target, the active profile decides.
- * From your own profile: you, personal. From a page's collection: as that page if you're
- * acting as it, otherwise to it in your own voice — acting as some other page doesn't carry over.
- */
-function draftPlacement(to: string | null, activePageId: string | null) {
-	if (!to) return { asPageId: activePageId, pageId: null };
-	if (to === NEW_IN_OWN_PROFILE) return { asPageId: null, pageId: null };
-	return { asPageId: activePageId === to ? to : null, pageId: to };
 }
 
 function Shell({ children }: { children: React.ReactNode }) {

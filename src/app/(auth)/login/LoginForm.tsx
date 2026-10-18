@@ -8,6 +8,7 @@ import { FormInput } from "@/lib/components/forms/FormInput";
 import { FormError } from "@/lib/components/forms/FormError";
 import { AuthCard } from "@/lib/components/auth/AuthCard";
 import { SIGNUP, HOME, FORGOT_PASSWORD } from "@/lib/const/routes";
+import { safeNext } from "@/lib/utils/safe-next";
 import { InviteCTA } from "../signup/page";
 import { ResendVerification } from "@/lib/components/auth/ResendVerification";
 import Link from "next/link";
@@ -24,7 +25,9 @@ export function LoginForm() {
 	const [error, setError] = useState("");
 	const [unverified, setUnverified] = useState(false);
 	const searchParams = useSearchParams();
-	const callbackUrl = searchParams.get("callbackUrl") || HOME;
+	// Only ever an in-app path: a crafted /login?callbackUrl=https://… must not send
+	// someone off-site right after they enter their password.
+	const callbackUrl = safeNext(searchParams.get("callbackUrl") ?? undefined, HOME);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();

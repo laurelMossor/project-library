@@ -29,7 +29,8 @@ import { getEventsByUser, getEventsByPage } from "@/lib/utils/server/event";
 import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
 import { getFollowCounts } from "@/lib/utils/server/follow";
 import { getMembershipStatus } from "@/lib/utils/server/requests";
-import { canManagePage, canPostToPage, countPageMembers } from "@/lib/utils/server/permission";
+import { canManagePage, countPageMembers } from "@/lib/utils/server/permission";
+import { canPostToPage } from "@/lib/const/roles";
 import { canViewMemberList, getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
@@ -152,12 +153,11 @@ export default async function HandleProfilePage({ params }: Props) {
 		// Admins get the edit chrome. Pin permission is stamped on each item by the collection query.
 		const isOwner = viewerId ? await canManagePage(viewerId, page.id) : false;
 
-		const [events, posts, followCounts, memberCount, canCreate] = await Promise.all([
+		const [events, posts, followCounts, memberCount] = await Promise.all([
 			getEventsByPage(page.id, { includeDrafts: isOwner, viewer }),
 			getPostsByPage(page.id, { includeDrafts: isOwner, viewer }),
 			getFollowCounts({ type: "PAGE", id: page.id }),
 			countPageMembers(page.id),
-			viewerId ? canPostToPage(viewerId, page.id) : false,
 		]);
 		// Counts are public on a FULL profile; the member list behind the count is members only.
 		const stats: ProfileStatsData = {
@@ -169,7 +169,7 @@ export default async function HandleProfilePage({ params }: Props) {
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);
 		// "+ Create" whenever the viewer may post to or as this page (admin, editor, or a member where allowed).
-		const createTarget = canCreate ? { to: page.id, name: displayName } : undefined;
+		const createTarget = canPostToPage(membership.role, page.allowMemberPosts) ? { to: page.id, name: displayName } : undefined;
 
 		const pageAboutCard: AboutCollectionItem | null = page.aboutContent
 			? {

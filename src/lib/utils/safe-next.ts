@@ -1,7 +1,8 @@
 /**
- * An in-app path to send someone after setup. Rejects protocol-relative and
- * backslash URLs, which some browsers treat as a different site. Query strings
- * stay, because setup returns people to the page they were already on.
+ * An in-app path to send someone after setup or login. Rejects absolute, protocol-relative,
+ * and backslash URLs, which some browsers treat as a different site — so a crafted
+ * ?next= / ?callbackUrl= link can't bounce someone off-site. Query strings stay, because
+ * both flows return people to the page they were already on.
  * Next.js decodes the query once before this runs.
  */
 export function safeNext(next: string | undefined, fallback: string): string {

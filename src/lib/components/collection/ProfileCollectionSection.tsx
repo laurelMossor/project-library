@@ -107,7 +107,6 @@ export function ProfileCollectionSection({
 				selectedTags={selectedTags}
 				onTagsChange={setSelectedTags}
 				availableTags={availableTags}
-				title={null}
 				headerAction={createTarget && <CollectionCreateButton target={createTarget} />}
 				emptyMessage={emptyMessage}
 				showCreateLinks={showCreateLinks}

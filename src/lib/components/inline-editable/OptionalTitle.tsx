@@ -14,7 +14,10 @@ type Props = {
 	/** Scale only. Posts use text-4xl; a page name uses text-2xl. Color and weight live here. */
 	sizeClassName?: string;
 	maxLength?: number;
-	/** Empty drafts show the placeholder. Published empty titles stay blank. */
+	/**
+	 * Show the placeholder for an empty title while the author is editing, so there's something
+	 * to click to add one (drafts and published posts alike). Outside editing it stays blank.
+	 */
 	showPlaceholder?: boolean;
 };
 
