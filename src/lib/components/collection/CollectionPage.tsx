@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { FilterBoard } from "../filter-sort/FilterBoard";
 import { FilteredCollection } from "./FilteredCollection";
 import { PaginationControls } from "./PaginationControls";
@@ -26,7 +27,10 @@ type CollectionPageProps = {
 	selectedTags: string[];
 	onTagsChange: (tags: string[]) => void;
 	availableTags: string[];
-	title?: string;
+	/** Heading over the collection. null drops it (profile pages already name the owner above). */
+	title?: string | null;
+	/** Sits where the heading would, left of the search bar. */
+	headerAction?: ReactNode;
 	itemsPerPage?: number;
 	showCreateLinks?: boolean;
 	pinConfig?: PinConfig;
@@ -51,6 +55,7 @@ export function CollectionPage({
 	onTagsChange,
 	availableTags,
 	title = "Collections",
+	headerAction,
 	itemsPerPage = 12,
 	showCreateLinks = true,
 	pinConfig,
@@ -68,14 +73,14 @@ export function CollectionPage({
 	return (
 		<div className="max-w-6xl mx-auto w-full">
 			<div className="flex items-center justify-between gap-4 mb-4">
-				<HeadingTitle title={title} />
-				<div className="flex-1 max-w-lg">
+				{title && <HeadingTitle title={title} />}
+				{headerAction}
+				<div className="flex-1 max-w-lg ml-auto">
 					<SearchBar searchValue={search} onSearchChange={onSearchChange} />
 				</div>
 			</div>
 
 			<FilterBoard
-				title={title}
 				collectionTypeFilter={collectionTypeFilter}
 				onCollectionTypeChange={onCollectionTypeChange}
 				sort={sort}

@@ -4,7 +4,7 @@ import { createEventAction } from "@/lib/actions/event";
 import { CreateDraftRedirect } from "@/lib/components/layout/CreateDraftRedirect";
 import { EVENT_DETAIL } from "@/lib/const/routes";
 
-const createDraftEvent = (input: { asPageId: string | null }) => createEventAction({ ...input, isDraft: true });
+const createDraftEvent = (input: { asPageId: string | null; pageId: string | null }) => createEventAction({ ...input, isDraft: true });
 
 /**
  * /events/new — Creates a draft event and redirects to the event page for inline editing.

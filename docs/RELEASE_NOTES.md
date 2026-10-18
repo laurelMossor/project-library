@@ -10,6 +10,26 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
+## v0.5.2 — Menus, connections, and creating in place (unreleased)
+
+Nav and menu rework merged in PR #64 (`polish-3-menu-and-destination-surfacing`); the Create button and membership default are on `bits-and-bobs`, not merged yet.
+
+- **Identity menu** — Settings, switching identities, and Log out live in one menu under your profile picture, with a Create a page chip.
+- **Captioned main menu** — Connections is a top-level item; every item carries a short caption; a new Events item opens Explore filtered to events.
+- **Members and connections on profiles** — pages show a public member count; Followers, Following, and Members each open a list; the member list is members only.
+- **Find people** — shows five random public profiles before you search, people you don't follow first; results use the same profile card as everywhere else.
+- **Page invites** — pending invites carry an attention dot, and Accept / Decline open right on the row.
+- **Create from a profile** — a "+ Create" button beside the collection search on any profile you can post to or as; it opens New Post / New Event aimed at that profile, so a member's draft starts on the page in their own voice.
+- **Leaner profile collections** — the redundant "{name}'s Collection" and "History" headings are gone; the profile header already names the owner.
+- **Member posts follow membership** — opening a Closed page to Invite only or Request to join turns member posts on by default; admins can still switch it off.
+
+### Bug Fixes
+
+- **Menu dismiss** — clicking outside an open menu closes it without also clicking whatever was underneath.
+- **Notification dots** — unread dots on the bell and menu icons pin to the icon's corner consistently.
+
+---
+
 ## v0.5.1 — Page activity notifications (10/15/26)
 
 - **Page activity notifications** — when a post or event is published in a page, its admins, editors, and members hear about it in their personal bell; the person who published it is left out; new "Page activity" email setting, on by default.

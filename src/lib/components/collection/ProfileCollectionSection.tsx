@@ -5,6 +5,8 @@ import { CollectionItem, AboutCollectionItem } from "@/lib/types/collection";
 import { pinnedCountInScope, type PinScope } from "@/lib/const/pin";
 import { useFilter } from "@/lib/hooks/useFilter";
 import { CollectionPage } from "./CollectionPage";
+import { CollectionCreateButton } from "./CollectionCreateButton";
+import type { NewItemTarget } from "@/lib/components/nav-bar/NewItemModal";
 
 type ProfileCollectionSectionProps = {
 	items: CollectionItem[];
@@ -12,22 +14,24 @@ type ProfileCollectionSectionProps = {
 	pinScope: PinScope;
 	/** Synthetic cards prepended before the filterable collection (e.g. About card). */
 	prependCards?: AboutCollectionItem[];
-	title?: string;
 	emptyMessage?: string;
 	showCreateLinks?: boolean;
+	/** Set when the viewer may post to or as this profile; shows "+ Create" aimed at it. */
+	createTarget?: NewItemTarget;
 };
 
 /**
  * ProfileCollectionSection — shared collection section for User and Page profile pages.
  * Renders a filterable, sortable grid of events/posts belonging to a profile entity.
+ * No heading: the profile header above already names the owner.
  */
 export function ProfileCollectionSection({
 	items,
 	pinScope,
 	prependCards = [],
-	title = "Collection",
 	emptyMessage = "There's nothing here yet.",
 	showCreateLinks = true,
+	createTarget,
 }: ProfileCollectionSectionProps) {
 	const [search, setSearch] = useState("");
 
@@ -103,7 +107,8 @@ export function ProfileCollectionSection({
 				selectedTags={selectedTags}
 				onTagsChange={setSelectedTags}
 				availableTags={availableTags}
-				title={title}
+				title={null}
+				headerAction={createTarget && <CollectionCreateButton target={createTarget} />}
 				emptyMessage={emptyMessage}
 				showCreateLinks={showCreateLinks}
 				pinConfig={pinConfig}

@@ -5,7 +5,6 @@ import { ViewToggle } from "./ViewToggle";
 import { TagInputField } from "@/lib/components/inline-editable/TagInputField";
 
 type FilterBoardProps = {
-	title: string;
 	collectionTypeFilter: FilterCollectionType;
 	onCollectionTypeChange: (collectionType: FilterCollectionType) => void;
 	sort: SortType;
@@ -19,7 +18,6 @@ type FilterBoardProps = {
 };
 
 export function FilterBoard({
-	title: _title,
 	collectionTypeFilter,
 	onCollectionTypeChange,
 	sort,
