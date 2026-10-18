@@ -14,7 +14,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 }));
 vi.mock("@/lib/utils/server/permission", () => ({
   canPostAsPage: vi.fn(),
-  canPostToPage: vi.fn(),
+  getUserPermission: vi.fn(),
   canEditContent: vi.fn().mockResolvedValue(true),
 }));
 vi.mock("@/lib/utils/server/visibility", () => ({

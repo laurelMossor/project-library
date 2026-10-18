@@ -6,7 +6,10 @@
 //
 // Create and PATCH routes call this instead of branching on pageId themselves.
 
-import { canPostAsPage, canPostToPage } from "./permission";
+import { ResourceType } from "@prisma/client";
+import { canPostAsPage, getUserPermission } from "./permission";
+import { prisma } from "./prisma";
+import { canPostToPage } from "@/lib/const/roles";
 import { DomainError } from "./domain-error";
 import type { EntityRef } from "./activity";
 
@@ -64,7 +67,11 @@ export async function resolveContentPlacement(userId: string, input: PlacementIn
 
 	const pageId = input.pageId || null;
 	if (pageId) {
-		if (!(await canPostToPage(userId, pageId))) {
+		const [role, page] = await Promise.all([
+			getUserPermission(userId, pageId, ResourceType.PAGE),
+			prisma.page.findUnique({ where: { id: pageId }, select: { allowMemberPosts: true } }),
+		]);
+		if (!canPostToPage(role, !!page?.allowMemberPosts)) {
 			throw new PlacementForbiddenError("You don't have permission to post to this page");
 		}
 		return {

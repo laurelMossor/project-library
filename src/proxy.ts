@@ -127,7 +127,8 @@ export default function proxy(req: NextRequest) {
 			);
 		}
 		const loginUrl = new URL(LOGIN, req.url);
-		loginUrl.searchParams.set("callbackUrl", pathname);
+		// Keep the query: /events/new?to=<pageId> must come back aimed at the same collection.
+		loginUrl.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
 		return NextResponse.redirect(loginUrl);
 	}
 

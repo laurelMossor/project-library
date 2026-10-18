@@ -38,6 +38,8 @@ type Props = {
  * Membership policy + the member-posts toggle. Shared by page settings (inside an
  * InlineEditSession) and the create-page form. The toggle is off and disabled while
  * the page is Closed, because a page with no members has nothing to post to.
+ * Turning membership on from Closed turns member posts on too; the admin can
+ * still switch it off. Moving between Invite only and Request to join leaves it alone.
  */
 export function MembershipSettingsFields({
 	policy,
@@ -52,6 +54,7 @@ export function MembershipSettingsFields({
 	function changePolicy(next: MembershipPolicy) {
 		onPolicyChange(next);
 		if (next === "CLOSED") onAllowMemberPostsChange(false);
+		else if (closed) onAllowMemberPostsChange(true);
 	}
 
 	return (

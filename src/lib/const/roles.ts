@@ -31,11 +31,12 @@ export function isActingRole(role: string | null | undefined): boolean {
 }
 
 /**
- * May this role post to a page (their words, the page's collection)?
+ * Can this role post to a page (their words, the page's collection)? The one copy of the rule —
+ * client and server both call it with facts they already hold.
  * An acting role may always. Any other role may only when the page allows member posts.
- * No role may not. Posting as the page is a separate check.
+ * No role may not. Posting as the page is a separate check (canPostAsPage).
  */
-export function mayPostToPage(role: string | null | undefined, allowMemberPosts: boolean): boolean {
+export function canPostToPage(role: string | null | undefined, allowMemberPosts: boolean): boolean {
 	if (!role) return false;
 	if (isActingRole(role)) return true;
 	return allowMemberPosts;

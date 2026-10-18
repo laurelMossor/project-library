@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Sun 10/18/2026 14:09 PDT
+Added a Create button to profile collections on `bits-and-bobs`. Anyone who can post to or as a profile sees it beside the search, where the redundant collection heading used to be. It opens the New Post and New Event modal aimed at that profile, so a member's draft starts on the page in their own voice. Verified live as justa on Portland Makers Guild and on justa's own profile.
+
 #### Entry: Sat 10/17/2026 12:20 PDT
 Reworked the nav menus on `polish-3`. Connections is now a top-level item, and Settings, switching identities, and Log out all live in one identity menu with a Create a page chip. Every main menu item carries a short caption, and a new Events item opens Explore with the Events filter on. Profile tags are fully clickable and compose into a card, which now powers Find people, with five random public profiles shown before you search. Pending page invites show Accept and Decline directly. Pages show a member count, and Followers, Following, and Members each open a list.
 

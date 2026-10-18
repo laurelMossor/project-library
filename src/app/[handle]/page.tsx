@@ -30,6 +30,7 @@ import { getPostsByUser, getPostsByPage } from "@/lib/utils/server/post";
 import { getFollowCounts } from "@/lib/utils/server/follow";
 import { getMembershipStatus } from "@/lib/utils/server/requests";
 import { canManagePage, countPageMembers } from "@/lib/utils/server/permission";
+import { canPostToPage } from "@/lib/const/roles";
 import { canViewMemberList, getViewerContext, resolveProfileAccess } from "@/lib/utils/server/visibility";
 import { ProfileCollectionSection } from "@/lib/components/collection/ProfileCollectionSection";
 import { CenteredLayout } from "@/lib/components/layout/CenteredLayout";
@@ -41,6 +42,7 @@ import { ProfileEntity, type ProfileStatsData } from "@/lib/types/profile";
 import { getPageDisplayName } from "@/lib/types/page";
 import { getUserDisplayName } from "@/lib/types/user";
 import { truncateText } from "@/lib/utils/text";
+import { NEW_IN_OWN_PROFILE } from "@/lib/const/routes";
 import type { AboutCollectionItem } from "@/lib/types/collection";
 
 type Props = {
@@ -108,7 +110,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						items={collectionItems}
 						pinScope={{ userId: user.id }}
 						prependCards={aboutCard ? [aboutCard] : []}
-						title="History"
+						createTarget={{ to: NEW_IN_OWN_PROFILE, name: "your profile" }}
 						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
 					/>
@@ -127,7 +129,6 @@ export default async function HandleProfilePage({ params }: Props) {
 					items={collectionItems}
 					pinScope={{ userId: user.id }}
 					prependCards={aboutCard ? [aboutCard] : []}
-					title="History"
 					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>
@@ -167,6 +168,8 @@ export default async function HandleProfilePage({ params }: Props) {
 		};
 		const collectionItems = [...events, ...posts];
 		const displayName = getPageDisplayName(page);
+		// "+ Create" whenever the viewer may post to or as this page (admin, editor, or a member where allowed).
+		const createTarget = canPostToPage(membership.role, page.allowMemberPosts) ? { to: page.id, name: displayName } : undefined;
 
 		const pageAboutCard: AboutCollectionItem | null = page.aboutContent
 			? {
@@ -192,7 +195,7 @@ export default async function HandleProfilePage({ params }: Props) {
 						items={collectionItems}
 						pinScope={{ pageId: page.id }}
 						prependCards={pageAboutCard ? [pageAboutCard] : []}
-						title={`${displayName}'s Collection`}
+						createTarget={createTarget}
 						emptyMessage="There's nothing here yet."
 						showCreateLinks={false}
 					/>
@@ -211,7 +214,7 @@ export default async function HandleProfilePage({ params }: Props) {
 					items={collectionItems}
 					pinScope={{ pageId: page.id }}
 					prependCards={pageAboutCard ? [pageAboutCard] : []}
-					title={`${displayName}'s Collection`}
+					createTarget={createTarget}
 					emptyMessage="There's nothing here yet."
 					showCreateLinks={false}
 				/>
