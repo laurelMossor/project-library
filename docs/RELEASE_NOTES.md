@@ -10,9 +10,9 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
-## v0.5.2 — Menus, connections, and creating in place (unreleased)
+## v0.5.2 — Menus, connections, and creating in place (10/18/26)
 
-Nav and menu rework from PR #64 (`polish-3-menu-and-destination-surfacing`); the Create button and membership default from `bits-and-bobs`.
+Nav and menu rework from PR #64 (`polish-3-menu-and-destination-surfacing`); the Create button, membership default, and review fixes from PR #65 (`bits-and-bobs`).
 
 - **Identity menu** — Settings, switching identities, and Log out live in one menu under your profile picture, with a Create a page chip.
 - **Captioned main menu** — Connections is a top-level item; every item carries a short caption; a new Events item opens Explore filtered to events.
@@ -27,6 +27,9 @@ Nav and menu rework from PR #64 (`polish-3-menu-and-destination-surfacing`); the
 
 - **Menu dismiss** — clicking outside an open menu closes it without also clicking whatever was underneath.
 - **Notification dots** — unread dots on the bell and menu icons pin to the icon's corner consistently.
+- **Post titles after publishing** — an untitled published post shows "Title (optional)" while you edit it, so a title can be added later.
+- **Safe login redirects** — login only returns you to an in-app page; a crafted link can't send someone off-site after they log in; a Create target survives being asked to log in again.
+- **One draft per Create** — starting a post or event no longer leaves a duplicate empty draft behind.
 
 ---
 
