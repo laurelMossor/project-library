@@ -1,7 +1,15 @@
 // Display helpers shared by the inbox and the thread: how a conversation, member, or author is named
 // and pictured. Pure — no fetching. Identity keys come from `identityKey` in @/lib/const/messaging.
 import { resolveCardIdentity, type CardEntity } from "@/lib/types/card";
-import type { ConversationMember, ConversationSummary, ConversationThreadData, MessageAuthor, MessageUser } from "@/lib/types/message";
+import { participantAddedText } from "@/lib/utils/participant-added-text";
+import type {
+	ConversationMember,
+	ConversationSummary,
+	ConversationThreadData,
+	MessageAuthor,
+	MessageSubject,
+	MessageUser,
+} from "@/lib/types/message";
 
 type Named = MessageAuthor | ConversationMember | { type: "user"; user: MessageUser | null };
 
@@ -24,6 +32,16 @@ export function shortName(x: Named): string {
 }
 
 export const otherMembers = (c: { members: ConversationMember[] }) => c.members.filter((m) => !m.isYou);
+
+/** The "added" line as this viewer reads it: "You added Sam", "Alice added you", "Alice added Sam". */
+export function participantAddedLine(m: { author: MessageAuthor; subject: MessageSubject | null; isOwn: boolean }): string {
+	return participantAddedText({
+		actorName: fullName(m.author),
+		subjectName: m.subject ? fullName(m.subject) : "someone",
+		viewerIsActor: m.isOwn,
+		viewerIsSubject: !!m.subject?.isYou,
+	});
+}
 
 /**
  * Tab / row title. A DM is the other party's full name; a group is its name, or its members' short

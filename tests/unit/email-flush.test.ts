@@ -187,6 +187,31 @@ describe("flushEmailOutbox", () => {
 		expect(href).toContain("asPageId=pageX");
 	});
 
+	test("an 'added' line emails as '<who> added you to <group message>', not as a quoted message", async () => {
+		outboxFindMany.mockResolvedValue([
+			outboxRow({ id: "o1", sourceType: "MESSAGE", sourceId: "m1", category: "MESSAGES", contextPageId: null }),
+		] as never);
+		vi.mocked(prisma.message.findMany).mockResolvedValue([
+			{
+				id: "m1", conversationId: "c1", senderId: "sam", asPageId: null, content: "", createdAt: new Date(),
+				kind: "PARTICIPANT_ADDED", conversation: { name: "Book Club" },
+			},
+		] as never);
+		vi.mocked(prisma.conversationParticipant.findMany).mockResolvedValue([
+			{ conversationId: "c1", userId: "alice", pageId: null, lastReadAt: null },
+		] as never);
+		vi.mocked(prisma.user.findMany).mockResolvedValue([
+			alice(),
+			{ id: "sam", handle: "sam", firstName: "Sam", lastName: null, displayName: null, avatarImageId: null, avatarImage: null },
+		] as never);
+
+		await flushEmailOutbox();
+		expect(send).toHaveBeenCalledTimes(1);
+		const row = (send.mock.calls[0][1] as any).sections[0].rows[0];
+		expect(row.text).toBe("Sam added you to Book Club");
+		expect(row.href).toContain("/messages/c/c1");
+	});
+
 	test("message read-suppression is per recipient identity", async () => {
 		const sentAt = new Date(Date.now() - 60_000);
 		outboxFindMany.mockResolvedValue([

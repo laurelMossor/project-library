@@ -214,8 +214,9 @@ export async function deletePage(pageId: string, tx: Prisma.TransactionClient): 
 		tx,
 	);
 
+	// What the page wrote becomes a tombstone; an "added" line it posted stays and reads "A page added …".
 	await tx.message.updateMany({
-		where: { asPageId: pageId },
+		where: { asPageId: pageId, kind: "TEXT" },
 		data: { content: "", deletedAs: "PAGE", senderId: null },
 	});
 	await tx.comment.updateMany({

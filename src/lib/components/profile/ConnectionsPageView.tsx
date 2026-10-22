@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TabbedPanel, TabDef } from "@/lib/components/layout/TabbedPanel";
 import { ProfileTag } from "./ProfileTag";
 import { RoleSelector } from "./RoleSelector";
 import { EmailInviteTag } from "./EmailInviteTag";
 import { EmailInviteModal } from "./EmailInviteModal";
 import { ProfileSearchDropdown, SearchResultUser } from "@/lib/components/search/ProfileSearchDropdown";
+import { searchResultUser } from "@/lib/types/search";
+import { identityKey } from "@/lib/const/messaging";
 import { CardEntity, CardPageWithRole, isCardPage, getCardUserDisplayName } from "@/lib/types/card";
 import type { ConnectionItem, ConnectionsData } from "@/lib/types/connections";
 import { EllipsisIcon, XCircleIcon } from "@/lib/components/icons/icons";
@@ -173,6 +175,11 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 	// goes away with the refresh, so the explanation has to live outside it.
 	const [inviteRefusal, setInviteRefusal] = useState<string | null>(null);
 	const roleChoices = assignableRoles(data.membershipPolicy);
+	// People already listed (members and pending invites) can't be picked again.
+	const memberKeys = useMemo(
+		() => new Set(data.members.map((m) => identityKey({ type: "user", id: m.user.id }))),
+		[data.members],
+	);
 
 	const invite = useAction(inviteMemberAction);
 	// Role chips run a save from inside a menu; one runner reports their pending/error.
@@ -491,8 +498,8 @@ export function ConnectionsPageView({ entity, currentUserId, data, initialTab }:
 								) : (
 									// Step 1: pick a person.
 									<ProfileSearchDropdown
-										excludeUserIds={data.members.map((m) => m.user.id)}
-										onSelect={selectPendingUser}
+										excludeKeys={memberKeys}
+										onSelect={(result) => selectPendingUser(searchResultUser(result))}
 										placeholder="Search by name or handle..."
 										extraOption={{ label: "Invite via email", onSelect: openEmailInvite }}
 									/>

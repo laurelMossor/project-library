@@ -131,8 +131,9 @@ enum NotificationObject {
 }
 
 // User-facing grouping for email notification preferences. Each in-app NotificationType maps to
-// exactly one of these (see notification-category.ts); MESSAGES has no NotificationType — direct
-// messages are a separate model and enqueue for email directly.
+// exactly one of these (see notification-category.ts); MESSAGES has no NotificationType — messages
+// are a separate model and enqueue for email directly. That includes the "added you to a group
+// message" email, which is a Message (kind PARTICIPANT_ADDED), not a notification.
 enum NotificationCategory {
   COMMENTS
   REQUESTS
@@ -151,6 +152,13 @@ enum ConversationKind {
   GROUP
 }
 
+// What a Message row is. TEXT = something a participant wrote. PARTICIPANT_ADDED = a line the system
+// posts in a group message when someone is added ("alice added sam"); its subject is who was added.
+enum MessageKind {
+  TEXT
+  PARTICIPANT_ADDED
+}
+
 // What an EmailOutbox row points at, so the flush can read the source's read state for read-suppression.
 enum EmailSourceType {
   NOTIFICATION
@@ -166,18 +174,18 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email         String    @unique
-  passwordHash  String
-  handle        String    @unique
+  email            String    @unique
+  passwordHash     String
+  handle           String    @unique
   // null = not yet verified. Login is gated on this being set.
   // Existing users were backfilled to verified in the adding migration.
-  emailVerified DateTime?
+  emailVerified    DateTime?
   // null = the account has not finished the post-login settings review.
   // Existing users are backfilled; new signups and dev-bypass accounts leave it null.
   setupCompletedAt DateTime?
   // Session epoch. Bumped on password reset to invalidate all existing JWTs
   // for this user (the session callback rejects tokens with a stale version).
-  tokenVersion  Int       @default(0)
+  tokenVersion     Int       @default(0)
 
   firstName   String?
   middleName  String?
@@ -214,12 +222,13 @@ model User {
   followers Follow[] @relation("UserFollowers")
 
   // Pending access requests (Request-to-Follow / Request-to-Join)
-  accessRequestsMade     AccessRequest[] @relation("RequestsMade")
-  accessRequestsReceived AccessRequest[] @relation("RequestsForUser")
+  accessRequestsMade     AccessRequest[]   @relation("RequestsMade")
+  accessRequestsReceived AccessRequest[]   @relation("RequestsForUser")
   pageEmailInvitesSent   PageEmailInvite[]
 
   // Messaging
   sentMessages            Message[]                 @relation("SentMessages")
+  addedToGroupMessages    Message[]                 @relation("MessageSubjectUser")
   conversationMemberships ConversationParticipant[]
 
   // Cross-entity handle namespace (User ↔ Handle is 1:1; see Handle model)
@@ -252,6 +261,8 @@ model SignupInvite {
   tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
+
+  pageEmailInvite PageEmailInvite? // set when the link was sent with a page's email invite
 
   @@index([email])
   @@map("signup_invites")
@@ -353,12 +364,13 @@ model Page {
   following Follow[] @relation("PageFollowing")
 
   // Pending access requests (Request-to-Follow / Request-to-Join)
-  accessRequestsMade     AccessRequest[] @relation("RequestsMadeAs")
-  accessRequestsReceived AccessRequest[] @relation("RequestsForPage")
+  accessRequestsMade     AccessRequest[]   @relation("RequestsMadeAs")
+  accessRequestsReceived AccessRequest[]   @relation("RequestsForPage")
   emailInvites           PageEmailInvite[]
 
   // Messaging (Page as conversation participant)
-  conversations ConversationParticipant[]
+  conversations        ConversationParticipant[]
+  addedToGroupMessages Message[]                 @relation("MessageSubjectPage")
 
   // Cross-entity handle namespace (Page ↔ Handle is 1:1; see Handle model)
   handleRecord Handle?
@@ -460,15 +472,15 @@ model Permission {
 // migration 20260706000100_add_invariant_check_constraints.
 
 model Post {
-  id           String  @id @default(cuid())
-  userId       String
-  pageId       String? // where the post lives (its audience). Null = the author's profile.
+  id                  String  @id @default(cuid())
+  userId              String
+  pageId              String? // where the post lives (its audience). Null = the author's profile.
   // Who is speaking. Null = the author. When set it equals pageId (DB CHECK
   // posts_as_page_matches_page) — "posted AS the page", not "posted TO the page".
-  asPageId             String?
-  showOnAuthorProfile  Boolean @default(false) // also list a to-page post on the author's profile
-  eventId      String?
-  parentPostId String?
+  asPageId            String?
+  showOnAuthorProfile Boolean @default(false) // also list a to-page post on the author's profile
+  eventId             String?
+  parentPostId        String?
 
   title             String?
   content           String
@@ -506,14 +518,13 @@ model Post {
 // - hosted by a Page (pageId set) — user must have ADMIN/EDITOR permission
 
 model Event {
-  id     String  @id @default(cuid())
-  userId String
-  pageId String? // where the event lives (its audience). Null = the author's profile.
+  id                  String  @id @default(cuid())
+  userId              String
+  pageId              String? // where the event lives (its audience). Null = the author's profile.
   // Who is speaking. Null = the author. When set it equals pageId (DB CHECK
   // events_as_page_matches_page).
   asPageId            String?
   showOnAuthorProfile Boolean @default(false)
-
 
   title             String?
   content           String
@@ -604,7 +615,7 @@ model RsvpGuest {
 // - parentCommentId is RESERVED for a future one-level reply feature; unused in v1.
 
 model Comment {
-  id              String  @id @default(cuid())
+  id              String     @id @default(cuid())
   authorId        String?
   asPageId        String?
   deletedAs       DeletedAs?
@@ -735,8 +746,16 @@ model PageEmailInvite {
   claimedUserId String?
   cancelledAt   DateTime? // admin cancelled, or superseded by a newer send to the same address
 
-  page      Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  invitedBy User @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  // The signup link emailed with this row (null when the address already had an account).
+  signupInviteId   String? @unique
+  // The account was created from a signup link this page sent to the address. The admin caused that
+  // signup, so the members list shows the person's profile instead of the address. An address that
+  // already had an account never sets this, so the list never reveals who has one.
+  joinedFromInvite Boolean @default(false)
+
+  page         Page          @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  invitedBy    User          @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  signupInvite SignupInvite? @relation(fields: [signupInviteId], references: [id], onDelete: SetNull)
 
   @@index([invitedById, createdAt])
   @@index([email])
@@ -844,19 +863,28 @@ model ConversationParticipant {
 }
 
 model Message {
-  id             String    @id @default(cuid())
+  id             String      @id @default(cuid())
   conversationId String
+  kind           MessageKind @default(TEXT)
   content        String
   senderId       String?
   asPageId       String?
   deletedAs      DeletedAs?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime    @default(now())
   // DEPRECATED — superseded by ConversationParticipant.lastReadAt; no longer read or written.
   // Kept so this release stays additive; dropped by a follow-up migration.
   readAt         DateTime?
 
+  // PARTICIPANT_ADDED only: who was added (one of the two). The sender (+ asPageId) is who added them.
+  // Nulled if that account or page is later deleted; the line then reads "someone". DB CHECK
+  // `messages_subject_only_for_participant_added` keeps TEXT messages subject-free.
+  subjectUserId String?
+  subjectPageId String?
+
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User?        @relation("SentMessages", fields: [senderId], references: [id], onDelete: SetNull)
+  subjectUser  User?        @relation("MessageSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subjectPage  Page?        @relation("MessageSubjectPage", fields: [subjectPageId], references: [id], onDelete: SetNull)
 
   @@index([conversationId, createdAt])
   @@index([senderId])
@@ -886,8 +914,8 @@ model Notification {
   // else a page they manage. Fan-out sets contextPageId per recipient.
   recipientUserId String
   contextPageId   String?
-  recipient   User  @relation("NotificationsReceived", fields: [recipientUserId], references: [id], onDelete: Cascade)
-  contextPage Page? @relation("PageNotifications", fields: [contextPageId], references: [id], onDelete: Cascade)
+  recipient       User    @relation("NotificationsReceived", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  contextPage     Page?   @relation("PageNotifications", fields: [contextPageId], references: [id], onDelete: Cascade)
 
   type NotificationType
 
@@ -896,8 +924,8 @@ model Notification {
   actorUserId String?
   actorPageId String?
   actorName   String?
-  actorUser   User? @relation("NotificationsActed", fields: [actorUserId], references: [id], onDelete: Cascade)
-  actorPage   Page? @relation("NotificationsActedAs", fields: [actorPageId], references: [id], onDelete: Cascade)
+  actorUser   User?   @relation("NotificationsActed", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorPage   Page?   @relation("NotificationsActedAs", fields: [actorPageId], references: [id], onDelete: Cascade)
 
   // Object — what it's about, for the deep link. Enum-typed polymorphic pointer + loose id (no FK).
   // Nullable: NEW_FOLLOWER / NEW_MEMBER / REQUEST_APPROVED link to the actor, request types to the
@@ -930,8 +958,8 @@ model NotificationPreference {
 
   userId        String
   contextPageId String?
-  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contextPage   Page? @relation(fields: [contextPageId], references: [id], onDelete: Cascade)
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextPage   Page?   @relation(fields: [contextPageId], references: [id], onDelete: Cascade)
 
   category NotificationCategory? // null = the per-context email master
   enabled  Boolean
@@ -961,8 +989,8 @@ model EmailOutbox {
   // Concurrency claim: a flush run stamps this before sending so overlapping runs don't double-send.
   claimedAt DateTime?
   // null = pending; set when emailed or suppressed. `outcome` records which (SENT / SUPPRESSED_*).
-  sentAt  DateTime?
-  outcome String?
+  sentAt    DateTime?
+  outcome   String?
 
   @@index([recipientUserId, contextPageId])
   @@map("email_outbox")

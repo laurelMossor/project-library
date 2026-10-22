@@ -8,7 +8,7 @@ import { LocalDate } from "@/lib/components/ui/LocalDate";
 import { ConversationThread } from "./ConversationThread";
 import { NewGroupModal } from "./NewGroupModal";
 import { AvatarStack } from "./AvatarStack";
-import { conversationTitle, memberEntity, otherMembers, shortName } from "./conversation-display";
+import { conversationTitle, memberEntity, otherMembers, participantAddedLine, shortName } from "./conversation-display";
 import { useActiveProfile } from "@/lib/contexts/ActiveProfileContext";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { CardUser, CardPageWithRole, getCardUserDisplayName } from "@/lib/types/card";
@@ -37,6 +37,7 @@ const MAX_OPEN_THREADS_MOBILE = 1;
 function previewText(c: ConversationSummary): string | null {
 	const m = c.lastMessage;
 	if (!m) return c.kind === "GROUP" ? "No messages yet" : null;
+	if (m.kind === "participant_added") return participantAddedLine(m);
 	const body = m.deleted ? "[message deleted]" : truncateText(m.content);
 	if (m.isOwn) return `You: ${body}`;
 	return c.kind === "GROUP" ? `${shortName(m.author)}: ${body}` : body;

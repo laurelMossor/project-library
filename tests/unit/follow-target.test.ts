@@ -20,6 +20,9 @@ vi.mock("@/lib/utils/server/session", () => ({ getSessionContext: vi.fn() }));
 import { followTarget, unfollowTarget } from "@/lib/utils/server/follow";
 import { prisma } from "@/lib/utils/server/prisma";
 
+const U1 = { type: "USER", id: "u1" } as const;
+const P1 = { type: "PAGE", id: "p1" } as const;
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
@@ -32,21 +35,21 @@ beforeEach(() => {
 
 describe("followTarget", () => {
 	test("refuses following yourself before any lookup", async () => {
-		const res = await followTarget("u1", { type: "USER", id: "u1" });
+		const res = await followTarget(U1,{ type: "USER", id: "u1" });
 		expect(res).toEqual({ ok: false, reason: "self" });
 		expect(prisma.user.findUnique).not.toHaveBeenCalled();
 		expect(prisma.follow.create).not.toHaveBeenCalled();
 	});
 
 	test("missing user → not_found, no edge", async () => {
-		const res = await followTarget("u1", { type: "USER", id: "u2" });
+		const res = await followTarget(U1,{ type: "USER", id: "u2" });
 		expect(res).toEqual({ ok: false, reason: "not_found" });
 		expect(prisma.follow.create).not.toHaveBeenCalled();
 		expect(prisma.accessRequest.create).not.toHaveBeenCalled();
 	});
 
 	test("missing page → not_found, no edge", async () => {
-		const res = await followTarget("u1", { type: "PAGE", id: "p2" });
+		const res = await followTarget(U1,{ type: "PAGE", id: "p2" });
 		expect(res).toEqual({ ok: false, reason: "not_found" });
 		expect(prisma.follow.create).not.toHaveBeenCalled();
 	});
@@ -56,8 +59,8 @@ describe("followTarget", () => {
 			id: "u2",
 			profileVisibility: ProfileVisibility.PUBLIC,
 		} as never);
-		vi.mocked(prisma.follow.findUnique).mockResolvedValue({ id: "f1" } as never);
-		const res = await followTarget("u1", { type: "USER", id: "u2" });
+		vi.mocked(prisma.follow.findFirst).mockResolvedValue({ id: "f1" } as never);
+		const res = await followTarget(U1,{ type: "USER", id: "u2" });
 		expect(res).toEqual({ ok: false, reason: "already_following" });
 		expect(prisma.follow.create).not.toHaveBeenCalled();
 	});
@@ -67,7 +70,7 @@ describe("followTarget", () => {
 			id: "u2",
 			profileVisibility: ProfileVisibility.PUBLIC,
 		} as never);
-		const res = await followTarget("u1", { type: "USER", id: "u2" });
+		const res = await followTarget(U1,{ type: "USER", id: "u2" });
 		expect(res).toEqual({ ok: true, status: "followed" });
 		expect(prisma.follow.create).toHaveBeenCalledWith({
 			data: {
@@ -85,7 +88,7 @@ describe("followTarget", () => {
 			id: "u2",
 			profileVisibility: ProfileVisibility.PRIVATE,
 		} as never);
-		const res = await followTarget("u1", { type: "USER", id: "u2" });
+		const res = await followTarget(U1,{ type: "USER", id: "u2" });
 		expect(res).toEqual({ ok: true, status: "requested" });
 		expect(prisma.accessRequest.create).toHaveBeenCalledWith({
 			data: expect.objectContaining({
@@ -102,7 +105,7 @@ describe("followTarget", () => {
 			id: "p2",
 			profileVisibility: ProfileVisibility.PRIVATE,
 		} as never);
-		const res = await followTarget("u1", { type: "PAGE", id: "p2" });
+		const res = await followTarget(U1,{ type: "PAGE", id: "p2" });
 		expect(res).toEqual({ ok: true, status: "requested" });
 		expect(prisma.accessRequest.create).toHaveBeenCalledWith({
 			data: expect.objectContaining({
@@ -115,10 +118,58 @@ describe("followTarget", () => {
 	});
 });
 
+describe("followTarget as a page (acting identity)", () => {
+	test("a page can't follow itself", async () => {
+		const res = await followTarget(P1, { type: "PAGE", id: "p1" });
+		expect(res).toEqual({ ok: false, reason: "self" });
+		expect(prisma.page.findUnique).not.toHaveBeenCalled();
+	});
+
+	test("a page can follow the person who manages it (that's not 'self')", async () => {
+		vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", profileVisibility: ProfileVisibility.PUBLIC } as never);
+		const res = await followTarget(P1, { type: "USER", id: "u1" });
+		expect(res).toEqual({ ok: true, status: "followed" });
+	});
+
+	test("PUBLIC user → the edge's follower is the page, not the person", async () => {
+		vi.mocked(prisma.user.findUnique).mockResolvedValue({
+			id: "u2",
+			profileVisibility: ProfileVisibility.PUBLIC,
+		} as never);
+		const res = await followTarget(P1, { type: "USER", id: "u2" });
+		expect(res).toEqual({ ok: true, status: "followed" });
+		expect(prisma.follow.create).toHaveBeenCalledWith({
+			data: { followerId: null, followerPageId: "p1", followingUserId: "u2", followingPageId: null },
+		});
+	});
+
+	test("PRIVATE user → the request comes from the page", async () => {
+		vi.mocked(prisma.user.findUnique).mockResolvedValue({
+			id: "u2",
+			profileVisibility: ProfileVisibility.PRIVATE,
+		} as never);
+		const res = await followTarget(P1, { type: "USER", id: "u2" });
+		expect(res).toEqual({ ok: true, status: "requested" });
+		expect(prisma.accessRequest.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({ kind: "FOLLOW", requesterId: null, requesterPageId: "p1", targetUserId: "u2" }),
+		});
+	});
+
+	test("unfollow as a page removes the page's edge", async () => {
+		vi.mocked(prisma.follow.findFirst).mockResolvedValue({ id: "f9" } as never);
+		await unfollowTarget(P1, { type: "USER", id: "u2" });
+		expect(prisma.follow.findFirst).toHaveBeenCalledWith({
+			where: { followerId: null, followerPageId: "p1", followingUserId: "u2", followingPageId: null },
+			select: { id: true },
+		});
+		expect(prisma.follow.delete).toHaveBeenCalledWith({ where: { id: "f9" } });
+	});
+});
+
 describe("unfollowTarget", () => {
 	test("deletes the follow edge and leaves requests alone", async () => {
-		vi.mocked(prisma.follow.findUnique).mockResolvedValue({ id: "f1" } as never);
-		const res = await unfollowTarget("u1", { type: "USER", id: "u2" });
+		vi.mocked(prisma.follow.findFirst).mockResolvedValue({ id: "f1" } as never);
+		const res = await unfollowTarget(U1,{ type: "USER", id: "u2" });
 		expect(res).toEqual({ ok: true });
 		expect(prisma.follow.delete).toHaveBeenCalledWith({ where: { id: "f1" } });
 		expect(prisma.accessRequest.deleteMany).not.toHaveBeenCalled();
@@ -126,7 +177,7 @@ describe("unfollowTarget", () => {
 
 	test("no edge → cancels a pending request", async () => {
 		vi.mocked(prisma.accessRequest.deleteMany).mockResolvedValue({ count: 1 } as never);
-		const res = await unfollowTarget("u1", { type: "PAGE", id: "p2" });
+		const res = await unfollowTarget(U1,{ type: "PAGE", id: "p2" });
 		expect(res).toEqual({ ok: true });
 		expect(prisma.follow.delete).not.toHaveBeenCalled();
 		expect(prisma.accessRequest.deleteMany).toHaveBeenCalledWith({
@@ -141,7 +192,7 @@ describe("unfollowTarget", () => {
 	});
 
 	test("nothing to remove → not ok", async () => {
-		const res = await unfollowTarget("u1", { type: "USER", id: "u2" });
+		const res = await unfollowTarget(U1,{ type: "USER", id: "u2" });
 		expect(res).toEqual({ ok: false });
 		expect(prisma.follow.delete).not.toHaveBeenCalled();
 	});

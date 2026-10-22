@@ -50,4 +50,34 @@ test.describe("Profile switching", () => {
     await page.goto("/messages");
     await expect(page.getByText("Sam Example")).toBeVisible({ timeout: 10_000 });
   });
+
+  test("following while acting as a page follows as the page — on the profile and on Find people", async ({ page }) => {
+    // Personally, alice already follows sam (seeded).
+    await page.goto("/sam.example");
+    await expect(page.getByRole("button", { name: "Unfollow" })).toBeVisible({ timeout: 10_000 });
+
+    // As the guild, which doesn't follow sam, the same button says Follow.
+    await switchToPage(page, "Portland Makers Guild", "admin");
+    await page.goto("/sam.example");
+    const follow = page.getByRole("button", { name: "Follow", exact: true });
+    await expect(follow).toBeVisible({ timeout: 10_000 });
+    await follow.click();
+    await expect(page.getByRole("button", { name: "Unfollow" })).toBeVisible({ timeout: 10_000 });
+
+    try {
+      // Find people agrees: the card's button reflects the guild's follow.
+      await page.goto("/search");
+      await page.getByPlaceholder("Search by name or handle...").fill("Sam Ex");
+      const card = page.locator("div").filter({ has: page.getByRole("link", { name: /Sam Example/ }) }).last();
+      await expect(card.getByRole("button", { name: "Following" })).toBeVisible({ timeout: 10_000 });
+    } finally {
+      // Unfollow as the guild; alice's own follow of sam is untouched.
+      await page.goto("/sam.example");
+      await page.getByRole("button", { name: "Unfollow" }).click();
+      await expect(page.getByRole("button", { name: "Follow", exact: true })).toBeVisible({ timeout: 10_000 });
+      await switchToPersonal(page);
+      await page.goto("/sam.example");
+      await expect(page.getByRole("button", { name: "Unfollow" })).toBeVisible({ timeout: 10_000 });
+    }
+  });
 });

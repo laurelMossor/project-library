@@ -53,14 +53,16 @@ export async function signUp(input: SignupInput): Promise<string> {
 	const passwordHash = await bcrypt.hash(password, 10);
 	const maxHandleAttempts = chosenHandle ? 1 : 4;
 
-	const userId = devBypass
-		? await createDevAccount({ normalizedEmail, passwordHash, chosenHandle, displayName, maxHandleAttempts })
-		: await createInvitedAccount({ normalizedEmail, passwordHash, chosenHandle, displayName, maxHandleAttempts, inviteStr });
+	const draft = { normalizedEmail, passwordHash, chosenHandle, displayName, maxHandleAttempts };
+	const { userId, signupInviteId } = devBypass
+		? { userId: await createDevAccount(draft), signupInviteId: null }
+		: await createInvitedAccount({ ...draft, inviteStr });
 
-	// Page invites sent to this address before the account existed land in notifications now.
-	// Never fails the signup — the account is already created.
+	// Page invites sent to this address before the account existed land in notifications now; the page
+	// whose link was used shows the person's profile (claimPageEmailInvites). Never fails the signup —
+	// the account is already created.
 	try {
-		await claimPageEmailInvites(userId, normalizedEmail);
+		await claimPageEmailInvites(userId, normalizedEmail, signupInviteId);
 	} catch (err) {
 		logAction("user.signup.claim_page_invites_failed", userId, {
 			error: err instanceof Error ? err.message : String(err),
@@ -113,7 +115,9 @@ async function createDevAccount(draft: AccountDraft): Promise<string> {
  * and email it AFTER responding, so a token/email failure can't turn a created account into an
  * error — the user can always resend from the check-inbox or login pages.
  */
-async function createInvitedAccount(draft: AccountDraft & { inviteStr: string }): Promise<string> {
+async function createInvitedAccount(
+	draft: AccountDraft & { inviteStr: string },
+): Promise<{ userId: string; signupInviteId: string }> {
 	const { normalizedEmail, passwordHash, chosenHandle, displayName, maxHandleAttempts, inviteStr } = draft;
 	let result: ConsumeInviteResult | null = null;
 	for (let attempt = 0; attempt < maxHandleAttempts; attempt++) {
@@ -136,5 +140,5 @@ async function createInvitedAccount(draft: AccountDraft & { inviteStr: string })
 			});
 		}
 	});
-	return userId;
+	return { userId, signupInviteId: result.signupInviteId };
 }

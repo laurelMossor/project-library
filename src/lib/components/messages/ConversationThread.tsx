@@ -13,7 +13,7 @@ import { resolveCardIdentity } from "@/lib/types/card";
 import type { ConversationThreadData, ThreadMessage } from "@/lib/types/message";
 import { AvatarStack } from "./AvatarStack";
 import { MembersModal } from "./MembersModal";
-import { conversationTitle, fullName, memberEntity, otherMembers } from "./conversation-display";
+import { conversationTitle, fullName, memberEntity, otherMembers, participantAddedLine } from "./conversation-display";
 
 interface ConversationThreadProps {
 	conversationId: string;
@@ -30,8 +30,9 @@ interface ConversationThreadProps {
 const POLL_MS = 60_000;
 
 /** Same author as the previous message → collapse the name/avatar into one run.
- * Tombstones key on `deleted` plus the message id, so two deleted speakers never merge. */
+ * Tombstones and "added" lines key on their own id, so nothing merges across them. */
 const authorKey = (m: ThreadMessage) => {
+	if (m.kind === "participant_added") return `added:${m.id}`;
 	if (m.deleted) return `deleted:${m.deleted}:${m.id}`;
 	return m.author.type === "page" ? `page:${m.author.page?.id}` : `user:${m.author.user?.id}`;
 };
@@ -144,11 +145,19 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 			)}
 
 			<div ref={messagesRef} className="flex-1 overflow-y-auto px-3 py-4 sm:px-5 min-h-0" aria-live="polite">
+				{thread.hasEarlierHistory && (
+					<SystemLine text="You were added · messages from before you joined aren't shown" />
+				)}
 				{thread.messages.length === 0 ? (
-					<p className="text-center text-sm text-dusty-grey py-8">No messages yet. Start the conversation below!</p>
+					!thread.hasEarlierHistory && (
+						<p className="text-center text-sm text-dusty-grey py-8">No messages yet. Start the conversation below!</p>
+					)
 				) : (
 					<ol className="flex flex-col">
 						{thread.messages.map((m, i) => {
+							if (m.kind === "participant_added") {
+								return <SystemLine key={m.id} as="li" text={participantAddedLine(m)} />;
+							}
 							const prev = thread.messages[i - 1];
 							const startsRun = !prev || authorKey(prev) !== authorKey(m) || prev.isOwn !== m.isOwn;
 							// Co-managers see which colleague spoke for the page (only ever on the page's own
@@ -219,6 +228,11 @@ export function ConversationThread({ conversationId, asPageId, onRead, onLeft, o
 			)}
 		</div>
 	);
+}
+
+/** A centred line from the conversation itself rather than a person ("Alice added Sam"). */
+function SystemLine({ text, as: Tag = "p" }: { text: string; as?: "p" | "li" }) {
+	return <Tag className="my-3 text-center text-xs text-dusty-grey">{text}</Tag>;
 }
 
 function MessageBubble({ message, startsRun, showAuthor, sentBy }: {

@@ -8,7 +8,7 @@
 // Read state is per participant (`ConversationParticipant.lastReadAt`) and a participant only sees
 // messages sent at/after it joined (its `createdAt`). A page participant's marker is shared by all of its
 // managers — the page inbox is a shared inbox.
-import { ConversationKind, EmailSourceType, NotificationCategory, Prisma } from "@prisma/client";
+import { ConversationKind, EmailSourceType, MessageKind, NotificationCategory, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { canManagePage, canPostAsPage, getActingManagerIdsByPage } from "./permission";
 import { enqueueEmails, type EmailOutboxEntry } from "./email-outbox";
@@ -21,7 +21,14 @@ import {
 	participantIdentity,
 	type MessagingIdentityRef,
 } from "@/lib/const/messaging";
-import type { ConversationMember, ConversationSummary, ConversationThreadData, DeletedSpeaker, MessageAuthor } from "@/lib/types/message";
+import type {
+	ConversationMember,
+	ConversationSummary,
+	ConversationThreadData,
+	DeletedSpeaker,
+	MessageAuthor,
+	MessageSubject,
+} from "@/lib/types/message";
 import type { CardPage } from "@/lib/types/card";
 
 export type MessagingIdentity = MessagingIdentityRef;
@@ -74,6 +81,19 @@ function unreadWindow(p: ParticipantWindow): Prisma.MessageWhereInput {
 	return { conversationId: p.conversationId, createdAt };
 }
 
+/** The `participant_added` line naming this identity as the one who was added. */
+function addedSubjectWhere(identity: MessagingIdentity): Prisma.MessageWhereInput {
+	return identity.type === "page" ? { subjectPageId: identity.id } : { subjectUserId: identity.id };
+}
+
+/**
+ * Which kinds of message can be unread for an identity: everything participants write, and the
+ * "added" line only for the one who was added — other members see it without a badge.
+ */
+function unreadKindWhere(identity: MessagingIdentity): Prisma.MessageWhereInput {
+	return { OR: [{ kind: MessageKind.TEXT }, { kind: MessageKind.PARTICIPANT_ADDED, ...addedSubjectWhere(identity) }] };
+}
+
 /** Unread count per conversation for an identity (conversations with 0 unread are absent). */
 export async function getUnreadCountsByConversation(
 	identity: MessagingIdentity,
@@ -86,7 +106,11 @@ export async function getUnreadCountsByConversation(
 	if (parts.length === 0) return new Map();
 	const rows = await prisma.message.groupBy({
 		by: ["conversationId"],
-		where: { OR: parts.map(unreadWindow), NOT: ownMessageWhere(identity), deletedAs: null },
+		where: {
+			AND: [{ OR: parts.map(unreadWindow) }, unreadKindWhere(identity)],
+			NOT: ownMessageWhere(identity),
+			deletedAs: null,
+		},
 		_count: { _all: true },
 	});
 	return new Map(rows.map((r) => [r.conversationId, r._count._all]));
@@ -202,33 +226,62 @@ function authorOf(
 	return m.asPageId ? { type: "page", page: pages.get(m.asPageId) ?? null } : { type: "user", user: m.sender };
 }
 
+/** Who a `participant_added` line is about, and whether that's the viewing identity. */
+function subjectOf(
+	m: { subjectUserId: string | null; subjectPageId: string | null; subjectUser: UserEmbed | null },
+	identity: MessagingIdentity,
+	pages: Map<string, CardPage | null>,
+): MessageSubject {
+	const you = identityKey(identity);
+	if (m.subjectPageId) {
+		return { type: "page", page: pages.get(m.subjectPageId) ?? null, isYou: identityKey({ type: "page", id: m.subjectPageId }) === you };
+	}
+	const isYou = !!m.subjectUserId && identityKey({ type: "user", id: m.subjectUserId }) === you;
+	return { type: "user", user: m.subjectUser, isYou };
+}
+
+/** Page ids a batch of messages names: pages that sent them, and pages a `participant_added` line is about. */
+const messagePageIds = (messages: LoadedMessage[]) =>
+	messages.flatMap((m) => [m.asPageId, m.subjectPageId]).filter((id): id is string => !!id);
+
 const messageSelect = {
 	id: true,
+	kind: true,
 	content: true,
 	createdAt: true,
 	senderId: true,
 	asPageId: true,
 	deletedAs: true,
+	subjectUserId: true,
+	subjectPageId: true,
 	sender: { select: publicUserEmbedFields },
+	subjectUser: { select: publicUserEmbedFields },
 } as const;
 
 type LoadedMessage = {
 	id: string;
+	kind: MessageKind;
 	content: string;
 	createdAt: Date;
 	senderId: string | null;
 	asPageId: string | null;
 	deletedAs: DeletedSpeaker | null;
+	subjectUserId: string | null;
+	subjectPageId: string | null;
 	sender: UserEmbed | null;
+	subjectUser: UserEmbed | null;
 };
 
 function toMessageBody(m: LoadedMessage, identity: MessagingIdentity, pages: Map<string, CardPage | null>) {
+	const added = m.kind === MessageKind.PARTICIPANT_ADDED;
 	return {
 		id: m.id,
+		kind: added ? ("participant_added" as const) : ("text" as const),
 		content: m.deletedAs ? "" : m.content,
 		createdAt: m.createdAt,
 		isOwn: isOwnMessage(m, identity),
 		author: authorOf(m, pages),
+		subject: added ? subjectOf(m, identity, pages) : null,
 		deleted: m.deletedAs,
 	};
 }
@@ -288,7 +341,7 @@ export async function listInbox(identity: MessagingIdentity, limit = 50): Promis
 		.map((c) => c.id);
 	const gone = await deletedCounterparts(lonelyDirect);
 	const pages = await pagesById(
-		conversations.flatMap((c) => c.messages.map((m) => m.asPageId).filter((id): id is string => !!id)),
+		conversations.flatMap((c) => messagePageIds(c.messages)),
 		[...members.values()].flat(),
 	);
 
@@ -324,7 +377,7 @@ export async function getThread(
 	const participation = await getParticipation(conversationId, identity);
 	if (!participation) return null;
 
-	const [participants, messages] = await Promise.all([
+	const [participants, messages, earlier] = await Promise.all([
 		prisma.conversationParticipant.findMany({
 			where: { conversationId },
 			include: participantInclude,
@@ -335,10 +388,15 @@ export async function getThread(
 			orderBy: { createdAt: "asc" },
 			select: messageSelect,
 		}),
+		// Only whether history exists before they joined — never its content.
+		prisma.message.findFirst({
+			where: { conversationId, createdAt: { lt: participation.joinedAt } },
+			select: { id: true },
+		}),
 	]);
 
 	const members = toMembers(participants, identity);
-	const pages = await pagesById(messages.map((m) => m.asPageId).filter((id): id is string => !!id), members);
+	const pages = await pagesById(messagePageIds(messages), members);
 	const { conversation } = participation;
 	const lonely = conversation.kind === ConversationKind.DIRECT && members.every((m) => m.isYou);
 	const gone = lonely ? await deletedCounterparts([conversation.id]) : new Map<string, DeletedSpeaker>();
@@ -352,6 +410,7 @@ export async function getThread(
 		canLeave: conversation.kind === ConversationKind.GROUP
 			&& (identity.type === "user" || await canManagePage(sessionUserId, identity.id)),
 		deletedCounterpart: gone.get(conversation.id) ?? null,
+		hasEarlierHistory: !!earlier,
 		messages: messages.map((m) => ({
 			...toMessageBody(m, identity, pages),
 			sentBy: !m.deletedAs && m.asPageId && identity.type === "page" && identity.id === m.asPageId ? m.sender : null,
@@ -405,19 +464,41 @@ export async function enqueueMessageEmails(
 	});
 	// Filter in JS: a Prisma `NOT { userId }` would also drop page rows (NULL userId) — the SQL NULL trap.
 	const recipients = participants.map(participantIdentity).filter((r) => identityKey(r) !== identityKey(sender));
-	const managersByPage = await getActingManagerIdsByPage(recipients.filter((r) => r.type === "page").map((r) => r.id));
+	await enqueueEmails(await messageEmailEntries(message, recipients));
+}
 
+/**
+ * Email the identity a `participant_added` line is about ("alice added you to …"). Only them — the
+ * other members see the line in the thread without an email. Same preferences and read-suppression
+ * as any message email.
+ */
+export async function enqueueParticipantAddedEmail(
+	message: { id: string; senderId: string | null },
+	subject: MessagingIdentity,
+): Promise<void> {
+	await enqueueEmails(await messageEmailEntries(message, [subject]));
+}
+
+/**
+ * Outbox rows for a message to these identities: a user directly, a page fanned out to its ADMIN/EDITOR
+ * managers (tagged with the page context). The human who sent it is never emailed — personally or as a
+ * manager of a recipient page.
+ */
+async function messageEmailEntries(
+	message: { id: string; senderId: string | null },
+	recipients: MessagingIdentity[],
+): Promise<EmailOutboxEntry[]> {
+	const managersByPage = await getActingManagerIdsByPage(recipients.filter((r) => r.type === "page").map((r) => r.id));
 	const base = { category: NotificationCategory.MESSAGES, sourceType: EmailSourceType.MESSAGE, sourceId: message.id };
 	const entries: EmailOutboxEntry[] = [];
 	for (const r of recipients) {
-		// The human who sent it is never emailed — personally or as a manager of a recipient page.
 		const userIds = r.type === "user" ? [r.id] : managersByPage.get(r.id) ?? [];
 		for (const userId of userIds) {
 			if (userId === message.senderId) continue;
 			entries.push({ recipientUserId: userId, contextPageId: r.type === "page" ? r.id : null, ...base });
 		}
 	}
-	await enqueueEmails(entries);
+	return entries;
 }
 
 // ─── Direct messages ─────────────────────────────────────────────────────────
@@ -522,9 +603,20 @@ async function lockConversation(tx: Prisma.TransactionClient, conversationId: st
 	await tx.$queryRaw`SELECT id FROM "conversations" WHERE id = ${conversationId} FOR UPDATE`;
 }
 
-/** Add members to a GROUP. Idempotent for existing members; the cap is checked under a row lock. */
-export async function addGroupMembers(conversationId: string, refs: MessagingIdentity[]): Promise<Result<{ added: number }>> {
-	return prisma.$transaction(async (tx) => {
+/**
+ * Add participants to a group message, as `addedBy` (the acting identity + the human who clicked).
+ * Idempotent for existing participants; the cap is checked under a row lock. In the same transaction,
+ * with one timestamp: the participant rows, one `PARTICIPANT_ADDED` line per new participant ("alice
+ * added sam"), and the conversation's `updatedAt` — so it rises to the top of every inbox. The line's
+ * time equals the join time, so the new participant sees it (they never see anything earlier). Each
+ * added identity is then emailed, best-effort, like a sent message.
+ */
+export async function addGroupMembers(
+	conversationId: string,
+	refs: MessagingIdentity[],
+	addedBy: { identity: MessagingIdentity; userId: string },
+): Promise<Result<{ added: number }>> {
+	const result = await prisma.$transaction(async (tx) => {
 		await lockConversation(tx, conversationId);
 		const existing = await tx.conversationParticipant.findMany({
 			where: { conversationId },
@@ -534,14 +626,40 @@ export async function addGroupMembers(conversationId: string, refs: MessagingIde
 		const resolved = await resolveNewMembers(refs, existingKeys);
 		if (!resolved.ok) return resolved;
 		if (existing.length + resolved.value.length > MAX_GROUP_PARTICIPANTS) return tooMany();
-		if (resolved.value.length > 0) {
-			await tx.conversationParticipant.createMany({
-				data: resolved.value.map((r) => ({ conversationId, ...identityWhere(r) })),
-				skipDuplicates: true,
-			});
-		}
-		return { ok: true as const, value: { added: resolved.value.length } };
+		if (resolved.value.length === 0) return { ok: true as const, value: { added: 0, lines: [] } };
+
+		const at = new Date();
+		await tx.conversationParticipant.createMany({
+			data: resolved.value.map((r) => ({ conversationId, createdAt: at, ...identityWhere(r) })),
+			skipDuplicates: true,
+		});
+		const lines = await tx.message.createManyAndReturn({
+			data: resolved.value.map((r) => ({
+				conversationId,
+				kind: MessageKind.PARTICIPANT_ADDED,
+				content: "",
+				senderId: addedBy.userId,
+				asPageId: asPageIdOf(addedBy.identity) ?? null,
+				subjectUserId: r.type === "user" ? r.id : null,
+				subjectPageId: r.type === "page" ? r.id : null,
+				createdAt: at,
+			})),
+			select: { id: true, senderId: true },
+		});
+		await tx.conversation.update({ where: { id: conversationId }, data: { updatedAt: at } });
+		const added = resolved.value.map((subject, i) => ({ message: lines[i], subject }));
+		return { ok: true as const, value: { added: resolved.value.length, lines: added } };
 	});
+	if (!result.ok) return result;
+
+	for (const { message, subject } of result.value.lines) {
+		try {
+			await enqueueParticipantAddedEmail(message, subject);
+		} catch (err) {
+			console.error("addGroupMembers: email enqueue failed (participant still added):", err);
+		}
+	}
+	return { ok: true, value: { added: result.value.added } };
 }
 
 /** Rename (or clear the name of) a GROUP. */

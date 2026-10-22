@@ -11,7 +11,7 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	const prisma: any = {
 		conversationParticipant: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
 		conversation: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
-		message: { groupBy: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+		message: { groupBy: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), createManyAndReturn: vi.fn() },
 		user: { findUnique: vi.fn(), count: vi.fn() },
 		page: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
 		$queryRaw: vi.fn(),
@@ -45,7 +45,8 @@ import {
 	leaveGroup,
 } from "@/lib/utils/server/message";
 import { prisma } from "@/lib/utils/server/prisma";
-import { canPostAsPage, canManagePage } from "@/lib/utils/server/permission";
+import { canPostAsPage, canManagePage, getActingManagerIdsByPage } from "@/lib/utils/server/permission";
+import { enqueueEmails } from "@/lib/utils/server/email-outbox";
 import { MAX_GROUP_PARTICIPANTS } from "@/lib/const/messaging";
 
 const p = prisma as any;
@@ -99,11 +100,22 @@ describe("getUnreadCountsByConversation", () => {
 		expect(counts.get("c1")).toBe(2);
 		expect(counts.has("c2")).toBe(false);
 		const where = p.message.groupBy.mock.calls[0][0].where;
-		expect(where.OR).toEqual([
+		expect(where.AND[0].OR).toEqual([
 			{ conversationId: "c1", createdAt: { gt: t(5) } },
 			{ conversationId: "c2", createdAt: { gte: t(10) } }, // late joiner: nothing before join counts
 		]);
 		expect(where.NOT).toEqual({ senderId: "alice", asPageId: null });
+	});
+	test("an 'added' line is unread only for the one who was added", async () => {
+		p.message.groupBy.mockResolvedValue([]);
+		await getUnreadCountsByConversation(alice, [{ conversationId: "c1", createdAt: t(0), lastReadAt: null }]);
+		expect(p.message.groupBy.mock.calls[0][0].where.AND[1]).toEqual({
+			OR: [{ kind: "TEXT" }, { kind: "PARTICIPANT_ADDED", subjectUserId: "alice" }],
+		});
+		await getUnreadCountsByConversation(guild, [{ conversationId: "c1", createdAt: t(0), lastReadAt: null }]);
+		expect(p.message.groupBy.mock.calls[1][0].where.AND[1]).toEqual({
+			OR: [{ kind: "TEXT" }, { kind: "PARTICIPANT_ADDED", subjectPageId: "guild" }],
+		});
 	});
 	test("no conversations → no query", async () => {
 		expect((await getUnreadCountsByConversation(alice, [])).size).toBe(0);
@@ -178,6 +190,29 @@ describe("getThread", () => {
 		expect(p.message.findMany.mock.calls[0][0].where).toEqual({ conversationId: "g1", createdAt: { gte: t(3) } });
 	});
 
+	test("hasEarlierHistory says whether anything predates the join — and loads none of it", async () => {
+		p.message.findFirst.mockResolvedValue(null);
+		expect((await getThread("g1", sam, "sam"))!.hasEarlierHistory).toBe(false);
+
+		p.message.findFirst.mockResolvedValue({ id: "old" });
+		expect((await getThread("g1", sam, "sam"))!.hasEarlierHistory).toBe(true);
+		expect(p.message.findFirst).toHaveBeenLastCalledWith({
+			where: { conversationId: "g1", createdAt: { lt: t(3) } },
+			select: { id: true },
+		});
+	});
+
+	test("an 'added' line carries who added whom, and marks the viewer as the one added", async () => {
+		p.message.findMany.mockResolvedValue([{
+			id: "a1", kind: "PARTICIPANT_ADDED", content: "", createdAt: t(3), senderId: "alice", asPageId: null,
+			deletedAs: null, subjectUserId: "sam", subjectPageId: null, sender: senderAlice, subjectUser: { id: "sam" },
+		}]);
+		const m = (await getThread("g1", sam, "sam"))!.messages[0];
+		expect(m.kind).toBe("participant_added");
+		expect(m.author).toEqual({ type: "user", user: senderAlice });
+		expect(m.subject).toEqual({ type: "user", user: { id: "sam" }, isYou: true });
+	});
+
 	test("page message: other members see the page only — no human sender in the payload", async () => {
 		const thread = await getThread("g1", sam, "sam");
 		const m = thread!.messages[0];
@@ -239,25 +274,78 @@ describe("group lifecycle", () => {
 		expect(await createGroup(alice, [sam], null)).toMatchObject({ ok: false, status: 404 });
 	});
 
+	const byAlice = { identity: alice, userId: "alice" };
+
 	test("add: locks the conversation row, skips existing members, and enforces the cap", async () => {
 		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "alice", pageId: null }, { userId: "sam", pageId: null }]);
-		const res = await addGroupMembers("g1", [sam, guild]);
+		p.message.createManyAndReturn.mockResolvedValue([{ id: "line1", senderId: "alice" }]);
+		const res = await addGroupMembers("g1", [sam, guild], byAlice);
 		expect(res).toEqual({ ok: true, value: { added: 1 } });
 		expect(p.$queryRaw).toHaveBeenCalled(); // SELECT … FOR UPDATE — serializes concurrent adds
-		expect(p.conversationParticipant.createMany.mock.calls[0][0].data).toEqual([{ conversationId: "g1", pageId: "guild" }]);
+		expect(p.conversationParticipant.createMany.mock.calls[0][0].data).toEqual([
+			{ conversationId: "g1", pageId: "guild", createdAt: expect.any(Date) },
+		]);
+	});
+
+	test("add: posts an 'added' line at the join time and moves the group message to the top", async () => {
+		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "alice", pageId: null }]);
+		p.message.createManyAndReturn.mockResolvedValue([{ id: "line1", senderId: "alice" }]);
+		await addGroupMembers("g1", [sam], byAlice);
+
+		const joinedAt = p.conversationParticipant.createMany.mock.calls[0][0].data[0].createdAt;
+		expect(p.message.createManyAndReturn.mock.calls[0][0].data).toEqual([{
+			conversationId: "g1",
+			kind: "PARTICIPANT_ADDED",
+			content: "",
+			senderId: "alice",
+			asPageId: null,
+			subjectUserId: "sam",
+			subjectPageId: null,
+			createdAt: joinedAt, // same instant as the join, so the new member sees it
+		}]);
+		expect(p.conversation.update).toHaveBeenCalledWith({ where: { id: "g1" }, data: { updatedAt: joinedAt } });
+	});
+
+	test("add: as a page, the line is spoken by the page", async () => {
+		p.conversationParticipant.findMany.mockResolvedValue([{ userId: null, pageId: "guild" }]);
+		p.message.createManyAndReturn.mockResolvedValue([{ id: "line1", senderId: "alice" }]);
+		await addGroupMembers("g1", [sam], { identity: guild, userId: "alice" });
+		expect(p.message.createManyAndReturn.mock.calls[0][0].data[0]).toMatchObject({ senderId: "alice", asPageId: "guild" });
+	});
+
+	test("add: emails only the person added, never the one who added them", async () => {
+		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "alice", pageId: null }]);
+		p.message.createManyAndReturn.mockResolvedValue([{ id: "line1", senderId: "alice" }]);
+		vi.mocked(getActingManagerIdsByPage).mockResolvedValue(new Map());
+		await addGroupMembers("g1", [sam], byAlice);
+		expect(enqueueEmails).toHaveBeenCalledWith([
+			{ recipientUserId: "sam", contextPageId: null, category: "MESSAGES", sourceType: "MESSAGE", sourceId: "line1" },
+		]);
+	});
+
+	test("add: adding a page emails its managers under the page, skipping the one who added it", async () => {
+		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "alice", pageId: null }]);
+		p.message.createManyAndReturn.mockResolvedValue([{ id: "line1", senderId: "alice" }]);
+		vi.mocked(getActingManagerIdsByPage).mockResolvedValue(new Map([["guild", ["alice", "pat"]]]));
+		await addGroupMembers("g1", [guild], byAlice);
+		expect(enqueueEmails).toHaveBeenCalledWith([
+			{ recipientUserId: "pat", contextPageId: "guild", category: "MESSAGES", sourceType: "MESSAGE", sourceId: "line1" },
+		]);
 	});
 
 	test("add: re-adding only existing members is a no-op", async () => {
 		p.conversationParticipant.findMany.mockResolvedValue([{ userId: "sam", pageId: null }]);
-		expect(await addGroupMembers("g1", [sam])).toEqual({ ok: true, value: { added: 0 } });
+		expect(await addGroupMembers("g1", [sam], byAlice)).toEqual({ ok: true, value: { added: 0 } });
 		expect(p.conversationParticipant.createMany).not.toHaveBeenCalled();
+		expect(p.message.createManyAndReturn).not.toHaveBeenCalled();
+		expect(p.conversation.update).not.toHaveBeenCalled();
 	});
 
 	test("add: would exceed the cap → 400, nothing written", async () => {
 		p.conversationParticipant.findMany.mockResolvedValue(
 			Array.from({ length: MAX_GROUP_PARTICIPANTS }, (_, i) => ({ userId: `u${i}`, pageId: null })),
 		);
-		expect(await addGroupMembers("g1", [guild])).toMatchObject({ ok: false, status: 400 });
+		expect(await addGroupMembers("g1", [guild], byAlice)).toMatchObject({ ok: false, status: 400 });
 		expect(p.conversationParticipant.createMany).not.toHaveBeenCalled();
 	});
 

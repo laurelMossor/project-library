@@ -20,7 +20,14 @@ export function useAction<I, O>(action: (input: I) => Promise<ActionResult<O>>) 
 		(input: I) =>
 			new Promise<ActionResult<O>>((resolve) => {
 				startTransition(async () => {
-					const result = await action(input);
+					// Actions never throw, but the call itself can: a tab left open across a deploy asks
+					// for an action the new build doesn't have, or the request drops. Say so instead of
+					// letting the click die silently.
+					const result: ActionResult<O> = await action(input).catch(() => ({
+						ok: false as const,
+						error: "server" as const,
+						message: "Couldn't reach the server. Refresh the page and try again.",
+					}));
 					if (result.ok) {
 						setError(null);
 					} else if (result.error === "unauthorized") {

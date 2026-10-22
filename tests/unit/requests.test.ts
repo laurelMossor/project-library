@@ -55,6 +55,7 @@ import {
   removeMember,
 } from "@/lib/utils/server/requests";
 import { prisma } from "@/lib/utils/server/prisma";
+import { logAction } from "@/lib/utils/server/log";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -107,6 +108,17 @@ describe("requestOrCreateFollow", () => {
     expect(res).toEqual({ status: "requested" });
     expect(prisma.accessRequest.create).not.toHaveBeenCalled();
   });
+
+  test("a new follow request notifies; repeating it while pending doesn't", async () => {
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue(null);
+    await requestOrCreateFollow(requester, { type: "USER", id: "u2", profileVisibility: ProfileVisibility.PRIVATE });
+    expect(logAction).toHaveBeenCalledWith("follow.requested", "u1", expect.anything());
+
+    vi.mocked(logAction).mockClear();
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue({ id: "req-1" } as never);
+    await requestOrCreateFollow(requester, { type: "USER", id: "u2", profileVisibility: ProfileVisibility.PRIVATE });
+    expect(logAction).not.toHaveBeenCalledWith("follow.requested", expect.anything(), expect.anything());
+  });
 });
 
 describe("requestToJoinPage", () => {
@@ -116,6 +128,14 @@ describe("requestToJoinPage", () => {
     expect(res).toEqual({ status: "requested" });
     expect(prisma.accessRequest.create).toHaveBeenCalledTimes(1);
     expect(prisma.permission.upsert).not.toHaveBeenCalled();
+  });
+
+  test("repeating a pending join request doesn't notify the admins again", async () => {
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue({ id: "req-1" } as never);
+    const res = await requestToJoinPage("u1", { id: "p1", membershipPolicy: "REQUEST_TO_JOIN" });
+    expect(res).toEqual({ status: "requested" });
+    expect(prisma.accessRequest.create).not.toHaveBeenCalled();
+    expect(logAction).not.toHaveBeenCalledWith("membership.requested", expect.anything(), expect.anything());
   });
 
   test("CLOSED → unavailable, no request", async () => {

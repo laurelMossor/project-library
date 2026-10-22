@@ -10,6 +10,24 @@ Most recent work is at the top. Dates and contents are correlated from git tags 
 
 ---
 
+## v0.5.3 — Invites that resolve, and adding people to group messages (10/21/26)
+
+Invite, follow, and group-message fixes on `today-things`.
+
+- **Invitees who joined show as people** — someone who creates their account from a page's invite link shows as their profile (pending) instead of an email address; an address that already had an account stays an email row, so the list never reveals who has one; past signups convert on deploy.
+- **Adding someone to a group message** — posts an "Alice added Sam" line; the group message moves to the top of the inbox; it's unread and emailed only for the person added; late joiners see "messages from before you joined aren't shown" instead of "No messages yet".
+- **Follow as a page** — following while acting as a page follows as the page, on profiles and on Find people.
+- **One profile picker** — adding people to a group message uses the same picker as page Members; the search clears after each pick and Save closes the Members window.
+
+### Bug Fixes
+
+- **Invite by profile** — inviting someone's account replaces any email invite the page sent them, so they show in the member list instead of disappearing behind the email row.
+- **Cancel email invite** — clears every invite row for that address on the page.
+- **Repeat invites and requests** — re-inviting someone with a pending invite, or repeating a join or follow request, no longer sends another notification.
+- **Silent clicks** — an action that can't reach the server now says to refresh instead of doing nothing.
+
+---
+
 ## v0.5.2 — Menus, connections, and creating in place (10/18/26)
 
 Nav and menu rework from PR #64 (`polish-3-menu-and-destination-surfacing`); the Create button, membership default, and review fixes from PR #65 (`bits-and-bobs`).

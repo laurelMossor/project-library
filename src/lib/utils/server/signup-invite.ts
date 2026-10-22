@@ -20,26 +20,28 @@ function generateRawToken(): string {
 export async function createSignupInvite(
 	email: string,
 	options?: { expiresInDays?: number }
-): Promise<{ rawToken: string; expiresAt: Date }> {
+): Promise<{ id: string; rawToken: string; expiresAt: Date }> {
 	const normalizedEmail = email.toLowerCase().trim();
 	const rawToken = generateRawToken();
 	const tokenHash = hashInviteToken(rawToken);
 	const days = options?.expiresInDays ?? SIGNUP_INVITE_TTL_DAYS;
 	const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-	await prisma.signupInvite.create({
+	const { id } = await prisma.signupInvite.create({
 		data: {
 			email: normalizedEmail,
 			tokenHash,
 			expiresAt,
 		},
+		select: { id: true },
 	});
 
-	return { rawToken, expiresAt };
+	return { id, rawToken, expiresAt };
 }
 
 export type ConsumeInviteResult =
-	| { ok: true; userId: string }
+	// `signupInviteId`: the link the account was created from (a page's email invite may have sent it).
+	| { ok: true; userId: string; signupInviteId: string }
 	// `handleConflict` marks the P2002 handle race specifically, so an auto-generated-handle
 	// caller can retry with a fresh handle instead of surfacing a dead-end error.
 	| { ok: false; error: string; handleConflict?: boolean };
@@ -121,7 +123,7 @@ export async function consumeInviteAndCreateUser(args: {
 				select: { id: true },
 			});
 
-			return { ok: true, userId: user.id };
+			return { ok: true, userId: user.id, signupInviteId: invite.id };
 		});
 	} catch (error) {
 		const message =

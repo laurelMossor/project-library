@@ -200,16 +200,16 @@ describe("signup", () => {
 	const form = { email: "New@Example.com", password: "password123", invite: INVITE, handle: "newbie" };
 
 	beforeEach(() => {
-		vi.mocked(consumeInviteAndCreateUser).mockResolvedValue({ ok: true, userId: "u-new" } as never);
+		vi.mocked(consumeInviteAndCreateUser).mockResolvedValue({ ok: true, userId: "u-new", signupInviteId: "si-1" } as never);
 	});
 
-	test("valid invite → creates the account, emails verification, claims page invites", async () => {
+	test("valid invite → creates the account, emails verification, claims page invites with the link used", async () => {
 		expect(await signupAction(form)).toEqual({ ok: true, data: undefined });
 		expect(consumeInviteAndCreateUser).toHaveBeenCalledWith(
 			expect.objectContaining({ normalizedEmail: "new@example.com", handle: "newbie", rawInviteToken: INVITE }),
 		);
 		await vi.waitFor(() => expect(createEmailVerificationToken).toHaveBeenCalledWith("u-new"));
-		expect(claimPageEmailInvites).toHaveBeenCalledWith("u-new", "new@example.com");
+		expect(claimPageEmailInvites).toHaveBeenCalledWith("u-new", "new@example.com", "si-1");
 	});
 
 	test("missing or malformed invite → refused, nothing created", async () => {
