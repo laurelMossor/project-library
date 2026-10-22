@@ -4,6 +4,7 @@ import { ProfileVisibility, type Prisma } from "@prisma/client";
 import type { SearchResultItem } from "@/lib/types/search";
 import { followStateOf } from "./follow";
 import { listPendingFollowTargets } from "./requests";
+import type { EntityRef } from "./activity";
 import { profileListWhere, profileSuggestionWhere, type ViewerContext } from "./visibility";
 
 const ANON_VIEWER: ViewerContext = { userId: null, memberPageIds: [] };
@@ -214,10 +215,12 @@ export function pickSuggestions(
 /**
  * A few people and pages to show before any search: PUBLIC profiles only (`profileSuggestionWhere`),
  * never the viewer or a page they hold a role on, those they don't already follow first. Works for
- * an anonymous viewer (nothing is excluded or followed).
+ * an anonymous viewer (nothing is excluded or followed). `follower` is who the cards' Follow buttons
+ * act as (`actingRef`: the page, when acting as one), so "followed" and "requested" come from its edges.
  */
 export async function suggestProfiles(
 	viewer: ViewerContext = ANON_VIEWER,
+	follower: EntityRef | null = viewer.userId ? { type: "USER", id: viewer.userId } : null,
 	count = 5,
 ): Promise<SearchResultItem[]> {
 	const [userIds, pageIds, edges, pending] = await Promise.all([
@@ -242,13 +245,13 @@ export async function suggestProfiles(
 			select: { id: true },
 			take: SUGGESTION_CANDIDATE_CAP,
 		}),
-		viewer.userId
+		follower
 			? prisma.follow.findMany({
-				where: { followerId: viewer.userId },
+				where: follower.type === "USER" ? { followerId: follower.id } : { followerPageId: follower.id },
 				select: { followingUserId: true, followingPageId: true },
 			})
 			: [],
-		viewer.userId ? listPendingFollowTargets(viewer.userId) : { userIds: [], pageIds: [] },
+		follower ? listPendingFollowTargets(follower) : { userIds: [], pageIds: [] },
 	]);
 
 	const followedUsers = new Set(edges.flatMap((e) => (e.followingUserId ? [e.followingUserId] : [])));

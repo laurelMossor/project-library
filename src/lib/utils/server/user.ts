@@ -369,8 +369,10 @@ export async function deleteAccount(
 			throw new AccountDeleteConflict();
 		}
 
+		// What they wrote becomes a tombstone. An "added" line stays (it's about someone else) and just
+		// loses its sender when the account row goes, reading "Someone added …".
 		await tx.message.updateMany({
-			where: { senderId: userId, asPageId: null },
+			where: { senderId: userId, asPageId: null, kind: "TEXT" },
 			data: { content: "", deletedAs: "USER", senderId: null },
 		});
 		await tx.comment.updateMany({

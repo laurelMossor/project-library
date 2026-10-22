@@ -103,12 +103,15 @@ export async function startGroup(
 	return id;
 }
 
-/** Rename and/or add members to a GROUP. Any participant may do either (no roles in the MVP). */
+/**
+ * Rename and/or add participants to a group message. Any participant may do either (no roles in the
+ * MVP). Adding posts an "added" line for each new participant, as the acting identity.
+ */
 export async function editGroup(
 	userId: string,
 	input: ConversationRef & { name?: string | null; addMembers?: MessagingIdentityRef[] },
 ): Promise<{ added: number }> {
-	const { participation } = await requireParticipant(userId, input);
+	const { identity, participation } = await requireParticipant(userId, input);
 	requireGroup(participation.conversation.kind, "Only group conversations can be edited");
 
 	const renaming = "name" in input;
@@ -120,7 +123,7 @@ export async function editGroup(
 	if (adding) {
 		const membersCheck = validateGroupMemberRefs(input.addMembers);
 		requireValid(membersCheck, "Invalid members");
-		added = unwrap(await addGroupMembers(input.conversationId, membersCheck.refs!)).added;
+		added = unwrap(await addGroupMembers(input.conversationId, membersCheck.refs!, { identity, userId })).added;
 	}
 	if (renaming) await renameGroup(input.conversationId, input.name ?? null);
 	return { added };

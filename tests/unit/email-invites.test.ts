@@ -22,6 +22,7 @@ vi.mock("@/lib/utils/server/prisma", () => ({
       createManyAndReturn: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -29,13 +30,14 @@ vi.mock("@/lib/utils/server/prisma", () => ({
 }));
 vi.mock("@/lib/utils/server/permission", () => ({
   canManagePage: vi.fn(),
+  assertCanManagePage: vi.fn(),
   getUserPermission: vi.fn(),
   grantPermission: vi.fn(),
   revokePermission: vi.fn(),
 }));
 vi.mock("@/lib/utils/server/activity", () => ({ emitActivity: vi.fn() }));
 vi.mock("@/lib/utils/server/signup-invite", () => ({
-  createSignupInvite: vi.fn(async (email: string) => ({ rawToken: `tok-${email}`, expiresAt: new Date() })),
+  createSignupInvite: vi.fn(async (email: string) => ({ id: `si-${email}`, rawToken: `tok-${email}`, expiresAt: new Date() })),
 }));
 
 import {
@@ -43,6 +45,7 @@ import {
   claimPageEmailInvites,
   listPageEmailInvites,
   cancelPageEmailInvite,
+  inviteMember,
 } from "@/lib/utils/server/requests";
 import { prisma } from "@/lib/utils/server/prisma";
 import { getUserPermission } from "@/lib/utils/server/permission";
@@ -209,7 +212,26 @@ describe("claimPageEmailInvites (at signup)", () => {
     });
     expect(prisma.pageEmailInvite.update).toHaveBeenCalledWith({
       where: { id: "e1" },
-      data: { claimedAt: expect.any(Date), claimedUserId: "u-new" },
+      data: { claimedAt: expect.any(Date), claimedUserId: "u-new", joinedFromInvite: false },
+    });
+  });
+
+  test("the page whose link was used is marked joinedFromInvite; another page that invited the address isn't", async () => {
+    vi.mocked(prisma.pageEmailInvite.findMany).mockResolvedValue([
+      { id: "e1", pageId: "p1", role: "MEMBER", note: null },
+      { id: "e2", pageId: "p2", role: "MEMBER", note: null },
+    ] as never);
+    vi.mocked(prisma.pageEmailInvite.findUnique).mockResolvedValue({ pageId: "p1" } as never);
+    await claimPageEmailInvites("u-new", "new@example.com", "si-1");
+
+    expect(prisma.pageEmailInvite.findUnique).toHaveBeenCalledWith({ where: { signupInviteId: "si-1" }, select: { pageId: true } });
+    expect(prisma.pageEmailInvite.update).toHaveBeenCalledWith({
+      where: { id: "e1" },
+      data: expect.objectContaining({ joinedFromInvite: true }),
+    });
+    expect(prisma.pageEmailInvite.update).toHaveBeenCalledWith({
+      where: { id: "e2" },
+      data: expect.objectContaining({ joinedFromInvite: false }),
     });
   });
 
@@ -251,10 +273,21 @@ describe("listPageEmailInvites", () => {
         where: {
           pageId: "p1",
           cancelledAt: null,
+          joinedFromInvite: false,
           OR: [{ claimedAt: null }, { claimedUserId: { in: ["u-alice"] } }],
         },
       }),
     );
+  });
+});
+
+describe("invitePageMembersByEmail records the signup link", () => {
+  test("a new address's row remembers the link minted for it", async () => {
+    await invitePageMembersByEmail({ ...base, emails: ["new@example.com"] });
+    expect(prisma.pageEmailInvite.update).toHaveBeenCalledWith({
+      where: { id: "row0" },
+      data: { signupInviteId: "si-new@example.com" },
+    });
   });
 });
 
@@ -276,6 +309,55 @@ describe("cancelPageEmailInvite", () => {
   test("another page's (or an already-cancelled) row → false", async () => {
     vi.mocked(prisma.pageEmailInvite.findFirst).mockResolvedValue(null);
     expect(await cancelPageEmailInvite("p1", "e-other")).toBe(false);
-    expect(prisma.pageEmailInvite.update).not.toHaveBeenCalled();
+    expect(prisma.pageEmailInvite.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("cancels every live row for the address, so a leftover row can't keep it listed", async () => {
+    vi.mocked(prisma.pageEmailInvite.findFirst).mockResolvedValue({
+      id: "e1",
+      email: "alice@example.com",
+      claimedUserId: null,
+    } as never);
+    await cancelPageEmailInvite("p1", "e1");
+    expect(prisma.pageEmailInvite.updateMany).toHaveBeenCalledWith({
+      where: { pageId: "p1", cancelledAt: null, email: "alice@example.com" },
+      data: { cancelledAt: expect.any(Date) },
+    });
+  });
+});
+
+describe("inviteMember (by profile)", () => {
+  test("retires the page's email invites to that person, so the profile invite is what's listed", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u-alice", email: "Alice@Example.com" } as never);
+    await inviteMember("u-sam", "p1", "u-alice", "MEMBER");
+    expect(prisma.accessRequest.create).toHaveBeenCalled();
+    expect(prisma.pageEmailInvite.updateMany).toHaveBeenCalledWith({
+      where: {
+        pageId: "p1",
+        cancelledAt: null,
+        OR: [{ claimedUserId: "u-alice" }, { email: "alice@example.com" }],
+      },
+      data: { cancelledAt: expect.any(Date) },
+    });
+  });
+
+  test("a refused invite leaves email invites alone", async () => {
+    vi.mocked(getUserPermission).mockResolvedValue("MEMBER" as never);
+    await expect(inviteMember("u-sam", "p1", "u-alice", "MEMBER")).rejects.toThrow("already has a role");
+    expect(prisma.pageEmailInvite.updateMany).not.toHaveBeenCalled();
+  });
+
+  test("re-inviting someone whose invite is already open doesn't notify them again", async () => {
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue({ id: "r1", role: "MEMBER", note: null } as never);
+    await inviteMember("u-sam", "p1", "u-alice", "MEMBER");
+    expect(prisma.accessRequest.create).not.toHaveBeenCalled();
+    expect(emitActivity).not.toHaveBeenCalled();
+  });
+
+  test("re-inviting with a different role is news, so it notifies", async () => {
+    vi.mocked(prisma.accessRequest.findFirst).mockResolvedValue({ id: "r1", role: "MEMBER", note: null } as never);
+    await inviteMember("u-sam", "p1", "u-alice", "EDITOR");
+    expect(prisma.accessRequest.update).toHaveBeenCalled();
+    expect(emitActivity).toHaveBeenCalledWith("membership.invited", expect.anything(), expect.anything(), { role: "EDITOR" });
   });
 });

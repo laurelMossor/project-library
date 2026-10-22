@@ -10,7 +10,7 @@
 // what the visibility layer reads.
 
 import { prisma } from "./prisma";
-import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility, ResourceType } from "@prisma/client";
+import { AccessRequestKind, MembershipPolicy, PermissionRole, ProfileVisibility, ResourceType, type Prisma } from "@prisma/client";
 import {
   assertCanManagePage,
   canManagePage,
@@ -37,7 +37,7 @@ type Client = typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[
 // ---------------------------------------------------------------------------
 // Field mappers — turn an EntityRef into the polymorphic columns.
 // ---------------------------------------------------------------------------
-function followEdgeData(requester: EntityRef, target: EntityRef) {
+export function followEdgeData(requester: EntityRef, target: EntityRef) {
   return {
     followerId: requester.type === "USER" ? requester.id : null,
     followerPageId: requester.type === "PAGE" ? requester.id : null,
@@ -97,19 +97,23 @@ export async function removeMember(userId: string, pageId: string, tx?: Client):
   await prisma.$transaction(drop);
 }
 
-/** Does `userId` have a pending FOLLOW request to `target`? (Drives the "Requested" button state.) */
-export async function hasPendingFollowRequest(userId: string, target: EntityRef): Promise<boolean> {
-  const where = requestWhere(AccessRequestKind.FOLLOW, { type: "USER", id: userId }, target);
+/** Does `requester` (a person, or a page) have a pending FOLLOW request to `target`? (Drives "Requested".) */
+export async function hasPendingFollowRequest(requester: EntityRef, target: EntityRef): Promise<boolean> {
+  const where = requestWhere(AccessRequestKind.FOLLOW, requester, target);
   return (await prisma.accessRequest.findFirst({ where, select: { id: true } })) !== null;
 }
 
 /**
- * Every profile `userId` has a pending FOLLOW request open against. Same requester columns as
+ * Every profile `requester` has a pending FOLLOW request open against. Same requester columns as
  * `hasPendingFollowRequest`; the target is left open so one read covers a whole suggestion list.
  */
-export async function listPendingFollowTargets(userId: string): Promise<{ userIds: string[]; pageIds: string[] }> {
+export async function listPendingFollowTargets(requester: EntityRef): Promise<{ userIds: string[]; pageIds: string[] }> {
   const rows = await prisma.accessRequest.findMany({
-    where: { kind: AccessRequestKind.FOLLOW, requesterId: userId, requesterPageId: null },
+    where: {
+      kind: AccessRequestKind.FOLLOW,
+      requesterId: requester.type === "USER" ? requester.id : null,
+      requesterPageId: requester.type === "PAGE" ? requester.id : null,
+    },
     select: { targetUserId: true, targetPageId: true },
   });
   return {
@@ -125,8 +129,8 @@ export async function hasPendingJoinRequest(userId: string, pageId: string): Pro
 }
 
 /** Cancel the requester's own pending FOLLOW request to `target`. Returns true if one was removed. */
-export async function cancelFollowRequest(userId: string, target: EntityRef): Promise<boolean> {
-  const where = requestWhere(AccessRequestKind.FOLLOW, { type: "USER", id: userId }, target);
+export async function cancelFollowRequest(requester: EntityRef, target: EntityRef): Promise<boolean> {
+  const where = requestWhere(AccessRequestKind.FOLLOW, requester, target);
   const { count } = await prisma.accessRequest.deleteMany({ where });
   return count > 0;
 }
@@ -138,13 +142,18 @@ export async function cancelJoinRequest(userId: string, pageId: string): Promise
   return count > 0;
 }
 
-/** Create the pending request, or return the existing one (idempotent re-request). */
+/**
+ * Create the pending request, or keep the existing one (idempotent re-request). `isNews` is true when
+ * the request was created or its offered role changed: that's when the target should hear about it.
+ * Repeating an open request (or only refreshing its note) changes nothing for them, so callers don't
+ * notify again.
+ */
 async function upsertAccessRequest(
   kind: AccessRequestKind,
   requester: EntityRef,
   target: EntityRef,
   extra?: { role?: PermissionRole; note?: string | null },
-) {
+): Promise<{ isNews: boolean }> {
   const data = requestWhere(kind, requester, target);
   const existing = await prisma.accessRequest.findFirst({ where: data });
   if (existing) {
@@ -152,14 +161,15 @@ async function upsertAccessRequest(
     const roleChanged = !!extra?.role && existing.role !== extra.role;
     const noteChanged = !!extra?.note && existing.note !== extra.note;
     if (roleChanged || noteChanged) {
-      return prisma.accessRequest.update({
+      await prisma.accessRequest.update({
         where: { id: existing.id },
         data: { ...(roleChanged && { role: extra!.role }), ...(noteChanged && { note: extra!.note }) },
       });
     }
-    return existing;
+    return { isNews: roleChanged };
   }
-  return prisma.accessRequest.create({ data: { ...data, role: extra?.role, note: extra?.note ?? null } });
+  await prisma.accessRequest.create({ data: { ...data, role: extra?.role, note: extra?.note ?? null } });
+  return { isNews: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,8 +190,8 @@ export async function requestOrCreateFollow(
     await emitActivity("follow.created", requester, target);
     return { status: "followed" };
   }
-  await upsertAccessRequest(AccessRequestKind.FOLLOW, requester, target);
-  await emitActivity("follow.requested", requester, target);
+  const { isNews } = await upsertAccessRequest(AccessRequestKind.FOLLOW, requester, target);
+  if (isNews) await emitActivity("follow.requested", requester, target);
   return { status: "requested" };
 }
 
@@ -201,8 +211,8 @@ export async function requestToJoinPage(
   }
   const requester: EntityRef = { type: "USER", id: userId };
   const target: EntityRef = { type: "PAGE", id: page.id };
-  await upsertAccessRequest(AccessRequestKind.JOIN, requester, target);
-  await emitActivity("membership.requested", requester, target);
+  const { isNews } = await upsertAccessRequest(AccessRequestKind.JOIN, requester, target);
+  if (isNews) await emitActivity("membership.requested", requester, target);
   return { status: "requested" };
 }
 
@@ -237,13 +247,10 @@ export async function invitePageMember(
   const existing = await getUserPermission(userId, pageId, ResourceType.PAGE);
   if (existing) return { ok: false, reason: "already_member" };
 
-  await upsertAccessRequest(
-    AccessRequestKind.INVITE,
-    { type: "PAGE", id: pageId },
-    { type: "USER", id: userId },
-    { role, note },
-  );
-  await emitActivity("membership.invited", { type: "PAGE", id: pageId }, { type: "USER", id: userId }, { role });
+  const pageRef: EntityRef = { type: "PAGE", id: pageId };
+  const userRef: EntityRef = { type: "USER", id: userId };
+  const { isNews } = await upsertAccessRequest(AccessRequestKind.INVITE, pageRef, userRef, { role, note });
+  if (isNews) await emitActivity("membership.invited", pageRef, userRef, { role });
   return { ok: true, status: "invited" };
 }
 
@@ -331,10 +338,7 @@ export async function invitePageMembersByEmail(args: {
       return { remaining: Math.max(0, EMAIL_INVITE_DAILY_CAP - used) };
     }
     // A newer send to the same address supersedes the older row (one email row per page+address).
-    await tx.pageEmailInvite.updateMany({
-      where: { pageId: page.id, email: { in: toInvite }, cancelledAt: null },
-      data: { cancelledAt: new Date() },
-    });
+    await cancelLiveEmailInvites(page.id, { email: { in: toInvite } }, tx);
     return tx.pageEmailInvite.createManyAndReturn({
       data: toInvite.map((email) => ({
         pageId: page.id,
@@ -358,7 +362,9 @@ export async function invitePageMembersByEmail(args: {
       if (outcome === "already_member") alreadyMembers.push(row.email);
       else if (outcome === "claimed") sent += 1;
     } else {
-      const { rawToken } = await createSignupInvite(row.email);
+      const { id: signupInviteId, rawToken } = await createSignupInvite(row.email);
+      // Remember which link went out with this row, so a signup through it can be recognised.
+      await prisma.pageEmailInvite.update({ where: { id: row.id }, data: { signupInviteId } });
       signupInvites.push({ email: row.email, rawToken });
       sent += 1;
     }
@@ -372,10 +378,12 @@ type EmailInviteRow = { id: string; pageId: string; role: PermissionRole; note: 
 /**
  * Turn a pending email invite into the real AccessRequest INVITE for `userId` (which notifies them).
  * If the page can no longer offer the role, or they already have one, the row is cancelled.
+ * `joinedFromInvite`: the account was just created from a link this page sent (see claimPageEmailInvites).
  */
 async function claimEmailInvite(
   row: EmailInviteRow,
   userId: string,
+  joinedFromInvite = false,
 ): Promise<"claimed" | "already_member" | "cancelled"> {
   const result = await invitePageMember(row.pageId, userId, row.role, row.note);
   if (!result.ok && result.reason === "already_member") {
@@ -387,7 +395,7 @@ async function claimEmailInvite(
   }
   await prisma.pageEmailInvite.update({
     where: { id: row.id },
-    data: result.ok ? { claimedAt: new Date(), claimedUserId: userId } : { cancelledAt: new Date() },
+    data: result.ok ? { claimedAt: new Date(), claimedUserId: userId, joinedFromInvite } : { cancelledAt: new Date() },
   });
   return result.ok ? "claimed" : "cancelled";
 }
@@ -396,23 +404,54 @@ async function claimEmailInvite(
  * A new account was created for `email`: open every page invite waiting on that address.
  * Idempotent (claimed rows are skipped; invitePageMember upserts). Safe to key on email because
  * signup requires a token that was mailed to that address.
+ *
+ * `usedSignupInviteId` is the link the account was created from. The page that sent it (through any
+ * of its sends to this address) gets `joinedFromInvite`, so its admins see the person's profile. Other
+ * pages that also invited the address still see only the address.
  */
-export async function claimPageEmailInvites(userId: string, email: string): Promise<void> {
-  const rows = await prisma.pageEmailInvite.findMany({
-    where: { email: normalizeEmail(email), claimedAt: null, cancelledAt: null },
-    select: { id: true, pageId: true, role: true, note: true },
-    orderBy: { createdAt: "asc" },
-  });
+export async function claimPageEmailInvites(
+  userId: string,
+  email: string,
+  usedSignupInviteId: string | null = null,
+): Promise<void> {
+  const [rows, sentWithLink] = await Promise.all([
+    prisma.pageEmailInvite.findMany({
+      where: { email: normalizeEmail(email), claimedAt: null, cancelledAt: null },
+      select: { id: true, pageId: true, role: true, note: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    usedSignupInviteId
+      ? prisma.pageEmailInvite.findUnique({ where: { signupInviteId: usedSignupInviteId }, select: { pageId: true } })
+      : null,
+  ]);
   for (const row of rows) {
-    await claimEmailInvite(row, userId);
+    await claimEmailInvite(row, userId, row.pageId === sentWithLink?.pageId);
   }
 }
 
 /**
- * Pending email invites a page has sent, oldest first. An invite sent by email stays an email row
- * until it's accepted — even once claimed for an account (at send time or at signup) — so the
- * admin's list never reveals which addresses have accounts. `claimedUserId` is for the members
- * route to hide the matching profile invite; never send it to the client.
+ * Cancel this page's live email invite rows matching `match` (an address, or a person). Every live
+ * row, not just one: a leftover row would keep the invite on the list.
+ */
+async function cancelLiveEmailInvites(
+  pageId: string,
+  match: Prisma.PageEmailInviteWhereInput,
+  db: Client = prisma,
+): Promise<void> {
+  await db.pageEmailInvite.updateMany({
+    where: { pageId, cancelledAt: null, ...match },
+    data: { cancelledAt: new Date() },
+  });
+}
+
+/**
+ * Pending email invites a page has sent, oldest first, until accepted.
+ *
+ * Someone who created their account from this page's link (`joinedFromInvite`) drops off this list:
+ * the admin caused that signup, so their pending profile invite is listed instead. An address that
+ * already had an account when invited stays an email row, so the list never reveals which addresses
+ * have accounts. `claimedUserId` is for the members route to hide the matching profile invite; never
+ * send it to the client.
  */
 export async function listPageEmailInvites(pageId: string) {
   const pendingInvites = await prisma.accessRequest.findMany({
@@ -424,6 +463,7 @@ export async function listPageEmailInvites(pageId: string) {
     where: {
       pageId,
       cancelledAt: null,
+      joinedFromInvite: false,
       OR: [{ claimedAt: null }, { claimedUserId: { in: pendingUserIds } }],
     },
     select: { id: true, email: true, role: true, createdAt: true, claimedUserId: true },
@@ -432,17 +472,17 @@ export async function listPageEmailInvites(pageId: string) {
 }
 
 /**
- * Cancel a page's pending email invite. If it was already claimed for an account, the open
- * AccessRequest INVITE is withdrawn too. The caller has checked canManagePage.
+ * Cancel a page's pending email invite (every live row for that address). If it was already claimed
+ * for an account, the open AccessRequest INVITE is withdrawn too. The caller has checked canManagePage.
  */
 export async function cancelPageEmailInvite(pageId: string, inviteId: string): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
     const row = await tx.pageEmailInvite.findFirst({
       where: { id: inviteId, pageId, cancelledAt: null },
-      select: { id: true, claimedUserId: true },
+      select: { id: true, email: true, claimedUserId: true },
     });
     if (!row) return false;
-    await tx.pageEmailInvite.update({ where: { id: row.id }, data: { cancelledAt: new Date() } });
+    await cancelLiveEmailInvites(pageId, { email: row.email }, tx);
     if (row.claimedUserId) {
       await tx.accessRequest.deleteMany({
         where: { kind: AccessRequestKind.INVITE, requesterPageId: pageId, targetUserId: row.claimedUserId },
@@ -692,11 +732,21 @@ export async function getMembershipStatus(userId: string | null, pageId: string)
   return { role, requested: role ? false : await hasPendingJoinRequest(userId, pageId) };
 }
 
-/** Page ADMIN: invite someone to a role. They must accept; nothing is granted here. */
+/**
+ * Page ADMIN: invite someone to a role. They must accept; nothing is granted here.
+ * Picking the person by profile makes this the invite of record: any email invite this page sent them
+ * is retired, so the members list shows their profile row instead of folding it into the email row.
+ */
 export async function inviteMember(actorId: string, pageId: string, userId: string, role: unknown): Promise<void> {
   await assertCanManagePage(actorId, pageId);
   const result = await invitePageMember(pageId, userId, parseRole(role));
-  if (result.ok) return;
+  if (result.ok) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    await cancelLiveEmailInvites(pageId, {
+      OR: [{ claimedUserId: userId }, ...(user ? [{ email: normalizeEmail(user.email) }] : [])],
+    });
+    return;
+  }
   switch (result.reason) {
     case "not_found":
       throw new DomainError("Page not found", "not_found");

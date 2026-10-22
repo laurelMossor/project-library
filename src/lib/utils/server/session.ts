@@ -6,6 +6,7 @@ import { canPostAsPage, getActingRole } from "./permission";
 import { publicUserEmbedFields } from "./user";
 import { publicPageEmbedFields } from "./fields";
 import type { CardUser, CardPageWithRole } from "@/lib/types/card";
+import type { EntityRef } from "./activity";
 
 export type SessionContext = {
   userId: string;
@@ -53,6 +54,20 @@ async function resolveActivePage(userId: string, activePageId: string | null): P
   const page = await prisma.page.findUnique({ where: { id: activePageId }, select: publicPageEmbedFields });
   if (!page) return null;
   return { ...page, role };
+}
+
+/**
+ * The identity a signed-in request acts as: the active page, or the person. Same gate as
+ * `getActingIdentity` (`getActingRole`, ADMIN/EDITOR), so a page the user can no longer act as drops
+ * back to the person — exactly what the nav shows. For actions that act as whoever is shown, like
+ * following. (Messaging and email preferences have their own resolvers: they take an explicit page
+ * id and must refuse a bad one.)
+ */
+export async function actingRef(ctx: SessionContext): Promise<EntityRef> {
+  if (ctx.activePageId && (await getActingRole(ctx.userId, ctx.activePageId))) {
+    return { type: "PAGE", id: ctx.activePageId };
+  }
+  return { type: "USER", id: ctx.userId };
 }
 
 /** Get the current authenticated user's ID from session */

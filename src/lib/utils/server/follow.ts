@@ -5,7 +5,7 @@ import { prisma } from "./prisma";
 import type { EntityRef } from "./activity";
 import type { FollowCounts } from "@/lib/types/profile";
 import type { ConnectionItem } from "@/lib/types/connections";
-import { cancelFollowRequest, requestOrCreateFollow } from "./requests";
+import { cancelFollowRequest, followEdgeData, requestOrCreateFollow } from "./requests";
 import { assertCanManagePage } from "./permission";
 import { DomainError } from "./domain-error";
 
@@ -149,15 +149,9 @@ export function followStateOf(isFollowing: boolean, requested: boolean): "none" 
 	return "none";
 }
 
-/** The current user's follow edge to a target, if any. Follows are initiated by users only. */
-function findFollowEdge(userId: string, target: EntityRef) {
-	return target.type === "USER"
-		? prisma.follow.findUnique({
-			where: { followerId_followingUserId: { followerId: userId, followingUserId: target.id } },
-		})
-		: prisma.follow.findUnique({
-			where: { followerId_followingPageId: { followerId: userId, followingPageId: target.id } },
-		});
+/** `follower`'s follow edge to a target, if any. The follower is a person, or a page acted as (actingRef). */
+export function findFollowEdge(follower: EntityRef, target: EntityRef) {
+	return prisma.follow.findFirst({ where: followEdgeData(follower, target), select: { id: true } });
 }
 
 export type FollowResult =
@@ -165,34 +159,34 @@ export type FollowResult =
 	| { ok: false; reason: "self" | "not_found" | "already_following" };
 
 /**
- * The current user follows a user or page. A PRIVATE target gets a pending
- * request instead of an edge (see requestOrCreateFollow).
+ * `follower` follows a user or page. A PRIVATE target gets a pending request instead of an edge
+ * (see requestOrCreateFollow).
  */
-export async function followTarget(userId: string, target: EntityRef): Promise<FollowResult> {
-	if (target.type === "USER" && target.id === userId) return { ok: false, reason: "self" };
+export async function followTarget(follower: EntityRef, target: EntityRef): Promise<FollowResult> {
+	if (target.type === follower.type && target.id === follower.id) return { ok: false, reason: "self" };
 
 	const found = target.type === "USER"
 		? await prisma.user.findUnique({ where: { id: target.id }, select: { id: true, profileVisibility: true } })
 		: await prisma.page.findUnique({ where: { id: target.id }, select: { id: true, profileVisibility: true } });
 	if (!found) return { ok: false, reason: "not_found" };
 
-	if (await findFollowEdge(userId, target)) return { ok: false, reason: "already_following" };
+	if (await findFollowEdge(follower, target)) return { ok: false, reason: "already_following" };
 
 	const { status } = await requestOrCreateFollow(
-		{ type: "USER", id: userId },
+		follower,
 		{ type: target.type, id: found.id, profileVisibility: found.profileVisibility },
 	);
 	return { ok: true, status };
 }
 
-/** The current user unfollows a target, or cancels a pending follow request to it. */
-export async function unfollowTarget(userId: string, target: EntityRef): Promise<{ ok: boolean }> {
-	const follow = await findFollowEdge(userId, target);
+/** `follower` unfollows a target, or cancels its pending follow request to it. */
+export async function unfollowTarget(follower: EntityRef, target: EntityRef): Promise<{ ok: boolean }> {
+	const follow = await findFollowEdge(follower, target);
 	if (follow) {
 		await prisma.follow.delete({ where: { id: follow.id } });
 		return { ok: true };
 	}
-	return { ok: await cancelFollowRequest(userId, target) };
+	return { ok: await cancelFollowRequest(follower, target) };
 }
 
 /** Which end of the edge `profile` must occupy for the delete to match. */

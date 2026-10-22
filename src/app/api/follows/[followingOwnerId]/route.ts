@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/utils/server/prisma";
-import { getSessionContext } from "@/lib/utils/server/session";
+import { actingRef, getSessionContext } from "@/lib/utils/server/session";
 import { unauthorized, badRequest, serverError } from "@/lib/utils/errors";
-import { followStateOf } from "@/lib/utils/server/follow";
+import { findFollowEdge, followStateOf } from "@/lib/utils/server/follow";
 import { hasPendingFollowRequest } from "@/lib/utils/server/requests";
+import type { EntityRef } from "@/lib/utils/server/activity";
 
 type Params = { params: Promise<{ followingOwnerId: string }> };
 
 /**
  * GET /api/follows/:id?type=user|page
- * Check if the current user follows a target user or page
+ * Check if the acting identity (the current user, or the page they're acting as) follows a target
+ * user or page
  * Protected endpoint
- * Returns: { isFollowing: boolean }
+ * Returns: { isFollowing: boolean, requested: boolean }
  *
  * Following, unfollowing and removing a follower are Server Actions (src/lib/actions/follow.ts).
  */
@@ -30,26 +31,10 @@ export async function GET(request: Request, { params }: Params) {
 			return badRequest("Query param 'type' must be 'user' or 'page'");
 		}
 
-		const follow = type === "user"
-			? await prisma.follow.findUnique({
-				where: {
-					followerId_followingUserId: {
-						followerId: ctx.userId,
-						followingUserId: targetId,
-					},
-				},
-			})
-			: await prisma.follow.findUnique({
-				where: {
-					followerId_followingPageId: {
-						followerId: ctx.userId,
-						followingPageId: targetId,
-					},
-				},
-			});
-		const requested = follow
-			? false
-			: await hasPendingFollowRequest(ctx.userId, { type: type === "user" ? "USER" : "PAGE", id: targetId });
+		const follower = await actingRef(ctx);
+		const target: EntityRef = { type: type === "user" ? "USER" : "PAGE", id: targetId };
+		const follow = await findFollowEdge(follower, target);
+		const requested = follow ? false : await hasPendingFollowRequest(follower, target);
 		const state = followStateOf(!!follow, requested);
 		return NextResponse.json({ isFollowing: state === "following", requested: state === "requested" });
 	} catch (error) {

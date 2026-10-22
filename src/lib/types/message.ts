@@ -16,6 +16,15 @@ export type MessageAuthor =
 	| { type: "user"; user: MessageUser | null }
 	| { type: "page"; page: CardPage | null };
 
+/**
+ * What a message is: something a participant wrote, or the line posted when someone is added to a group
+ * message ("alice added sam" — the author is who added them, the subject is who was added).
+ */
+export type MessageKind = "text" | "participant_added";
+
+/** Who a `participant_added` line is about, and whether that's the viewer. */
+export type MessageSubject = MessageAuthor & { isYou: boolean };
+
 export type ConversationMember =
 	| { type: "user"; id: string; user: MessageUser | null; isYou: boolean }
 	| { type: "page"; id: string; page: CardPage | null; isYou: boolean };
@@ -29,10 +38,13 @@ export type ConversationSummary<D = string> = {
 	unreadCount: number;
 	lastMessage: {
 		id: string;
+		kind: MessageKind;
 		content: string;
 		createdAt: D;
 		isOwn: boolean;
 		author: MessageAuthor;
+		/** Set on a `participant_added` line. */
+		subject: MessageSubject | null;
 		deleted: DeletedSpeaker | null;
 	} | null;
 	/** Set on a DM whose other party is gone. Worked out from their messages, since the participant row is gone too. */
@@ -41,10 +53,13 @@ export type ConversationSummary<D = string> = {
 
 export type ThreadMessage<D = string> = {
 	id: string;
+	kind: MessageKind;
 	content: string;
 	createdAt: D;
 	isOwn: boolean;
 	author: MessageAuthor;
+	/** Set on a `participant_added` line. */
+	subject: MessageSubject | null;
 	deleted: DeletedSpeaker | null;
 	/** The human behind a page message — present only when the viewer is that same page. */
 	sentBy: MessageUser | null;
@@ -59,6 +74,11 @@ export type ConversationThreadData<D = string> = {
 	canLeave: boolean;
 	/** Set on a DM whose other party is gone. */
 	deletedCounterpart: DeletedSpeaker | null;
+	/**
+	 * The conversation has messages from before the viewer joined, which they never see. The thread
+	 * says so, rather than looking empty or new.
+	 */
+	hasEarlierHistory: boolean;
 	messages: ThreadMessage<D>[];
 };
 

@@ -18,6 +18,7 @@ import { publicPageEmbedFields } from "./fields";
 import { publicUserEmbedFields } from "./user";
 import { resolveCardIdentity } from "@/lib/types/card";
 import { truncateText } from "@/lib/utils/text";
+import { participantAddedEmailText } from "@/lib/utils/participant-added-text";
 import { logAction } from "./log";
 import { getMemberPageIdsForUsers } from "./permission";
 import type { ViewerContext } from "./visibility";
@@ -72,7 +73,10 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 		msgIds.length
 			? prisma.message.findMany({
 					where: { id: { in: msgIds } },
-					select: { id: true, conversationId: true, senderId: true, asPageId: true, deletedAs: true, content: true, createdAt: true },
+					select: {
+						id: true, conversationId: true, senderId: true, asPageId: true, deletedAs: true, content: true, createdAt: true,
+						kind: true, conversation: { select: { name: true } },
+					},
 				})
 			: Promise.resolve([]),
 	]);
@@ -185,9 +189,13 @@ export async function flushEmailOutbox(): Promise<FlushResult> {
 					const senderName = m.asPageId
 						? pageMap.get(m.asPageId) ? resolveCardIdentity(pageMap.get(m.asPageId)! as never).name : "Someone"
 						: senderUserMap.get(m.senderId) ? resolveCardIdentity(senderUserMap.get(m.senderId)! as never).name : "Someone";
+					// An "added" line only ever goes to the person added (enqueueParticipantAddedEmail).
+					const text = m.kind === "PARTICIPANT_ADDED"
+						? participantAddedEmailText(senderName, m.conversation.name)
+						: `${senderName}: ${truncateText(m.content, 120)}`;
 					// A page-recipient row carries the page context so the link opens the conversation under
 					// that identity (the viewer's session default is personal). Personal rows get a plain link.
-					return { text: `${senderName}: ${truncateText(m.content, 120)}`, href: absoluteUrl(MESSAGE_THREAD(m.conversationId, contextPageId)) };
+					return { text, href: absoluteUrl(MESSAGE_THREAD(m.conversationId, contextPageId)) };
 				});
 
 			const emailRows = [...notifEmailRows, ...msgEmailRows];

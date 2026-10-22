@@ -24,7 +24,7 @@ vi.mock("@/lib/utils/server/prisma", () => {
 	const prisma: any = {
 		conversationParticipant: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn(), createMany: vi.fn() },
 		conversation: { update: vi.fn(), delete: vi.fn(), create: vi.fn() },
-		message: { findMany: vi.fn(), create: vi.fn() },
+		message: { findMany: vi.fn(), findFirst: vi.fn(async () => null), create: vi.fn(), createManyAndReturn: vi.fn(async () => []) },
 		page: { findMany: vi.fn(async () => []) },
 		user: { count: vi.fn() },
 		$queryRaw: vi.fn(),

@@ -61,7 +61,9 @@ export function MembersModal({ thread, asPageId, onClose, onChanged, onLeft }: P
 		});
 		if (!result.ok) return;
 		setAdding([]);
+		// Saving finishes the task: refresh the thread behind the modal, then close it.
 		onChanged();
+		onClose();
 	}
 
 	async function leave() {

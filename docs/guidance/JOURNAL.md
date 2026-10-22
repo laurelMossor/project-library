@@ -11,6 +11,9 @@
 > Reviewed `netwerk-3` and landed the fixes. Closed three silent data-loss bugs (avatar save, cover edits, page visibility) by converging the profile-update routes onto one shared executor. Visibility is now a reusable component and the email module is guarded against client import. Added a regression test per bug and verified all three fixed live in the app. (Notice I am only mentioning things I worked on and completed, not what I think is next or upcoming, and NOT listing unit test count.)
 
 
+#### Entry: Wed 10/21/2026 22:01 PDT
+Fixed page invites after people signed up but never showed as joined. Several overlapping bugs hid them behind anonymous email rows and re-sent the invite on every retry. Someone who joins from your invite link now shows as their profile, and repeat invites no longer re-notify. Following while acting as a page now follows as the page. Adding someone to a group message now posts an "added" line, lifts it to the top of their inbox, and emails them. The group-message picker now uses the shared profile picker.
+
 #### Entry: Sun 10/18/2026 14:09 PDT
 Added a Create button to profile collections on `bits-and-bobs`. Anyone who can post to or as a profile sees it beside the search, where the redundant collection heading used to be. It opens the New Post and New Event modal aimed at that profile, so a member's draft starts on the page in their own voice. Verified live as justa on Portland Makers Guild and on justa's own profile.
 

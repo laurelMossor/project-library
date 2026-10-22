@@ -3,6 +3,7 @@
 import { authedAction, requireId } from "@/lib/utils/server/action";
 import { DomainError } from "@/lib/utils/server/domain-error";
 import { followTarget, removeFollower, unfollowEdge, unfollowTarget } from "@/lib/utils/server/follow";
+import { actingRef } from "@/lib/utils/server/session";
 import type { EntityRef } from "@/lib/utils/server/activity";
 
 export type FollowState = "none" | "following" | "requested";
@@ -18,19 +19,21 @@ function toEntityRef(target: FollowTargetInput | undefined): EntityRef {
 }
 
 /**
- * Follow (`follow: true`) or unfollow / cancel a request (`follow: false`) a user or page.
- * The wrapper refreshes the page, so server-rendered follower counts update with it.
+ * Follow (`follow: true`) or unfollow / cancel a request (`follow: false`) a user or page, as the
+ * identity the viewer is acting as (`actingRef`: the page, when acting as one). The wrapper refreshes
+ * the page, so server-rendered follower counts update with it.
  */
 export const setFollow = authedAction(
 	async (ctx, input: { target: FollowTargetInput; follow: boolean }): Promise<FollowState> => {
 		const { target, follow } = input ?? {};
 		const ref = toEntityRef(target);
+		const follower = await actingRef(ctx);
 
 		if (!follow) {
-			await unfollowTarget(ctx.userId, ref);
+			await unfollowTarget(follower, ref);
 			return "none";
 		}
-		const result = await followTarget(ctx.userId, ref);
+		const result = await followTarget(follower, ref);
 		if (result.ok) return result.status === "requested" ? "requested" : "following";
 		if (result.reason === "already_following") return "following";
 		throw new DomainError(
